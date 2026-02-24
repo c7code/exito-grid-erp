@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: electraflow-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: electraflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - electraflow-network
+
+  # Backend API
+  api:
+    build:
+      context: ./electraflow-api
+      dockerfile: Dockerfile
+    container_name: electraflow-api
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: electraflow
+      JWT_SECRET: electraflow-secret-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    networks:
+      - electraflow-network
+
+  # Frontend
+  web:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: electraflow-web
+    restart: always
+    environment:
+      VITE_API_URL: http://localhost:3000
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    networks:
+      - electraflow-network
+
+volumes:
+  postgres_data:
+
+networks:
+  electraflow-network:
+    driver: bridge

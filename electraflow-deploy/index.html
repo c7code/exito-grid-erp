@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ElectraFlow - ERP/CRM para Engenharia Elétrica</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%); }
+        .card-gradient { background: linear-gradient(145deg, rgba(30, 58, 95, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%); }
+        .glass { background: rgba(30, 58, 95, 0.4); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .glass-hover:hover { background: rgba(30, 58, 95, 0.6); transform: translateY(-2px); }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .scroll-hide::-webkit-scrollbar { display: none; }
+        .scroll-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-white">
+    <!-- Login Screen -->
+    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center gradient-bg">
+        <div class="glass rounded-2xl p-8 w-full max-w-md mx-4">
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl mx-auto mb-4 flex items-center justify-center">
+                    <i data-lucide="zap" class="w-10 h-10 text-white"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-white mb-2">ElectraFlow</h1>
+                <p class="text-slate-400">ERP/CRM para Engenharia Elétrica</p>
+            </div>
+            
+            <!-- Role Selection -->
+            <div class="grid grid-cols-3 gap-2 mb-6">
+                <button onclick="selectRole('admin')" id="btn-admin" class="role-btn p-3 rounded-lg bg-amber-500/20 border-2 border-amber-500 text-amber-400 text-sm font-medium transition-all">
+                    <i data-lucide="shield" class="w-5 h-5 mx-auto mb-1"></i>
+                    Admin
+                </button>
+                <button onclick="selectRole('employee')" id="btn-employee" class="role-btn p-3 rounded-lg bg-slate-800 border-2 border-slate-700 text-slate-400 text-sm font-medium transition-all">
+                    <i data-lucide="user" class="w-5 h-5 mx-auto mb-1"></i>
+                    Colaborador
+                </button>
+                <button onclick="selectRole('client')" id="btn-client" class="role-btn p-3 rounded-lg bg-slate-800 border-2 border-slate-700 text-slate-400 text-sm font-medium transition-all">
+                    <i data-lucide="briefcase" class="w-5 h-5 mx-auto mb-1"></i>
+                    Cliente
+                </button>
+            </div>
+
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Email</label>
+                    <input type="email" id="login-email" value="admin@electraflow.com" class="w-full px-4 py-3 rounded-lg bg-slate-800/50 border border-slate-700 text-white focus:border-amber-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Senha</label>
+                    <input type="password" id="login-password" value="admin123" class="w-full px-4 py-3 rounded-lg bg-slate-800/50 border border-slate-700 text-white focus:border-amber-500 focus:outline-none">
+                </div>
+                <button type="submit" class="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 rounded-lg font-semibold text-white hover:from-amber-600 hover:to-amber-700 transition-all">
+                    Entrar no Sistema
+                </button>
+            </form>
+            <div class="mt-6 text-center text-sm text-slate-500">
+                <p>Dados de demonstração:</p>
+                <p id="demo-credentials">admin@electraflow.com / admin123</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="main-app" class="hidden">
+        <!-- Admin Layout -->
+        <div id="admin-layout" class="hidden">
+            <aside class="fixed left-0 top-0 h-full w-64 glass z-40">
+                <div class="p-6">
+                    <div class="flex items-center gap-3 mb-8">
+                        <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center">
+                            <i data-lucide="zap" class="w-5 h-5 text-white"></i>
+                        </div>
+                        <div>
+                            <span class="text-xl font-bold">ElectraFlow</span>
+                            <p class="text-xs text-amber-400">Administrador</p>
+                        </div>
+                    </div>
+                    <nav class="space-y-1">
+                        <a href="#" onclick="showAdminPage('dashboard')" class="admin-nav-item flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                            <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                            <span>Dashboard</span>
+                        </a>
+                        <a href="#" onclick="showAdminPage('workflow')" class="admin-nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-white transition-all">
+                            <i data-lucide="settings" class="w-5 h-5"></i>
+                            <span>Config. Prazos</span>
+                        </a>
+                        <a href="#" onclick="showAdminPage('approvals')" class="admin-nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-white transition-all">
+                            <i data-lucide="clock" class="w-5 h-5"></i>
+                            <span>Aprovações</span>
+                            <span class="ml-auto bg-red-500 text-xs px-2 py-0.5 rounded-full text-white">3</span>
+                        </a>
+                        <a href="#" onclick="showAdminPage('works')" class="admin-nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-white transition-all">
+                            <i data-lucide="briefcase" class="w-5 h-5"></i>
+                            <span>Obras</span>
+                        </a>
+                        <a href="#" onclick="showAdminPage('documents')" class="admin-nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-white transition-all">
+                            <i data-lucide="folder" class="w-5 h-5"></i>
+                            <span>Documentos</span>
+                        </a>
+                    </nav>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-700/50">
+                    <button onclick="logout()" class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-white w-full">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                        <span>Sair</span>
+                    </button>
+                </div>
+            </aside>
+
+            <main class="ml-64 min-h-screen">
+                <header class="glass sticky top-0 z-30 px-8 py-4">
+                    <div class="flex items-center justify-between">
+                        <h1 id="admin-page-title" class="text-2xl font-bold">Dashboard</h1>
+                        <div class="flex items-center gap-4">
+                            <div class="relative">
+                                <i data-lucide="bell" class="w-6 h-6 text-slate-400 hover:text-white cursor-pointer"></i>
+                                <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs flex items-center justify-center">3</span>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <div id="admin-content" class="p-8">
+                    <!-- Admin Dashboard -->
+                    <div id="admin-dashboard" class="admin-page animate-fade-in">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                            <div class="card-gradient rounded-xl p-6 glass-hover transition-all">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="briefcase" class="w-6 h-6 text-blue-400"></i>
+                                    </div>
+                                </div>
+                                <p class="text-slate-400 text-sm">Obras Ativas</p>
+                                <p class="text-2xl font-bold">8</p>
+                            </div>
+                            <div class="card-gradient rounded-xl p-6 glass-hover transition-all">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="clock" class="w-6 h-6 text-amber-400"></i>
+                                    </div>
+                                </div>
+                                <p class="text-slate-400 text-sm">Aprovações Pendentes</p>
+                                <p class="text-2xl font-bold">3</p>
+                            </div>
+                            <div class="card-gradient rounded-xl p-6 glass-hover transition-all">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="users" class="w-6 h-6 text-green-400"></i>
+                                    </div>
+                                </div>
+                                <p class="text-slate-400 text-sm">Clientes</p>
+                                <p class="text-2xl font-bold">12</p>
+                            </div>
+                            <div class="card-gradient rounded-xl p-6 glass-hover transition-all">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="dollar-sign" class="w-6 h-6 text-purple-400"></i>
+                                    </div>
+                                </div>
+                                <p class="text-slate-400 text-sm">Faturamento</p>
+                                <p class="text-2xl font-bold">R$ 487K</p>
+                            </div>
+                        </div>
+
+                        <div class="card-gradient rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-4">Aprovações Pendentes</h3>
+                            <div class="space-y-3">
+                                <div class="p-4 bg-slate-800/50 rounded-lg flex items-center justify-between">
+                                    <div>
+                                        <p class="font-medium">Vistoria técnica - OB-2024-008</p>
+                                        <p class="text-sm text-slate-400">Solicitado por João Silva</p>
+                                        <p class="text-sm text-amber-400">Prazo proposto: 5 dias</p>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button class="px-4 py-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30">Aprovar</button>
+                                        <button class="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30">Rejeitar</button>
+                                    </div>
+                                </div>
+                                <div class="p-4 bg-slate-800/50 rounded-lg flex items-center justify-between">
+                                    <div>
+                                        <p class="font-medium">Projeto executivo - OB-2024-007</p>
+                                        <p class="text-sm text-slate-400">Solicitado por Maria Santos</p>
+                                        <p class="text-sm text-amber-400">Prazo proposto: 7 dias</p>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button class="px-4 py-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30">Aprovar</button>
+                                        <button class="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30">Rejeitar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Workflow Config -->
+                    <div id="admin-workflow" class="admin-page hidden animate-fade-in">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-2xl font-bold">Configuração de Prazos</h2>
+                            <button class="px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg flex items-center gap-2">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                                Nova Configuração
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="card-gradient rounded-xl p-6">
+                                <h3 class="text-lg font-semibold mb-4">PDE - Projeto de Entrada</h3>
+                                <div class="space-y-2">
+                                    <div class="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-amber-400">1.</span>
+                                            <span>Levantamento técnico</span>
+                                            <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs">3 dias</span>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <button class="text-slate-400 hover:text-white"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                            <button class="text-slate-400 hover:text-red-400"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-amber-400">2.</span>
+                                            <span>Elaboração do projeto</span>
+                                            <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs">7 dias</span>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <button class="text-slate-400 hover:text-white"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                            <button class="text-slate-400 hover:text-red-400"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-amber-400">3.</span>
+                                            <span>Aprovação do cliente</span>
+                                            <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs">5 dias</span>
+                                            <i data-lucide="check-circle" class="w-4 h-4 text-green-400"></i>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <button class="text-slate-400 hover:text-white"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                            <button class="text-slate-400 hover:text-red-400"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-gradient rounded-xl p-6">
+                                <h3 class="text-lg font-semibold mb-4">Solar - Energia Fotovoltaica</h3>
+                                <div class="space-y-2">
+                                    <div class="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-amber-400">1.</span>
+                                            <span>Análise de viabilidade</span>
+                                            <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs">2 dias</span>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <button class="text-slate-400 hover:text-white"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                            <button class="text-slate-400 hover:text-red-400"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-amber-400">2.</span>
+                                            <span>Projeto executivo</span>
+                                            <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs">5 dias</span>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <button class="text-slate-400 hover:text-white"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                            <button class="text-slate-400 hover:text-red-400"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Approvals -->
+                    <div id="admin-approvals" class="admin-page hidden animate-fade-in">
+                        <h2 class="text-2xl font-bold mb-6">Aprovações de Prazos</h2>
+                        <div class="space-y-4">
+                            <div class="card-gradient rounded-xl p-6 border-l-4 border-amber-500">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <h3 class="font-semibold text-lg">Vistoria técnica - OB-2024-008</h3>
+                                        <p class="text-slate-400">SolarTech Indústria</p>
+                                        <div class="flex items-center gap-4 mt-3">
+                                            <div class="px-3 py-1 bg-slate-800 rounded">
+                                                <p class="text-xs text-slate-400">Prazo Proposto</p>
+                                                <p class="text-amber-400 font-semibold">5 dias</p>
+                                            </div>
+                                            <div class="px-3 py-1 bg-slate-800 rounded">
+                                                <p class="text-xs text-slate-400">Solicitado por</p>
+                                                <p class="text-white">João Silva</p>
+                                            </div>
+                                        </div>
+                                        <div class="mt-3 p-3 bg-slate-800/50 rounded">
+                                            <p class="text-xs text-slate-400">Justificativa</p>
+                                            <p class="text-sm text-slate-300">Necessário aguardar disponibilidade do técnico da concessionária.</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button class="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg">Aprovar</button>
+                                        <button class="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg">Rejeitar</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-gradient rounded-xl p-6 border-l-4 border-amber-500">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <h3 class="font-semibold text-lg">Projeto executivo - OB-2024-007</h3>
+                                        <p class="text-slate-400">Condomínio Vista Mar</p>
+                                        <div class="flex items-center gap-4 mt-3">
+                                            <div class="px-3 py-1 bg-slate-800 rounded">
+                                                <p class="text-xs text-slate-400">Prazo Proposto</p>
+                                                <p class="text-amber-400 font-semibold">7 dias</p>
+                                            </div>
+                                            <div class="px-3 py-1 bg-slate-800 rounded">
+                                                <p class="text-xs text-slate-400">Solicitado por</p>
+                                                <p class="text-white">Maria Santos</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button class="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg">Aprovar</button>
+                                        <button class="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg">Rejeitar</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-gradient rounded-xl p-6 border-l-4 border-green-500 opacity-60">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <h3 class="font-semibold text-lg">Instalação de equipamentos - OB-2024-006</h3>
+                                        <p class="text-slate-400">Hospital São Lucas</p>
+                                        <div class="flex items-center gap-4 mt-3">
+                                            <div class="px-3 py-1 bg-slate-800 rounded">
+                                                <p class="text-xs text-slate-400">Prazo</p>
+                                                <p class="text-green-400 font-semibold">3 dias</p>
+                                            </div>
+                                            <div class="px-3 py-1 bg-green-500/20 rounded">
+                                                <p class="text-xs text-green-400">Aprovado</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Works -->
+                    <div id="admin-works" class="admin-page hidden animate-fade-in">
+                        <h2 class="text-2xl font-bold mb-6">Obras</h2>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="card-gradient rounded-xl p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 class="font-semibold">OB-2024-008</h3>
+                                        <p class="text-slate-400 text-sm">SolarTech Indústria</p>
+                                    </div>
+                                    <span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm">Em Execução</span>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-slate-400">Progresso</span>
+                                        <span>65%</span>
+                                    </div>
+                                    <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                                        <div class="h-full bg-amber-500 rounded-full" style="width: 65%"></div>
+                                    </div>
+                                </div>
+                                <div class="mt-4 flex items-center justify-between text-sm">
+                                    <span class="text-slate-400">Responsável: João Silva</span>
+                                    <span class="text-amber-400">R$ 95.000</span>
+                                </div>
+                            </div>
+
+                            <div class="card-gradient rounded-xl p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 class="font-semibold">OB-2024-007</h3>
+                                        <p class="text-slate-400 text-sm">Condomínio Vista Mar</p>
+                                    </div>
+                                    <span class="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-full text-sm">Protocolos</span>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-slate-400">Progresso</span>
+                                        <span>40%</span>
+                                    </div>
+                                    <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                                        <div class="h-full bg-amber-500 rounded-full" style="width: 40%"></div>
+                                    </div>
+                                </div>
+                                <div class="mt-4 p-2 bg-red-500/10 border border-red-500/30 rounded text-sm text-red-400">
+                                    Protocolo Neoenergia vence em 2 dias
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Documents -->
+                    <div id="admin-documents" class="admin-page hidden animate-fade-in">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-2xl font-bold">Documentos</h2>
+                            <button class="px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg flex items-center gap-2">
+                                <i data-lucide="upload" class="w-4 h-4"></i>
+                                Upload
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="card-gradient rounded-xl p-4 glass-hover cursor-pointer">
+                                <div class="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center mb-4">
+                                    <i data-lucide="file-text" class="w-6 h-6 text-red-400"></i>
+                                </div>
+                                <p class="font-medium mb-1">projeto_executivo.pdf</p>
+                                <p class="text-sm text-slate-400">OB-2024-008</p>
+                                <p class="text-xs text-slate-500 mt-2">2.4 MB</p>
+                            </div>
+                            <div class="card-gradient rounded-xl p-4 glass-hover cursor-pointer">
+                                <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mb-4">
+                                    <i data-lucide="file-spreadsheet" class="w-6 h-6 text-blue-400"></i>
+                                </div>
+                                <p class="font-medium mb-1">orcamento.xlsx</p>
+                                <p class="text-sm text-slate-400">OB-2024-007</p>
+                                <p class="text-xs text-slate-500 mt-2">156 KB</p>
+                            </div>
+                            <div class="card-gradient rounded-xl p-4 glass-hover cursor-pointer">
+                                <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center mb-4">
+                                    <i data-lucide="image" class="w-6 h-6 text-green-400"></i>
+                                </div>
+                                <p class="font-medium mb-1">vistoria.zip</p>
+                                <p class="text-sm text-slate-400">OB-2024-006</p>
+                                <p class="text-xs text-slate-500 mt-2">45.2 MB</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Employee Layout -->
+        <div id="employee-layout" class="hidden">
+            <aside class="fixed left-0 top-0 h-full w-64 glass z-40">
+                <div class="p-6">
+                    <div class="flex items-center gap-3 mb-8">
+                        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                            <i data-lucide="zap" class="w-5 h-5 text-white"></i>
+                        </div>
+                        <div>
+                            <span class="text-xl font-bold">ElectraFlow</span>
+                            <p class="text-xs text-blue-400">Colaborador</p>
+                        </div>
+                    </div>
+                    <nav class="space-y-1">
+                        <a href="#" onclick="showEmployeePage('dashboard')" class="emp-nav-item flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                            <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                            <span>Dashboard</span>
+                        </a>
+                        <a href="#" onclick="showEmployeePage('works')" class="emp-nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-white transition-all">
+                            <i data-lucide="briefcase" class="w-5 h-5"></i>
+                            <span>Minhas Obras</span>
+                        </a>
+                        <a href="#" onclick="showEmployeePage('tasks')" class="emp-nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-white transition-all">
+                            <i data-lucide="check-square" class="w-5 h-5"></i>
+                            <span>Minhas Tarefas</span>
+                            <span class="ml-auto bg-red-500 text-xs px-2 py-0.5 rounded-full text-white">2</span>
+                        </a>
+                        <a href="#" onclick="showEmployeePage('my-approvals')" class="emp-nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-white transition-all">
+                            <i data-lucide="clock" class="w-5 h-5"></i>
+                            <span>Minhas Solicitações</span>
+                        </a>
+                    </nav>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-700/50">
+                    <button onclick="logout()" class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-white w-full">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                        <span>Sair</span>
+                    </button>
+                </div>
+            </aside>
+
+            <main class="ml-64 min-h-screen">
+                <header class="glass sticky top-0 z-30 px-8 py-4">
+                    <div class="flex items-center justify-between">
+                        <h1 id="employee-page-title" class="text-2xl font-bold">Dashboard</h1>
+                    </div>
+                </header>
+
+                <div id="employee-content" class="p-8">
+                    <!-- Employee Dashboard -->
+                    <div id="employee-dashboard" class="employee-page animate-fade-in">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                            <div class="card-gradient rounded-xl p-6 glass-hover transition-all">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="briefcase" class="w-6 h-6 text-blue-400"></i>
+                                    </div>
+                                </div>
+                                <p class="text-slate-400 text-sm">Minhas Obras</p>
+                                <p class="text-2xl font-bold">3</p>
+                            </div>
+                            <div class="card-gradient rounded-xl p-6 glass-hover transition-all">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="check-square" class="w-6 h-6 text-amber-400"></i>
+                                    </div>
+                                </div>
+                                <p class="text-slate-400 text-sm">Tarefas Pendentes</p>
+                                <p class="text-2xl font-bold">2</p>
+                            </div>
+                            <div class="card-gradient rounded-xl p-6 glass-hover transition-all">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="trending-up" class="w-6 h-6 text-green-400"></i>
+                                    </div>
+                                </div>
+                                <p class="text-slate-400 text-sm">Total Tarefas</p>
+                                <p class="text-2xl font-bold">8</p>
+                            </div>
+                            <div class="card-gradient rounded-xl p-6 glass-hover transition-all">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="clock" class="w-6 h-6 text-purple-400"></i>
+                                    </div>
+                                </div>
+                                <p class="text-slate-400 text-sm">Solicitações</p>
+                                <p class="text-2xl font-bold">1</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="card-gradient rounded-xl p-6">
+                                <h3 class="text-lg font-semibold mb-4">Tarefas Pendentes</h3>
+                                <div class="space-y-3">
+                                    <div class="p-4 bg-slate-800/50 rounded-lg border-l-4 border-red-500">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <p class="font-medium">Vistoria técnica CELESC</p>
+                                            <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs">Alta</span>
+                                        </div>
+                                        <p class="text-sm text-slate-400">OB-2024-007 - Condomínio Vista Mar</p>
+                                        <p class="text-xs text-red-400 mt-1">Vencida há 2 dias</p>
+                                    </div>
+                                    <div class="p-4 bg-slate-800/50 rounded-lg border-l-4 border-amber-500">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p class="font-medium">Revisar proposta comercial</p>
+                                            <span class="px-2 py-1 bg-amber-500/20 text-amber-400 rounded text-xs">Média</span>
+                                        </div>
+                                        <p class="text-sm text-slate-400">Hospital São Lucas</p>
+                                        <p class="text-xs text-amber-400 mt-1">Hoje, 17:00</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-gradient rounded-xl p-6">
+                                <h3 class="text-lg font-semibold mb-4">Minhas Solicitações</h3>
+                                <div class="space-y-3">
+                                    <div class="p-4 bg-slate-800/50 rounded-lg">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <p class="font-medium">Vistoria técnica - OB-2024-008</p>
+                                            <span class="px-2 py-1 bg-amber-500/20 text-amber-400 rounded text-xs">Pendente</span>
+                                        </div>
+                                        <p class="text-sm text-slate-400">Prazo proposto: 5 dias</p>
+                                        <p class="text-xs text-slate-500 mt-1">Aguardando aprovação do admin</p>
+                                    </div>
+                                </div>
+                                <button onclick="showEmployeePage('my-approvals')" class="w-full mt-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30">
+                                    Nova Solicitação
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Employee Works -->
+                    <div id="employee-works" class="employee-page hidden animate-fade-in">
+                        <h2 class="text-2xl font-bold mb-6">Minhas Obras</h2>
+                        <div class="space-y-4">
+                            <div class="card-gradient rounded-xl p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 class="font-semibold">OB-2024-008 - SolarTech Indústria</h3>
+                                        <p class="text-slate-400 text-sm">PDE 500kW</p>
+                                    </div>
+                                    <span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm">Em Execução</span>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-slate-400">Progresso</span>
+                                        <span>65%</span>
+                                    </div>
+                                    <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                                        <div class="h-full bg-blue-500 rounded-full" style="width: 65%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Employee Tasks -->
+                    <div id="employee-tasks" class="employee-page hidden animate-fade-in">
+                        <h2 class="text-2xl font-bold mb-6">Minhas Tarefas</h2>
+                        <div class="space-y-4">
+                            <div class="p-4 bg-slate-800/50 rounded-lg border-l-4 border-red-500">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="font-medium">Vistoria técnica CELESC</p>
+                                    <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs">Atrasada</span>
+                                </div>
+                                <p class="text-sm text-slate-400">OB-2024-007</p>
+                                <div class="mt-3 flex gap-2">
+                                    <button class="px-3 py-1 bg-blue-500/20 text-blue-400 rounded text-sm">Solicitar Prazo</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Employee My Approvals -->
+                    <div id="employee-my-approvals" class="employee-page hidden animate-fade-in">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-2xl font-bold">Minhas Solicitações de Prazo</h2>
+                            <button class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center gap-2">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                                Nova Solicitação
+                            </button>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="card-gradient rounded-xl p-6">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="font-semibold">Vistoria técnica - OB-2024-008</h3>
+                                    <span class="px-2 py-1 bg-amber-500/20 text-amber-400 rounded text-xs">Aguardando Admin</span>
+                                </div>
+                                <p class="text-sm text-slate-400 mb-3">Prazo proposto: 5 dias</p>
+                                <div class="p-3 bg-slate-800/50 rounded">
+                                    <p class="text-xs text-slate-400">Justificativa</p>
+                                    <p class="text-sm text-slate-300">Necessário aguardar disponibilidade do técnico da concessionária.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Client Layout -->
+        <div id="client-layout" class="hidden">
+            <aside class="fixed left-0 top-0 h-full w-64 glass z-40">
+                <div class="p-6">
+                    <div class="flex items-center gap-3 mb-8">
+                        <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                            <i data-lucide="zap" class="w-5 h-5 text-white"></i>
+                        </div>
+                        <div>
+                            <span class="text-xl font-bold">ElectraFlow</span>
+                            <p class="text-xs text-green-400">Portal do Cliente</p>
+                        </div>
+                    </div>
+                    <nav class="space-y-1">
+                        <a href="#" onclick="showClientPage('dashboard')" class="client-nav-item flex items-center gap-3 px-4 py-3 rounded-lg bg-green-500/20 text-green-400 border border-green-500/30">
+                            <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                            <span>Dashboard</span>
+                        </a>
+                        <a href="#" onclick="showClientPage('works')" class="client-nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-white transition-all">
+                            <i data-lucide="briefcase" class="w-5 h-5"></i>
+                            <span>Minhas Obras</span>
+                        </a>
+                        <a href="#" onclick="showClientPage('approvals')" class="client-nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-white transition-all">
+                            <i data-lucide="check-circle" class="w-5 h-5"></i>
+                            <span>Aprovações</span>
+                            <span class="ml-auto bg-red-500 text-xs px-2 py-0.5 rounded-full text-white">1</span>
+                        </a>
+                        <a href="#" onclick="showClientPage('documents')" class="client-nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-white transition-all">
+                            <i data-lucide="folder" class="w-5 h-5"></i>
+                            <span>Documentos</span>
+                        </a>
+                    </nav>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-700/50">
+                    <button onclick="logout()" class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-white w-full">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                        <span>Sair</span>
+                    </button>
+                </div>
+            </aside>
+
+            <main class="ml-64 min-h-screen">
+                <header class="glass sticky top-0 z-30 px-8 py-4">
+                    <div class="flex items-center justify-between">
+                        <h1 id="client-page-title" class="text-2xl font-bold">Dashboard</h1>
+                    </div>
+                </header>
+
+                <div id="client-content" class="p-8">
+                    <!-- Client Dashboard -->
+                    <div id="client-dashboard" class="client-page animate-fade-in">
+                        <div class="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-xl p-6 mb-6">
+                            <h2 class="text-2xl font-bold text-white mb-2">Bem-vindo ao Portal do Cliente</h2>
+                            <p class="text-slate-400">Acompanhe o progresso das suas obras e aprove etapas.</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                            <div class="card-gradient rounded-xl p-6 glass-hover transition-all">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="briefcase" class="w-6 h-6 text-green-400"></i>
+                                    </div>
+                                </div>
+                                <p class="text-slate-400 text-sm">Minhas Obras</p>
+                                <p class="text-2xl font-bold">2</p>
+                            </div>
+                            <div class="card-gradient rounded-xl p-6 glass-hover transition-all">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="trending-up" class="w-6 h-6 text-blue-400"></i>
+                                    </div>
+                                </div>
+                                <p class="text-slate-400 text-sm">Progresso Médio</p>
+                                <p class="text-2xl font-bold">52%</p>
+                            </div>
+                            <div class="card-gradient rounded-xl p-6 glass-hover transition-all">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="file-text" class="w-6 h-6 text-amber-400"></i>
+                                    </div>
+                                </div>
+                                <p class="text-slate-400 text-sm">Investimento</p>
+                                <p class="text-2xl font-bold">R$ 215K</p>
+                            </div>
+                            <div class="card-gradient rounded-xl p-6 glass-hover transition-all">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="check-circle" class="w-6 h-6 text-purple-400"></i>
+                                    </div>
+                                </div>
+                                <p class="text-slate-400 text-sm">Aprovações Pendentes</p>
+                                <p class="text-2xl font-bold">1</p>
+                            </div>
+                        </div>
+
+                        <div class="card-gradient rounded-xl p-6 border-l-4 border-amber-500 mb-6">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="alert-triangle" class="w-6 h-6 text-amber-500"></i>
+                                <div class="flex-1">
+                                    <p class="text-white font-medium">Você tem 1 aprovação pendente</p>
+                                    <p class="text-sm text-slate-400">Revise e aprove a etapa para continuar o progresso da obra.</p>
+                                </div>
+                                <button onclick="showClientPage('approvals')" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg">
+                                    Ver Aprovações
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card-gradient rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-4">Minhas Obras</h3>
+                            <div class="space-y-4">
+                                <div class="p-4 bg-slate-800/50 rounded-lg">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <div>
+                                            <p class="font-medium">OB-2024-008 - SolarTech Indústria</p>
+                                            <p class="text-sm text-slate-400">PDE 500kW</p>
+                                        </div>
+                                        <span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm">Em Andamento</span>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-400">Progresso</span>
+                                            <span>65%</span>
+                                        </div>
+                                        <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                                            <div class="h-full bg-green-500 rounded-full" style="width: 65%"></div>
+                                        </div>
+                                    </div>
+                                    <p class="mt-3 text-sm text-slate-400">Responsável: João Silva</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Client Works -->
+                    <div id="client-works" class="client-page hidden animate-fade-in">
+                        <h2 class="text-2xl font-bold mb-6">Minhas Obras</h2>
+                        <div class="space-y-4">
+                            <div class="card-gradient rounded-xl p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 class="font-semibold">OB-2024-008 - SolarTech Indústria</h3>
+                                        <p class="text-slate-400 text-sm">PDE 500kW</p>
+                                    </div>
+                                    <span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm">Em Andamento</span>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-slate-400">Progresso</span>
+                                        <span>65%</span>
+                                    </div>
+                                    <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                                        <div class="h-full bg-green-500 rounded-full" style="width: 65%"></div>
+                                    </div>
+                                </div>
+                                <div class="mt-4 grid grid-cols-3 gap-4 text-sm">
+                                    <div>
+                                        <p class="text-slate-400">Valor</p>
+                                        <p class="text-amber-400">R$ 95.000</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-slate-400">Início</p>
+                                        <p>15/01/2024</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-slate-400">Previsão</p>
+                                        <p>15/03/2024</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Client Approvals -->
+                    <div id="client-approvals" class="client-page hidden animate-fade-in">
+                        <h2 class="text-2xl font-bold mb-6">Aprovações Pendentes</h2>
+                        
+                        <div class="card-gradient rounded-xl p-6 border-l-4 border-blue-500">
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="font-semibold text-lg">Vistoria técnica</h3>
+                                        <p class="text-slate-400">OB-2024-008 - SolarTech Indústria</p>
+                                    </div>
+                                    <span class="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm">Aguardando sua aprovação</span>
+                                </div>
+
+                                <div class="flex items-center gap-4">
+                                    <div class="px-4 py-2 bg-slate-800 rounded-lg">
+                                        <p class="text-xs text-slate-400">Prazo Proposto</p>
+                                        <p class="text-lg font-semibold text-amber-400">5 dias</p>
+                                    </div>
+                                    <div class="px-4 py-2 bg-slate-800 rounded-lg">
+                                        <p class="text-xs text-slate-400">Responsável</p>
+                                        <p class="text-sm font-medium">João Silva</p>
+                                    </div>
+                                </div>
+
+                                <div class="p-3 bg-slate-800/50 rounded-lg">
+                                    <p class="text-xs text-slate-400 mb-1">Justificativa do Colaborador</p>
+                                    <p class="text-sm text-slate-300">Necessário aguardar disponibilidade do técnico da concessionária.</p>
+                                </div>
+
+                                <div class="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                                    <p class="text-xs text-blue-400 mb-1">Avaliação Administrativa</p>
+                                    <p class="text-sm text-slate-300">Prazo adequado para a complexidade da tarefa. Aprovado internamente.</p>
+                                </div>
+
+                                <div class="flex gap-2 pt-2">
+                                    <button class="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg flex items-center justify-center gap-2">
+                                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                                        Aprovar
+                                    </button>
+                                    <button class="flex-1 px-4 py-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg flex items-center justify-center gap-2">
+                                        <i data-lucide="x-circle" class="w-4 h-4"></i>
+                                        Rejeitar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 card-gradient rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                                <i data-lucide="info" class="w-5 h-5 text-blue-400"></i>
+                                Como funciona?
+                            </h3>
+                            <div class="space-y-3 text-sm text-slate-400">
+                                <p>1. Seu colaborador define um prazo para cada etapa da obra.</p>
+                                <p>2. Após aprovação interna, você precisa confirmar para que o trabalho continue.</p>
+                                <p>3. Sua aprovação garante transparência e alinhamento em cada fase do projeto.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Client Documents -->
+                    <div id="client-documents" class="client-page hidden animate-fade-in">
+                        <h2 class="text-2xl font-bold mb-6">Meus Documentos</h2>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="card-gradient rounded-xl p-4 glass-hover cursor-pointer">
+                                <div class="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center mb-4">
+                                    <i data-lucide="file-text" class="w-6 h-6 text-red-400"></i>
+                                </div>
+                                <p class="font-medium mb-1">contrato.pdf</p>
+                                <p class="text-sm text-slate-400">OB-2024-008</p>
+                            </div>
+                            <div class="card-gradient rounded-xl p-4 glass-hover cursor-pointer">
+                                <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mb-4">
+                                    <i data-lucide="file-spreadsheet" class="w-6 h-6 text-blue-400"></i>
+                                </div>
+                                <p class="font-medium mb-1">orcamento.xlsx</p>
+                                <p class="text-sm text-slate-400">OB-2024-008</p>
+                            </div>
+                            <div class="card-gradient rounded-xl p-4 glass-hover cursor-pointer">
+                                <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center mb-4">
+                                    <i data-lucide="image" class="w-6 h-6 text-green-400"></i>
+                                </div>
+                                <p class="font-medium mb-1">vistoria.zip</p>
+                                <p class="text-sm text-slate-400">OB-2024-008</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        let currentRole = 'admin';
+
+        // Role selection
+        function selectRole(role) {
+            currentRole = role;
+            document.querySelectorAll('.role-btn').forEach(btn => {
+                btn.classList.remove('bg-amber-500/20', 'border-amber-500', 'text-amber-400', 'bg-blue-500/20', 'border-blue-500', 'text-blue-400', 'bg-green-500/20', 'border-green-500', 'text-green-400');
+                btn.classList.add('bg-slate-800', 'border-slate-700', 'text-slate-400');
+            });
+            
+            const btn = document.getElementById('btn-' + role);
+            const emailInput = document.getElementById('login-email');
+            const demoText = document.getElementById('demo-credentials');
+            
+            if (role === 'admin') {
+                btn.classList.remove('bg-slate-800', 'border-slate-700', 'text-slate-400');
+                btn.classList.add('bg-amber-500/20', 'border-amber-500', 'text-amber-400');
+                emailInput.value = 'admin@electraflow.com';
+                demoText.textContent = 'admin@electraflow.com / admin123';
+            } else if (role === 'employee') {
+                btn.classList.remove('bg-slate-800', 'border-slate-700', 'text-slate-400');
+                btn.classList.add('bg-blue-500/20', 'border-blue-500', 'text-blue-400');
+                emailInput.value = 'joao@electraflow.com';
+                demoText.textContent = 'joao@electraflow.com / employee123';
+            } else {
+                btn.classList.remove('bg-slate-800', 'border-slate-700', 'text-slate-400');
+                btn.classList.add('bg-green-500/20', 'border-green-500', 'text-green-400');
+                emailInput.value = 'contato@solartech.com';
+                demoText.textContent = 'contato@solartech.com / client123';
+            }
+        }
+
+        // Login handler
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            
+            if (currentRole === 'admin') {
+                document.getElementById('admin-layout').classList.remove('hidden');
+            } else if (currentRole === 'employee') {
+                document.getElementById('employee-layout').classList.remove('hidden');
+            } else {
+                document.getElementById('client-layout').classList.remove('hidden');
+            }
+        });
+
+        // Logout
+        function logout() {
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('admin-layout').classList.add('hidden');
+            document.getElementById('employee-layout').classList.add('hidden');
+            document.getElementById('client-layout').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+        }
+
+        // Admin navigation
+        function showAdminPage(page) {
+            document.querySelectorAll('.admin-page').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.admin-nav-item').forEach(el => {
+                el.classList.remove('bg-amber-500/20', 'text-amber-400', 'border', 'border-amber-500/30');
+                el.classList.add('text-slate-400');
+            });
+            
+            event.currentTarget.classList.remove('text-slate-400');
+            event.currentTarget.classList.add('bg-amber-500/20', 'text-amber-400', 'border', 'border-amber-500/30');
+            
+            document.getElementById('admin-' + page).classList.remove('hidden');
+            
+            const titles = {
+                'dashboard': 'Dashboard',
+                'workflow': 'Configuração de Prazos',
+                'approvals': 'Aprovações de Prazos',
+                'works': 'Obras',
+                'documents': 'Documentos'
+            };
+            document.getElementById('admin-page-title').textContent = titles[page];
+        }
+
+        // Employee navigation
+        function showEmployeePage(page) {
+            document.querySelectorAll('.employee-page').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.emp-nav-item').forEach(el => {
+                el.classList.remove('bg-blue-500/20', 'text-blue-400', 'border', 'border-blue-500/30');
+                el.classList.add('text-slate-400');
+            });
+            
+            event.currentTarget.classList.remove('text-slate-400');
+            event.currentTarget.classList.add('bg-blue-500/20', 'text-blue-400', 'border', 'border-blue-500/30');
+            
+            document.getElementById('employee-' + page).classList.remove('hidden');
+            
+            const titles = {
+                'dashboard': 'Dashboard',
+                'works': 'Minhas Obras',
+                'tasks': 'Minhas Tarefas',
+                'my-approvals': 'Minhas Solicitações'
+            };
+            document.getElementById('employee-page-title').textContent = titles[page];
+        }
+
+        // Client navigation
+        function showClientPage(page) {
+            document.querySelectorAll('.client-page').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.client-nav-item').forEach(el => {
+                el.classList.remove('bg-green-500/20', 'text-green-400', 'border', 'border-green-500/30');
+                el.classList.add('text-slate-400');
+            });
+            
+            event.currentTarget.classList.remove('text-slate-400');
+            event.currentTarget.classList.add('bg-green-500/20', 'text-green-400', 'border', 'border-green-500/30');
+            
+            document.getElementById('client-' + page).classList.remove('hidden');
+            
+            const titles = {
+                'dashboard': 'Dashboard',
+                'works': 'Minhas Obras',
+                'approvals': 'Aprovações Pendentes',
+                'documents': 'Meus Documentos'
+            };
+            document.getElementById('client-page-title').textContent = titles[page];
+        }
+    </script>
+</body>
+</html>

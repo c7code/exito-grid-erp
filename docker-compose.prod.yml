@@ -1,0 +1,74 @@
+# Docker Compose - Production
+# Este arquivo estende o docker-compose.yml para ambiente de produção
+
+version: '3.8'
+
+services:
+  postgres:
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - electraflow-network
+
+  api:
+    restart: always
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_DATABASE: ${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL:-https://app.electraflow.com.br}
+    depends_on:
+      - postgres
+    networks:
+      - electraflow-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  web:
+    restart: always
+    environment:
+      VITE_API_URL: ${API_URL:-https://api.electraflow.com.br}
+    depends_on:
+      - api
+    networks:
+      - electraflow-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Nginx reverse proxy (opcional)
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+      - web
+    networks:
+      - electraflow-network
+
+volumes:
+  postgres_data:
+
+networks:
+  electraflow-network:
+    driver: bridge

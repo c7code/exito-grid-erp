@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ElectraFlow - ERP/CRM Engenharia Elétrica</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #1a202c; }
+        .app-container { display: flex; min-height: 100vh; }
+        .sidebar { width: 260px; background: #1e293b; color: white; padding: 20px 0; position: fixed; height: 100vh; overflow-y: auto; }
+        .logo { padding: 0 20px 30px; border-bottom: 1px solid #334155; margin-bottom: 20px; }
+        .logo h1 { font-size: 22px; color: #f59e0b; display: flex; align-items: center; gap: 10px; }
+        .logo span { color: #94a3b8; font-size: 12px; font-weight: normal; }
+        .nav-section { margin-bottom: 25px; }
+        .nav-title { padding: 0 20px; font-size: 11px; text-transform: uppercase; color: #64748b; margin-bottom: 10px; letter-spacing: 0.5px; }
+        .nav-item { padding: 12px 20px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.2s; border-left: 3px solid transparent; }
+        .nav-item:hover { background: #334155; }
+        .nav-item.active { background: #334155; border-left-color: #f59e0b; color: #f59e0b; }
+        .nav-item .icon { width: 20px; text-align: center; }
+        .badge { margin-left: auto; background: #ef4444; color: white; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+        .badge.green { background: #10b981; }
+        .badge.blue { background: #3b82f6; }
+        .main-content { flex: 1; margin-left: 260px; padding: 20px 30px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
+        .header h2 { font-size: 24px; color: #1e293b; }
+        .header-actions { display: flex; gap: 15px; align-items: center; }
+        .search-box { position: relative; }
+        .search-box input { padding: 10px 15px 10px 40px; border: 1px solid #e2e8f0; border-radius: 8px; width: 300px; font-size: 14px; }
+        .search-box::before { content: "🔍"; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); }
+        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
+        .btn-primary { background: #f59e0b; color: white; }
+        .btn-primary:hover { background: #d97706; }
+        .btn-secondary { background: white; color: #475569; border: 1px solid #e2e8f0; }
+        .btn-secondary:hover { background: #f8fafc; }
+        .user-menu { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+        .user-avatar { width: 36px; height: 36px; background: #3b82f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+        .kpi-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .kpi-label { font-size: 13px; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-value { font-size: 32px; font-weight: 700; color: #1e293b; margin-bottom: 8px; }
+        .kpi-change { font-size: 13px; display: flex; align-items: center; gap: 5px; }
+        .kpi-change.positive { color: #10b981; }
+        .kpi-change.negative { color: #ef4444; }
+        .alert-section { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 1px solid #f59e0b; border-radius: 12px; padding: 20px; margin-bottom: 30px; }
+        .alert-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-weight: 600; color: #92400e; }
+        .alert-items { display: flex; flex-wrap: wrap; gap: 15px; }
+        .alert-item { background: white; padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; gap: 10px; font-size: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .alert-item.hot { border-left: 3px solid #ef4444; }
+        .alert-item.warning { border-left: 3px solid #f59e0b; }
+        .alert-item.info { border-left: 3px solid #3b82f6; }
+        .content-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 30px; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+        .card-header { padding: 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .card-title { font-size: 16px; font-weight: 600; color: #1e293b; }
+        .card-actions { display: flex; gap: 10px; }
+        .card-body { padding: 20px; }
+        .pipeline-container { overflow-x: auto; padding-bottom: 10px; }
+        .pipeline { display: flex; gap: 15px; min-width: 900px; }
+        .pipeline-column { flex: 1; min-width: 180px; background: #f8fafc; border-radius: 10px; padding: 15px; }
+        .pipeline-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; }
+        .pipeline-title { font-weight: 600; font-size: 14px; color: #475569; }
+        .pipeline-count { background: #e2e8f0; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .pipeline-card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; border: 1px solid #e2e8f0; }
+        .pipeline-card:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.1); transform: translateY(-2px); }
+        .pipeline-card-title { font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #1e293b; }
+        .pipeline-card-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #64748b; }
+        .pipeline-card-value { font-weight: 600; color: #10b981; }
+        .tag { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; margin-top: 8px; }
+        .tag-hot { background: #fef2f2; color: #dc2626; }
+        .tag-new { background: #eff6ff; color: #2563eb; }
+        .tag-vip { background: #fef3c7; color: #d97706; }
+        .task-list { space-y: 12px; }
+        .task-item { display: flex; align-items: flex-start; gap: 12px; padding: 15px; border-radius: 8px; background: #f8fafc; margin-bottom: 10px; }
+        .task-checkbox { width: 20px; height: 20px; border: 2px solid #cbd5e1; border-radius: 4px; cursor: pointer; flex-shrink: 0; margin-top: 2px; }
+        .task-content { flex: 1; }
+        .task-title { font-size: 14px; margin-bottom: 4px; }
+        .task-meta { font-size: 12px; color: #64748b; }
+        .task-priority { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+        .priority-high { background: #fef2f2; color: #dc2626; }
+        .priority-medium { background: #fef3c7; color: #d97706; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th { text-align: left; padding: 12px 15px; font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; }
+        .data-table td { padding: 15px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        .data-table tr:hover { background: #f8fafc; }
+        .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+        .status-active { background: #d1fae5; color: #065f46; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-warning { background: #fee2e2; color: #991b1b; }
+        .suggestion-card { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #3b82f6; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .suggestion-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; color: #1e40af; font-weight: 600; }
+        .suggestion-items { display: flex; flex-direction: column; gap: 10px; }
+        .suggestion-item { background: white; padding: 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .suggestion-info h4 { font-size: 14px; margin-bottom: 4px; }
+        .suggestion-info p { font-size: 12px; color: #64748b; }
+        .suggestion-price { font-weight: 700; color: #059669; font-size: 16px; }
+        .timeline { position: relative; padding-left: 30px; }
+        .timeline::before { content: ''; position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: #e2e8f0; }
+        .timeline-item { position: relative; padding-bottom: 25px; }
+        .timeline-dot { position: absolute; left: -26px; width: 20px; height: 20px; border-radius: 50%; background: #10b981; border: 3px solid white; box-shadow: 0 0 0 2px #10b981; }
+        .timeline-dot.pending { background: #f59e0b; box-shadow: 0 0 0 2px #f59e0b; }
+        .timeline-content { background: #f8fafc; padding: 15px; border-radius: 8px; }
+        .timeline-title { font-weight: 600; margin-bottom: 5px; }
+        .timeline-meta { font-size: 12px; color: #64748b; }
+        .checklist-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 6px; }
+        .checklist-item.completed label { text-decoration: line-through; color: #94a3b8; }
+        .tabs { display: flex; gap: 5px; border-bottom: 1px solid #e2e8f0; margin-bottom: 20px; }
+        .tab { padding: 12px 20px; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 500; color: #64748b; }
+        .tab.active { color: #f59e0b; border-bottom-color: #f59e0b; }
+        .screen { display: none; }
+        .screen.active { display: block; }
+        .protocol-card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin-bottom: 15px; }
+        .protocol-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .protocol-number { font-family: monospace; background: #f1f5f9; padding: 5px 10px; border-radius: 4px; font-size: 14px; }
+        .protocol-sla { display: flex; align-items: center; gap: 10px; }
+        .sla-bar { width: 100px; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+        .sla-progress { height: 100%; border-radius: 4px; }
+        .sla-progress.good { background: #10b981; }
+        .sla-progress.warning { background: #f59e0b; }
+        .sla-progress.danger { background: #ef4444; }
+        @media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } .content-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) { .sidebar { width: 70px; } .sidebar .nav-item span, .sidebar .nav-title, .logo span { display: none; } .main-content { margin-left: 70px; } .kpi-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo"><h1>⚡ ElectraFlow <span>ERP/CRM</span></h1></div>
+            <div class="nav-section">
+                <div class="nav-title">Principal</div>
+                <div class="nav-item active" onclick="showScreen('dashboard')"><span class="icon">📊</span><span>Dashboard</span></div>
+                <div class="nav-item" onclick="showScreen('pipeline')"><span class="icon">🎯</span><span>Pipeline CRM</span><span class="badge">12</span></div>
+                <div class="nav-item" onclick="showScreen('clientes')"><span class="icon">👥</span><span>Clientes</span></div>
+                <div class="nav-item" onclick="showScreen('obras')"><span class="icon">🏗️</span><span>Obras</span><span class="badge green">8</span></div>
+            </div>
+            <div class="nav-section">
+                <div class="nav-title">Operacional</div>
+                <div class="nav-item" onclick="showScreen('processos')"><span class="icon">⚙️</span><span>Processos</span></div>
+                <div class="nav-item" onclick="showScreen('propostas')"><span class="icon">📄</span><span>Propostas</span><span class="badge blue">5</span></div>
+                <div class="nav-item" onclick="showScreen('protocolos')"><span class="icon">🏛️</span><span>Protocolos</span><span class="badge">3</span></div>
+            </div>
+            <div class="nav-section">
+                <div class="nav-title">Gestão</div>
+                <div class="nav-item" onclick="showScreen('tarefas')"><span class="icon">✅</span><span>Tarefas</span><span class="badge">7</span></div>
+                <div class="nav-item" onclick="showScreen('documentos')"><span class="icon">📁</span><span>Documentos</span></div>
+                <div class="nav-item" onclick="showScreen('financeiro')"><span class="icon">💰</span><span>Financeiro</span></div>
+            </div>
+            <div class="nav-section">
+                <div class="nav-title">Configurações</div>
+                <div class="nav-item"><span class="icon">⚙️</span><span>Admin</span></div>
+            </div>
+        </aside>
+        <main class="main-content">
+            <!-- DASHBOARD -->
+            <div id="dashboard" class="screen active">
+                <div class="header">
+                    <h2>Dashboard Executivo</h2>
+                    <div class="header-actions">
+                        <div class="search-box"><input type="text" placeholder="Buscar cliente, obra, protocolo..."></div>
+                        <button class="btn btn-primary"><span>+</span> Novo Lead</button>
+                        <div class="user-menu"><div class="user-avatar">JD</div><span>João Dev</span></div>
+                    </div>
+                </div>
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-label">Leads do Mês</div>
+                        <div class="kpi-value">45</div>
+                        <div class="kpi-change positive"><span>↑</span> 12% vs mês anterior</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Taxa de Conversão</div>
+                        <div class="kpi-value">18%</div>
+                        <div class="kpi-change positive"><span>↑</span> 3% vs mês anterior</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Ticket Médio</div>
+                        <div class="kpi-value">R$ 8.500</div>
+                        <div class="kpi-change positive"><span>↑</span> 6% vs mês anterior</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Receita do Mês</div>
+                        <div class="kpi-value">R$ 127.5k</div>
+                        <div class="kpi-change positive"><span>↑</span> 15% vs mês anterior</div>
+                    </div>
+                </div>
+                <div class="alert-section">
+                    <div class="alert-header"><span>🔔</span> Alertas e Oportunidades</div>
+                    <div class="alert-items">
+                        <div class="alert-item hot"><span>🔥</span><span><strong>2 leads quentes</strong> aguardando proposta há +24h</span></div>
+                        <div class="alert-item warning"><span>⚡</span><span><strong>3 oportunidades</strong> de cross-sell detectadas</span></div>
+                        <div class="alert-item info"><span>📞</span><span><strong>5 follow-ups</strong> pendentes</span></div>
+                        <div class="alert-item warning"><span>⏰</span><span><strong>3 protocolos</strong> com SLA > 80%</span></div>
+                    </div>
+                </div>
+                <div class="content-grid">
+                    <div class="card">
+                        <div class="card-header"><h3 class="card-title">Pipeline de Vendas</h3><div class="card-actions"><button class="btn btn-secondary">Ver Completo</button></div></div>
+                        <div class="card-body">
+                            <div class="pipeline-container">
+                                <div class="pipeline">
+                                    <div class="pipeline-column">
+                                        <div class="pipeline-header"><span class="pipeline-title">Lead Novo</span><span class="pipeline-count">12</span></div>
+                                        <div class="pipeline-card"><div class="pipeline-card-title">Condomínio Solar</div><div class="pipeline-card-meta"><span>Carlos Silva</span><span class="pipeline-card-value">R$ 45k</span></div><span class="tag tag-hot">HOT</span></div>
+                                        <div class="pipeline-card"><div class="pipeline-card-title">PDE Comercial</div><div class="pipeline-card-meta"><span>Maria Santos</span><span class="pipeline-card-value">R$ 8k</span></div><span class="tag tag-new">NOVO</span></div>
+                                    </div>
+                                    <div class="pipeline-column">
+                                        <div class="pipeline-header"><span class="pipeline-title">Qualificação</span><span class="pipeline-count">8</span></div>
+                                        <div class="pipeline-card"><div class="pipeline-card-title">Laudo Industrial</div><div class="pipeline-card-meta"><span>Indústria ABC</span><span class="pipeline-card-value">R$ 12k</span></div></div>
+                                    </div>
+                                    <div class="pipeline-column">
+                                        <div class="pipeline-header"><span class="pipeline-title">Proposta</span><span class="pipeline-count">5</span></div>
+                                        <div class="pipeline-card"><div class="pipeline-card-title">Doação de Rede</div><div class="pipeline-card-meta"><span>Construtora XYZ</span><span class="pipeline-card-value">R$ 35k</span></div><span class="tag tag-vip">VIP</span></div>
+                                    </div>
+                                    <div class="pipeline-column">
+                                        <div class="pipeline-header"><span class="pipeline-title">Fechado</span><span class="pipeline-count">3</span></div>
+                                        <div class="pipeline-card"><div class="pipeline-card-title">SPDA + Aterramento</div><div class="pipeline-card-meta"><span>Shopping Center</span><span class="pipeline-card-value">R$ 18k</span></div></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3 class="card-title">Tarefas Pendentes</h3><div class="card-actions"><button class="btn btn-secondary">Ver Todas</button></div></div>
+                        <div class="card-body">
+                            <div class="task-list">
+                                <div class="task-item"><div class="task-checkbox"></div><div class="task-content"><div class="task-title">Enviar proposta - Condomínio Solar</div><div class="task-meta">Vence em 2 horas • Carlos Silva</div></div><span class="task-priority priority-high">Alta</span></div>
+                                <div class="task-item"><div class="task-checkbox"></div><div class="task-content"><div class="task-title">Protocolar na Neoenergia - PDE BT</div><div class="task-meta">Vence amanhã • Maria Santos</div></div><span class="task-priority priority-medium">Média</span></div>
+                                <div class="task-item"><div class="task-checkbox"></div><div class="task-content"><div class="task-title">Follow-up proposta - Doação de Rede</div><div class="task-meta">Vence em 3 dias • Construtora XYZ</div></div><span class="task-priority priority-medium">Média</span></div>
+                                <div class="task-item"><div class="task-checkbox"></div><div class="task-content"><div class="task-title">Revisar projeto - Laudo Industrial</div><div class="task-meta">Vence em 5 dias • Indústria ABC</div></div><span class="task-priority priority-high">Alta</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">Processos em Execução</h3><div class="card-actions"><button class="btn btn-secondary">Ver Todos</button></div></div>
+                    <div class="card-body">
+                        <table class="data-table">
+                            <thead><tr><th>Obra</th><th>Cliente</th><th>Tipo</th><th>Etapa Atual</th><th>Progresso</th><th>Prazo</th><th>Status</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>PDE Residencial - Jardins</strong></td><td>Roberto Almeida</td><td>PDE BT</td><td>Aprovação Concessionária</td><td>65%</td><td>15 dias</td><td><span class="status-badge status-active">No Prazo</span></td></tr>
+                                <tr><td><strong>Projeto Solar - Fazenda</strong></td><td>Agricultura Sul</td><td>Energia Solar</td><td>Dimensionamento</td><td>40%</td><td>30 dias</td><td><span class="status-badge status-active">No Prazo</span></td></tr>
+                                <tr><td><strong>Doação de Rede - Condomínio</strong></td><td>Construtora Horizonte</td><td>Rede/Doação</td><td>Execução da Obra</td><td>80%</td><td>10 dias</td><td><span class="status-badge status-pending">Atenção</span></td></tr>
+                                <tr><td><strong>Laudo + SPDA - Fábrica</strong></td><td>Indústria Metálica</td><td>Laudo/SPDA</td><td>Inspeção Técnica</td><td>25%</td><td>20 dias</td><td><span class="status-badge status-active">No Prazo</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- PIPELINE -->
+            <div id="pipeline" class="screen">
+                <div class="header">
+                    <h2>Pipeline CRM</h2>
+                    <div class="header-actions">
+                        <div class="search-box"><input type="text" placeholder="Buscar oportunidade..."></div>
+                        <button class="btn btn-secondary">Filtros</button>
+                        <button class="btn btn-primary"><span>+</span> Nova Oportunidade</button>
+                    </div>
+                </div>
+                <div class="pipeline-container">
+                    <div class="pipeline">
+                        <div class="pipeline-column">
+                            <div class="pipeline-header"><span class="pipeline-title">Lead Novo</span><span class="pipeline-count">12</span></div>
+                            <div class="pipeline-card"><div class="pipeline-card-title">Condomínio Solar - 50 unidades</div><div class="pipeline-card-meta"><span>Carlos Silva</span><span class="pipeline-card-value">R$ 45.000</span></div><span class="tag tag-hot">HOT - WhatsApp</span></div>
+                            <div class="pipeline-card"><div class="pipeline-card-title">PDE Comercial - Loja</div><div class="pipeline-card-meta"><span>Maria Santos</span><span class="pipeline-card-value">R$ 8.000</span></div><span class="tag tag-new">NOVO - Portal</span></div>
+                            <div class="pipeline-card"><div class="pipeline-card-title">Laudo Elétrico Anual</div><div class="pipeline-card-meta"><span>Posto de Gasolina</span><span class="pipeline-card-value">R$ 3.500</span></div><span class="tag tag-new">NOVO - Indicação</span></div>
+                        </div>
+                        <div class="pipeline-column">
+                            <div class="pipeline-header"><span class="pipeline-title">Qualificação</span><span class="pipeline-count">8</span></div>
+                            <div class="pipeline-card"><div class="pipeline-card-title">Laudo Industrial Completo</div><div class="pipeline-card-meta"><span>Indústria ABC</span><span class="pipeline-card-value">R$ 12.000</span></div><span class="tag tag-vip">VIP</span></div>
+                            <div class="pipeline-card"><div class="pipeline-card-title">Aumento de Carga - Galpão</div><div class="pipeline-card-meta"><span>Logística Rápida</span><span class="pipeline-card-value">R$ 15.000</span></div></div>
+                        </div>
+                        <div class="pipeline-column">
+                            <div class="pipeline-header"><span class="pipeline-title">Visita/Levantamento</span><span class="pipeline-count">6</span></div>
+                            <div class="pipeline-card"><div class="pipeline-card-title">SPDA + Aterramento</div><div class="pipeline-card-meta"><span>Edifício Corporate</span><span class="pipeline-card-value">R$ 22.000</span></div><span class="tag tag-hot">Visita amanhã</span></div>
+                        </div>
+                        <div class="pipeline-column">
+                            <div class="pipeline-header"><span class="pipeline-title">Proposta</span><span class="pipeline-count">5</span></div>
+                            <div class="pipeline-card"><div class="pipeline-card-title">Doação de Rede + Conexão</div><div class="pipeline-card-meta"><span>Construtora XYZ</span><span class="pipeline-card-value">R$ 35.000</span></div><span class="tag tag-vip">VIP - Enviada D+2</span></div>
+                            <div class="pipeline-card"><div class="pipeline-card-title">PDE AT - Indústria</div><div class="pipeline-card-meta"><span>Fábrica de Papel</span><span class="pipeline-card-value">R$ 28.000</span></div><span class="tag tag-hot">URGENTE</span></div>
+                        </div>
+                        <div class="pipeline-column">
+                            <div class="pipeline-header"><span class="pipeline-title">Negociação</span><span class="pipeline-count">3</span></div>
+                            <div class="pipeline-card"><div class="pipeline-card-title">Projeto Solar Residencial</div><div class="pipeline-card-meta"><span>Família Oliveira</span><span class="pipeline-card-value">R$ 18.500</span></div><span class="tag tag-hot">Desconto solicitado</span></div>
+                        </div>
+                        <div class="pipeline-column">
+                            <div class="pipeline-header"><span class="pipeline-title">Fechado</span><span class="pipeline-count">3</span></div>
+                            <div class="pipeline-card"><div class="pipeline-card-title">SPDA + Aterramento Premium</div><div class="pipeline-card-meta"><span>Shopping Center</span><span class="pipeline-card-value">R$ 18.000</span></div><span class="tag tag-new">Ganho - Ontem</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- CLIENTES -->
+            <div id="clientes" class="screen">
+                <div class="header">
+                    <h2>Carlos Silva - Condomínio Solar</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary">Editar</button>
+                        <button class="btn btn-primary">Nova Proposta</button>
+                    </div>
+                </div>
+                <div class="content-grid">
+                    <div>
+                        <div class="suggestion-card">
+                            <div class="suggestion-header"><span>💡</span> Sugestões de Cross-sell Detectadas</div>
+                            <div class="suggestion-items">
+                                <div class="suggestion-item"><div class="suggestion-info"><h4>📋 Laudo de Instalações</h4><p>Obrigatório para aprovação do PDE</p></div><div class="suggestion-price">+ R$ 1.200</div></div>
+                                <div class="suggestion-item"><div class="suggestion-info"><h4>⚡ SPDA e Aterramento</h4><p>Condomínios exigem proteção contra raios</p></div><div class="suggestion-price">+ R$ 8.500</div></div>
+                                <div class="suggestion-item"><div class="suggestion-info"><h4>🔧 Monitoramento & Manutenção</h4><p>Contrato anual - receita recorrente</p></div><div class="suggestion-price">+ R$ 350/mês</div></div>
+                            </div>
+                            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #bfdbfe;"><strong>Ticket com sugestões:</strong> <span style="font-size: 20px; color: #059669; font-weight: 700;">R$ 63.200</span><span style="color: #64748b; margin-left: 10px;">(vs R$ 45.000 original)</span></div>
+                        </div>
+                        <div class="tabs"><div class="tab active">Informações</div><div class="tab">Histórico</div><div class="tab">Documentos</div><div class="tab">Obras</div></div>
+                        <div class="card">
+                            <div class="card-body">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <div><h4 style="margin-bottom: 15px; color: #64748b; font-size: 12px; text-transform: uppercase;">Dados Pessoais</h4><p><strong>Nome:</strong> Carlos Silva</p><p><strong>Email:</strong> carlos@condominio.com.br</p><p><strong>Telefone:</strong> (11) 98765-4321</p><p><strong>CPF/CNPJ:</strong> 12.345.678/0001-90</p></div>
+                                    <div><h4 style="margin-bottom: 15px; color: #64748b; font-size: 12px; text-transform: uppercase;">Endereço</h4><p><strong>Rua:</strong> Av. das Palmeiras, 1500</p><p><strong>Bairro:</strong> Jardim Paulista</p><p><strong>Cidade:</strong> São Paulo - SP</p><p><strong>CEP:</strong> 01452-000</p></div>
+                                </div>
+                                <hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <div><h4 style="margin-bottom: 15px; color: #64748b; font-size: 12px; text-transform: uppercase;">Segmento</h4><p><strong>Tipo:</strong> Condomínio Residencial</p><p><strong>Unidades:</strong> 50 apartamentos</p><p><strong>Consumo Médio:</strong> 8.500 kWh/mês</p></div>
+                                    <div><h4 style="margin-bottom: 15px; color: #64748b; font-size: 12px; text-transform: uppercase;">Concessionária</h4><p><strong>Nome:</strong> Neoenergia</p><p><strong>Tensão:</strong> BT Trifásico</p><p><strong>Carga Instalada:</strong> 150 kW</p></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="card">
+                            <div class="card-header"><h3 class="card-title">Status do Cliente</h3></div>
+                            <div class="card-body">
+                                <div style="margin-bottom: 15px;"><span style="color: #64748b; font-size: 12px;">Classificação</span><div style="font-size: 24px; font-weight: 700; color: #f59e0b;">A</div></div>
+                                <div style="margin-bottom: 15px;"><span style="color: #64748b; font-size: 12px;">Score</span><div style="font-size: 24px; font-weight: 700; color: #10b981;">92/100</div></div>
+                                <div style="margin-bottom: 15px;"><span style="color: #64748b; font-size: 12px;">LTV Estimado</span><div style="font-size: 20px; font-weight: 700;">R$ 125.000</div></div>
+                                <div><span style="color: #64748b; font-size: 12px;">Último Contato</span><div>Hoje, 14:30</div></div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header"><h3 class="card-title">Responsável</h3></div>
+                            <div class="card-body">
+                                <div style="display: flex; align-items: center; gap: 12px;"><div class="user-avatar" style="width: 48px; height: 48px; font-size: 18px;">AM</div><div><div style="font-weight: 600;">Ana Martins</div><div style="font-size: 13px; color: #64748b;">Comercial Senior</div></div></div>
+                                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;"><div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">ana@empresa.com</div><div style="font-size: 13px; color: #64748b;">(11) 91234-5678</div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- PROCESSOS -->
+            <div id="processos" class="screen">
+                <div class="header">
+                    <h2>Processo Operacional - PDE Residencial Jardins</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary">Exportar</button>
+                        <button class="btn btn-primary">Nova Tarefa</button>
+                    </div>
+                </div>
+                <div class="content-grid">
+                    <div>
+                        <div class="card">
+                            <div class="card-header"><h3 class="card-title">Timeline do Processo</h3></div>
+                            <div class="card-body">
+                                <div class="timeline">
+                                    <div class="timeline-item"><div class="timeline-dot completed"></div><div class="timeline-content"><div class="timeline-title">✅ Documentação Inicial</div><div class="timeline-meta">Concluído em 10/01/2025 • Roberto Almeida</div></div></div>
+                                    <div class="timeline-item"><div class="timeline-dot completed"></div><div class="timeline-content"><div class="timeline-title">✅ Levantamento Técnico</div><div class="timeline-meta">Concluído em 12/01/2025 • Eng. Paulo Souza</div></div></div>
+                                    <div class="timeline-item"><div class="timeline-dot completed"></div><div class="timeline-content"><div class="timeline-title">✅ Projeto Executivo</div><div class="timeline-meta">Concluído em 15/01/2025 • Projetista Ana Lima</div></div></div>
+                                    <div class="timeline-item"><div class="timeline-dot completed"></div><div class="timeline-content"><div class="timeline-title">✅ ART Emitida</div><div class="timeline-meta">Concluído em 16/01/2025 • Eng. Paulo Souza</div></div></div>
+                                    <div class="timeline-item"><div class="timeline-dot pending"></div><div class="timeline-content"><div class="timeline-title">⏳ Aprovação Concessionária</div><div class="timeline-meta">Em andamento • Protocolo: NE-2025-001234</div><div style="margin-top: 10px; padding: 10px; background: white; border-radius: 6px;"><div style="font-size: 12px; color: #64748b; margin-bottom: 5px;">SLA: 10 de 15 dias úteis (67%)</div><div class="sla-bar"><div class="sla-progress warning" style="width: 67%;"></div></div></div></div></div>
+                                    <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content"><div class="timeline-title">⚪ Execução do PDE</div><div class="timeline-meta">Pendente</div></div></div>
+                                    <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content"><div class="timeline-title">⚪ Vistoria e Ligação</div><div class="timeline-meta">Pendente</div></div></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header"><h3 class="card-title">Checklist - Aprovação Concessionária</h3></div>
+                            <div class="card-body">
+                                <div class="checklist">
+                                    <div class="checklist-item completed"><input type="checkbox" checked><label>Projeto executivo aprovado internamente</label></div>
+                                    <div class="checklist-item completed"><input type="checkbox" checked><label>ART emitida e registrada no CREA</label></div>
+                                    <div class="checklist-item completed"><input type="checkbox" checked><label>Documentos do cliente completos</label></div>
+                                    <div class="checklist-item completed"><input type="checkbox" checked><label>Protocolo aberto na concessionária</label></div>
+                                    <div class="checklist-item"><input type="checkbox"><label>Resposta da concessionária recebida</label></div>
+                                    <div class="checklist-item"><input type="checkbox"><label>Parecer de aprovação emitido</label></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="card">
+                            <div class="card-header"><h3 class="card-title">Resumo da Obra</h3></div>
+                            <div class="card-body">
+                                <div style="margin-bottom: 15px;"><span style="color: #64748b; font-size: 12px;">Cliente</span><div style="font-weight: 600;">Roberto Almeida</div></div>
+                                <div style="margin-bottom: 15px;"><span style="color: #64748b; font-size: 12px;">Tipo</span><div>PDE BT - Residencial</div></div>
+                                <div style="margin-bottom: 15px;"><span style="color: #64748b; font-size: 12px;">Valor</span><div style="font-size: 20px; font-weight: 700; color: #059669;">R$ 6.500</div></div>
+                                <div style="margin-bottom: 15px;"><span style="color: #64748b; font-size: 12px;">Prazo</span><div>30 dias úteis</div></div>
+                                <div><span style="color: #64748b; font-size: 12px;">Progresso</span><div style="font-size: 20px; font-weight: 700; color: #3b82f6;">65%</div></div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header"><h3 class="card-title">Protocolo Concessionária</h3></div>
+                            <div class="card-body">
+                                <div style="margin-bottom: 15px;"><span style="color: #64748b; font-size: 12px;">Número</span><div style="font-family: monospace; background: #f1f5f9; padding: 8px; border-radius: 4px;">NE-2025-001234</div></div>
+                                <div style="margin-bottom: 15px;"><span style="color: #64748b; font-size: 12px;">Concessionária</span><div>Neoenergia</div></div>
+                                <div style="margin-bottom: 15px;"><span style="color: #64748b; font-size: 12px;">Data de Abertura</span><div>17/01/2025</div></div>
+                                <div><span style="color: #64748b; font-size: 12px;">SLA</span><div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;"><span>10/15 dias (67%)</span></div><div class="sla-bar" style="margin-top: 8px;"><div class="sla-progress warning" style="width: 67%;"></div></div></div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header"><h3 class="card-title">Equipe</h3></div>
+                            <div class="card-body">
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;"><div class="user-avatar" style="width: 32px; height: 32px; font-size: 12px;">PS</div><div><div style="font-size: 13px; font-weight: 600;">Paulo Souza</div><div style="font-size: 11px; color: #64748b;">Engenheiro Responsável</div></div></div>
+                                <div style="display: flex; align-items: center; gap: 10px;"><div class="user-avatar" style="width: 32px; height: 32px; font-size: 12px;">AL</div><div><div style="font-size: 13px; font-weight: 600;">Ana Lima</div><div style="font-size: 11px; color: #64748b;">Projetista</div></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- PROTOCOLOS -->
+            <div id="protocolos" class="screen">
+                <div class="header">
+                    <h2>Protocolos com Concessionárias</h2>
+                    <div class="header-actions">
+                        <div class="search-box"><input type="text" placeholder="Buscar protocolo..."></div>
+                        <button class="btn btn-secondary">Filtros</button>
+                        <button class="btn btn-primary">Novo Protocolo</button>
+                    </div>
+                </div>
+                <div class="protocol-card">
+                    <div class="protocol-header">
+                        <div><h3 style="margin-bottom: 5px;">PDE Residencial - Jardins</h3><p style="color: #64748b; font-size: 14px;">Roberto Almeida • Neoenergia</p></div>
+                        <div class="protocol-sla"><span style="font-size: 13px; color: #64748b;">SLA: 67%</span><div class="sla-bar"><div class="sla-progress warning" style="width: 67%;"></div></div></div>
+                    </div>
+                    <div style="display: flex; gap: 30px; font-size: 14px;">
+                        <div><span style="color: #64748b;">Protocolo:</span><span style="font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; margin-left: 8px;">NE-2025-001234</span></div>
+                        <div><span style="color: #64748b;">Abertura:</span><span style="margin-left: 8px;">17/01/2025</span></div>
+                        <div><span style="color: #64748b;">Previsão:</span><span style="margin-left: 8px;">31/01/2025</span></div>
+                        <div><span style="color: #64748b;">Status:</span><span class="status-badge status-pending" style="margin-left: 8px;">Em Análise</span></div>
+                    </div>
+                </div>
+                <div class="protocol-card">
+                    <div class="protocol-header">
+                        <div><h3 style="margin-bottom: 5px;">Doação de Rede - Condomínio Horizonte</h3><p style="color: #64748b; font-size: 14px;">Construtora Horizonte • Cemig</p></div>
+                        <div class="protocol-sla"><span style="font-size: 13px; color: #64748b;">SLA: 95%</span><div class="sla-bar"><div class="sla-progress danger" style="width: 95%;"></div></div></div>
+                    </div>
+                    <div style="display: flex; gap: 30px; font-size: 14px;">
+                        <div><span style="color: #64748b;">Protocolo:</span><span style="font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; margin-left: 8px;">CE-2024-008921</span></div>
+                        <div><span style="color: #64748b;">Abertura:</span><span style="margin-left: 8px;">02/01/2025</span></div>
+                        <div><span style="color: #64748b;">Previsão:</span><span style="margin-left: 8px;">20/01/2025</span></div>
+                        <div><span style="color: #64748b;">Status:</span><span class="status-badge status-warning" style="margin-left: 8px; background: #fee2e2; color: #991b1b;">Exigência</span></div>
+                    </div>
+                    <div style="margin-top: 15px; padding: 12px; background: #fef2f2; border-radius: 6px; border-left: 3px solid #ef4444;"><strong style="color: #dc2626; font-size: 13px;">⚠️ Exigência Pendente:</strong><span style="font-size: 13px; color: #7f1d1d;"> Documento de doação incompleto. Prazo para resposta: 2 dias úteis.</span></div>
+                </div>
+                <div class="protocol-card">
+                    <div class="protocol-header">
+                        <div><h3 style="margin-bottom: 5px;">Projeto Solar - Fazenda Sul</h3><p style="color: #64748b; font-size: 14px;">Agricultura Sul • Enel</p></div>
+                        <div class="protocol-sla"><span style="font-size: 13px; color: #64748b;">SLA: 25%</span><div class="sla-bar"><div class="sla-progress good" style="width: 25%;"></div></div></div>
+                    </div>
+                    <div style="display: flex; gap: 30px; font-size: 14px;">
+                        <div><span style="color: #64748b;">Protocolo:</span><span style="font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; margin-left: 8px;">EN-2025-003456</span></div>
+                        <div><span style="color: #64748b;">Abertura:</span><span style="margin-left: 8px;">15/01/2025</span></div>
+                        <div><span style="color: #64748b;">Previsão:</span><span style="margin-left: 8px;">05/02/2025</span></div>
+                        <div><span style="color: #64748b;">Status:</span><span class="status-badge status-active" style="margin-left: 8px;">Em Análise</span></div>
+                    </div>
+                </div>
+            </div>

@@ -1,0 +1,54 @@
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { AuthGuard } from '@nestjs/passport';
+import { UserRole } from '../users/user.entity';
+
+export const ROLES_KEY = 'roles';
+
+@Injectable()
+export class JwtAuthGuard extends AuthGuard('jwt') {
+  canActivate(context: ExecutionContext) {
+    return super.canActivate(context);
+  }
+
+  handleRequest(err, user, info) {
+    if (err || !user) {
+      throw err || new UnauthorizedException('Token inválido ou expirado');
+    }
+    return user;
+  }
+}
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (!requiredRoles) {
+      return true;
+    }
+
+    const { user } = context.switchToHttp().getRequest();
+    return requiredRoles.includes(user.role);
+  }
+}
+
+export function RequireRoles(...roles: UserRole[]) {
+  return function (target: any, propertyKey?: string, descriptor?: PropertyDescriptor) {
+    if (descriptor) {
+      Reflect.defineMetadata(ROLES_KEY, roles, descriptor.value);
+    } else {
+      Reflect.defineMetadata(ROLES_KEY, roles, target);
+    }
+  };
+}
