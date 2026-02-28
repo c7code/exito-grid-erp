@@ -102,7 +102,7 @@ function App() {
           </Route>
 
           {/* Employee Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['employee', 'admin']} />}>
+          <Route element={<ProtectedRoute allowedRoles={['employee', 'admin', 'engineer', 'commercial', 'finance']} />}>
             <Route element={<EmployeeLayout />}>
               <Route path="/employee" element={<Navigate to="/employee/dashboard" replace />} />
               <Route path="/employee/dashboard" element={<EmployeeDashboard />} />
