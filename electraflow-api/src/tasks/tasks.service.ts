@@ -5,6 +5,7 @@ import { Task, TaskStatus } from './task.entity';
 import { TaskResolver } from './task-resolver.entity';
 import { Work } from '../works/work.entity';
 import { Employee } from '../employees/employee.entity';
+import { User } from '../users/user.entity';
 
 @Injectable()
 export class TasksService {
@@ -17,6 +18,8 @@ export class TasksService {
     private workRepository: Repository<Work>,
     @InjectRepository(Employee)
     private employeeRepository: Repository<Employee>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) { }
 
   async findAll(assignedToId?: string): Promise<Task[]> {
@@ -39,10 +42,23 @@ export class TasksService {
 
   /**
    * Find tasks assigned to an employee (via TaskResolver) using their email.
+   * Also checks the users table so admin/non-employee users can see their tasks.
    * Optionally filter by status (e.g. 'pending', 'in_progress').
    */
   async findByEmployee(email: string, status?: string): Promise<Task[]> {
-    const employee = await this.employeeRepository.findOneBy({ email });
+    // Try to find the employee directly by email
+    let employee = await this.employeeRepository.findOneBy({ email });
+
+    // If not found, check if a User with this email exists and find an Employee
+    // with the same name (admin users may not be in employees table with the same email)
+    if (!employee) {
+      const user = await this.userRepository.findOneBy({ email });
+      if (user) {
+        // Try to find an employee by the user's name as fallback
+        employee = await this.employeeRepository.findOneBy({ name: user.name });
+      }
+    }
+
     if (!employee) return [];
 
     const qb = this.taskRepository

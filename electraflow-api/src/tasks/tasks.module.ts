@@ -6,9 +6,10 @@ import { Task } from './task.entity';
 import { TaskResolver } from './task-resolver.entity';
 import { Work } from '../works/work.entity';
 import { Employee } from '../employees/employee.entity';
+import { User } from '../users/user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Task, TaskResolver, Work, Employee])],
+  imports: [TypeOrmModule.forFeature([Task, TaskResolver, Work, Employee, User])],
   controllers: [TasksController],
   providers: [TasksService],
   exports: [TasksService],

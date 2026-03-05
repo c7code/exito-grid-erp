@@ -60,7 +60,7 @@ export class Employee {
     @Column({ nullable: true })
     workId: string;
 
-    @ManyToOne(() => Work, { nullable: true })
+    @ManyToOne(() => Work, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'workId' })
     work: Work;
 

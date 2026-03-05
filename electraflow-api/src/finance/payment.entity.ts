@@ -46,7 +46,7 @@ export class Payment {
   @Column({ nullable: true })
   workId: string;
 
-  @ManyToOne(() => Work)
+  @ManyToOne(() => Work, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'workId' })
   work: Work;
 

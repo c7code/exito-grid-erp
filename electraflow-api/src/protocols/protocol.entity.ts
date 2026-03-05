@@ -41,7 +41,7 @@ export class Protocol {
   @Column({ nullable: true })
   workId: string;
 
-  @ManyToOne(() => Work)
+  @ManyToOne(() => Work, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'workId' })
   work: Work;
 

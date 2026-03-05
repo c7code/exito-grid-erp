@@ -19,7 +19,7 @@ export class Process {
   @Column({ nullable: true })
   workId: string;
 
-  @OneToOne(() => Work, work => work.process)
+  @OneToOne(() => Work, work => work.process, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workId' })
   work: Work;
 

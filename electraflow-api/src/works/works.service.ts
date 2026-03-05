@@ -125,7 +125,15 @@ export class WorksService {
 
   async remove(id: string): Promise<void> {
     const work = await this.findOne(id);
-    await this.workRepository.remove(work);
+    try {
+      await this.workRepository.remove(work);
+    } catch (error: any) {
+      // Foreign key constraint violation
+      if (error?.code === '23503' || error?.message?.includes('foreign key')) {
+        throw new Error('Não é possível excluir esta obra pois existem registros vinculados. Remova os registros dependentes primeiro.');
+      }
+      throw error;
+    }
   }
 
   // --- Work Updates (progress tracking with images) ---

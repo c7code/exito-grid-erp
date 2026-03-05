@@ -18,7 +18,7 @@ export class Measurement {
     @Column()
     workId: string;
 
-    @ManyToOne(() => Work)
+    @ManyToOne(() => Work, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'workId' })
     work: Work;
 
