@@ -69,7 +69,7 @@ export default function AdminTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('pending');
   const [showNewTaskDialog, setShowNewTaskDialog] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
