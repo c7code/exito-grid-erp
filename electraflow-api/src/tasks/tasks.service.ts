@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Task, TaskStatus } from './task.entity';
@@ -10,6 +10,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class TasksService {
+  private readonly logger = new Logger(TasksService.name);
+
   constructor(
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
@@ -109,7 +111,7 @@ export class TasksService {
     const fullTask = await this.findOne(saved.id);
 
     // Notify resolvers + admins about the new task
-    this.notificationsService.onTaskCreated(fullTask).catch(() => { });
+    this.notificationsService.onTaskCreated(fullTask).catch(err => this.logger.error('Erro ao notificar tarefa criada', err));
 
     return fullTask;
   }
@@ -141,9 +143,9 @@ export class TasksService {
     // Notify admins on status transitions
     if (previousStatus !== saved.status) {
       if (saved.status === TaskStatus.IN_PROGRESS) {
-        this.notificationsService.onTaskStarted(fullTask).catch(() => { });
+        this.notificationsService.onTaskStarted(fullTask).catch(err => this.logger.error('Erro ao notificar tarefa iniciada', err));
       } else if (saved.status === TaskStatus.COMPLETED) {
-        this.notificationsService.onTaskCompleted(fullTask).catch(() => { });
+        this.notificationsService.onTaskCompleted(fullTask).catch(err => this.logger.error('Erro ao notificar tarefa concluída', err));
       }
     }
 

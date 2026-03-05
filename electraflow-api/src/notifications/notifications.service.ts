@@ -74,6 +74,7 @@ export class NotificationsService implements OnModuleInit {
      */
     async onTaskCreated(task: Task): Promise<void> {
         const recipientIds = await this.getRecipientUserIds(task.id, true);
+        this.logger.log(`onTaskCreated: "${task.title}" → ${recipientIds.length} destinatário(s)`);
 
         for (const userId of recipientIds) {
             await this.create({
@@ -184,15 +185,35 @@ export class NotificationsService implements OnModuleInit {
             relations: ['employee'],
         });
 
+        this.logger.log(`getRecipientUserIds: taskId=${taskId}, resolvers encontrados=${resolvers.length}`);
+
         for (const resolver of resolvers) {
-            if (resolver.employee?.email) {
-                const user = await this.userRepository.findOneBy({ email: resolver.employee.email });
-                if (user) userIds.add(user.id);
+            if (!resolver.employee) {
+                this.logger.warn(`Resolver ${resolver.id} sem employee carregado`);
+                continue;
+            }
+
+            // Try by email first
+            let user = resolver.employee.email
+                ? await this.userRepository.findOneBy({ email: resolver.employee.email })
+                : null;
+
+            // Fallback: try by name (same pattern as TasksService.findByEmployee)
+            if (!user && resolver.employee.name) {
+                user = await this.userRepository.findOneBy({ name: resolver.employee.name });
+            }
+
+            if (user) {
+                userIds.add(user.id);
+                this.logger.log(`Resolver employee "${resolver.employee.name}" → userId ${user.id}`);
+            } else {
+                this.logger.warn(`Nenhum User encontrado para employee "${resolver.employee.name}" (email: ${resolver.employee.email})`);
             }
         }
 
         if (includeAdmins) {
             const adminIds = await this.getAdminUserIds();
+            this.logger.log(`Admins encontrados: ${adminIds.length}`);
             adminIds.forEach(id => userIds.add(id));
         }
 
