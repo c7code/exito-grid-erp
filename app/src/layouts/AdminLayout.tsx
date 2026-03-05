@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import NotificationDropdown from '@/components/NotificationDropdown';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -25,7 +26,6 @@ import {
   DollarSign,
   Settings,
   LogOut,
-  Bell,
   Zap,
   ChevronDown,
   Calculator,
@@ -193,12 +193,7 @@ export default function AdminLayout() {
               </Badge>
             </div>
             <div className="flex items-center gap-2 md:gap-4">
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  3
-                </span>
-              </Button>
+              <NotificationDropdown />
             </div>
           </div>
         </header>

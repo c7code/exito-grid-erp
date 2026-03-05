@@ -1486,6 +1486,27 @@ class ApiService {
     const response = await this.client.get(`/catalog/cep/${clean}`);
     return response.data;
   }
+
+  // Notifications
+  async getNotifications() {
+    const response = await this.client.get('/notifications');
+    return response.data;
+  }
+
+  async getUnreadNotificationCount() {
+    const response = await this.client.get('/notifications/unread-count');
+    return response.data;
+  }
+
+  async markNotificationRead(id: string) {
+    const response = await this.client.put(`/notifications/${id}/read`);
+    return response.data;
+  }
+
+  async markAllNotificationsRead() {
+    const response = await this.client.put('/notifications/read-all');
+    return response.data;
+  }
 }
 
 export const api = new ApiService();

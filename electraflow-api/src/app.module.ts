@@ -22,6 +22,7 @@ import { EmailModule } from './email/email.module';
 import { SupplyModule } from './supply/supply.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { FiscalModule } from './fiscal/fiscal.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { FiscalModule } from './fiscal/fiscal.module';
     SupplyModule,
     ComplianceModule,
     FiscalModule,
+    NotificationsModule,
   ],
 })
 export class AppModule { }

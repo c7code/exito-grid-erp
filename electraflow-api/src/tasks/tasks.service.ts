@@ -6,6 +6,7 @@ import { TaskResolver } from './task-resolver.entity';
 import { Work } from '../works/work.entity';
 import { Employee } from '../employees/employee.entity';
 import { User } from '../users/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class TasksService {
@@ -20,6 +21,7 @@ export class TasksService {
     private employeeRepository: Repository<Employee>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private notificationsService: NotificationsService,
   ) { }
 
   async findAll(assignedToId?: string): Promise<Task[]> {
@@ -104,11 +106,17 @@ export class TasksService {
       await this.recalculateWorkProgress(saved.workId);
     }
 
-    return this.findOne(saved.id);
+    const fullTask = await this.findOne(saved.id);
+
+    // Notify resolvers + admins about the new task
+    this.notificationsService.onTaskCreated(fullTask).catch(() => { });
+
+    return fullTask;
   }
 
   async update(id: string, taskData: Partial<Task> & { resolverIds?: string[] }): Promise<Task> {
     const task = await this.findOne(id);
+    const previousStatus = task.status;
     const previousWorkId = task.workId;
     const { resolverIds, ...data } = taskData;
 
@@ -128,7 +136,18 @@ export class TasksService {
       await this.recalculateWorkProgress(saved.workId);
     }
 
-    return this.findOne(saved.id);
+    const fullTask = await this.findOne(saved.id);
+
+    // Notify admins on status transitions
+    if (previousStatus !== saved.status) {
+      if (saved.status === TaskStatus.IN_PROGRESS) {
+        this.notificationsService.onTaskStarted(fullTask).catch(() => { });
+      } else if (saved.status === TaskStatus.COMPLETED) {
+        this.notificationsService.onTaskCompleted(fullTask).catch(() => { });
+      }
+    }
+
+    return fullTask;
   }
 
   async complete(id: string, userId: string, result?: string): Promise<Task> {
@@ -144,7 +163,12 @@ export class TasksService {
       await this.recalculateWorkProgress(saved.workId);
     }
 
-    return this.findOne(saved.id);
+    const fullTask = await this.findOne(saved.id);
+
+    // Notify admins about task completion
+    this.notificationsService.onTaskCompleted(fullTask).catch(() => { });
+
+    return fullTask;
   }
 
   async remove(id: string): Promise<void> {
