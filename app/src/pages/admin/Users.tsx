@@ -73,7 +73,7 @@ const AVAILABLE_MODULES = [
     { id: 'clients', label: 'Clientes' },
     { id: 'finance', label: 'Financeiro' },
     { id: 'finance-simulator', label: 'Simulador Investimento' },
-    { id: 'catalog', label: 'Catálogo' },
+    { id: 'catalog', label: 'Produtos & Estoque' },
     { id: 'suppliers', label: 'Fornecedores' },
     { id: 'quotations', label: 'Cotações' },
     { id: 'price-history', label: 'Histórico de Preços' },
