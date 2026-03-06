@@ -4,6 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
+import {
   Table,
   TableBody,
   TableCell,
@@ -20,6 +27,10 @@ import {
   Calendar,
   Play,
   Loader2,
+  FileText,
+  Building2,
+  Timer,
+  Flag,
 } from 'lucide-react';
 import { api } from '@/api';
 
@@ -64,6 +75,7 @@ export default function EmployeeTasks() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const taskTimers = useRef<Record<string, number>>({});
 
   useEffect(() => {
@@ -240,7 +252,11 @@ export default function EmployeeTasks() {
                 </TableRow>
               )}
               {filteredTasks.map((task) => (
-                <TableRow key={task.id}>
+                <TableRow
+                  key={task.id}
+                  className="cursor-pointer hover:bg-slate-50 transition-colors"
+                  onClick={() => setSelectedTask(task)}
+                >
                   <TableCell>
                     <p className="font-medium">{task.title}</p>
                   </TableCell>
@@ -283,7 +299,7 @@ export default function EmployeeTasks() {
                         size="sm"
                         variant="outline"
                         disabled={updatingTaskId === task.id}
-                        onClick={() => handleStartTask(task.id)}
+                        onClick={(e) => { e.stopPropagation(); handleStartTask(task.id); }}
                       >
                         {updatingTaskId === task.id ? (
                           <Loader2 className="w-4 h-4 mr-1 animate-spin" />
@@ -298,7 +314,7 @@ export default function EmployeeTasks() {
                         size="sm"
                         className="bg-emerald-500 hover:bg-emerald-600 text-white"
                         disabled={updatingTaskId === task.id}
-                        onClick={() => handleCompleteTask(task.id)}
+                        onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }}
                       >
                         {updatingTaskId === task.id ? (
                           <Loader2 className="w-4 h-4 mr-1 animate-spin" />
@@ -318,6 +334,190 @@ export default function EmployeeTasks() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Task Detail Modal */}
+      <Dialog open={!!selectedTask} onOpenChange={(open) => { if (!open) setSelectedTask(null); }}>
+        <DialogContent className="sm:max-w-[520px] p-0 gap-0 overflow-hidden">
+          {selectedTask && (
+            <>
+              {/* Header */}
+              <DialogHeader className="px-6 pt-6 pb-4">
+                <div className="flex items-start gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedTask.status === 'completed' ? 'bg-emerald-100' :
+                    selectedTask.status === 'in_progress' ? 'bg-blue-100' : 'bg-amber-100'
+                    }`}>
+                    {selectedTask.status === 'completed' ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    ) : selectedTask.status === 'in_progress' ? (
+                      <Clock className="w-5 h-5 text-blue-600" />
+                    ) : (
+                      <ClipboardList className="w-5 h-5 text-amber-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <DialogTitle className="text-lg font-semibold text-slate-900 leading-snug">
+                      {selectedTask.title}
+                    </DialogTitle>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <Badge variant={statusLabels[selectedTask.status]?.variant || 'outline'}>
+                        {statusLabels[selectedTask.status]?.label || selectedTask.status}
+                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-2 h-2 rounded-full ${priorityLabels[selectedTask.priority]?.color || 'bg-slate-400'}`} />
+                        <span className="text-xs text-slate-500">
+                          {priorityLabels[selectedTask.priority]?.label || selectedTask.priority}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <Separator />
+
+              {/* Body */}
+              <div className="px-6 py-4 space-y-5 max-h-[60vh] overflow-y-auto">
+                {/* Description */}
+                {selectedTask.description && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm font-medium text-slate-700">Descrição</span>
+                    </div>
+                    <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed bg-slate-50 rounded-lg p-3">
+                      {selectedTask.description}
+                    </p>
+                  </div>
+                )}
+
+                {/* Info Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Work */}
+                  <div className="flex items-start gap-2">
+                    <Building2 className="w-4 h-4 text-slate-400 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-slate-400 font-medium">Obra</p>
+                      <p className="text-sm text-slate-700">
+                        {selectedTask.work?.name || selectedTask.work?.code || 'Sem obra vinculada'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Due Date */}
+                  <div className="flex items-start gap-2">
+                    <Calendar className="w-4 h-4 text-slate-400 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-slate-400 font-medium">Prazo</p>
+                      <p className="text-sm text-slate-700">
+                        {selectedTask.dueDate
+                          ? new Date(selectedTask.dueDate).toLocaleDateString('pt-BR')
+                          : 'Sem prazo definido'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Hours */}
+                  <div className="flex items-start gap-2">
+                    <Timer className="w-4 h-4 text-slate-400 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-slate-400 font-medium">Horas</p>
+                      <p className="text-sm text-slate-700">
+                        {selectedTask.actualHours ? `${Number(selectedTask.actualHours).toFixed(1)}h` : '0h'}
+                        {' / '}
+                        {selectedTask.estimatedHours ? `${selectedTask.estimatedHours}h estimadas` : '-'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Type */}
+                  <div className="flex items-start gap-2">
+                    <Flag className="w-4 h-4 text-slate-400 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-slate-400 font-medium">Tipo</p>
+                      <p className="text-sm text-slate-700 capitalize">
+                        {selectedTask.type?.replace('_', ' ') || 'Interno'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Checklist */}
+                {selectedTask.checklist && selectedTask.checklist.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-slate-700 mb-2">Checklist</p>
+                    <div className="space-y-1.5">
+                      {selectedTask.checklist.map((item: any) => (
+                        <div key={item.id} className="flex items-center gap-2 text-sm">
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${item.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300'
+                            }`}>
+                            {item.completed && <CheckCircle2 className="w-3 h-3" />}
+                          </div>
+                          <span className={item.completed ? 'text-slate-400 line-through' : 'text-slate-700'}>
+                            {item.text}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Result (if completed) */}
+                {selectedTask.status === 'completed' && selectedTask.result && (
+                  <div>
+                    <p className="text-sm font-medium text-slate-700 mb-2">Resultado</p>
+                    <p className="text-sm text-slate-600 bg-emerald-50 rounded-lg p-3">
+                      {selectedTask.result}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer Actions */}
+              {selectedTask.status !== 'completed' && (
+                <>
+                  <Separator />
+                  <div className="px-6 py-4 flex justify-end gap-2">
+                    {selectedTask.status === 'pending' && (
+                      <Button
+                        variant="outline"
+                        disabled={updatingTaskId === selectedTask.id}
+                        onClick={() => {
+                          handleStartTask(selectedTask.id);
+                          setSelectedTask({ ...selectedTask, status: 'in_progress' });
+                        }}
+                      >
+                        {updatingTaskId === selectedTask.id ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Play className="w-4 h-4 mr-2" />
+                        )}
+                        Iniciar Tarefa
+                      </Button>
+                    )}
+                    {selectedTask.status === 'in_progress' && (
+                      <Button
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                        disabled={updatingTaskId === selectedTask.id}
+                        onClick={() => {
+                          handleCompleteTask(selectedTask.id);
+                          setSelectedTask(null);
+                        }}
+                      >
+                        {updatingTaskId === selectedTask.id ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                        )}
+                        Concluir Tarefa
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
