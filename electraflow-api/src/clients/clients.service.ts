@@ -112,7 +112,7 @@ export class ClientsService {
 
   async remove(id: string): Promise<void> {
     const client = await this.findOne(id);
-    await this.clientRepository.remove(client);
+    await this.clientRepository.softRemove(client);
   }
 
   // ═══ SYNC — Criar Users para clientes existentes ═══════════════════════
@@ -311,7 +311,7 @@ export class ClientsService {
   async removeDocument(id: string): Promise<void> {
     const doc = await this.documentRepository.findOne({ where: { id } });
     if (!doc) throw new NotFoundException('Documento não encontrado');
-    await this.documentRepository.remove(doc);
+    await this.documentRepository.softRemove(doc);
   }
 }
 

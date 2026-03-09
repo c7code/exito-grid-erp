@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -32,9 +32,10 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileText, Loader2, Plus, Trash2, Search, ChevronDown, Box, Layers, Eye, EyeOff, Building2, DollarSign, Shield } from 'lucide-react';
+import { FileText, Loader2, Plus, Trash2, Search, ChevronDown, Box, Layers, Eye, EyeOff, Building2, DollarSign, Shield, UserPlus, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
+import { ClientDialog } from '@/components/ClientDialog';
 
 interface NewProposalDialogProps {
     open: boolean;
@@ -62,6 +63,7 @@ interface ActivityItem {
     isBundleParent?: boolean;
     parentId?: string;
     showDetailedPrices?: boolean;
+    catalogItemId?: string;
 }
 
 const serviceTypes: Record<string, string> = {
@@ -86,6 +88,8 @@ export default function NewProposalDialog({
     const [loading, setLoading] = useState(false);
     const [clients, setClients] = useState<ClientOption[]>([]);
     const [loadingClients, setLoadingClients] = useState(false);
+    const [showClientDialog, setShowClientDialog] = useState(false);
+    const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -149,6 +153,56 @@ export default function NewProposalDialog({
 
     const [items, setItems] = useState<ActivityItem[]>([{ ...emptyItem }]);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [searchResults, setSearchResults] = useState<Record<number, any[]>>({});
+    const searchTimerRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
+    const debouncedSearch = useCallback((index: number, query: string) => {
+        // Clear previous timer for this index
+        if (searchTimerRef.current[index]) {
+            clearTimeout(searchTimerRef.current[index]);
+        }
+
+        if (query.length < 2) {
+            setSearchResults(prev => ({ ...prev, [index]: [] }));
+            return;
+        }
+
+        searchTimerRef.current[index] = setTimeout(async () => {
+            try {
+                const suggestions = await api.searchCatalogItems(query);
+                setSearchResults(prev => ({ ...prev, [index]: suggestions }));
+            } catch (err) {
+                console.error('Erro ao buscar catálogo:', err);
+            }
+        }, 300);
+    }, []);
+
+    const catalogSyncTimerRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
+    const syncCatalogItem = useCallback((item: ActivityItem) => {
+        if (!item.catalogItemId) return;
+        const catalogId = item.catalogItemId;
+
+        // Use a stable key for the timer
+        const timerKey = catalogId.charCodeAt(0);
+        if (catalogSyncTimerRef.current[timerKey]) {
+            clearTimeout(catalogSyncTimerRef.current[timerKey]);
+        }
+
+        catalogSyncTimerRef.current[timerKey] = setTimeout(async () => {
+            try {
+                await api.updateCatalogItem(catalogId, {
+                    name: item.description,
+                    unitPrice: Number(item.unitPrice || 0),
+                    type: item.serviceType === 'service' ? 'service' : 'material',
+                });
+                toast.success('Catálogo atualizado', { duration: 2000, id: `catalog-sync-${catalogId}` });
+            } catch (err) {
+                console.error('Erro ao sincronizar com catálogo:', err);
+                toast.error('Erro ao atualizar o catálogo');
+            }
+        }, 1500);
+    }, []);
 
     useEffect(() => {
         if (open) {
@@ -273,6 +327,11 @@ export default function NewProposalDialog({
         const updated = [...items];
         updated[index] = { ...updated[index], [field]: value === 'true' ? true : value === 'false' ? false : value };
         setItems(updated);
+
+        // Sync back to catalog if this item came from catalog
+        if (updated[index].catalogItemId && ['description', 'unitPrice', 'serviceType'].includes(field)) {
+            syncCatalogItem(updated[index]);
+        }
     };
 
     const getItemTotal = (item: ActivityItem): number => {
@@ -362,6 +421,23 @@ export default function NewProposalDialog({
         });
         setItems([{ ...emptyItem }]);
         setErrors({});
+        setAttachedFiles([]);
+    };
+
+    const handleClientCreated = async () => {
+        try {
+            const data = await api.getClients();
+            const clientList = Array.isArray(data) ? data : (data?.data ?? []);
+            const mapped = clientList.map((c: any) => ({ id: c.id, name: c.name }));
+            setClients(mapped);
+            if (clientList.length > 0) {
+                const newest = clientList.reduce((a: any, b: any) =>
+                    new Date(a.createdAt) > new Date(b.createdAt) ? a : b
+                );
+                setFormData(prev => ({ ...prev, clientId: newest.id }));
+                toast.success(`Cliente "${newest.name}" selecionado automaticamente!`);
+            }
+        } catch { /* ignore */ }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -456,6 +532,21 @@ export default function NewProposalDialog({
                 toast.success('Proposta criada com sucesso!');
             }
 
+            // Upload attached files to Documents module
+            if (attachedFiles.length > 0) {
+                for (const file of attachedFiles) {
+                    try {
+                        await api.uploadDocument(file, {
+                            name: file.name,
+                            type: 'other',
+                        });
+                    } catch (err) {
+                        console.error('Erro ao enviar anexo:', err);
+                    }
+                }
+                toast.success(`${attachedFiles.length} anexo(s) enviado(s) ao módulo Documentos`);
+            }
+
             resetForm();
             onOpenChange(false);
             onProposalCreated();
@@ -475,927 +566,988 @@ export default function NewProposalDialog({
     };
 
     return (
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                            <FileText className="w-5 h-5 text-amber-600" />
-                        </div>
-                        <div>
-                            <DialogTitle className="text-xl">
-                                {initialData ? 'Editar Proposta' : 'Nova Proposta'}
-                            </DialogTitle>
-                            <DialogDescription>
-                                {initialData
-                                    ? 'Atualize os dados e itens desta proposta comercial.'
-                                    : 'Crie uma proposta comercial com atividades e valores.'
-                                }
-                            </DialogDescription>
-                        </div>
-                    </div>
-                </DialogHeader>
-
-                <form onSubmit={handleSubmit} className="space-y-6 mt-2">
-                    {/* Informações da Proposta */}
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
-                            Informações da Proposta
-                        </h3>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="sm:col-span-2">
-                                <Label htmlFor="prop-title">Título *</Label>
-                                <Input
-                                    id="prop-title"
-                                    placeholder="Ex: Instalação Residencial Completa"
-                                    value={formData.title}
-                                    onChange={(e) =>
-                                        setFormData({ ...formData, title: e.target.value })
-                                    }
-                                    className={errors.title ? 'border-red-500' : ''}
-                                />
-                                {errors.title && (
-                                    <p className="text-red-500 text-xs mt-1">{errors.title}</p>
-                                )}
+        <>
+            <Dialog open={open} onOpenChange={handleOpenChange}>
+                <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                                <FileText className="w-5 h-5 text-amber-600" />
                             </div>
-
                             <div>
-                                <Label>Cliente *</Label>
-                                {loadingClients ? (
-                                    <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        Carregando clientes...
-                                    </div>
-                                ) : (
-                                    <Select
-                                        value={formData.clientId}
-                                        onValueChange={(v) =>
-                                            setFormData({ ...formData, clientId: v })
-                                        }
-                                    >
-                                        <SelectTrigger
-                                            className={errors.clientId ? 'border-red-500' : ''}
-                                        >
-                                            <SelectValue placeholder="Selecione um cliente" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {clients.map((c) => (
-                                                <SelectItem key={c.id} value={c.id}>
-                                                    {c.name}
-                                                </SelectItem>
-                                            ))}
-                                            {clients.length === 0 && (
-                                                <div className="px-3 py-2 text-sm text-slate-400">
-                                                    Nenhum cliente cadastrado
-                                                </div>
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                                {errors.clientId && (
-                                    <p className="text-red-500 text-xs mt-1">{errors.clientId}</p>
-                                )}
-                            </div>
-
-                            <div>
-                                <Label htmlFor="prop-validUntil">Validade</Label>
-                                <Input
-                                    id="prop-validUntil"
-                                    type="date"
-                                    value={formData.validUntil}
-                                    onChange={(e) =>
-                                        setFormData({ ...formData, validUntil: e.target.value })
+                                <DialogTitle className="text-xl">
+                                    {initialData ? 'Editar Proposta' : 'Nova Proposta'}
+                                </DialogTitle>
+                                <DialogDescription>
+                                    {initialData
+                                        ? 'Atualize os dados e itens desta proposta comercial.'
+                                        : 'Crie uma proposta comercial com atividades e valores.'
                                     }
-                                />
+                                </DialogDescription>
                             </div>
                         </div>
-                    </div>
+                    </DialogHeader>
 
-                    {/* Atividades / Itens */}
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
+                    <form onSubmit={handleSubmit} className="space-y-6 mt-2">
+                        {/* Informações da Proposta */}
+                        <div className="space-y-4">
                             <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
-                                Atividades / Serviços
+                                Informações da Proposta
                             </h3>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button type="button" variant="outline" size="sm">
-                                        <Plus className="w-3.5 h-3.5 mr-1" />
-                                        Adicionar
-                                        <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-50" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => addItem()}>
-                                        <FileText className="w-4 h-4 mr-2 text-slate-400" />
-                                        Item Avulso
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => {
-                                        addItem();
-                                        // A pequena demora garante que o novo campo exista no DOM
-                                        setTimeout(() => {
-                                            const inputs = document.querySelectorAll('input[placeholder="Pesquisar material ou serviço..."]');
-                                            const lastInput = inputs[inputs.length - 1] as HTMLInputElement;
-                                            if (lastInput) lastInput.focus();
-                                        }, 100);
-                                    }}>
-                                        <Search className="w-4 h-4 mr-2 text-slate-400" />
-                                        Item do Catálogo
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="sm:col-span-2">
+                                    <Label htmlFor="prop-title">Título *</Label>
+                                    <Input
+                                        id="prop-title"
+                                        placeholder="Ex: Instalação Residencial Completa"
+                                        value={formData.title}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, title: e.target.value })
+                                        }
+                                        className={errors.title ? 'border-red-500' : ''}
+                                    />
+                                    {errors.title && (
+                                        <p className="text-red-500 text-xs mt-1">{errors.title}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <Label>Cliente *</Label>
+                                        <Button
+                                            type="button"
+                                            variant="link"
+                                            size="sm"
+                                            className="h-auto p-0 text-xs text-amber-600 gap-1"
+                                            onClick={() => setShowClientDialog(true)}
+                                        >
+                                            <UserPlus className="w-3 h-3" />
+                                            Novo Cliente
+                                        </Button>
+                                    </div>
+                                    {loadingClients ? (
+                                        <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Carregando clientes...
+                                        </div>
+                                    ) : (
+                                        <Select
+                                            value={formData.clientId}
+                                            onValueChange={(v) =>
+                                                setFormData({ ...formData, clientId: v })
+                                            }
+                                        >
+                                            <SelectTrigger
+                                                className={errors.clientId ? 'border-red-500' : ''}
+                                            >
+                                                <SelectValue placeholder="Selecione um cliente" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {clients.map((c) => (
+                                                    <SelectItem key={c.id} value={c.id}>
+                                                        {c.name}
+                                                    </SelectItem>
+                                                ))}
+                                                {clients.length === 0 && (
+                                                    <div className="px-3 py-2 text-sm text-slate-400">
+                                                        Nenhum cliente cadastrado
+                                                    </div>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                    {errors.clientId && (
+                                        <p className="text-red-500 text-xs mt-1">{errors.clientId}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="prop-validUntil">Validade</Label>
+                                    <Input
+                                        id="prop-validUntil"
+                                        type="date"
+                                        value={formData.validUntil}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, validUntil: e.target.value })
+                                        }
+                                    />
+                                </div>
+                            </div>
                         </div>
 
-                        {errors.items && (
-                            <p className="text-red-500 text-xs">{errors.items}</p>
-                        )}
+                        {/* Atividades / Itens */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
+                                    Atividades / Serviços
+                                </h3>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button type="button" variant="outline" size="sm">
+                                            <Plus className="w-3.5 h-3.5 mr-1" />
+                                            Adicionar
+                                            <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-50" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => addItem()}>
+                                            <FileText className="w-4 h-4 mr-2 text-slate-400" />
+                                            Item Avulso
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => {
+                                            addItem();
+                                            // A pequena demora garante que o novo campo exista no DOM
+                                            setTimeout(() => {
+                                                const inputs = document.querySelectorAll('input[placeholder="Descrição ou pesquisar catálogo..."]');
+                                                const lastInput = inputs[inputs.length - 1] as HTMLInputElement;
+                                                if (lastInput) lastInput.focus();
+                                            }, 100);
+                                        }}>
+                                            <Search className="w-4 h-4 mr-2 text-slate-400" />
+                                            Item do Catálogo
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
 
-                        <div className="border rounded-lg overflow-hidden">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-[35%]">Descrição</TableHead>
-                                        <TableHead>Tipo</TableHead>
-                                        <TableHead>Preço Unit.</TableHead>
-                                        <TableHead>Qtd</TableHead>
-                                        <TableHead>Total</TableHead>
-                                        <TableHead className="w-[40px]"></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {items.map((item, index) => {
-                                        // Se for um filho, verificar se o pai está configurado para mostrar detalhes
-                                        if (item.parentId) {
-                                            const parent = items.find(it => it.id === item.parentId || (it.isBundleParent && 'temp-' + items.indexOf(it) === item.parentId));
-                                            if (parent && !parent.showDetailedPrices) {
-                                                return null;
+                            {errors.items && (
+                                <p className="text-red-500 text-xs">{errors.items}</p>
+                            )}
+
+                            <div className="border rounded-lg overflow-hidden">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-[35%]">Descrição</TableHead>
+                                            <TableHead>Tipo</TableHead>
+                                            <TableHead>Preço Unit.</TableHead>
+                                            <TableHead>Qtd</TableHead>
+                                            <TableHead>Total</TableHead>
+                                            <TableHead className="w-[40px]"></TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {items.map((item, index) => {
+                                            // Se for um filho, verificar se o pai está configurado para mostrar detalhes
+                                            if (item.parentId) {
+                                                const parent = items.find(it => it.id === item.parentId || (it.isBundleParent && 'temp-' + items.indexOf(it) === item.parentId));
+                                                if (parent && !parent.showDetailedPrices) {
+                                                    return null;
+                                                }
                                             }
-                                        }
 
-                                        return (
-                                            <TableRow key={index} className={item.isBundleParent ? 'bg-slate-50/50' : item.parentId ? 'bg-white' : ''}>
-                                                <TableCell className="relative">
-                                                    <div className={`space-y-1 ${item.parentId ? 'pl-6 border-l-2 border-slate-100 ml-2' : ''}`}>
-                                                        <div className="flex items-center gap-2">
-                                                            {item.isBundleParent && <Layers className="w-4 h-4 text-amber-500 shrink-0" />}
-                                                            <Input
-                                                                placeholder={item.isBundleParent ? "Nome do Kit..." : "Pesquisar material ou serviço..."}
-                                                                value={item.description}
-                                                                onChange={async (e) => {
-                                                                    const val = e.target.value;
-                                                                    updateItem(index, 'description', val);
-
-                                                                    if (val.length >= 2) {
-                                                                        try {
-                                                                            const suggestions = await api.searchCatalogItems(val);
-                                                                            (window as any)[`suggestions_${index}`] = suggestions;
-                                                                            // Forçando re-render simplificado para este exemplo
-                                                                            setItems([...items]);
-                                                                        } catch (err) {
-                                                                            console.error(err);
-                                                                        }
-                                                                    } else {
-                                                                        (window as any)[`suggestions_${index}`] = [];
-                                                                    }
-                                                                }}
-                                                                className="h-8 text-sm"
-                                                            />
-                                                            {(window as any)[`suggestions_${index}`]?.length > 0 && (
-                                                                <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                                                                    {(window as any)[`suggestions_${index}`].map((suggestion: any) => (
-                                                                        <div
-                                                                            key={suggestion.id}
-                                                                            className="px-3 py-2 hover:bg-slate-100 cursor-pointer text-sm"
-                                                                            onClick={async () => {
-                                                                                const newItems = [...items];
-                                                                                if (suggestion.dataType === 'category') {
-                                                                                    // Inserir Bundle
-                                                                                    const parentTempId = 'temp-' + Date.now();
-                                                                                    // Transformar a linha atual no Pai do Bundle
-                                                                                    newItems[index] = {
-                                                                                        ...newItems[index],
-                                                                                        description: suggestion.name,
-                                                                                        isBundleParent: true,
-                                                                                        id: parentTempId, // Usado apenas localmente para vincular filhos
-                                                                                        showDetailedPrices: true,
-                                                                                        unitPrice: '0',
-                                                                                        quantity: '1',
-                                                                                        serviceType: 'material' // Default to Material for Kits
-                                                                                    };
-
-                                                                                    try {
-                                                                                        const catItems = await api.getCatalogCategoryItems(suggestion.id);
-                                                                                        const childItems = catItems.map((ci: any) => ({
-                                                                                            description: ci.name,
-                                                                                            unitPrice: String(ci.unitPrice),
+                                            return (
+                                                <TableRow key={index} className={item.isBundleParent ? 'bg-slate-50/50' : item.parentId ? 'bg-white' : ''}>
+                                                    <TableCell className="relative">
+                                                        <div className={`space-y-1 ${item.parentId ? 'pl-6 border-l-2 border-slate-100 ml-2' : ''}`}>
+                                                            <div className="flex items-center gap-2">
+                                                                {item.isBundleParent && <Layers className="w-4 h-4 text-amber-500 shrink-0" />}
+                                                                <Input
+                                                                    placeholder={item.isBundleParent ? "Nome do Kit..." : "Descrição ou pesquisar catálogo..."}
+                                                                    value={item.description}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        updateItem(index, 'description', val);
+                                                                        debouncedSearch(index, val);
+                                                                    }}
+                                                                    onBlur={() => {
+                                                                        // Delay to allow click on suggestion
+                                                                        setTimeout(() => {
+                                                                            setSearchResults(prev => ({ ...prev, [index]: [] }));
+                                                                        }, 200);
+                                                                    }}
+                                                                    className="h-8 text-sm"
+                                                                />
+                                                                {(searchResults[index]?.length ?? 0) > 0 && (
+                                                                    <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                                                        {searchResults[index].map((suggestion: any) => (
+                                                                            <div
+                                                                                key={suggestion.id}
+                                                                                className="px-3 py-2 hover:bg-slate-100 cursor-pointer text-sm"
+                                                                                onMouseDown={(e) => e.preventDefault()}
+                                                                                onClick={async () => {
+                                                                                    setSearchResults(prev => ({ ...prev, [index]: [] }));
+                                                                                    const newItems = [...items];
+                                                                                    if (suggestion.dataType === 'category') {
+                                                                                        // Inserir Bundle
+                                                                                        const parentTempId = 'temp-' + Date.now();
+                                                                                        newItems[index] = {
+                                                                                            ...newItems[index],
+                                                                                            description: suggestion.name,
+                                                                                            isBundleParent: true,
+                                                                                            id: parentTempId,
+                                                                                            showDetailedPrices: true,
+                                                                                            unitPrice: '0',
                                                                                             quantity: '1',
-                                                                                            serviceType: ci.type === 'service' ? 'service' : 'material',
-                                                                                            parentId: parentTempId
-                                                                                        }));
-                                                                                        newItems.splice(index + 1, 0, ...childItems);
-                                                                                    } catch (err) {
-                                                                                        console.error('Erro ao buscar itens da categoria:', err);
-                                                                                        toast.error('Erro ao carregar itens do kit.');
+                                                                                            serviceType: 'material'
+                                                                                        };
+
+                                                                                        try {
+                                                                                            const catItems = await api.getCatalogCategoryItems(suggestion.id);
+                                                                                            const childItems = catItems.map((ci: any) => ({
+                                                                                                description: ci.name,
+                                                                                                unitPrice: String(ci.unitPrice),
+                                                                                                quantity: '1',
+                                                                                                serviceType: ci.type === 'service' ? 'service' : 'material',
+                                                                                                parentId: parentTempId,
+                                                                                                catalogItemId: ci.id,
+                                                                                            }));
+                                                                                            newItems.splice(index + 1, 0, ...childItems);
+                                                                                        } catch (err) {
+                                                                                            console.error('Erro ao buscar itens da categoria:', err);
+                                                                                            toast.error('Erro ao carregar itens do kit.');
+                                                                                        }
+                                                                                    } else {
+                                                                                        // Item normal — track catalogItemId for sync
+                                                                                        const mappedType = suggestion.type === 'service' ? 'service' : 'material';
+                                                                                        newItems[index] = {
+                                                                                            ...newItems[index],
+                                                                                            description: suggestion.name,
+                                                                                            unitPrice: String(suggestion.unitPrice),
+                                                                                            serviceType: mappedType,
+                                                                                            catalogItemId: suggestion.id,
+                                                                                        };
                                                                                     }
-                                                                                } else {
-                                                                                    // Item normal
-                                                                                    const mappedType = suggestion.type === 'service' ? 'service' : 'material';
-                                                                                    newItems[index] = {
-                                                                                        ...newItems[index],
-                                                                                        description: suggestion.name,
-                                                                                        unitPrice: String(suggestion.unitPrice),
-                                                                                        serviceType: mappedType
-                                                                                    };
-                                                                                }
-                                                                                (window as any)[`suggestions_${index}`] = [];
-                                                                                setItems(newItems);
-                                                                            }}
-                                                                        >
-                                                                            <div className="flex items-center justify-between">
-                                                                                <div className="flex flex-col">
-                                                                                    <div className="font-medium flex items-center gap-2">
-                                                                                        {suggestion.dataType === 'category' ? (
-                                                                                            <Layers className="w-3.5 h-3.5 text-amber-500" />
-                                                                                        ) : (
-                                                                                            <Box className="w-3.5 h-3.5 text-slate-400" />
-                                                                                        )}
-                                                                                        {suggestion.name}
+                                                                                    setItems(newItems);
+                                                                                }}
+                                                                            >
+                                                                                <div className="flex items-center justify-between">
+                                                                                    <div className="flex flex-col">
+                                                                                        <div className="font-medium flex items-center gap-2">
+                                                                                            {suggestion.dataType === 'category' ? (
+                                                                                                <Layers className="w-3.5 h-3.5 text-amber-500" />
+                                                                                            ) : (
+                                                                                                <Box className="w-3.5 h-3.5 text-slate-400" />
+                                                                                            )}
+                                                                                            {suggestion.name}
+                                                                                        </div>
+                                                                                        <div className="text-xs text-slate-500">
+                                                                                            {suggestion.dataType === 'category'
+                                                                                                ? 'Kit'
+                                                                                                : `R$ ${Number(suggestion.unitPrice).toLocaleString('pt-BR')} • ${suggestion.type === 'material' ? 'Material' : 'Serviço'}`}
+                                                                                        </div>
                                                                                     </div>
-                                                                                    <div className="text-xs text-slate-500">
-                                                                                        {suggestion.dataType === 'category'
-                                                                                            ? 'Kit'
-                                                                                            : `R$ ${Number(suggestion.unitPrice).toLocaleString('pt-BR')} • ${suggestion.type === 'material' ? 'Material' : 'Serviço'}`}
-                                                                                    </div>
+                                                                                    {suggestion.dataType === 'category' && (
+                                                                                        <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold">KIT</span>
+                                                                                    )}
                                                                                 </div>
-                                                                                {suggestion.dataType === 'category' && (
-                                                                                    <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold">KIT</span>
-                                                                                )}
                                                                             </div>
-                                                                        </div>
-                                                                    ))}
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Select
+                                                            value={item.serviceType}
+                                                            onValueChange={(v) =>
+                                                                updateItem(index, 'serviceType', v)
+                                                            }
+                                                        >
+                                                            <SelectTrigger className="h-8 text-sm">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {Object.entries(serviceTypes).map(
+                                                                    ([k, l]) => (
+                                                                        <SelectItem key={k} value={k}>
+                                                                            {l}
+                                                                        </SelectItem>
+                                                                    )
+                                                                )}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Input
+                                                            type="text" inputMode="decimal"
+                                                            min="0"
+                                                            step="0.01"
+                                                            placeholder="0,00"
+                                                            value={item.unitPrice}
+                                                            onChange={(e) =>
+                                                                updateItem(index, 'unitPrice', e.target.value)
+                                                            }
+                                                            className="h-8 text-sm w-24"
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Input
+                                                            type="text" inputMode="decimal"
+                                                            min="1"
+                                                            value={item.quantity}
+                                                            onChange={(e) =>
+                                                                updateItem(index, 'quantity', e.target.value)
+                                                            }
+                                                            className="h-8 text-sm w-16"
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex flex-col items-end">
+                                                            <span className={`text-sm font-medium ${item.isBundleParent ? 'text-amber-700 font-bold' : ''}`}>
+                                                                R$ {getItemTotal(item).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                            </span>
+                                                            {item.isBundleParent && (
+                                                                <div className="flex items-center gap-2 mt-1 whitespace-nowrap">
+                                                                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Exibir Detalhes:</span>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-6 w-8 p-0 hover:bg-amber-100"
+                                                                        onClick={() => updateItem(index, 'showDetailedPrices', !item.showDetailedPrices)}
+                                                                    >
+                                                                        {item.showDetailedPrices ? (
+                                                                            <Eye className="w-4 h-4 text-amber-600" />
+                                                                        ) : (
+                                                                            <EyeOff className="w-4 h-4 text-slate-400" />
+                                                                        )}
+                                                                    </Button>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Select
-                                                        value={item.serviceType}
-                                                        onValueChange={(v) =>
-                                                            updateItem(index, 'serviceType', v)
-                                                        }
-                                                    >
-                                                        <SelectTrigger className="h-8 text-sm">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {Object.entries(serviceTypes).map(
-                                                                ([k, l]) => (
-                                                                    <SelectItem key={k} value={k}>
-                                                                        {l}
-                                                                    </SelectItem>
-                                                                )
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.01"
-                                                        placeholder="0,00"
-                                                        value={item.unitPrice}
-                                                        onChange={(e) =>
-                                                            updateItem(index, 'unitPrice', e.target.value)
-                                                        }
-                                                        className="h-8 text-sm w-24"
-                                                        disabled={item.isBundleParent}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Input
-                                                        type="number"
-                                                        min="1"
-                                                        value={item.quantity}
-                                                        disabled={item.isBundleParent}
-                                                        onChange={(e) =>
-                                                            updateItem(index, 'quantity', e.target.value)
-                                                        }
-                                                        className="h-8 text-sm w-16"
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex flex-col items-end">
-                                                        <span className={`text-sm font-medium ${item.isBundleParent ? 'text-amber-700 font-bold' : ''}`}>
-                                                            R$ {getItemTotal(item).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                        </span>
-                                                        {item.isBundleParent && (
-                                                            <div className="flex items-center gap-2 mt-1 whitespace-nowrap">
-                                                                <span className="text-[10px] text-slate-400 uppercase font-semibold">Exibir Detalhes:</span>
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-6 w-8 p-0 hover:bg-amber-100"
-                                                                    onClick={() => updateItem(index, 'showDetailedPrices', !item.showDetailedPrices)}
-                                                                >
-                                                                    {item.showDetailedPrices ? (
-                                                                        <Eye className="w-4 h-4 text-amber-600" />
-                                                                    ) : (
-                                                                        <EyeOff className="w-4 h-4 text-slate-400" />
-                                                                    )}
-                                                                </Button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 text-red-400 hover:text-red-600"
-                                                        onClick={() => removeItem(index)}
-                                                        disabled={items.length <= 1}
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </div>
-                        {/* Totais */}
-                        <div className="flex flex-col items-end gap-1 text-sm">
-                            <div className="flex gap-4">
-                                <span className="text-slate-500">Subtotal:</span>
-                                <span className="font-medium w-28 text-right">
-                                    R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </span>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-red-400 hover:text-red-600"
+                                                            onClick={() => removeItem(index)}
+                                                            disabled={items.length <= 1}
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
                             </div>
-                            <div className="flex gap-4 items-center">
-                                <span className="text-slate-500">Desconto:</span>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    placeholder="0,00"
-                                    value={formData.discount}
-                                    onChange={(e) =>
-                                        setFormData({ ...formData, discount: e.target.value })
-                                    }
-                                    className="h-7 text-sm w-28 text-right"
-                                />
-                            </div>
-                            <div className="flex gap-4 pt-1 border-t">
-                                <span className="text-slate-700 font-semibold">Total:</span>
-                                <span className="font-bold text-amber-600 w-28 text-right">
-                                    R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Visibilidade para o Cliente */}
-                    <div className="space-y-4 pt-4 border-t">
-                        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                            <Eye className="w-4 h-4" /> Visibilidade para o Cliente
-                        </h3>
-                        <p className="text-xs text-slate-400">
-                            Controle o que o cliente vê na proposta: itens detalhados com preços unitários, ou um texto comercial profissional com valor global.
-                        </p>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <Label>Modo de Exibição</Label>
-                                <Select
-                                    value={formData.itemVisibilityMode}
-                                    onValueChange={(v) => setFormData({ ...formData, itemVisibilityMode: v })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="detailed">
-                                            📋 Detalhado — Tabelas com preços unitários
-                                        </SelectItem>
-                                        <SelectItem value="summary">
-                                            📝 Resumo Comercial — Texto + valor total
-                                        </SelectItem>
-                                        <SelectItem value="text_only">
-                                            📄 Apenas Texto — Sem valores unitários
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            {formData.itemVisibilityMode !== 'detailed' && (
-                                <div className="space-y-2">
-                                    <Label>Label do Valor Total</Label>
+                            {/* Totais */}
+                            <div className="flex flex-col items-end gap-1 text-sm">
+                                <div className="flex gap-4">
+                                    <span className="text-slate-500">Subtotal:</span>
+                                    <span className="font-medium w-28 text-right">
+                                        R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                                <div className="flex gap-4 items-center">
+                                    <span className="text-slate-500">Desconto:</span>
                                     <Input
-                                        placeholder="Ex: Valor Global"
-                                        value={formData.summaryTotalLabel}
-                                        onChange={(e) => setFormData({ ...formData, summaryTotalLabel: e.target.value })}
+                                        type="text" inputMode="decimal"
+                                        min="0"
+                                        step="0.01"
+                                        placeholder="0,00"
+                                        value={formData.discount}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, discount: e.target.value })
+                                        }
+                                        className="h-7 text-sm w-28 text-right"
                                     />
                                 </div>
-                            )}
+                                <div className="flex gap-4 pt-1 border-t">
+                                    <span className="text-slate-700 font-semibold">Total:</span>
+                                    <span className="font-bold text-amber-600 w-28 text-right">
+                                        R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
 
-                        {formData.itemVisibilityMode !== 'detailed' && (
-                            <div className="space-y-4 mt-3">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-xs text-slate-500 font-medium">
-                                        Textos comerciais que serão exibidos ao cliente no lugar das tabelas detalhadas:
-                                    </p>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-xs"
-                                        onClick={() => {
-                                            const matItems = items.filter(i => i.serviceType === 'material' && i.description.trim());
-                                            const svcItems = items.filter(i => i.serviceType !== 'material' && i.description.trim());
+                        {/* Visibilidade para o Cliente */}
+                        <div className="space-y-4 pt-4 border-t">
+                            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <Eye className="w-4 h-4" /> Visibilidade para o Cliente
+                            </h3>
+                            <p className="text-xs text-slate-400">
+                                Controle o que o cliente vê na proposta: itens detalhados com preços unitários, ou um texto comercial profissional com valor global.
+                            </p>
 
-                                            let matText = '';
-                                            if (matItems.length > 0) {
-                                                const descriptions = matItems.map(i => i.description.trim().toLowerCase());
-                                                if (descriptions.length === 1) {
-                                                    matText = `Fornecimento de ${descriptions[0]}, incluindo todo o material necessário para garantir a qualidade e durabilidade da instalação, conforme especificações técnicas e normas vigentes.`;
-                                                } else {
-                                                    const last = descriptions.pop();
-                                                    matText = `Fornecimento completo de toda estrutura composta por ${descriptions.join(', ')} e ${last}, incluindo todos os insumos, acessórios e componentes necessários para a execução conforme especificações técnicas aplicáveis.`;
-                                                }
-                                            }
-
-                                            let svcText = '';
-                                            if (svcItems.length > 0) {
-                                                const descriptions = svcItems.map(i => i.description.trim().toLowerCase());
-                                                if (descriptions.length === 1) {
-                                                    svcText = `Prestação de serviço de ${descriptions[0]}, executado por equipe técnica qualificada e habilitada conforme as normas regulamentadoras aplicáveis, com garantia de execução profissional.`;
-                                                } else {
-                                                    const last = descriptions.pop();
-                                                    svcText = `Prestação de serviços especializados incluindo ${descriptions.join(', ')} e ${last}, executados por equipe técnica devidamente qualificada, habilitada e em conformidade com as normas regulamentadoras vigentes.`;
-                                                }
-                                            }
-
-                                            setFormData({
-                                                ...formData,
-                                                materialSummaryText: matText,
-                                                serviceSummaryText: svcText,
-                                            });
-                                        }}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Modo de Exibição</Label>
+                                    <Select
+                                        value={formData.itemVisibilityMode}
+                                        onValueChange={(v) => setFormData({ ...formData, itemVisibilityMode: v })}
                                     >
-                                        ✨ Gerar Texto Automático
-                                    </Button>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="detailed">
+                                                📋 Detalhado — Tabelas com preços unitários
+                                            </SelectItem>
+                                            <SelectItem value="summary">
+                                                📝 Resumo Comercial — Texto + valor total
+                                            </SelectItem>
+                                            <SelectItem value="text_only">
+                                                📄 Apenas Texto — Sem valores unitários
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
-
-                                {items.some(i => i.serviceType === 'material') && (
+                                {formData.itemVisibilityMode !== 'detailed' && (
                                     <div className="space-y-2">
-                                        <Label className="text-xs text-amber-700 font-semibold">
-                                            Texto Comercial — Materiais
-                                        </Label>
-                                        <Textarea
-                                            rows={4}
-                                            placeholder="Ex: Fornecimento de toda estrutura de suporte, derivação e conexão..."
-                                            value={formData.materialSummaryText}
-                                            onChange={(e) => setFormData({ ...formData, materialSummaryText: e.target.value })}
-                                            className="text-sm"
-                                        />
-                                    </div>
-                                )}
-
-                                {items.some(i => i.serviceType !== 'material') && (
-                                    <div className="space-y-2">
-                                        <Label className="text-xs text-amber-700 font-semibold">
-                                            Texto Comercial — Serviços
-                                        </Label>
-                                        <Textarea
-                                            rows={4}
-                                            placeholder="Ex: Execução completa dos serviços de instalação, montagem e comissionamento..."
-                                            value={formData.serviceSummaryText}
-                                            onChange={(e) => setFormData({ ...formData, serviceSummaryText: e.target.value })}
-                                            className="text-sm"
+                                        <Label>Label do Valor Total</Label>
+                                        <Input
+                                            placeholder="Ex: Valor Global"
+                                            value={formData.summaryTotalLabel}
+                                            onChange={(e) => setFormData({ ...formData, summaryTotalLabel: e.target.value })}
                                         />
                                     </div>
                                 )}
                             </div>
-                        )}
-                    </div>
 
-                    {/* Dados da Obra */}
-                    <div className="space-y-4 pt-4 border-t">
-                        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                            <Building2 className="w-4 h-4" /> Dados da Obra
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Descrição da Obra</Label>
-                                <Input
-                                    placeholder="Ex: Condomínio Real Prime"
-                                    value={formData.workDescription}
-                                    onChange={(e) => setFormData({ ...formData, workDescription: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Endereço da Obra</Label>
-                                <Input
-                                    placeholder="Ex: Rua Principal, 100 — Recife/PE"
-                                    value={formData.workAddress}
-                                    onChange={(e) => setFormData({ ...formData, workAddress: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Tipo de Atividade</Label>
-                                <Select
-                                    value={formData.activityType}
-                                    onValueChange={(v) => setFormData({ ...formData, activityType: v })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione o tipo" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="extensao_rede">Extensão de Rede</SelectItem>
-                                        <SelectItem value="energia_solar">Energia Solar</SelectItem>
-                                        <SelectItem value="manutencao_eletrica">Manutenção Elétrica</SelectItem>
-                                        <SelectItem value="construcao_civil">Construção Civil</SelectItem>
-                                        <SelectItem value="telecomunicacoes">Telecomunicações</SelectItem>
-                                        <SelectItem value="outro">Outro</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Prazo (dias)</Label>
-                                <Input
-                                    type="number"
-                                    placeholder="Ex: 45"
-                                    value={formData.workDeadlineDays}
-                                    onChange={(e) => setFormData({ ...formData, workDeadlineDays: e.target.value })}
-                                />
-                            </div>
-                        </div>
-                    </div>
+                            {formData.itemVisibilityMode !== 'detailed' && (
+                                <div className="space-y-4 mt-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs text-slate-500 font-medium">
+                                            Textos comerciais que serão exibidos ao cliente no lugar das tabelas detalhadas:
+                                        </p>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-xs"
+                                            onClick={() => {
+                                                const matItems = items.filter(i => i.serviceType === 'material' && i.description.trim());
+                                                const svcItems = items.filter(i => i.serviceType !== 'material' && i.description.trim());
 
-                    {/* Cláusulas do Contrato */}
-                    <div className="space-y-4 pt-4 border-t">
-                        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
-                            Cláusulas do Contrato
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Cláusula de Fornecimento de Materiais</Label>
-                                <Textarea
-                                    rows={3}
-                                    placeholder="Texto sobre fornecimento de materiais..."
-                                    value={formData.materialFornecimento}
-                                    onChange={(e) => setFormData({ ...formData, materialFornecimento: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Cláusula de Execução do Serviço</Label>
-                                <Textarea
-                                    rows={3}
-                                    placeholder="Texto sobre execução do serviço..."
-                                    value={formData.serviceDescription}
-                                    onChange={(e) => setFormData({ ...formData, serviceDescription: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Condição de Pagamento / Vencimento</Label>
-                                <Textarea
-                                    rows={3}
-                                    placeholder="Ex: Após execução do serviço, mediante emissão de NF com prazo de 30 dias"
-                                    value={formData.paymentDueCondition}
-                                    onChange={(e) => setFormData({ ...formData, paymentDueCondition: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Dados Bancários</Label>
-                                <Textarea
-                                    rows={3}
-                                    placeholder="Banco, Agência, Conta, PIX..."
-                                    value={formData.paymentBank}
-                                    onChange={(e) => setFormData({ ...formData, paymentBank: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                                <Label>Obrigações da CONTRATADA</Label>
-                                <Textarea
-                                    rows={4}
-                                    placeholder="Cada obrigação em uma nova linha..."
-                                    value={formData.contractorObligations}
-                                    onChange={(e) => setFormData({ ...formData, contractorObligations: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                                <Label>Obrigações do CONTRATANTE</Label>
-                                <Textarea
-                                    rows={4}
-                                    placeholder="Cada obrigação em uma nova linha..."
-                                    value={formData.clientObligations}
-                                    onChange={(e) => setFormData({ ...formData, clientObligations: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                                <Label>Disposições Gerais</Label>
-                                <Textarea
-                                    rows={4}
-                                    placeholder="Deixe em branco para usar as cláusulas padrão..."
-                                    value={formData.generalProvisions}
-                                    onChange={(e) => setFormData({ ...formData, generalProvisions: e.target.value })}
-                                />
-                            </div>
-                        </div>
-                    </div>
+                                                let matText = '';
+                                                if (matItems.length > 0) {
+                                                    const descriptions = matItems.map(i => i.description.trim().toLowerCase());
+                                                    if (descriptions.length === 1) {
+                                                        matText = `Fornecimento de ${descriptions[0]}, incluindo todo o material necessário para garantir a qualidade e durabilidade da instalação, conforme especificações técnicas e normas vigentes.`;
+                                                    } else {
+                                                        const last = descriptions.pop();
+                                                        matText = `Fornecimento completo de toda estrutura composta por ${descriptions.join(', ')} e ${last}, incluindo todos os insumos, acessórios e componentes necessários para a execução conforme especificações técnicas aplicáveis.`;
+                                                    }
+                                                }
 
-                    {/* Composição de Custos */}
-                    <div className="space-y-4 pt-4 border-t">
-                        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                            <DollarSign className="w-4 h-4" /> Composição de Custos Adicionais
-                        </h3>
-                        <p className="text-xs text-slate-400">
-                            Configure os custos extras. Escolha se cada custo aparece visível na proposta, é embutido no preço ou é evidenciado com descrição técnica.
-                        </p>
+                                                let svcText = '';
+                                                if (svcItems.length > 0) {
+                                                    const descriptions = svcItems.map(i => i.description.trim().toLowerCase());
+                                                    if (descriptions.length === 1) {
+                                                        svcText = `Prestação de serviço de ${descriptions[0]}, executado por equipe técnica qualificada e habilitada conforme as normas regulamentadoras aplicáveis, com garantia de execução profissional.`;
+                                                    } else {
+                                                        const last = descriptions.pop();
+                                                        svcText = `Prestação de serviços especializados incluindo ${descriptions.join(', ')} e ${last}, executados por equipe técnica devidamente qualificada, habilitada e em conformidade com as normas regulamentadoras vigentes.`;
+                                                    }
+                                                }
 
-                        {/* ── Logístico ── */}
-                        <div className="border rounded-lg p-4 space-y-3">
-                            <p className="text-sm font-semibold text-slate-700">Custo Logístico</p>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Valor (R$)</Label>
-                                    <Input type="number" step="0.01" placeholder="0,00" value={formData.logisticsCostValue}
-                                        onChange={(e) => setFormData({ ...formData, logisticsCostValue: e.target.value })} className="h-8 text-sm" />
+                                                setFormData({
+                                                    ...formData,
+                                                    materialSummaryText: matText,
+                                                    serviceSummaryText: svcText,
+                                                });
+                                            }}
+                                        >
+                                            ✨ Gerar Texto Automático
+                                        </Button>
+                                    </div>
+
+                                    {items.some(i => i.serviceType === 'material') && (
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-amber-700 font-semibold">
+                                                Texto Comercial — Materiais
+                                            </Label>
+                                            <Textarea
+                                                rows={4}
+                                                placeholder="Ex: Fornecimento de toda estrutura de suporte, derivação e conexão..."
+                                                value={formData.materialSummaryText}
+                                                onChange={(e) => setFormData({ ...formData, materialSummaryText: e.target.value })}
+                                                className="text-sm"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {items.some(i => i.serviceType !== 'material') && (
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-amber-700 font-semibold">
+                                                Texto Comercial — Serviços
+                                            </Label>
+                                            <Textarea
+                                                rows={4}
+                                                placeholder="Ex: Execução completa dos serviços de instalação, montagem e comissionamento..."
+                                                value={formData.serviceSummaryText}
+                                                onChange={(e) => setFormData({ ...formData, serviceSummaryText: e.target.value })}
+                                                className="text-sm"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Ou % sobre base</Label>
-                                    <Input type="number" step="0.01" placeholder="Ex: 10" value={formData.logisticsCostPercent}
-                                        onChange={(e) => setFormData({ ...formData, logisticsCostPercent: e.target.value })} className="h-8 text-sm" />
+                            )}
+                        </div>
+
+                        {/* Dados da Obra */}
+                        <div className="space-y-4 pt-4 border-t">
+                            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <Building2 className="w-4 h-4" /> Dados da Obra
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Descrição da Obra</Label>
+                                    <Input
+                                        placeholder="Ex: Condomínio Real Prime"
+                                        value={formData.workDescription}
+                                        onChange={(e) => setFormData({ ...formData, workDescription: e.target.value })}
+                                    />
                                 </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Exibição</Label>
-                                    <Select value={formData.logisticsCostMode} onValueChange={(v) => setFormData({ ...formData, logisticsCostMode: v })}>
-                                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                                <div className="space-y-2">
+                                    <Label>Endereço da Obra</Label>
+                                    <Input
+                                        placeholder="Ex: Rua Principal, 100 — Recife/PE"
+                                        value={formData.workAddress}
+                                        onChange={(e) => setFormData({ ...formData, workAddress: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Tipo de Atividade</Label>
+                                    <Select
+                                        value={formData.activityType}
+                                        onValueChange={(v) => setFormData({ ...formData, activityType: v })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecione o tipo" />
+                                        </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="visible">Visível ao cliente</SelectItem>
-                                            <SelectItem value="embedded">Embutir no preço</SelectItem>
-                                            <SelectItem value="evidenciado">Evidenciado (com descrição)</SelectItem>
+                                            <SelectItem value="extensao_rede">Extensão de Rede</SelectItem>
+                                            <SelectItem value="energia_solar">Energia Solar</SelectItem>
+                                            <SelectItem value="manutencao_eletrica">Manutenção Elétrica</SelectItem>
+                                            <SelectItem value="construcao_civil">Construção Civil</SelectItem>
+                                            <SelectItem value="telecomunicacoes">Telecomunicações</SelectItem>
+                                            <SelectItem value="outro">Outro</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
-                            </div>
-                            {formData.logisticsCostMode === 'embedded' && (
-                                <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50 rounded-md border border-amber-200">
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-amber-700">% em Material</Label>
-                                        <Input type="number" step="1" min="0" max="100" value={formData.logisticsCostEmbedMaterialPct}
-                                            onChange={(e) => {
-                                                const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-                                                setFormData({ ...formData, logisticsCostEmbedMaterialPct: String(v), logisticsCostEmbedServicePct: String(100 - v) });
-                                            }} className="h-8 text-sm" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-amber-700">% em Serviço</Label>
-                                        <Input type="number" step="1" min="0" max="100" value={formData.logisticsCostEmbedServicePct}
-                                            onChange={(e) => {
-                                                const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-                                                setFormData({ ...formData, logisticsCostEmbedServicePct: String(v), logisticsCostEmbedMaterialPct: String(100 - v) });
-                                            }} className="h-8 text-sm" />
-                                    </div>
-                                </div>
-                            )}
-                            {formData.logisticsCostMode === 'evidenciado' && (
-                                <div className="space-y-1">
-                                    <Label className="text-xs text-blue-600">Descrição técnico-comercial</Label>
-                                    <Textarea rows={3} value={formData.logisticsCostDescription}
-                                        onChange={(e) => setFormData({ ...formData, logisticsCostDescription: e.target.value })}
-                                        className="text-sm" placeholder="Descreva a justificativa operacional e comercial deste custo..." />
-                                </div>
-                            )}
-                        </div>
-
-                        {/* ── Administrativo ── */}
-                        <div className="border rounded-lg p-4 space-y-3">
-                            <p className="text-sm font-semibold text-slate-700">Custo Administrativo</p>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Valor (R$)</Label>
-                                    <Input type="number" step="0.01" placeholder="0,00" value={formData.adminCostValue}
-                                        onChange={(e) => setFormData({ ...formData, adminCostValue: e.target.value })} className="h-8 text-sm" />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Ou % sobre base</Label>
-                                    <Input type="number" step="0.01" placeholder="Ex: 5" value={formData.adminCostPercent}
-                                        onChange={(e) => setFormData({ ...formData, adminCostPercent: e.target.value })} className="h-8 text-sm" />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Exibição</Label>
-                                    <Select value={formData.adminCostMode} onValueChange={(v) => setFormData({ ...formData, adminCostMode: v })}>
-                                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="visible">Visível ao cliente</SelectItem>
-                                            <SelectItem value="embedded">Embutir no preço</SelectItem>
-                                            <SelectItem value="evidenciado">Evidenciado (com descrição)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                <div className="space-y-2">
+                                    <Label>Prazo (dias)</Label>
+                                    <Input
+                                        type="text" inputMode="decimal"
+                                        placeholder="Ex: 45"
+                                        value={formData.workDeadlineDays}
+                                        onChange={(e) => setFormData({ ...formData, workDeadlineDays: e.target.value })}
+                                    />
                                 </div>
                             </div>
-                            {formData.adminCostMode === 'embedded' && (
-                                <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50 rounded-md border border-amber-200">
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-amber-700">% em Material</Label>
-                                        <Input type="number" step="1" min="0" max="100" value={formData.adminCostEmbedMaterialPct}
-                                            onChange={(e) => {
-                                                const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-                                                setFormData({ ...formData, adminCostEmbedMaterialPct: String(v), adminCostEmbedServicePct: String(100 - v) });
-                                            }} className="h-8 text-sm" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-amber-700">% em Serviço</Label>
-                                        <Input type="number" step="1" min="0" max="100" value={formData.adminCostEmbedServicePct}
-                                            onChange={(e) => {
-                                                const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-                                                setFormData({ ...formData, adminCostEmbedServicePct: String(v), adminCostEmbedMaterialPct: String(100 - v) });
-                                            }} className="h-8 text-sm" />
-                                    </div>
-                                </div>
-                            )}
-                            {formData.adminCostMode === 'evidenciado' && (
-                                <div className="space-y-1">
-                                    <Label className="text-xs text-blue-600">Descrição técnico-comercial</Label>
-                                    <Textarea rows={3} value={formData.adminCostDescription}
-                                        onChange={(e) => setFormData({ ...formData, adminCostDescription: e.target.value })}
-                                        className="text-sm" placeholder="Descreva a justificativa operacional e comercial deste custo..." />
-                                </div>
-                            )}
                         </div>
 
-                        {/* ── Corretagem ── */}
-                        <div className="border rounded-lg p-4 space-y-3">
-                            <p className="text-sm font-semibold text-slate-700">Corretagem</p>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Valor (R$)</Label>
-                                    <Input type="number" step="0.01" placeholder="0,00" value={formData.brokerageCostValue}
-                                        onChange={(e) => setFormData({ ...formData, brokerageCostValue: e.target.value })} className="h-8 text-sm" />
+                        {/* Cláusulas do Contrato */}
+                        <div className="space-y-4 pt-4 border-t">
+                            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
+                                Cláusulas do Contrato
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Cláusula de Fornecimento de Materiais</Label>
+                                    <Textarea
+                                        rows={3}
+                                        placeholder="Texto sobre fornecimento de materiais..."
+                                        value={formData.materialFornecimento}
+                                        onChange={(e) => setFormData({ ...formData, materialFornecimento: e.target.value })}
+                                    />
                                 </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Ou % sobre base</Label>
-                                    <Input type="number" step="0.01" placeholder="Ex: 3" value={formData.brokerageCostPercent}
-                                        onChange={(e) => setFormData({ ...formData, brokerageCostPercent: e.target.value })} className="h-8 text-sm" />
+                                <div className="space-y-2">
+                                    <Label>Cláusula de Execução do Serviço</Label>
+                                    <Textarea
+                                        rows={3}
+                                        placeholder="Texto sobre execução do serviço..."
+                                        value={formData.serviceDescription}
+                                        onChange={(e) => setFormData({ ...formData, serviceDescription: e.target.value })}
+                                    />
                                 </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Exibição</Label>
-                                    <Select value={formData.brokerageCostMode} onValueChange={(v) => setFormData({ ...formData, brokerageCostMode: v })}>
-                                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="visible">Visível ao cliente</SelectItem>
-                                            <SelectItem value="embedded">Embutir no preço</SelectItem>
-                                            <SelectItem value="evidenciado">Evidenciado (com descrição)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                <div className="space-y-2">
+                                    <Label>Condição de Pagamento / Vencimento</Label>
+                                    <Textarea
+                                        rows={3}
+                                        placeholder="Ex: Após execução do serviço, mediante emissão de NF com prazo de 30 dias"
+                                        value={formData.paymentDueCondition}
+                                        onChange={(e) => setFormData({ ...formData, paymentDueCondition: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Dados Bancários</Label>
+                                    <Textarea
+                                        rows={3}
+                                        placeholder="Banco, Agência, Conta, PIX..."
+                                        value={formData.paymentBank}
+                                        onChange={(e) => setFormData({ ...formData, paymentBank: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <Label>Obrigações da CONTRATADA</Label>
+                                    <Textarea
+                                        rows={4}
+                                        placeholder="Cada obrigação em uma nova linha..."
+                                        value={formData.contractorObligations}
+                                        onChange={(e) => setFormData({ ...formData, contractorObligations: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <Label>Obrigações do CONTRATANTE</Label>
+                                    <Textarea
+                                        rows={4}
+                                        placeholder="Cada obrigação em uma nova linha..."
+                                        value={formData.clientObligations}
+                                        onChange={(e) => setFormData({ ...formData, clientObligations: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <Label>Disposições Gerais</Label>
+                                    <Textarea
+                                        rows={4}
+                                        placeholder="Deixe em branco para usar as cláusulas padrão..."
+                                        value={formData.generalProvisions}
+                                        onChange={(e) => setFormData({ ...formData, generalProvisions: e.target.value })}
+                                    />
                                 </div>
                             </div>
-                            {formData.brokerageCostMode === 'embedded' && (
-                                <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50 rounded-md border border-amber-200">
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-amber-700">% em Material</Label>
-                                        <Input type="number" step="1" min="0" max="100" value={formData.brokerageCostEmbedMaterialPct}
-                                            onChange={(e) => {
-                                                const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-                                                setFormData({ ...formData, brokerageCostEmbedMaterialPct: String(v), brokerageCostEmbedServicePct: String(100 - v) });
-                                            }} className="h-8 text-sm" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-amber-700">% em Serviço</Label>
-                                        <Input type="number" step="1" min="0" max="100" value={formData.brokerageCostEmbedServicePct}
-                                            onChange={(e) => {
-                                                const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-                                                setFormData({ ...formData, brokerageCostEmbedServicePct: String(v), brokerageCostEmbedMaterialPct: String(100 - v) });
-                                            }} className="h-8 text-sm" />
-                                    </div>
-                                </div>
-                            )}
-                            {formData.brokerageCostMode === 'evidenciado' && (
-                                <div className="space-y-1">
-                                    <Label className="text-xs text-blue-600">Descrição técnico-comercial</Label>
-                                    <Textarea rows={3} value={formData.brokerageCostDescription}
-                                        onChange={(e) => setFormData({ ...formData, brokerageCostDescription: e.target.value })}
-                                        className="text-sm" placeholder="Descreva a justificativa operacional e comercial deste custo..." />
-                                </div>
-                            )}
                         </div>
 
-                        {/* ── Seguro ── */}
-                        <div className="border rounded-lg p-4 space-y-3">
-                            <p className="text-sm font-semibold text-slate-700">Seguro</p>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Valor (R$)</Label>
-                                    <Input type="number" step="0.01" placeholder="0,00" value={formData.insuranceCostValue}
-                                        onChange={(e) => setFormData({ ...formData, insuranceCostValue: e.target.value })} className="h-8 text-sm" />
+                        {/* Composição de Custos */}
+                        <div className="space-y-4 pt-4 border-t">
+                            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <DollarSign className="w-4 h-4" /> Composição de Custos Adicionais
+                            </h3>
+                            <p className="text-xs text-slate-400">
+                                Configure os custos extras. Escolha se cada custo aparece visível na proposta, é embutido no preço ou é evidenciado com descrição técnica.
+                            </p>
+
+                            {/* ── Logístico ── */}
+                            <div className="border rounded-lg p-4 space-y-3">
+                                <p className="text-sm font-semibold text-slate-700">Custo Logístico</p>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Valor (R$)</Label>
+                                        <Input type="text" inputMode="decimal" step="0.01" placeholder="0,00" value={formData.logisticsCostValue}
+                                            onChange={(e) => setFormData({ ...formData, logisticsCostValue: e.target.value })} className="h-8 text-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Ou % sobre base</Label>
+                                        <Input type="text" inputMode="decimal" step="0.01" placeholder="Ex: 10" value={formData.logisticsCostPercent}
+                                            onChange={(e) => setFormData({ ...formData, logisticsCostPercent: e.target.value })} className="h-8 text-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Exibição</Label>
+                                        <Select value={formData.logisticsCostMode} onValueChange={(v) => setFormData({ ...formData, logisticsCostMode: v })}>
+                                            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="visible">Visível ao cliente</SelectItem>
+                                                <SelectItem value="embedded">Embutir no preço</SelectItem>
+                                                <SelectItem value="evidenciado">Evidenciado (com descrição)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Ou % sobre base</Label>
-                                    <Input type="number" step="0.01" placeholder="Ex: 2" value={formData.insuranceCostPercent}
-                                        onChange={(e) => setFormData({ ...formData, insuranceCostPercent: e.target.value })} className="h-8 text-sm" />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Exibição</Label>
-                                    <Select value={formData.insuranceCostMode} onValueChange={(v) => setFormData({ ...formData, insuranceCostMode: v })}>
-                                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="visible">Visível ao cliente</SelectItem>
-                                            <SelectItem value="embedded">Embutir no preço</SelectItem>
-                                            <SelectItem value="evidenciado">Evidenciado (com descrição)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                                {formData.logisticsCostMode === 'embedded' && (
+                                    <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50 rounded-md border border-amber-200">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-amber-700">% em Material</Label>
+                                            <Input type="text" inputMode="decimal" step="1" min="0" max="100" value={formData.logisticsCostEmbedMaterialPct}
+                                                onChange={(e) => {
+                                                    const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                                    setFormData({ ...formData, logisticsCostEmbedMaterialPct: String(v), logisticsCostEmbedServicePct: String(100 - v) });
+                                                }} className="h-8 text-sm" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-amber-700">% em Serviço</Label>
+                                            <Input type="text" inputMode="decimal" step="1" min="0" max="100" value={formData.logisticsCostEmbedServicePct}
+                                                onChange={(e) => {
+                                                    const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                                    setFormData({ ...formData, logisticsCostEmbedServicePct: String(v), logisticsCostEmbedMaterialPct: String(100 - v) });
+                                                }} className="h-8 text-sm" />
+                                        </div>
+                                    </div>
+                                )}
+                                {formData.logisticsCostMode === 'evidenciado' && (
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-blue-600">Descrição técnico-comercial</Label>
+                                        <Textarea rows={3} value={formData.logisticsCostDescription}
+                                            onChange={(e) => setFormData({ ...formData, logisticsCostDescription: e.target.value })}
+                                            className="text-sm" placeholder="Descreva a justificativa operacional e comercial deste custo..." />
+                                    </div>
+                                )}
                             </div>
-                            {formData.insuranceCostMode === 'embedded' && (
-                                <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50 rounded-md border border-amber-200">
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-amber-700">% em Material</Label>
-                                        <Input type="number" step="1" min="0" max="100" value={formData.insuranceCostEmbedMaterialPct}
-                                            onChange={(e) => {
-                                                const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-                                                setFormData({ ...formData, insuranceCostEmbedMaterialPct: String(v), insuranceCostEmbedServicePct: String(100 - v) });
-                                            }} className="h-8 text-sm" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-amber-700">% em Serviço</Label>
-                                        <Input type="number" step="1" min="0" max="100" value={formData.insuranceCostEmbedServicePct}
-                                            onChange={(e) => {
-                                                const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-                                                setFormData({ ...formData, insuranceCostEmbedServicePct: String(v), insuranceCostEmbedMaterialPct: String(100 - v) });
-                                            }} className="h-8 text-sm" />
-                                    </div>
-                                </div>
-                            )}
-                            {formData.insuranceCostMode === 'evidenciado' && (
-                                <div className="space-y-1">
-                                    <Label className="text-xs text-blue-600">Descrição técnico-comercial</Label>
-                                    <Textarea rows={3} value={formData.insuranceCostDescription}
-                                        onChange={(e) => setFormData({ ...formData, insuranceCostDescription: e.target.value })}
-                                        className="text-sm" placeholder="Descreva a justificativa operacional e comercial deste custo..." />
-                                </div>
-                            )}
-                        </div>
-                    </div>
 
-                    {/* Conformidade Normativa */}
-                    <div className="space-y-4 pt-4 border-t">
-                        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                            <Shield className="w-4 h-4" /> Conformidade Normativa
-                        </h3>
+                            {/* ── Administrativo ── */}
+                            <div className="border rounded-lg p-4 space-y-3">
+                                <p className="text-sm font-semibold text-slate-700">Custo Administrativo</p>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Valor (R$)</Label>
+                                        <Input type="text" inputMode="decimal" step="0.01" placeholder="0,00" value={formData.adminCostValue}
+                                            onChange={(e) => setFormData({ ...formData, adminCostValue: e.target.value })} className="h-8 text-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Ou % sobre base</Label>
+                                        <Input type="text" inputMode="decimal" step="0.01" placeholder="Ex: 5" value={formData.adminCostPercent}
+                                            onChange={(e) => setFormData({ ...formData, adminCostPercent: e.target.value })} className="h-8 text-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Exibição</Label>
+                                        <Select value={formData.adminCostMode} onValueChange={(v) => setFormData({ ...formData, adminCostMode: v })}>
+                                            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="visible">Visível ao cliente</SelectItem>
+                                                <SelectItem value="embedded">Embutir no preço</SelectItem>
+                                                <SelectItem value="evidenciado">Evidenciado (com descrição)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                {formData.adminCostMode === 'embedded' && (
+                                    <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50 rounded-md border border-amber-200">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-amber-700">% em Material</Label>
+                                            <Input type="text" inputMode="decimal" step="1" min="0" max="100" value={formData.adminCostEmbedMaterialPct}
+                                                onChange={(e) => {
+                                                    const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                                    setFormData({ ...formData, adminCostEmbedMaterialPct: String(v), adminCostEmbedServicePct: String(100 - v) });
+                                                }} className="h-8 text-sm" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-amber-700">% em Serviço</Label>
+                                            <Input type="text" inputMode="decimal" step="1" min="0" max="100" value={formData.adminCostEmbedServicePct}
+                                                onChange={(e) => {
+                                                    const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                                    setFormData({ ...formData, adminCostEmbedServicePct: String(v), adminCostEmbedMaterialPct: String(100 - v) });
+                                                }} className="h-8 text-sm" />
+                                        </div>
+                                    </div>
+                                )}
+                                {formData.adminCostMode === 'evidenciado' && (
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-blue-600">Descrição técnico-comercial</Label>
+                                        <Textarea rows={3} value={formData.adminCostDescription}
+                                            onChange={(e) => setFormData({ ...formData, adminCostDescription: e.target.value })}
+                                            className="text-sm" placeholder="Descreva a justificativa operacional e comercial deste custo..." />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* ── Corretagem ── */}
+                            <div className="border rounded-lg p-4 space-y-3">
+                                <p className="text-sm font-semibold text-slate-700">Corretagem</p>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Valor (R$)</Label>
+                                        <Input type="text" inputMode="decimal" step="0.01" placeholder="0,00" value={formData.brokerageCostValue}
+                                            onChange={(e) => setFormData({ ...formData, brokerageCostValue: e.target.value })} className="h-8 text-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Ou % sobre base</Label>
+                                        <Input type="text" inputMode="decimal" step="0.01" placeholder="Ex: 3" value={formData.brokerageCostPercent}
+                                            onChange={(e) => setFormData({ ...formData, brokerageCostPercent: e.target.value })} className="h-8 text-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Exibição</Label>
+                                        <Select value={formData.brokerageCostMode} onValueChange={(v) => setFormData({ ...formData, brokerageCostMode: v })}>
+                                            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="visible">Visível ao cliente</SelectItem>
+                                                <SelectItem value="embedded">Embutir no preço</SelectItem>
+                                                <SelectItem value="evidenciado">Evidenciado (com descrição)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                {formData.brokerageCostMode === 'embedded' && (
+                                    <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50 rounded-md border border-amber-200">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-amber-700">% em Material</Label>
+                                            <Input type="text" inputMode="decimal" step="1" min="0" max="100" value={formData.brokerageCostEmbedMaterialPct}
+                                                onChange={(e) => {
+                                                    const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                                    setFormData({ ...formData, brokerageCostEmbedMaterialPct: String(v), brokerageCostEmbedServicePct: String(100 - v) });
+                                                }} className="h-8 text-sm" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-amber-700">% em Serviço</Label>
+                                            <Input type="text" inputMode="decimal" step="1" min="0" max="100" value={formData.brokerageCostEmbedServicePct}
+                                                onChange={(e) => {
+                                                    const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                                    setFormData({ ...formData, brokerageCostEmbedServicePct: String(v), brokerageCostEmbedMaterialPct: String(100 - v) });
+                                                }} className="h-8 text-sm" />
+                                        </div>
+                                    </div>
+                                )}
+                                {formData.brokerageCostMode === 'evidenciado' && (
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-blue-600">Descrição técnico-comercial</Label>
+                                        <Textarea rows={3} value={formData.brokerageCostDescription}
+                                            onChange={(e) => setFormData({ ...formData, brokerageCostDescription: e.target.value })}
+                                            className="text-sm" placeholder="Descreva a justificativa operacional e comercial deste custo..." />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* ── Seguro ── */}
+                            <div className="border rounded-lg p-4 space-y-3">
+                                <p className="text-sm font-semibold text-slate-700">Seguro</p>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Valor (R$)</Label>
+                                        <Input type="text" inputMode="decimal" step="0.01" placeholder="0,00" value={formData.insuranceCostValue}
+                                            onChange={(e) => setFormData({ ...formData, insuranceCostValue: e.target.value })} className="h-8 text-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Ou % sobre base</Label>
+                                        <Input type="text" inputMode="decimal" step="0.01" placeholder="Ex: 2" value={formData.insuranceCostPercent}
+                                            onChange={(e) => setFormData({ ...formData, insuranceCostPercent: e.target.value })} className="h-8 text-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Exibição</Label>
+                                        <Select value={formData.insuranceCostMode} onValueChange={(v) => setFormData({ ...formData, insuranceCostMode: v })}>
+                                            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="visible">Visível ao cliente</SelectItem>
+                                                <SelectItem value="embedded">Embutir no preço</SelectItem>
+                                                <SelectItem value="evidenciado">Evidenciado (com descrição)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                {formData.insuranceCostMode === 'embedded' && (
+                                    <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50 rounded-md border border-amber-200">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-amber-700">% em Material</Label>
+                                            <Input type="text" inputMode="decimal" step="1" min="0" max="100" value={formData.insuranceCostEmbedMaterialPct}
+                                                onChange={(e) => {
+                                                    const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                                    setFormData({ ...formData, insuranceCostEmbedMaterialPct: String(v), insuranceCostEmbedServicePct: String(100 - v) });
+                                                }} className="h-8 text-sm" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-amber-700">% em Serviço</Label>
+                                            <Input type="text" inputMode="decimal" step="1" min="0" max="100" value={formData.insuranceCostEmbedServicePct}
+                                                onChange={(e) => {
+                                                    const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                                    setFormData({ ...formData, insuranceCostEmbedServicePct: String(v), insuranceCostEmbedMaterialPct: String(100 - v) });
+                                                }} className="h-8 text-sm" />
+                                        </div>
+                                    </div>
+                                )}
+                                {formData.insuranceCostMode === 'evidenciado' && (
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-blue-600">Descrição técnico-comercial</Label>
+                                        <Textarea rows={3} value={formData.insuranceCostDescription}
+                                            onChange={(e) => setFormData({ ...formData, insuranceCostDescription: e.target.value })}
+                                            className="text-sm" placeholder="Descreva a justificativa operacional e comercial deste custo..." />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Conformidade Normativa */}
+                        <div className="space-y-4 pt-4 border-t">
+                            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <Shield className="w-4 h-4" /> Conformidade Normativa
+                            </h3>
+                            <div className="space-y-2">
+                                <Label>Texto de Conformidade (NRs)</Label>
+                                <Textarea
+                                    rows={3}
+                                    placeholder="Deixe em branco para texto padrão: 'Todos os colaboradores da CONTRATADA atendem aos requisitos das NRs aplicáveis...'"
+                                    value={formData.complianceText}
+                                    onChange={(e) => setFormData({ ...formData, complianceText: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Observações */}
                         <div className="space-y-2">
-                            <Label>Texto de Conformidade (NRs)</Label>
+                            <Label htmlFor="prop-notes">Observações</Label>
                             <Textarea
+                                id="prop-notes"
+                                placeholder="Condições, prazos de execução, garantias..."
                                 rows={3}
-                                placeholder="Deixe em branco para texto padrão: 'Todos os colaboradores da CONTRATADA atendem aos requisitos das NRs aplicáveis...'"
-                                value={formData.complianceText}
-                                onChange={(e) => setFormData({ ...formData, complianceText: e.target.value })}
+                                value={formData.notes}
+                                onChange={(e) =>
+                                    setFormData({ ...formData, notes: e.target.value })
+                                }
                             />
                         </div>
-                    </div>
 
-                    {/* Observações */}
-                    <div className="space-y-2">
-                        <Label htmlFor="prop-notes">Observações</Label>
-                        <Textarea
-                            id="prop-notes"
-                            placeholder="Condições, prazos de execução, garantias..."
-                            rows={3}
-                            value={formData.notes}
-                            onChange={(e) =>
-                                setFormData({ ...formData, notes: e.target.value })
-                            }
-                        />
-                    </div>
+                        {/* Anexos */}
+                        <div className="space-y-4 pt-4 border-t">
+                            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <Upload className="w-4 h-4" /> Anexos
+                            </h3>
+                            <div className="relative group h-20 border-2 border-dashed border-slate-200 rounded-xl bg-white hover:border-amber-400 hover:bg-amber-50/50 transition-all flex flex-col items-center justify-center cursor-pointer">
+                                <input
+                                    type="file"
+                                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                    multiple
+                                    onChange={(e) => {
+                                        if (e.target.files) {
+                                            setAttachedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                                        }
+                                        e.target.value = '';
+                                    }}
+                                />
+                                <Upload className="w-5 h-5 text-slate-400 group-hover:text-amber-500 transition-colors" />
+                                <span className="text-xs text-slate-500 mt-1">Clique para anexar arquivos</span>
+                                <span className="text-[10px] text-slate-400">Salvos automaticamente no módulo Documentos</span>
+                            </div>
 
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => handleOpenChange(false)}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            type="submit"
-                            className="bg-amber-500 hover:bg-amber-600 text-slate-900"
-                            disabled={loading}
-                        >
-                            {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                            {loading
-                                ? (initialData ? 'Salvando...' : 'Criando...')
-                                : (initialData ? 'Salvar Alterações' : 'Criar Proposta')
-                            }
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
+                            {attachedFiles.length > 0 && (
+                                <div className="space-y-1.5">
+                                    {attachedFiles.map((file, idx) => (
+                                        <div key={idx} className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg">
+                                            <div className="w-7 h-7 rounded bg-amber-100 flex items-center justify-center shrink-0">
+                                                <FileText className="w-3.5 h-3.5 text-amber-600" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-medium text-slate-700 truncate">{file.name}</p>
+                                                <p className="text-[10px] text-slate-400">{(file.size / 1024).toFixed(1)} KB</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="h-6 w-6 flex items-center justify-center text-slate-400 hover:text-red-500 shrink-0"
+                                                onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== idx))}
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => handleOpenChange(false)}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="submit"
+                                className="bg-amber-500 hover:bg-amber-600 text-slate-900"
+                                disabled={loading}
+                            >
+                                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                {loading
+                                    ? (initialData ? 'Salvando...' : 'Criando...')
+                                    : (initialData ? 'Salvar Alterações' : 'Criar Proposta')
+                                }
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Client Dialog for advanced creation */}
+            <ClientDialog
+                open={showClientDialog}
+                onOpenChange={setShowClientDialog}
+                onSuccess={handleClientCreated}
+            />
+        </>
     );
 }

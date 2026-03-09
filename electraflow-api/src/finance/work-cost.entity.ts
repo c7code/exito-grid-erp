@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Work } from '../works/work.entity';
 import { Supplier } from '../supply/supply.entity';
 import { Employee } from '../employees/employee.entity';
@@ -96,4 +96,7 @@ export class WorkCost {
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 }

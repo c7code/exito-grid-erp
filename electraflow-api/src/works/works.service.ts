@@ -126,7 +126,7 @@ export class WorksService {
   async remove(id: string): Promise<void> {
     const work = await this.findOne(id);
     try {
-      await this.workRepository.remove(work);
+      await this.workRepository.softRemove(work);
     } catch (error: any) {
       // Foreign key constraint violation
       if (error?.code === '23503' || error?.message?.includes('foreign key')) {

@@ -333,7 +333,7 @@ export default function TaskActionDialog({
                                 <Label htmlFor="edit-estimatedHours">Horas Estimadas</Label>
                                 <Input
                                     id="edit-estimatedHours"
-                                    type="number"
+                                    type="text" inputMode="decimal"
                                     min="0"
                                     step="0.5"
                                     value={formData.estimatedHours}
@@ -427,7 +427,7 @@ export default function TaskActionDialog({
                                     </Label>
                                     <Input
                                         id="edit-weightPercentage"
-                                        type="number"
+                                        type="text" inputMode="decimal"
                                         min="0"
                                         max="100"
                                         step="1"

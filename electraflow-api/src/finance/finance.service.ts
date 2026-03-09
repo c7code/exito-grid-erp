@@ -164,7 +164,7 @@ export class FinanceService {
   }
 
   async remove(id: string): Promise<void> {
-    await this.paymentRepository.delete(id);
+    await this.paymentRepository.softDelete(id);
   }
 
   async attachInvoice(id: string, filename: string, originalName: string): Promise<Payment> {
@@ -207,7 +207,7 @@ export class FinanceService {
   }
 
   async removeWorkCost(id: string): Promise<void> {
-    await this.workCostRepository.delete(id);
+    await this.workCostRepository.softDelete(id);
   }
 
   // ═══ PAYMENT SCHEDULES ═══════════════════════════════════════════════════
@@ -243,7 +243,7 @@ export class FinanceService {
   }
 
   async removePaymentSchedule(id: string): Promise<void> {
-    await this.paymentScheduleRepository.delete(id);
+    await this.paymentScheduleRepository.softDelete(id);
   }
 }
 

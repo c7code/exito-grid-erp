@@ -16,7 +16,7 @@ export class OpportunitiesService {
     private financeService: FinanceService,
   ) { }
 
-  async findAll(stage?: OpportunityStage): Promise<Opportunity[]> {
+  async findAll(stage?: string): Promise<Opportunity[]> {
     const where: any = {};
     if (stage) where.stage = stage;
     return this.opportunityRepository.find({
@@ -50,7 +50,7 @@ export class OpportunitiesService {
     return this.findOne(id);
   }
 
-  async moveStage(id: string, stage: OpportunityStage): Promise<{
+  async moveStage(id: string, stage: string): Promise<{
     opportunity: Opportunity;
     createdProposal?: any;
     createdWork?: any;
@@ -65,7 +65,7 @@ export class OpportunitiesService {
     let createdPayment: any = null;
 
     // PROPOSAL stage → auto-create proposal
-    if (stage === OpportunityStage.PROPOSAL && previousStage !== OpportunityStage.PROPOSAL) {
+    if (stage === 'proposal' && previousStage !== 'proposal') {
       try {
         const proposalData: any = {
           title: `Proposta - ${opp.title}`,
@@ -86,7 +86,7 @@ export class OpportunitiesService {
     }
 
     // CLOSED_WON → auto-create work + payment
-    if (stage === OpportunityStage.CLOSED_WON && previousStage !== OpportunityStage.CLOSED_WON) {
+    if (stage === 'closed_won' && previousStage !== 'closed_won') {
       opp.actualCloseDate = new Date();
 
       try {
@@ -130,6 +130,6 @@ export class OpportunitiesService {
 
   async remove(id: string): Promise<void> {
     const opp = await this.findOne(id);
-    await this.opportunityRepository.remove(opp);
+    await this.opportunityRepository.softRemove(opp);
   }
 }

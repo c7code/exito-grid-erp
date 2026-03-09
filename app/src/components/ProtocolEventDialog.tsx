@@ -175,7 +175,7 @@ export function ProtocolEventDialog({
                             </Label>
                             <div className="flex items-center gap-3">
                                 <Input
-                                    type="number"
+                                    type="text" inputMode="decimal"
                                     min="0"
                                     max="100"
                                     value={formData.progress}

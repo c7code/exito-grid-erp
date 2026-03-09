@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 
 export enum CatalogType {
     MATERIAL = 'material',
@@ -188,4 +188,7 @@ export class CatalogItem {
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 }

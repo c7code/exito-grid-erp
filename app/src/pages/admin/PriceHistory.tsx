@@ -269,7 +269,7 @@ export default function PriceHistoryPage() {
                         </div>
                         <div>
                             <label className="text-sm font-medium">Preço Unitário *</label>
-                            <Input type="number" step="0.01" value={addForm.unitPrice || ''} onChange={e => setAddForm(p => ({ ...p, unitPrice: Number(e.target.value) }))} />
+                            <Input type="text" inputMode="decimal" step="0.01" value={addForm.unitPrice || ''} onChange={e => setAddForm(p => ({ ...p, unitPrice: Number(e.target.value) }))} />
                         </div>
                         <div>
                             <label className="text-sm font-medium">Data</label>
@@ -297,7 +297,7 @@ export default function PriceHistoryPage() {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="text-sm font-medium">Margem de Interesse (%)</label>
-                                <Input type="number" step="0.1" value={markupForm.markupPercent} onChange={e => setMarkupForm(p => ({ ...p, markupPercent: Number(e.target.value) }))} />
+                                <Input type="text" inputMode="decimal" step="0.1" value={markupForm.markupPercent} onChange={e => setMarkupForm(p => ({ ...p, markupPercent: Number(e.target.value) }))} />
                             </div>
                             <div>
                                 <label className="text-sm font-medium">Base de Custo</label>

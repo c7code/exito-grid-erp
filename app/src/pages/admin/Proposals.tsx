@@ -39,6 +39,7 @@ import { toast } from 'sonner';
 import { api } from '@/api';
 import NewProposalDialog from '@/components/NewProposalDialog';
 import { ProposalPDFTemplate } from '@/components/ProposalPDFTemplate';
+import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate';
 import html2pdf from 'html2pdf.js';
 import { Download, MessageCircle, Mail, ExternalLink } from 'lucide-react';
 
@@ -60,6 +61,8 @@ export default function AdminProposals() {
   const [isClientViewerOpen, setIsClientViewerOpen] = useState(false);
   const [viewingClient, setViewingClient] = useState<Client | null>(null);
   const [proposalToPrint, setProposalToPrint] = useState<any>(null);
+  const [solarProjectData, setSolarProjectData] = useState<any>(null);
+  const [companyData, setCompanyData] = useState<any>(null);
 
   useEffect(() => {
     loadProposals();
@@ -140,14 +143,45 @@ export default function AdminProposals() {
     return '—';
   };
   const handleDownloadPDF = async (proposal: any) => {
-    setProposalToPrint(proposal);
     toast.info('Gerando PDF profissional...');
 
-    // Pequeno delay para garantir que o template seja renderizado
+    // If solar proposal, load solar project data first
+    let solarData = null;
+    let coData = null;
+    if (proposal.activityType === 'energia_solar') {
+      try {
+        solarData = await api.getSolarProjectByProposal(proposal.id);
+        setSolarProjectData(solarData);
+      } catch (err) {
+        console.warn('Could not load solar project data:', err);
+      }
+      // Try to load company data
+      if (solarData?.companyId) {
+        try {
+          coData = await api.getCompany(solarData.companyId);
+          setCompanyData(coData);
+        } catch (err) {
+          console.warn('Could not load company data:', err);
+        }
+      }
+      if (!coData) {
+        try {
+          coData = await api.getPrimaryCompany();
+          setCompanyData(coData);
+        } catch (err) {
+          console.warn('Could not load primary company:', err);
+        }
+      }
+    }
+
+    setProposalToPrint(proposal);
+
+    // Delay to ensure the template renders
     setTimeout(() => {
       const element = document.getElementById('proposal-pdf-content');
       if (!element) {
         toast.error('Erro ao gerar PDF: Elemento não encontrado.');
+        setProposalToPrint(null);
         return;
       }
 
@@ -155,18 +189,21 @@ export default function AdminProposals() {
         margin: 0,
         filename: `proposta_${proposal.proposalNumber}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
+        jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
+        pagebreak: { avoid: 'img' }
       };
 
       html2pdf().from(element).set(opt).save().then(() => {
         setProposalToPrint(null);
+        setSolarProjectData(null);
+        setCompanyData(null);
         toast.success('PDF gerado com sucesso!');
       }).catch((err: any) => {
         console.error('PDF Error:', err);
         toast.error('Erro ao gerar PDF.');
       });
-    }, 500);
+    }, 800);
   };
 
   const handleShareWhatsApp = (proposal: any) => {
@@ -405,7 +442,9 @@ export default function AdminProposals() {
       {/* Hidden container for PDF generation */}
       <div className="fixed -left-[9999px] top-0">
         {proposalToPrint && (
-          <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} />
+          proposalToPrint.activityType === 'energia_solar' && solarProjectData
+            ? <SolarProposalPDFTemplate proposal={proposalToPrint} solarProject={solarProjectData} company={companyData} />
+            : <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} />
         )}
       </div>
     </div>

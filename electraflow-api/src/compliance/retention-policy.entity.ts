@@ -1,5 +1,5 @@
 import {
-    Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn,
+    Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn,
 } from 'typeorm';
 
 // ═══════════════════════════════════════════════════════════════
@@ -45,4 +45,7 @@ export class RetentionPolicy {
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 }

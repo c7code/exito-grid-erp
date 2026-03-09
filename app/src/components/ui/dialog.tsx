@@ -1,6 +1,6 @@
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
-import { XIcon } from "lucide-react"
+import { XIcon, Maximize2, Minimize2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -52,27 +52,46 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const [maximized, setMaximized] = React.useState(false)
+
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed z-50 grid border shadow-lg duration-200 outline-none",
+          maximized
+            ? "inset-2 translate-x-0 translate-y-0 rounded-lg max-w-none max-h-none overflow-y-auto p-6 gap-4"
+            : "top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-full max-w-[calc(100%-2rem)] rounded-lg p-6 gap-4 sm:max-w-lg max-h-[90vh] overflow-y-auto",
           className
         )}
+        style={maximized ? { top: '8px', left: '8px', right: '8px', bottom: '8px' } : undefined}
         {...props}
       >
         {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+        <div className="absolute top-4 right-4 flex items-center gap-1">
+          {/* Maximize / Restore button */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setMaximized(m => !m); }}
+            className="ring-offset-background focus:ring-ring rounded-md opacity-60 transition-all hover:opacity-100 hover:bg-slate-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden p-1.5"
+            title={maximized ? "Restaurar" : "Maximizar"}
           >
-            <XIcon />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        )}
+            {maximized ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            <span className="sr-only">{maximized ? "Restaurar" : "Maximizar"}</span>
+          </button>
+          {/* Close button */}
+          {showCloseButton && (
+            <DialogPrimitive.Close
+              data-slot="dialog-close"
+              className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            >
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
+          )}
+        </div>
       </DialogPrimitive.Content>
     </DialogPortal>
   )

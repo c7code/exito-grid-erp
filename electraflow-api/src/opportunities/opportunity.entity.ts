@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToOne, OneToMany } from 'typeorm';
 import { Lead } from '../leads/lead.entity';
 import { Client } from '../clients/client.entity';
 import { Work } from '../works/work.entity';
@@ -24,8 +24,8 @@ export class Opportunity {
   @Column()
   title: string;
 
-  @Column({ type: 'enum', enum: OpportunityStage, default: OpportunityStage.LEAD_NEW })
-  stage: OpportunityStage;
+  @Column({ type: 'varchar', length: 100, default: 'lead_new' })
+  stage: string;
 
   @Column({ nullable: true })
   leadId: string;
@@ -79,6 +79,9 @@ export class Opportunity {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 
   @OneToMany(() => Proposal, proposal => proposal.opportunity)
   proposals: Proposal[];

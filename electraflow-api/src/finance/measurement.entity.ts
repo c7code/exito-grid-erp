@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Work } from '../works/work.entity';
 import { MeasurementItem } from './measurement-item.entity';
 
@@ -57,4 +57,7 @@ export class Measurement {
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 }

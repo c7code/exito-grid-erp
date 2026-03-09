@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { Lead, LeadStatus } from '../leads/lead.entity';
-import { Opportunity, OpportunityStage } from '../opportunities/opportunity.entity';
+import { Opportunity } from '../opportunities/opportunity.entity';
 import { Work, WorkStatus } from '../works/work.entity';
 import { Task, TaskStatus } from '../tasks/task.entity';
 import { Protocol, ProtocolStatus } from '../protocols/protocol.entity';
@@ -23,7 +23,7 @@ export class DashboardService {
     private protocolRepository: Repository<Protocol>,
     @InjectRepository(Payment)
     private paymentRepository: Repository<Payment>,
-  ) {}
+  ) { }
 
   async getKPIs() {
     const now = new Date();
@@ -48,7 +48,7 @@ export class DashboardService {
 
     // Ticket médio
     const opportunities = await this.opportunityRepository.find({
-      where: { stage: OpportunityStage.CLOSED_WON },
+      where: { stage: 'closed_won' },
     });
     const totalValue = opportunities.reduce((sum, opp) => sum + Number(opp.actualValue || 0), 0);
     const avgTicket = opportunities.length > 0 ? totalValue / opportunities.length : 0;
@@ -84,9 +84,15 @@ export class DashboardService {
   }
 
   async getPipelineSummary() {
-    const stages = Object.values(OpportunityStage);
+    // Query distinct stages from database to support custom stages
+    const stageRows = await this.opportunityRepository
+      .createQueryBuilder('opp')
+      .select('DISTINCT opp.stage', 'stage')
+      .where('opp.deletedAt IS NULL')
+      .getRawMany();
+    const stages = stageRows.map((r: any) => r.stage).filter(Boolean);
     const summary = {};
-    
+
     for (const stage of stages) {
       const count = await this.opportunityRepository.count({ where: { stage } });
       const totalValue = await this.opportunityRepository
@@ -94,13 +100,13 @@ export class DashboardService {
         .where('opp.stage = :stage', { stage })
         .select('SUM(opp.estimatedValue)', 'total')
         .getRawOne();
-      
+
       summary[stage] = {
         count,
         totalValue: totalValue?.total || 0,
       };
     }
-    
+
     return summary;
   }
 

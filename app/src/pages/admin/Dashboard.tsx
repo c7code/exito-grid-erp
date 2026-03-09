@@ -8,6 +8,7 @@ import {
   AlertCircle, CheckCircle2, ArrowRight, Plus, Users, Shield,
   AlertTriangle, Target, Award, Percent, Activity, BarChart3,
   FileText, MapPin, Briefcase, Zap, Eye, Calendar, Filter, X,
+  Wrench, Warehouse, PackageX,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -94,6 +95,10 @@ export default function AdminDashboard() {
   const [protocols, setProtocols] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
+  const [serviceOrders, setServiceOrders] = useState<any[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [quotations, setQuotations] = useState<any[]>([]);
+  const [dailyLogs, setDailyLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // ── FILTERS ─────────────────────────────────────────────────────────
@@ -112,9 +117,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const [w, t, e, p, pr, py, c] = await Promise.allSettled([
+        const [w, t, e, p, pr, py, c, so, inv, qt, dl] = await Promise.allSettled([
           api.getWorks(), api.getTasks(), api.getEmployees(),
           api.getProposals(), api.getProtocols(), api.getPayments(), api.getClients(),
+          api.getServiceOrders({}), api.getInventoryItems(), api.getQuotations(), api.getDailyLogs(),
         ]);
         setWorks(w.status === 'fulfilled' ? (Array.isArray(w.value) ? w.value : w.value?.data ?? []) : []);
         setTasks(t.status === 'fulfilled' ? (Array.isArray(t.value) ? t.value : t.value?.data ?? []) : []);
@@ -123,6 +129,10 @@ export default function AdminDashboard() {
         setProtocols(pr.status === 'fulfilled' ? (Array.isArray(pr.value) ? pr.value : pr.value?.data ?? []) : []);
         setPayments(py.status === 'fulfilled' ? (Array.isArray(py.value) ? py.value : py.value?.data ?? []) : []);
         setClients(c.status === 'fulfilled' ? (Array.isArray(c.value) ? c.value : c.value?.data ?? []) : []);
+        setServiceOrders(so.status === 'fulfilled' ? (Array.isArray(so.value) ? so.value : []) : []);
+        setInventoryItems(inv.status === 'fulfilled' ? (Array.isArray(inv.value) ? inv.value : []) : []);
+        setQuotations(qt.status === 'fulfilled' ? (Array.isArray(qt.value) ? qt.value : []) : []);
+        setDailyLogs(dl.status === 'fulfilled' ? (Array.isArray(dl.value) ? dl.value : []) : []);
       } catch { toast.error('Erro ao carregar dashboard'); }
       finally { setLoading(false); }
     })();
@@ -510,6 +520,34 @@ export default function AdminDashboard() {
         <KPI icon={Activity} label="Tarefas Atrasadas" value={kpis.overdueTasks} accent={kpis.overdueTasks > 0 ? 'bg-red-50' : 'bg-emerald-50'} iconColor={kpis.overdueTasks > 0 ? 'text-red-600' : 'text-emerald-600'} color={kpis.overdueTasks > 0 ? 'text-red-600' : 'text-emerald-600'} />
       </div>
 
+      {/* ═══ ROW 5: NEW MODULES KPIs ═════════════════════════════════ */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KPI icon={Wrench} label="OS Abertas"
+          value={serviceOrders.filter((o: any) => o.status === 'open' || o.status === 'in_progress').length}
+          sub={`${serviceOrders.filter((o: any) => o.status === 'completed').length} concluídas`}
+          accent="bg-orange-50" iconColor="text-orange-600" />
+        <KPI icon={AlertTriangle} label="OS Atrasadas"
+          value={serviceOrders.filter((o: any) => (o.status === 'open' || o.status === 'in_progress') && o.scheduledDate && new Date(o.scheduledDate) < new Date()).length}
+          accent={serviceOrders.filter((o: any) => (o.status === 'open' || o.status === 'in_progress') && o.scheduledDate && new Date(o.scheduledDate) < new Date()).length > 0 ? 'bg-red-50' : 'bg-emerald-50'}
+          iconColor={serviceOrders.filter((o: any) => (o.status === 'open' || o.status === 'in_progress') && o.scheduledDate && new Date(o.scheduledDate) < new Date()).length > 0 ? 'text-red-600' : 'text-emerald-600'}
+          color={serviceOrders.filter((o: any) => (o.status === 'open' || o.status === 'in_progress') && o.scheduledDate && new Date(o.scheduledDate) < new Date()).length > 0 ? 'text-red-600' : 'text-emerald-600'} />
+        <KPI icon={PackageX} label="Estoque Crítico"
+          value={inventoryItems.filter((i: any) => Number(i.currentStock || 0) <= Number(i.minimumStock || 0) && Number(i.minimumStock || 0) > 0).length}
+          sub={`${inventoryItems.length} itens total`}
+          accent={inventoryItems.filter((i: any) => Number(i.currentStock || 0) <= Number(i.minimumStock || 0) && Number(i.minimumStock || 0) > 0).length > 0 ? 'bg-red-50' : 'bg-emerald-50'}
+          iconColor={inventoryItems.filter((i: any) => Number(i.currentStock || 0) <= Number(i.minimumStock || 0) && Number(i.minimumStock || 0) > 0).length > 0 ? 'text-red-600' : 'text-emerald-600'}
+          color={inventoryItems.filter((i: any) => Number(i.currentStock || 0) <= Number(i.minimumStock || 0) && Number(i.minimumStock || 0) > 0).length > 0 ? 'text-red-600' : 'text-emerald-600'} />
+        <KPI icon={Warehouse} label="Itens em Estoque" value={inventoryItems.length} accent="bg-teal-50" iconColor="text-teal-600" />
+        <KPI icon={DollarSign} label="Cotações Pendentes"
+          value={quotations.filter((q: any) => q.status === 'draft' || q.status === 'sent').length}
+          sub={`${quotations.filter((q: any) => q.status === 'closed').length} fechadas`}
+          accent="bg-amber-50" iconColor="text-amber-600" />
+        <KPI icon={ClipboardList} label="Diários Hoje"
+          value={dailyLogs.filter((d: any) => { const t = new Date(); const dd = new Date(d.date); return dd.toDateString() === t.toDateString(); }).length}
+          sub={`${dailyLogs.length} total registrados`}
+          accent="bg-indigo-50" iconColor="text-indigo-600" />
+      </div>
+
       {/* ═══ CHARTS ROW 1 ═══════════════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue vs Cost */}
@@ -570,7 +608,7 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={kpis.marginPerWork} layout="vertical" margin={{ left: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} fontSize={11} />
+                  <XAxis type="text" inputMode="decimal" domain={[0, 100]} tickFormatter={v => `${v}%`} fontSize={11} />
                   <YAxis type="category" dataKey="name" width={120} fontSize={10} tick={{ fill: '#475569' }} />
                   <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }} />
                   <Bar dataKey="margin" name="Margem">

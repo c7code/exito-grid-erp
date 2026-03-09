@@ -56,13 +56,13 @@ export interface Client {
   createdAt: string;
 }
 
-export type OpportunityStage = 'lead_new' | 'qualification' | 'visit' | 'proposal' | 'negotiation' | 'closed_won' | 'closed_lost' | 'execution' | 'completed';
+export type OpportunityStage = 'lead_new' | 'qualification' | 'visit' | 'proposal' | 'negotiation' | 'closed_won' | 'closed_lost' | 'execution' | 'completed' | (string & {});
 export type OpportunitySource = 'website' | 'whatsapp' | 'referral' | 'social_media' | 'other';
 
 export interface Opportunity {
   id: string;
   title: string;
-  stage: OpportunityStage;
+  stage: string;
   serviceType?: string;
   estimatedValue?: number;
   actualValue?: number;

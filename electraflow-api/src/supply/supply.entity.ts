@@ -3,12 +3,13 @@ import {
     PrimaryGeneratedColumn,
     Column,
     CreateDateColumn,
-    UpdateDateColumn,
+    UpdateDateColumn, DeleteDateColumn,
     ManyToOne,
     OneToMany,
     JoinColumn,
 } from 'typeorm';
 import { CatalogItem } from '../catalog/catalog.entity';
+import { Work } from '../works/work.entity';
 
 // ============================================================
 // SUPPLIER — Cadastro de Fornecedor
@@ -162,6 +163,13 @@ export class QuotationRequest {
     @Column({ nullable: true })
     requestedById: string;
 
+    @Column({ nullable: true })
+    workId: string;
+
+    @ManyToOne(() => Work, { nullable: true })
+    @JoinColumn({ name: 'workId' })
+    work: Work;
+
     @OneToMany(() => QuotationItem, (i) => i.quotationRequest, { cascade: true })
     items: QuotationItem[];
 
@@ -173,6 +181,9 @@ export class QuotationRequest {
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+    @DeleteDateColumn()
+    deletedAt: Date;
 }
 
 // ============================================================
@@ -199,6 +210,12 @@ export class QuotationItem {
 
     @Column({ default: 'un' })
     unit: string;
+
+    @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+    estimatedUnitPrice: number;
+
+    @Column({ type: 'simple-json', nullable: true })
+    targetSupplierIds: string[];
 
     @Column()
     quotationRequestId: string;

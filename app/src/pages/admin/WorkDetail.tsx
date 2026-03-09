@@ -23,6 +23,7 @@ import {
   MapPin, ExternalLink, Plus, CircleDot, Loader2, Trash2, Building2, ListTodo,
   TrendingUp, Calendar, FileText, Shield, DollarSign, Users, Package,
   Download, ClipboardList, AlertTriangle, Wallet, Receipt, CalendarClock,
+  Wrench, Warehouse,
 } from 'lucide-react';
 import { ClientDetailViewer } from '@/components/ClientDetailViewer';
 import { MeasurementDialog } from '@/components/MeasurementDialog';
@@ -114,6 +115,10 @@ export default function AdminWorkDetail() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [workCosts, setWorkCosts] = useState<any[]>([]);
   const [paymentSchedules, setPaymentSchedules] = useState<any[]>([]);
+  const [dailyLogs, setDailyLogs] = useState<any[]>([]);
+  const [serviceOrders, setServiceOrders] = useState<any[]>([]);
+  const [inventoryMovements, setInventoryMovements] = useState<any[]>([]);
+  const [workQuotations, setWorkQuotations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -210,17 +215,45 @@ export default function AdminWorkDetail() {
     catch { setPaymentSchedules([]); }
   };
 
+  const fetchDailyLogs = async () => {
+    if (!id) return;
+    try { const d = await api.getDailyLogs(id); setDailyLogs(Array.isArray(d) ? d : []); }
+    catch { setDailyLogs([]); }
+  };
+
+  const fetchServiceOrders = async () => {
+    if (!id) return;
+    try { const d = await api.getServiceOrders({ workId: id }); setServiceOrders(Array.isArray(d) ? d : []); }
+    catch { setServiceOrders([]); }
+  };
+
+  const fetchInventoryMovements = async () => {
+    if (!id) return;
+    try { const d = await api.getInventoryMovements({ workId: id }); setInventoryMovements(Array.isArray(d) ? d : []); }
+    catch { setInventoryMovements([]); }
+  };
+
+  const fetchWorkQuotations = async () => {
+    try {
+      const all = await api.getQuotations();
+      const list = Array.isArray(all) ? all : [];
+      setWorkQuotations(list.filter((q: any) => q.workId === id));
+    } catch { setWorkQuotations([]); }
+  };
+
   useEffect(() => {
     fetchWork(); fetchUpdates(); fetchTasks(); fetchDocuments();
     fetchProtocols(); fetchProposals(); fetchPayments();
     fetchMeasurements(); fetchEmployees(); fetchSuppliers();
     fetchWorkCosts(); fetchPaymentSchedules();
+    fetchDailyLogs(); fetchServiceOrders(); fetchInventoryMovements(); fetchWorkQuotations();
   }, [id]);
 
   const handleRefresh = () => {
     fetchWork(); fetchUpdates(); fetchTasks(); fetchDocuments();
     fetchProtocols(); fetchProposals(); fetchPayments(); fetchMeasurements();
     fetchWorkCosts(); fetchPaymentSchedules();
+    fetchDailyLogs(); fetchServiceOrders(); fetchInventoryMovements(); fetchWorkQuotations();
   };
 
   // ── Task handlers ────────────────────────────────────────────────────────
@@ -355,6 +388,10 @@ export default function AdminWorkDetail() {
           <TabsTrigger value="documents">Documentos ({documents.length})</TabsTrigger>
           <TabsTrigger value="team">Equipe ({teamMembers.length})</TabsTrigger>
           <TabsTrigger value="updates">Evolução ({updates.length})</TabsTrigger>
+          <TabsTrigger value="diario" className="text-orange-600">📋 Diário ({dailyLogs.length})</TabsTrigger>
+          <TabsTrigger value="os" className="text-amber-600">🔧 OS ({serviceOrders.length})</TabsTrigger>
+          <TabsTrigger value="materiais" className="text-teal-600">📦 Materiais ({inventoryMovements.length})</TabsTrigger>
+          <TabsTrigger value="cotacoes" className="text-blue-600">💰 Cotações ({workQuotations.length})</TabsTrigger>
           {admin && <TabsTrigger value="finance" className="text-amber-600">💰 Financeiro</TabsTrigger>}
           {admin && <TabsTrigger value="custos" className="text-emerald-600">📊 Custos & Pagamentos</TabsTrigger>}
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
@@ -879,6 +916,165 @@ export default function AdminWorkDetail() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ═══ DIÁRIO DE OBRA TAB ═══════════════════════════════════════ */}
+        <TabsContent value="diario" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold flex items-center gap-2"><ClipboardList className="w-5 h-5 text-orange-500" />Diário de Obra</h3>
+            <Button variant="outline" size="sm" asChild><a href="/admin/daily-logs">Ver Todos</a></Button>
+          </div>
+          {dailyLogs.length === 0 ? (
+            <Card><CardContent className="p-8 text-center text-slate-400"><ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhum diário registrado para esta obra.</p></CardContent></Card>
+          ) : (
+            <div className="space-y-3">
+              {dailyLogs.map((log: any) => (
+                <Card key={log.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-semibold text-sm">{fmtDate(log.date)}</p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {log.weatherMorning && <Badge variant="outline" className="text-xs">☀️ Manhã: {log.weatherMorning}</Badge>}
+                          {log.weatherAfternoon && <Badge variant="outline" className="text-xs">🌤️ Tarde: {log.weatherAfternoon}</Badge>}
+                        </div>
+                        <div className="flex gap-4 mt-2 text-xs text-slate-500">
+                          {log.workforcePresentCount != null && <span>👷 Presentes: {log.workforcePresentCount}</span>}
+                          {log.workforceAbsentCount != null && <span>❌ Ausentes: {log.workforceAbsentCount}</span>}
+                          {log.workHoursStart && log.workHoursEnd && <span>⏰ {log.workHoursStart} - {log.workHoursEnd}</span>}
+                        </div>
+                        {log.activities && log.activities.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs text-slate-400 font-medium">Atividades:</p>
+                            <ul className="text-xs text-slate-600 mt-1 space-y-0.5">
+                              {log.activities.slice(0, 3).map((a: any, i: number) => <li key={i}>• {a.description || a}</li>)}
+                              {log.activities.length > 3 && <li className="text-slate-400">+{log.activities.length - 3} mais...</li>}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        {log.signedAt ? <Badge className="bg-green-100 text-green-700 text-xs">Assinado</Badge> : <Badge variant="outline" className="text-xs">Pendente</Badge>}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ═══ OS TAB ═══════════════════════════════════════════════════ */}
+        <TabsContent value="os" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold flex items-center gap-2"><Wrench className="w-5 h-5 text-amber-500" />Ordens de Serviço</h3>
+            <Button variant="outline" size="sm" asChild><a href="/admin/service-orders">Ver Todas</a></Button>
+          </div>
+          {serviceOrders.length === 0 ? (
+            <Card><CardContent className="p-8 text-center text-slate-400"><Wrench className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma OS vinculada a esta obra.</p></CardContent></Card>
+          ) : (
+            <div className="space-y-3">
+              {serviceOrders.map((os: any) => (
+                <Card key={os.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-mono text-xs text-slate-400">{os.code}</span>
+                          <Badge className={os.status === 'completed' ? 'bg-green-100 text-green-700' : os.status === 'in_progress' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}>
+                            {os.status === 'completed' ? 'Concluída' : os.status === 'in_progress' ? 'Em Andamento' : os.status === 'cancelled' ? 'Cancelada' : 'Aberta'}
+                          </Badge>
+                          <Badge variant="outline" className={os.priority === 'urgent' ? 'text-red-600' : os.priority === 'high' ? 'text-orange-600' : 'text-slate-500'}>
+                            {os.priority === 'urgent' ? 'Urgente' : os.priority === 'high' ? 'Alta' : os.priority === 'medium' ? 'Média' : 'Baixa'}
+                          </Badge>
+                        </div>
+                        <p className="font-medium text-sm">{os.title}</p>
+                        <div className="flex gap-4 mt-1 text-xs text-slate-500">
+                          {os.scheduledDate && <span>📅 {fmtDate(os.scheduledDate)}</span>}
+                          {os.assignedTo && <span>👤 {os.assignedTo.name}</span>}
+                        </div>
+                      </div>
+                      {os.totalCost > 0 && <p className="font-mono text-sm font-bold">R$ {fmt(os.totalCost)}</p>}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ═══ MATERIAIS TAB ═══════════════════════════════════════════ */}
+        <TabsContent value="materiais" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold flex items-center gap-2"><Warehouse className="w-5 h-5 text-teal-500" />Materiais / Movimentações</h3>
+            <Button variant="outline" size="sm" asChild><a href="/admin/inventory">Ver Estoque</a></Button>
+          </div>
+          {inventoryMovements.length === 0 ? (
+            <Card><CardContent className="p-8 text-center text-slate-400"><Warehouse className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma movimentação de material para esta obra.</p></CardContent></Card>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b bg-slate-50">
+                    <th className="py-2 px-3 text-left">Data</th>
+                    <th className="py-2 px-3 text-left">Item</th>
+                    <th className="py-2 px-3 text-left">Tipo</th>
+                    <th className="py-2 px-3 text-right">Qtd</th>
+                    <th className="py-2 px-3 text-left">Motivo</th>
+                  </tr></thead>
+                  <tbody>
+                    {inventoryMovements.map((mov: any) => (
+                      <tr key={mov.id} className="border-b">
+                        <td className="py-2 px-3">{fmtDate(mov.createdAt)}</td>
+                        <td className="py-2 px-3 font-medium">{mov.item?.name || '—'}</td>
+                        <td className="py-2 px-3">
+                          <Badge className={mov.type === 'entry' ? 'bg-green-100 text-green-700' : mov.type === 'exit' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}>
+                            {mov.type === 'entry' ? 'Entrada' : mov.type === 'exit' ? 'Saída' : mov.type === 'transfer' ? 'Transferência' : mov.type}
+                          </Badge>
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono">{mov.quantity}</td>
+                        <td className="py-2 px-3 text-slate-500 text-xs">{mov.reason || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ═══ COTAÇÕES TAB ═══════════════════════════════════════════ */}
+        <TabsContent value="cotacoes" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold flex items-center gap-2"><DollarSign className="w-5 h-5 text-blue-500" />Cotações da Obra</h3>
+            <Button variant="outline" size="sm" asChild><a href="/admin/quotations">Ver Todas</a></Button>
+          </div>
+          {workQuotations.length === 0 ? (
+            <Card><CardContent className="p-8 text-center text-slate-400"><DollarSign className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma cotação vinculada a esta obra.</p></CardContent></Card>
+          ) : (
+            <div className="space-y-3">
+              {workQuotations.map((q: any) => {
+                const st = { draft: 'Rascunho', sent: 'Enviada', received: 'Recebida', analyzed: 'Analisada', closed: 'Fechada' };
+                return (
+                  <Card key={q.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-xs text-amber-600 font-bold">{q.code}</span>
+                            <Badge variant="outline">{(st as any)[q.status] || q.status}</Badge>
+                          </div>
+                          <p className="font-medium text-sm">{q.title}</p>
+                          <p className="text-xs text-slate-500 mt-1">{q.items?.length || 0} itens • {q.responses?.length || 0} respostas</p>
+                        </div>
+                        {q.deadline && <span className="text-xs text-slate-400">{fmtDate(q.deadline)}</span>}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
 
       {/* ── Dialogs ────────────────────────────────────────────────────── */}
@@ -894,7 +1090,7 @@ export default function AdminWorkDetail() {
             <div><Label htmlFor="task-desc">Descrição</Label><Textarea id="task-desc" placeholder="Descreva os detalhes..." value={newTask.description} onChange={e => setNewTask({ ...newTask, description: e.target.value })} rows={3} /></div>
             <div className="grid grid-cols-2 gap-4">
               <div><Label>Prioridade</Label><Select value={newTask.priority} onValueChange={v => setNewTask({ ...newTask, priority: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Baixa</SelectItem><SelectItem value="medium">Média</SelectItem><SelectItem value="high">Alta</SelectItem><SelectItem value="urgent">Urgente</SelectItem></SelectContent></Select></div>
-              <div><Label htmlFor="task-hours">Horas Estimadas</Label><Input id="task-hours" type="number" step="0.5" min="0" placeholder="Ex: 4" value={newTask.estimatedHours} onChange={e => setNewTask({ ...newTask, estimatedHours: e.target.value })} /></div>
+              <div><Label htmlFor="task-hours">Horas Estimadas</Label><Input id="task-hours" type="text" inputMode="decimal" step="0.5" min="0" placeholder="Ex: 4" value={newTask.estimatedHours} onChange={e => setNewTask({ ...newTask, estimatedHours: e.target.value })} /></div>
             </div>
             {employees.length > 0 && (
               <div>
@@ -933,9 +1129,9 @@ export default function AdminWorkDetail() {
               <div><Label>Categoria</Label><Select value={newCost.category} onValueChange={v => setNewCost({ ...newCost, category: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="material">Material</SelectItem><SelectItem value="labor">Mão de Obra</SelectItem><SelectItem value="subcontract">Subcontrato</SelectItem><SelectItem value="equipment">Equipamento</SelectItem><SelectItem value="transport">Transporte</SelectItem><SelectItem value="tax">Impostos</SelectItem><SelectItem value="rental">Aluguel</SelectItem><SelectItem value="ppe">EPI</SelectItem><SelectItem value="food">Alimentação</SelectItem><SelectItem value="lodging">Hospedagem</SelectItem><SelectItem value="other">Outro</SelectItem></SelectContent></Select></div>
             </div>
             <div className="grid grid-cols-4 gap-4">
-              <div><Label>Qtd</Label><Input type="number" step="0.01" min="0" value={newCost.quantity} onChange={e => setNewCost({ ...newCost, quantity: e.target.value })} /></div>
+              <div><Label>Qtd</Label><Input type="text" inputMode="decimal" step="0.01" min="0" value={newCost.quantity} onChange={e => setNewCost({ ...newCost, quantity: e.target.value })} /></div>
               <div><Label>Unidade</Label><Input placeholder="un" value={newCost.unit} onChange={e => setNewCost({ ...newCost, unit: e.target.value })} /></div>
-              <div><Label>Preço Unitário *</Label><Input type="number" step="0.01" min="0" placeholder="0.00" value={newCost.unitPrice} onChange={e => setNewCost({ ...newCost, unitPrice: e.target.value })} required /></div>
+              <div><Label>Preço Unitário *</Label><Input type="text" inputMode="decimal" step="0.01" min="0" placeholder="0.00" value={newCost.unitPrice} onChange={e => setNewCost({ ...newCost, unitPrice: e.target.value })} required /></div>
               <div><Label>Total</Label><Input disabled value={`R$ ${fmt((Number(newCost.quantity) || 0) * (Number(newCost.unitPrice) || 0))}`} /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -962,12 +1158,12 @@ export default function AdminWorkDetail() {
           <form onSubmit={async (e) => { e.preventDefault(); setCostLoading(true); try { await api.createPaymentSchedule({ workId: id, description: newSchedule.description, amount: Number(newSchedule.amount) || 0, dueDate: newSchedule.dueDate, installmentNumber: Number(newSchedule.installmentNumber) || 1, totalInstallments: Number(newSchedule.totalInstallments) || 1, supplierId: newSchedule.supplierId || undefined, employeeId: newSchedule.employeeId || undefined, notes: newSchedule.notes || undefined }); toast.success('Pagamento agendado!'); setNewScheduleOpen(false); setNewSchedule({ description: '', amount: '', dueDate: '', installmentNumber: '1', totalInstallments: '1', supplierId: '', employeeId: '', notes: '' }); fetchPaymentSchedules(); } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao agendar.'); } finally { setCostLoading(false); } }} className="space-y-4">
             <div><Label>Descrição *</Label><Input placeholder="Ex: Parcela 1 - Serviço elétrico" value={newSchedule.description} onChange={e => setNewSchedule({ ...newSchedule, description: e.target.value })} required /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Valor (R$) *</Label><Input type="number" step="0.01" min="0" placeholder="0.00" value={newSchedule.amount} onChange={e => setNewSchedule({ ...newSchedule, amount: e.target.value })} required /></div>
+              <div><Label>Valor (R$) *</Label><Input type="text" inputMode="decimal" step="0.01" min="0" placeholder="0.00" value={newSchedule.amount} onChange={e => setNewSchedule({ ...newSchedule, amount: e.target.value })} required /></div>
               <div><Label>Vencimento *</Label><Input type="date" value={newSchedule.dueDate} onChange={e => setNewSchedule({ ...newSchedule, dueDate: e.target.value })} required /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Parcela Nº</Label><Input type="number" min="1" value={newSchedule.installmentNumber} onChange={e => setNewSchedule({ ...newSchedule, installmentNumber: e.target.value })} /></div>
-              <div><Label>Total de Parcelas</Label><Input type="number" min="1" value={newSchedule.totalInstallments} onChange={e => setNewSchedule({ ...newSchedule, totalInstallments: e.target.value })} /></div>
+              <div><Label>Parcela Nº</Label><Input type="text" inputMode="decimal" min="1" value={newSchedule.installmentNumber} onChange={e => setNewSchedule({ ...newSchedule, installmentNumber: e.target.value })} /></div>
+              <div><Label>Total de Parcelas</Label><Input type="text" inputMode="decimal" min="1" value={newSchedule.totalInstallments} onChange={e => setNewSchedule({ ...newSchedule, totalInstallments: e.target.value })} /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div><Label>Fornecedor</Label><Select value={newSchedule.supplierId} onValueChange={v => setNewSchedule({ ...newSchedule, supplierId: v })}><SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent>{suppliers.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.tradeName || s.name}</SelectItem>)}</SelectContent></Select></div>

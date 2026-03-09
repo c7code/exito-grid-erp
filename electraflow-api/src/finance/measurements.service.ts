@@ -79,7 +79,7 @@ export class MeasurementsService {
         const tasks = await this.taskRepository.find({ where: { workId: measurement.workId } });
 
         // Clear existing items
-        await this.itemRepository.delete({ measurementId: id });
+        await this.itemRepository.softDelete({ measurementId: id });
 
         let totalCalculated = 0;
         const items = tasks.map(task => {

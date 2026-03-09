@@ -7,6 +7,12 @@ export enum NotificationType {
     OVERDUE_TASK = 'overdue_task',
     TASK_STARTED = 'task_started',
     TASK_COMPLETED = 'task_completed',
+    AUTO_WORK_CREATED = 'auto_work_created',
+    AUTO_COST_CREATED = 'auto_cost_created',
+    STOCK_ALERT = 'stock_alert',
+    PROPOSAL_ACCEPTED = 'proposal_accepted',
+    OS_COMPLETED = 'os_completed',
+    SYSTEM = 'system',
 }
 
 @Entity('notifications')
@@ -14,21 +20,24 @@ export class Notification {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Column()
+    @Column({ nullable: true })
     userId: string;
 
-    @ManyToOne(() => User, { onDelete: 'CASCADE' })
+    @ManyToOne(() => User, { onDelete: 'CASCADE', nullable: true })
     @JoinColumn({ name: 'userId' })
     user: User;
 
-    @Column({ type: 'enum', enum: NotificationType })
-    type: NotificationType;
+    @Column({ type: 'varchar', default: 'system' })
+    type: string;
 
     @Column()
     title: string;
 
     @Column({ type: 'text' })
     message: string;
+
+    @Column({ nullable: true })
+    category: string;
 
     @Column({ nullable: true })
     taskId: string;

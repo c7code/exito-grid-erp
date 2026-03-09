@@ -1029,7 +1029,7 @@ export default function EmployeeCompliance() {
                                     <div>
                                         <Label>Validade (meses)</Label>
                                         <Input
-                                            type="number"
+                                            type="text" inputMode="decimal"
                                             value={addDocForm.customValidityMonths}
                                             onChange={e => setAddDocForm({ ...addDocForm, customValidityMonths: e.target.value })}
                                             placeholder="Ex: 12"

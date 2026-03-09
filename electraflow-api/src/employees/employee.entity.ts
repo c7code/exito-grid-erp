@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { EmployeeDocument } from './employee-document.entity';
 import { Work } from '../works/work.entity';
 
@@ -84,4 +84,7 @@ export class Employee {
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 }

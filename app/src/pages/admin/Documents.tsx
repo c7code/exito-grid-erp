@@ -10,6 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 import {
   Upload,
@@ -27,6 +33,8 @@ import {
   File,
   Menu,
   X,
+  GripVertical,
+  FolderInput,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -65,6 +73,8 @@ export default function AdminDocuments() {
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderParentId, setNewFolderParentId] = useState<string>('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [draggingDocId, setDraggingDocId] = useState<string | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -187,6 +197,45 @@ export default function AdminDocuments() {
     }
   };
 
+  const handleMoveDocToFolder = async (docId: string, folderId: string) => {
+    try {
+      await api.updateDocument(docId, { folderId });
+      toast.success('Documento movido para a pasta!');
+      loadData();
+    } catch {
+      toast.error('Erro ao mover documento.');
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, docId: string) => {
+    e.dataTransfer.setData('text/plain', docId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingDocId(docId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingDocId(null);
+    setDragOverFolderId(null);
+  };
+
+  const handleFolderDragOver = (e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverFolderId(folderId);
+  };
+
+  const handleFolderDragLeave = () => {
+    setDragOverFolderId(null);
+  };
+
+  const handleFolderDrop = (e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    const docId = e.dataTransfer.getData('text/plain');
+    if (docId) handleMoveDocToFolder(docId, folderId);
+    setDraggingDocId(null);
+    setDragOverFolderId(null);
+  };
+
   const categoryCounts = Object.keys(categoryLabels).reduce<Record<string, number>>((acc, key) => {
     acc[key] = documents.filter(d => d.type === key).length;
     return acc;
@@ -198,18 +247,25 @@ export default function AdminDocuments() {
       const isSelected = selectedFolderId === folder.id;
       const hasChildren = folder.children && folder.children.length > 0;
 
+      const isDragOver = dragOverFolderId === folder.id;
+
       return (
         <div key={folder.id}>
           <div
-            className={`flex items-center gap-1 px-2 py-1.5 rounded-md cursor-pointer text-sm transition-colors group ${isSelected
-              ? 'bg-amber-100 text-amber-800 font-medium'
-              : 'hover:bg-slate-100 text-slate-600'
+            className={`flex items-center gap-1 px-2 py-1.5 rounded-md cursor-pointer text-sm transition-colors group ${isDragOver
+              ? 'bg-amber-200 ring-2 ring-amber-400 text-amber-900 font-medium'
+              : isSelected
+                ? 'bg-amber-100 text-amber-800 font-medium'
+                : 'hover:bg-slate-100 text-slate-600'
               }`}
             style={{ paddingLeft: `${8 + depth * 16}px` }}
             onClick={() => {
               setSelectedFolderId(isSelected ? null : folder.id);
               setMobileSidebarOpen(false);
             }}
+            onDragOver={(e) => handleFolderDragOver(e, folder.id)}
+            onDragLeave={handleFolderDragLeave}
+            onDrop={(e) => handleFolderDrop(e, folder.id)}
           >
             <button
               className="p-0.5 hover:bg-slate-200 rounded"
@@ -228,7 +284,7 @@ export default function AdminDocuments() {
                 <span className="w-3.5 h-3.5 inline-block" />
               )}
             </button>
-            <FolderOpen className="w-4 h-4 text-amber-500 shrink-0" />
+            <FolderOpen className={`w-4 h-4 shrink-0 ${isDragOver ? 'text-amber-600' : 'text-amber-500'}`} />
             <span className="truncate flex-1">{folder.name}</span>
             <button
               className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-100 rounded text-red-400 hover:text-red-600"
@@ -476,11 +532,21 @@ export default function AdminDocuments() {
                         const cat = categoryLabels[doc.type] || categoryLabels.other;
                         const CatIcon = cat.icon;
                         return (
-                          <Card key={doc.id} className="hover:shadow-md transition-shadow">
+                          <Card
+                            key={doc.id}
+                            className={`hover:shadow-md transition-shadow ${draggingDocId === doc.id ? 'opacity-50 ring-2 ring-amber-400' : ''
+                              }`}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, doc.id)}
+                            onDragEnd={handleDragEnd}
+                          >
                             <CardContent className="p-4">
                               <div className="flex items-start gap-3">
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${cat.color}`}>
-                                  <CatIcon className="w-5 h-5" />
+                                <div className="flex flex-col items-center gap-1 shrink-0">
+                                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${cat.color}`}>
+                                    <CatIcon className="w-5 h-5" />
+                                  </div>
+                                  <GripVertical className="w-4 h-4 text-slate-300 cursor-grab" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-sm truncate" title={doc.name}>
@@ -511,6 +577,37 @@ export default function AdminDocuments() {
                                   <Download className="w-3.5 h-3.5 mr-1" />
                                   Download
                                 </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-amber-500 hover:text-amber-700"
+                                      title="Mover para pasta"
+                                    >
+                                      <FolderInput className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="max-h-60 overflow-y-auto">
+                                    {folders.length === 0 ? (
+                                      <DropdownMenuItem disabled>
+                                        Nenhuma pasta criada
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      folders.map((f) => (
+                                        <DropdownMenuItem
+                                          key={f.id}
+                                          onClick={() => handleMoveDocToFolder(doc.id, f.id)}
+                                          className={doc.folderId === f.id ? 'bg-amber-50 font-medium' : ''}
+                                        >
+                                          <FolderOpen className="w-4 h-4 mr-2 text-amber-500" />
+                                          {f.name}
+                                          {doc.folderId === f.id && <span className="ml-auto text-xs text-amber-500">atual</span>}
+                                        </DropdownMenuItem>
+                                      ))
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                                 <Button
                                   variant="ghost"
                                   size="icon"

@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Proposal, ProposalItem, ProposalStatus } from './proposal.entity';
+import { Work } from '../works/work.entity';
+import { Notification } from '../notifications/notification.entity';
 
 @Injectable()
 export class ProposalsService {
@@ -10,6 +12,10 @@ export class ProposalsService {
     private proposalRepository: Repository<Proposal>,
     @InjectRepository(ProposalItem)
     private itemRepository: Repository<ProposalItem>,
+    @InjectRepository(Work)
+    private workRepository: Repository<Work>,
+    @InjectRepository(Notification)
+    private notificationRepository: Repository<Notification>,
   ) { }
 
   async findAll(status?: ProposalStatus): Promise<Proposal[]> {
@@ -81,7 +87,7 @@ export class ProposalsService {
     const proposal = await this.findOne(id);
 
     // Remove existing items
-    await this.itemRepository.delete({ proposalId: id });
+    await this.itemRepository.softDelete({ proposalId: id });
     await this.saveProposalItems(id, items);
 
     const proposalWithItems = await this.findOne(id);
@@ -104,7 +110,58 @@ export class ProposalsService {
     const proposal = await this.findOne(id);
     proposal.status = ProposalStatus.ACCEPTED;
     proposal.acceptedAt = new Date();
-    return this.proposalRepository.save(proposal);
+    const saved = await this.proposalRepository.save(proposal);
+
+    // ── AUTO-TRIGGER: Create Work from accepted proposal ──────────
+    try {
+      const activityTypeMap: Record<string, string> = {
+        extensao_rede: 'network_work', energia_solar: 'solar',
+        instalacao_eletrica: 'residential', projeto_eletrico: 'project_bt',
+        manutencao: 'maintenance', laudo: 'report', spda: 'spda',
+        aterramento: 'grounding', pde: 'pde_bt',
+      };
+
+      const year = new Date().getFullYear();
+      const count = await this.workRepository.count();
+      const code = `OB-${year}-${String(count + 1).padStart(3, '0')}`;
+
+      const deadlineDate = proposal.workDeadlineDays
+        ? new Date(Date.now() + proposal.workDeadlineDays * 86400000)
+        : null;
+
+      const work = this.workRepository.create({
+        code,
+        title: proposal.workDescription || proposal.title || `Obra - ${proposal.proposalNumber}`,
+        type: (activityTypeMap[proposal.activityType] || 'residential') as any,
+        status: 'pending' as any,
+        clientId: proposal.clientId || undefined,
+        opportunityId: proposal.opportunityId || undefined,
+        totalValue: Number(proposal.total) || 0,
+        address: proposal.workAddress || undefined,
+        description: proposal.scope || proposal.notes || undefined,
+        expectedEndDate: deadlineDate,
+        deadline: deadlineDate,
+        currentStage: 'project' as any,
+      });
+      await this.workRepository.save(work);
+
+      // Notify admins about auto-created work
+      try {
+        await this.notificationRepository.save(
+          this.notificationRepository.create({
+            title: '🚀 Obra Criada Automaticamente',
+            message: `Proposta ${proposal.proposalNumber} aceita → Obra ${code} criada (R$ ${Number(proposal.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`,
+            type: 'auto_work_created',
+            category: 'works',
+          }),
+        );
+      } catch { /* notification is non-critical */ }
+    } catch (err) {
+      // Log but don't fail the accept operation
+      console.error('[AutoTrigger] Failed to auto-create work from proposal:', err?.message);
+    }
+
+    return saved;
   }
 
   async reject(id: string, reason?: string): Promise<Proposal> {
@@ -118,7 +175,7 @@ export class ProposalsService {
 
   async remove(id: string): Promise<void> {
     const proposal = await this.findOne(id);
-    await this.proposalRepository.remove(proposal);
+    await this.proposalRepository.softRemove(proposal);
   }
 
   private async saveProposalItems(proposalId: string, items: Partial<ProposalItem>[]) {

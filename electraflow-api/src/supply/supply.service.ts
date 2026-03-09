@@ -67,7 +67,7 @@ export class SupplyService {
 
     async deleteSupplier(id: string) {
         await this.findSupplier(id);
-        await this.supplierRepo.delete(id);
+        await this.supplierRepo.softDelete(id);
         return { deleted: true };
     }
 
@@ -85,7 +85,7 @@ export class SupplyService {
     }
 
     async deleteContact(id: string) {
-        await this.contactRepo.delete(id);
+        await this.contactRepo.softDelete(id);
         return { deleted: true };
     }
 
@@ -97,6 +97,7 @@ export class SupplyService {
             .leftJoinAndSelect('items.catalogItem', 'catalogItem')
             .leftJoinAndSelect('q.responses', 'responses')
             .leftJoinAndSelect('responses.supplier', 'supplier')
+            .leftJoinAndSelect('q.work', 'work')
             .orderBy('q.createdAt', 'DESC');
 
         if (status) qb.andWhere('q.status = :status', { status });
@@ -115,13 +116,14 @@ export class SupplyService {
                 'responses',
                 'responses.supplier',
                 'responses.items',
+                'work',
             ],
         });
         if (!quotation) throw new NotFoundException('Cotação não encontrada');
         return quotation;
     }
 
-    async createQuotation(data: { title: string; deadline?: string; notes?: string; items: Array<{ catalogItemId?: string; description: string; quantity: number; unit?: string }> }) {
+    async createQuotation(data: { title: string; deadline?: string; notes?: string; workId?: string; items: Array<{ catalogItemId?: string; description: string; quantity: number; unit?: string; estimatedUnitPrice?: number; targetSupplierIds?: string[] }> }) {
         const count = await this.quotationRepo.count();
         const code = `COT-${String(count + 1).padStart(4, '0')}`;
 
@@ -130,11 +132,14 @@ export class SupplyService {
             title: data.title,
             deadline: data.deadline ? new Date(data.deadline) : null,
             notes: data.notes,
+            workId: data.workId || null,
             items: data.items.map(i => this.quotationItemRepo.create({
                 catalogItemId: i.catalogItemId || null,
                 description: i.description,
                 quantity: i.quantity,
                 unit: i.unit || 'un',
+                estimatedUnitPrice: i.estimatedUnitPrice || null,
+                targetSupplierIds: i.targetSupplierIds || null,
             })),
         });
 

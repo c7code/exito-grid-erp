@@ -66,7 +66,7 @@ export class DocumentsService {
 
   async remove(id: string): Promise<void> {
     const doc = await this.findOne(id);
-    await this.documentRepository.remove(doc);
+    await this.documentRepository.softRemove(doc);
   }
 
   // ========== PASTAS ==========
@@ -117,6 +117,6 @@ export class DocumentsService {
 
   async removeFolder(id: string): Promise<void> {
     const folder = await this.findFolder(id);
-    await this.folderRepository.remove(folder);
+    await this.folderRepository.softRemove(folder);
   }
 }

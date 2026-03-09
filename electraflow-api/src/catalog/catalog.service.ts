@@ -85,7 +85,7 @@ export class CatalogService {
     }
 
     async removeCategory(id: string): Promise<void> {
-        await this.categoryRepository.delete(id);
+        await this.categoryRepository.softDelete(id);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -152,7 +152,7 @@ export class CatalogService {
     }
 
     async removeItem(id: string): Promise<void> {
-        await this.itemRepository.delete(id);
+        await this.itemRepository.softDelete(id);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -343,7 +343,7 @@ export class CatalogService {
     }
 
     async unlinkSupplier(catalogItemId: string, supplierId: string): Promise<void> {
-        await this.productSupplierRepository.delete({ catalogItemId, supplierId });
+        await this.productSupplierRepository.softDelete({ catalogItemId, supplierId });
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -368,7 +368,7 @@ export class CatalogService {
     }
 
     async removeFiscalRule(id: string): Promise<void> {
-        await this.fiscalRuleRepository.delete(id);
+        await this.fiscalRuleRepository.softDelete(id);
     }
 
     /**

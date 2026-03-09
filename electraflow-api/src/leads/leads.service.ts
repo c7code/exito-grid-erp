@@ -51,6 +51,6 @@ export class LeadsService {
 
   async remove(id: string): Promise<void> {
     const lead = await this.findOne(id);
-    await this.leadRepository.remove(lead);
+    await this.leadRepository.softRemove(lead);
   }
 }

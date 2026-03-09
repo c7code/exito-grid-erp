@@ -332,7 +332,7 @@ export default function AdminFinance() {
                         </div>
                         <div className="space-y-2">
                           <Label>Valor Bruto (R$) *</Label>
-                          <Input type="number" step="0.01" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} required />
+                          <Input type="text" inputMode="decimal" step="0.01" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} required />
                         </div>
                         <div className="space-y-2">
                           <Label>Tipo *</Label>
@@ -404,7 +404,7 @@ export default function AdminFinance() {
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
                               <Label className="text-sm">Percentual (%)</Label>
-                              <Input type="number" step="0.01" min="0" max="100"
+                              <Input type="text" inputMode="decimal" step="0.01" min="0" max="100"
                                 value={formData.retentionPercentage}
                                 onChange={e => {
                                   const pct = e.target.value;
@@ -414,7 +414,7 @@ export default function AdminFinance() {
                             </div>
                             <div className="space-y-1">
                               <Label className="text-sm">Valor Retido (R$)</Label>
-                              <Input type="number" step="0.01" min="0"
+                              <Input type="text" inputMode="decimal" step="0.01" min="0"
                                 value={formData.taxWithholding}
                                 onChange={e => {
                                   const val = e.target.value;
@@ -442,7 +442,7 @@ export default function AdminFinance() {
                                   <span className="text-sm font-medium text-slate-700">{label}</span>
                                   <span className={`text-xs px-1.5 py-0.5 rounded bg-${color}-100 text-${color}-700`}>{badge}</span>
                                 </div>
-                                <Input type="number" step="0.01" min="0" max="100" className="h-8 text-sm"
+                                <Input type="text" inputMode="decimal" step="0.01" min="0" max="100" className="h-8 text-sm"
                                   placeholder="%"
                                   value={formData[pctKey]}
                                   onChange={e => {
@@ -450,7 +450,7 @@ export default function AdminFinance() {
                                     const base = Number(formData.amount) || 0;
                                     setFormData({ ...formData, [pctKey]: pct, [amtKey]: ((Number(pct) / 100) * base).toFixed(2) });
                                   }} />
-                                <Input type="number" step="0.01" min="0" className="h-8 text-sm"
+                                <Input type="text" inputMode="decimal" step="0.01" min="0" className="h-8 text-sm"
                                   placeholder="R$"
                                   value={formData[amtKey]}
                                   onChange={e => {
@@ -543,14 +543,14 @@ export default function AdminFinance() {
                               <div key={idx} className="grid grid-cols-[1fr_80px_90px_32px] gap-2 items-center">
                                 <Input className="h-8 text-sm" placeholder="Ex: Centro Elétrico" value={item.description}
                                   onChange={e => { const ns = [...apportionmentItems]; ns[idx].description = e.target.value; setApportionmentItems(ns); }} />
-                                <Input type="number" step="0.01" min="0" max="100" className="h-8 text-sm text-center" value={item.percentage}
+                                <Input type="text" inputMode="decimal" step="0.01" min="0" max="100" className="h-8 text-sm text-center" value={item.percentage}
                                   onChange={e => {
                                     const ns = [...apportionmentItems];
                                     ns[idx].percentage = e.target.value;
                                     ns[idx].amount = ((Number(e.target.value) / 100) * (Number(formData.amount) || 0)).toFixed(2);
                                     setApportionmentItems(ns);
                                   }} />
-                                <Input type="number" step="0.01" min="0" className="h-8 text-sm text-center" value={item.amount}
+                                <Input type="text" inputMode="decimal" step="0.01" min="0" className="h-8 text-sm text-center" value={item.amount}
                                   onChange={e => {
                                     const ns = [...apportionmentItems];
                                     const base = Number(formData.amount) || 0;
@@ -1041,7 +1041,7 @@ export default function AdminFinance() {
               <Label htmlFor="reg-amount">Valor Pago/Recebido</Label>
               <Input
                 id="reg-amount"
-                type="number"
+                type="text" inputMode="decimal"
                 step="0.01"
                 value={registerData.amount}
                 onChange={(e) => setRegisterData({ ...registerData, amount: Number(e.target.value) })}

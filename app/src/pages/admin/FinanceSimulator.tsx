@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
     AlertTriangle, Eye, EyeOff, Calculator, TrendingUp,
     Star, Award, Filter, ChevronDown, ChevronUp,
@@ -76,21 +76,77 @@ function DarkSelect({ value, onChange, children }: {
     );
 }
 
-function DarkInput({ label, value, onChange, prefix, step = '1', min = '0' }: {
+function DarkInput({ label, value, onChange, prefix }: {
     label: string; value: number; onChange: (v: number) => void;
     prefix?: string; step?: string; min?: string;
 }) {
+    const isCurrency = prefix === 'R$';
+    const [rawDisplay, setRawDisplay] = React.useState('');
+    const [isFocused, setIsFocused] = React.useState(false);
+
+    // Sync display value when not focused
+    React.useEffect(() => {
+        if (!isFocused) {
+            if (isCurrency) {
+                setRawDisplay(value === 0 ? '' : value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            } else {
+                setRawDisplay(value === 0 ? '0' : String(value));
+            }
+        }
+    }, [value, isFocused, isCurrency]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (isCurrency) {
+            // Right-to-left currency: only digits, interpret as cents
+            const digits = e.target.value.replace(/\D/g, '');
+            if (digits === '' || digits === '0') {
+                setRawDisplay('');
+                onChange(0);
+                return;
+            }
+            const cents = parseInt(digits, 10);
+            const reais = cents / 100;
+            setRawDisplay(reais.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            onChange(reais);
+        } else {
+            // Normal numeric: strip leading zeros
+            let val = e.target.value;
+            if (val.length > 1 && val.startsWith('0') && val[1] !== '.') {
+                val = val.replace(/^0+/, '') || '0';
+            }
+            setRawDisplay(val);
+            onChange(parseFloat(val) || 0);
+        }
+    };
+
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+        setIsFocused(true);
+        if (!isCurrency && (value === 0)) {
+            setRawDisplay('');
+        }
+        setTimeout(() => e.target.select(), 0);
+    };
+
+    const handleBlur = () => {
+        setIsFocused(false);
+        if (rawDisplay === '' || rawDisplay === undefined) {
+            onChange(0);
+        }
+    };
+
     return (
         <div className="flex flex-col gap-1">
             <label className="text-xs text-gray-400 uppercase tracking-wider">{label}</label>
             <div className="relative">
                 {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">{prefix}</span>}
                 <input
-                    type="number"
-                    step={step}
-                    min={min}
-                    value={value}
-                    onChange={e => onChange(parseFloat(e.target.value) || 0)}
+                    type="text"
+                    inputMode={isCurrency ? 'numeric' : 'decimal'}
+                    value={rawDisplay}
+                    onChange={handleChange}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
+                    placeholder={isCurrency ? '0,00' : '0'}
                     className={`bg-gray-800 border border-gray-600 text-cyan-300 font-mono rounded-lg py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 w-full ${prefix ? 'pl-8 pr-3' : 'px-3'}`}
                 />
             </div>

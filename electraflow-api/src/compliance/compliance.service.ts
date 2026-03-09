@@ -87,7 +87,7 @@ export class ComplianceService {
     async removeRule(id: string): Promise<void> {
         const rule = await this.ruleRepo.findOneBy({ id });
         if (!rule) throw new NotFoundException('Regra não encontrada');
-        await this.ruleRepo.remove(rule);
+        await this.ruleRepo.softRemove(rule);
     }
 
     // ═══════════════════════════════════════════════════════════════

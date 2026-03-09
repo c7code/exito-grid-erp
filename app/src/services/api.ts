@@ -183,3 +183,17 @@ export const finance = {
     }),
   getSummary: () => api.get('/finance/summary'),
 };
+
+// Solar Projects
+export const solarProjects = {
+  getAll: () => api.get('/solar-projects'),
+  getById: (id: string) => api.get(`/solar-projects/${id}`),
+  create: (data: any) => api.post('/solar-projects', data),
+  update: (id: string, data: any) => api.put(`/solar-projects/${id}`, data),
+  delete: (id: string) => api.delete(`/solar-projects/${id}`),
+  dimension: (id: string) => api.post(`/solar-projects/${id}/dimension`),
+  calculateFinancials: (id: string) => api.post(`/solar-projects/${id}/calculate-financials`),
+  generateProposal: (id: string) => api.post(`/solar-projects/${id}/generate-proposal`),
+  getHspTable: () => api.get('/solar-projects/hsp-table'),
+  searchEquipment: (q?: string) => api.get('/solar-projects/catalog-equipment', { params: { q } }),
+};

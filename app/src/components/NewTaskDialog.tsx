@@ -301,7 +301,7 @@ export default function NewTaskDialog({
                                 <Label htmlFor="task-estimatedHours">Horas Estimadas</Label>
                                 <Input
                                     id="task-estimatedHours"
-                                    type="number"
+                                    type="text" inputMode="decimal"
                                     min="0"
                                     step="0.5"
                                     placeholder="Ex: 4"
@@ -397,7 +397,7 @@ export default function NewTaskDialog({
                                     <Label htmlFor="task-weightPercentage">Percentual na Obra (%)</Label>
                                     <Input
                                         id="task-weightPercentage"
-                                        type="number"
+                                        type="text" inputMode="decimal"
                                         min="0"
                                         max="100"
                                         step="1"

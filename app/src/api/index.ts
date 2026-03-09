@@ -1507,6 +1507,283 @@ class ApiService {
     const response = await this.client.put('/notifications/read-all');
     return response.data;
   }
+
+  // Daily Logs (Diário de Obra)
+  async getDailyLogs(workId?: string) {
+    const params = workId ? { workId } : {};
+    const response = await this.client.get('/daily-logs', { params });
+    return response.data;
+  }
+
+  async getDailyLog(id: string) {
+    const response = await this.client.get(`/daily-logs/${id}`);
+    return response.data;
+  }
+
+  async createDailyLog(data: any) {
+    const response = await this.client.post('/daily-logs', data);
+    return response.data;
+  }
+
+  async updateDailyLog(id: string, data: any) {
+    const response = await this.client.put(`/daily-logs/${id}`, data);
+    return response.data;
+  }
+
+  async signDailyLog(id: string, signedBy: string) {
+    const response = await this.client.post(`/daily-logs/${id}/sign`, { signedBy });
+    return response.data;
+  }
+
+  async getDailyLogStats(workId: string) {
+    const response = await this.client.get(`/daily-logs/stats/${workId}`);
+    return response.data;
+  }
+
+  // Inventory (Estoque)
+  async getInventoryItems(category?: string) {
+    const params = category ? { category } : {};
+    const response = await this.client.get('/inventory/items', { params });
+    return response.data;
+  }
+
+  async getInventoryItem(id: string) {
+    const response = await this.client.get(`/inventory/items/${id}`);
+    return response.data;
+  }
+
+  async createInventoryItem(data: any) {
+    const response = await this.client.post('/inventory/items', data);
+    return response.data;
+  }
+
+  async updateInventoryItem(id: string, data: any) {
+    const response = await this.client.put(`/inventory/items/${id}`, data);
+    return response.data;
+  }
+
+  async deleteInventoryItem(id: string) {
+    const response = await this.client.delete(`/inventory/items/${id}`);
+    return response.data;
+  }
+
+  async getLowStockItems() {
+    const response = await this.client.get('/inventory/items/low-stock');
+    return response.data;
+  }
+
+  async getInventoryMovements(filters?: { itemId?: string; workId?: string; type?: string }) {
+    const response = await this.client.get('/inventory/movements', { params: filters });
+    return response.data;
+  }
+
+  async createInventoryMovement(data: any) {
+    const response = await this.client.post('/inventory/movements', data);
+    return response.data;
+  }
+
+  async getInventorySummary() {
+    const response = await this.client.get('/inventory/summary');
+    return response.data;
+  }
+
+  // Service Orders (Ordens de Serviço)
+  async getServiceOrders(filters?: { status?: string; workId?: string; assignedToId?: string }) {
+    const response = await this.client.get('/service-orders', { params: filters });
+    return response.data;
+  }
+
+  async getServiceOrder(id: string) {
+    const response = await this.client.get(`/service-orders/${id}`);
+    return response.data;
+  }
+
+  async createServiceOrder(data: any) {
+    const response = await this.client.post('/service-orders', data);
+    return response.data;
+  }
+
+  async updateServiceOrder(id: string, data: any) {
+    const response = await this.client.put(`/service-orders/${id}`, data);
+    return response.data;
+  }
+
+  async deleteServiceOrder(id: string) {
+    const response = await this.client.delete(`/service-orders/${id}`);
+    return response.data;
+  }
+
+  async signServiceOrder(id: string, data: { signature: string; name: string }) {
+    const response = await this.client.post(`/service-orders/${id}/sign`, data);
+    return response.data;
+  }
+
+  async getServiceOrderStats() {
+    const response = await this.client.get('/service-orders/stats');
+    return response.data;
+  }
+
+  // Contracts (Contratos)
+  async getContracts(filters?: { status?: string; workId?: string; clientId?: string }) {
+    const response = await this.client.get('/contracts', { params: filters });
+    return response.data;
+  }
+
+  async getContract(id: string) {
+    const response = await this.client.get(`/contracts/${id}`);
+    return response.data;
+  }
+
+  async createContract(data: any) {
+    const response = await this.client.post('/contracts', data);
+    return response.data;
+  }
+
+  async updateContract(id: string, data: any) {
+    const response = await this.client.put(`/contracts/${id}`, data);
+    return response.data;
+  }
+
+  async deleteContract(id: string) {
+    const response = await this.client.delete(`/contracts/${id}`);
+    return response.data;
+  }
+
+  async createContractAddendum(contractId: string, data: any) {
+    const response = await this.client.post(`/contracts/${contractId}/addendums`, data);
+    return response.data;
+  }
+
+  async deleteContractAddendum(addendumId: string) {
+    const response = await this.client.delete(`/contracts/addendums/${addendumId}`);
+    return response.data;
+  }
+
+  async getContractStats() {
+    const response = await this.client.get('/contracts/stats');
+    return response.data;
+  }
+
+  // Contract Signing (Assinatura Digital de Contratos)
+  async generateContractSignatureLink(id: string) {
+    const response = await this.client.post(`/contracts/${id}/generate-signature-link`);
+    return response.data;
+  }
+
+  async getContractSignatureStatus(id: string) {
+    const response = await this.client.get(`/contracts/${id}/signature-status`);
+    return response.data;
+  }
+
+  async getContractByToken(token: string) {
+    const response = await this.client.get(`/contracts/sign/${token}`);
+    return response.data;
+  }
+
+  async signContractByToken(token: string, data: { name: string; document: string }) {
+    const response = await this.client.post(`/contracts/sign/${token}/confirm`, data);
+    return response.data;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Solar Projects (Energia Solar Fotovoltaica)
+  // ═══════════════════════════════════════════════════════════════
+
+  async getSolarProjects() {
+    const response = await this.client.get('/solar-projects');
+    return response.data;
+  }
+
+  async getSolarProject(id: string) {
+    const response = await this.client.get(`/solar-projects/${id}`);
+    return response.data;
+  }
+
+  async createSolarProject(data: any) {
+    const response = await this.client.post('/solar-projects', data);
+    return response.data;
+  }
+
+  async updateSolarProject(id: string, data: any) {
+    const response = await this.client.put(`/solar-projects/${id}`, data);
+    return response.data;
+  }
+
+  async deleteSolarProject(id: string) {
+    const response = await this.client.delete(`/solar-projects/${id}`);
+    return response.data;
+  }
+
+  async dimensionSolarProject(id: string) {
+    const response = await this.client.post(`/solar-projects/${id}/dimension`);
+    return response.data;
+  }
+
+  async calculateSolarFinancials(id: string) {
+    const response = await this.client.post(`/solar-projects/${id}/calculate-financials`);
+    return response.data;
+  }
+
+  async generateSolarProposal(id: string) {
+    const response = await this.client.post(`/solar-projects/${id}/generate-proposal`);
+    return response.data;
+  }
+
+  async getSolarProjectByProposal(proposalId: string) {
+    const response = await this.client.get(`/solar-projects/by-proposal/${proposalId}`);
+    return response.data;
+  }
+
+  async getSolarHspTable() {
+    const response = await this.client.get('/solar-projects/hsp-table');
+    return response.data;
+  }
+
+  async searchSolarEquipment(q?: string) {
+    const response = await this.client.get('/solar-projects/catalog-equipment', { params: { q } });
+    return response.data;
+  }
+
+  // ═══ COMPANIES ═════════════════════════════════════════
+
+  async getCompanies() {
+    const response = await this.client.get('/companies');
+    return response.data;
+  }
+
+  async getCompany(id: string) {
+    const response = await this.client.get(`/companies/${id}`);
+    return response.data;
+  }
+
+  async getPrimaryCompany() {
+    const response = await this.client.get('/companies/primary');
+    return response.data;
+  }
+
+  async createCompany(data: any) {
+    const response = await this.client.post('/companies', data);
+    return response.data;
+  }
+
+  async updateCompany(id: string, data: any) {
+    const response = await this.client.patch(`/companies/${id}`, data);
+    return response.data;
+  }
+
+  async deleteCompany(id: string) {
+    const response = await this.client.delete(`/companies/${id}`);
+    return response.data;
+  }
+
+  async uploadCompanyLogo(id: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await this.client.post(`/companies/${id}/logo`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
 }
 
 export const api = new ApiService();

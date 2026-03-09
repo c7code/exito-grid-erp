@@ -72,7 +72,7 @@ export default function AdminSettings() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
-                      type="number"
+                      type="text" inputMode="decimal"
                       value={stage.defaultDays}
                       onChange={(e) => {
                         const newStages = [...stages];

@@ -176,7 +176,7 @@ export class TasksService {
   async remove(id: string): Promise<void> {
     const task = await this.findOne(id);
     const workId = task.workId;
-    await this.taskRepository.remove(task);
+    await this.taskRepository.softRemove(task);
 
     // Recalculate work progress after removal
     if (workId) {
@@ -189,7 +189,7 @@ export class TasksService {
    */
   async syncResolvers(taskId: string, employeeIds: string[]): Promise<TaskResolver[]> {
     // Remove all existing resolvers for this task
-    await this.resolverRepository.delete({ taskId });
+    await this.resolverRepository.softDelete({ taskId });
 
     if (!employeeIds || employeeIds.length === 0) return [];
 

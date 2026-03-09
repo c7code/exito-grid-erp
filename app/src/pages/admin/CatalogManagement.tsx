@@ -168,6 +168,7 @@ export default function AdminCatalogManagement() {
 
     // Category form
     const [catForm, setCatForm] = useState({ id: '', name: '', type: 'material' as string, parentId: '' });
+    const [catFromProduct, setCatFromProduct] = useState(false);
 
     // NCM Search
     const [, setNcmQuery] = useState('');
@@ -276,9 +277,10 @@ export default function AdminCatalogManagement() {
 
     // ═══════════ CATEGORY CRUD ═══════════
 
-    const handleOpenCatDialog = (cat?: Category) => {
+    const handleOpenCatDialog = (cat?: Category, fromProduct = false) => {
         if (cat) setCatForm({ id: cat.id, name: cat.name, type: cat.type, parentId: cat.parentId || '' });
-        else setCatForm({ id: '', name: '', type: activeTab, parentId: '' });
+        else setCatForm({ id: '', name: '', type: editingItem.type || activeTab, parentId: '' });
+        setCatFromProduct(fromProduct);
         setCatDialogOpen(true);
     };
 
@@ -291,10 +293,14 @@ export default function AdminCatalogManagement() {
                 await api.updateCatalogCategory(catForm.id, payload);
                 toast.success('Categoria atualizada');
             } else {
-                await api.createCatalogCategory(payload);
+                const created = await api.createCatalogCategory(payload);
                 toast.success('Categoria criada');
+                if (catFromProduct && created?.id) {
+                    setEditingItem(p => ({ ...p, categoryId: created.id }));
+                }
             }
             setCatDialogOpen(false);
+            setCatFromProduct(false);
             loadData();
         } catch { toast.error('Erro ao salvar categoria'); }
         setSaving(false);
@@ -559,12 +565,17 @@ export default function AdminCatalogManagement() {
                                 </div>
                                 <div>
                                     <Label>Categoria *</Label>
-                                    <Select value={editingItem.categoryId || ''} onValueChange={v => setEditingItem(p => ({ ...p, categoryId: v }))}>
-                                        <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                        <SelectContent>
-                                            {flatCats.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="flex gap-2 mt-1">
+                                        <Select value={editingItem.categoryId || ''} onValueChange={v => setEditingItem(p => ({ ...p, categoryId: v }))}>
+                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                            <SelectContent>
+                                                {flatCats.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                        <Button type="button" variant="outline" size="icon" className="shrink-0" title="Nova Categoria" onClick={() => handleOpenCatDialog(undefined, true)}>
+                                            <FolderPlus className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
                                 <div>
                                     <Label>Tipo</Label>
@@ -609,19 +620,19 @@ export default function AdminCatalogManagement() {
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     <div>
                                         <Label className="text-xs">Peso (kg)</Label>
-                                        <Input type="number" step="0.001" value={editingItem.weight || 0} onChange={e => setEditingItem(p => ({ ...p, weight: Number(e.target.value) }))} className="mt-1" />
+                                        <Input type="text" inputMode="decimal" step="0.001" value={editingItem.weight || 0} onChange={e => setEditingItem(p => ({ ...p, weight: Number(e.target.value) }))} className="mt-1" />
                                     </div>
                                     <div>
                                         <Label className="text-xs">Largura (m)</Label>
-                                        <Input type="number" step="0.001" value={editingItem.width || 0} onChange={e => setEditingItem(p => ({ ...p, width: Number(e.target.value) }))} className="mt-1" />
+                                        <Input type="text" inputMode="decimal" step="0.001" value={editingItem.width || 0} onChange={e => setEditingItem(p => ({ ...p, width: Number(e.target.value) }))} className="mt-1" />
                                     </div>
                                     <div>
                                         <Label className="text-xs">Altura (m)</Label>
-                                        <Input type="number" step="0.001" value={editingItem.height || 0} onChange={e => setEditingItem(p => ({ ...p, height: Number(e.target.value) }))} className="mt-1" />
+                                        <Input type="text" inputMode="decimal" step="0.001" value={editingItem.height || 0} onChange={e => setEditingItem(p => ({ ...p, height: Number(e.target.value) }))} className="mt-1" />
                                     </div>
                                     <div>
                                         <Label className="text-xs">Comprimento (m)</Label>
-                                        <Input type="number" step="0.001" value={editingItem.length || 0} onChange={e => setEditingItem(p => ({ ...p, length: Number(e.target.value) }))} className="mt-1" />
+                                        <Input type="text" inputMode="decimal" step="0.001" value={editingItem.length || 0} onChange={e => setEditingItem(p => ({ ...p, length: Number(e.target.value) }))} className="mt-1" />
                                     </div>
                                 </div>
                             </div>
@@ -644,7 +655,7 @@ export default function AdminCatalogManagement() {
                                 </div>
                                 <div>
                                     <Label>Comissão (%)</Label>
-                                    <Input type="number" step="0.01" value={editingItem.commission || 0} onChange={e => setEditingItem(p => ({ ...p, commission: Number(e.target.value) }))} className="mt-1 max-w-[200px]" />
+                                    <Input type="text" inputMode="decimal" step="0.01" value={editingItem.commission || 0} onChange={e => setEditingItem(p => ({ ...p, commission: Number(e.target.value) }))} className="mt-1 max-w-[200px]" />
                                 </div>
                             </div>
 
@@ -685,11 +696,11 @@ export default function AdminCatalogManagement() {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <Label>Preço de Venda (R$)</Label>
-                                    <Input type="number" step="0.01" value={editingItem.unitPrice || 0} onChange={e => setEditingItem(p => ({ ...p, unitPrice: Number(e.target.value) }))} className="mt-1" />
+                                    <Input type="text" inputMode="decimal" step="0.01" value={editingItem.unitPrice || 0} onChange={e => setEditingItem(p => ({ ...p, unitPrice: Number(e.target.value) }))} className="mt-1" />
                                 </div>
                                 <div>
                                     <Label>Preço de Custo (R$)</Label>
-                                    <Input type="number" step="0.01" value={editingItem.costPrice || 0} onChange={e => setEditingItem(p => ({ ...p, costPrice: Number(e.target.value) }))} className="mt-1" />
+                                    <Input type="text" inputMode="decimal" step="0.01" value={editingItem.costPrice || 0} onChange={e => setEditingItem(p => ({ ...p, costPrice: Number(e.target.value) }))} className="mt-1" />
                                 </div>
                                 <div>
                                     <Label>Unidade</Label>
@@ -728,15 +739,15 @@ export default function AdminCatalogManagement() {
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         <div>
                                             <Label className="text-xs">Estoque atual</Label>
-                                            <Input type="number" step="0.001" value={editingItem.currentStock || 0} onChange={e => setEditingItem(p => ({ ...p, currentStock: Number(e.target.value) }))} className="mt-1" disabled={isEditing} />
+                                            <Input type="text" inputMode="decimal" step="0.001" value={editingItem.currentStock || 0} onChange={e => setEditingItem(p => ({ ...p, currentStock: Number(e.target.value) }))} className="mt-1" disabled={isEditing} />
                                         </div>
                                         <div>
                                             <Label className="text-xs">Estoque mínimo</Label>
-                                            <Input type="number" step="0.001" value={editingItem.minStock || 0} onChange={e => setEditingItem(p => ({ ...p, minStock: Number(e.target.value) }))} className="mt-1" />
+                                            <Input type="text" inputMode="decimal" step="0.001" value={editingItem.minStock || 0} onChange={e => setEditingItem(p => ({ ...p, minStock: Number(e.target.value) }))} className="mt-1" />
                                         </div>
                                         <div>
                                             <Label className="text-xs">Estoque máximo</Label>
-                                            <Input type="number" step="0.001" value={editingItem.maxStock || 0} onChange={e => setEditingItem(p => ({ ...p, maxStock: Number(e.target.value) }))} className="mt-1" />
+                                            <Input type="text" inputMode="decimal" step="0.001" value={editingItem.maxStock || 0} onChange={e => setEditingItem(p => ({ ...p, maxStock: Number(e.target.value) }))} className="mt-1" />
                                         </div>
                                         <div>
                                             <Label className="text-xs">Localização</Label>
@@ -842,11 +853,11 @@ export default function AdminCatalogManagement() {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                 <div>
                                     <Label className="text-xs">Peso líquido</Label>
-                                    <Input type="number" step="0.001" value={editingItem.netWeight || 0} onChange={e => setEditingItem(p => ({ ...p, netWeight: Number(e.target.value) }))} className="mt-1" />
+                                    <Input type="text" inputMode="decimal" step="0.001" value={editingItem.netWeight || 0} onChange={e => setEditingItem(p => ({ ...p, netWeight: Number(e.target.value) }))} className="mt-1" />
                                 </div>
                                 <div>
                                     <Label className="text-xs">Peso bruto</Label>
-                                    <Input type="number" step="0.001" value={editingItem.grossWeight || 0} onChange={e => setEditingItem(p => ({ ...p, grossWeight: Number(e.target.value) }))} className="mt-1" />
+                                    <Input type="text" inputMode="decimal" step="0.001" value={editingItem.grossWeight || 0} onChange={e => setEditingItem(p => ({ ...p, grossWeight: Number(e.target.value) }))} className="mt-1" />
                                 </div>
                                 <div>
                                     <Label className="text-xs">Número FCI</Label>
@@ -1010,7 +1021,7 @@ export default function AdminCatalogManagement() {
                         </div>
                         <div>
                             <Label>Quantidade</Label>
-                            <Input type="number" step="0.001" value={movForm.quantity} onChange={e => setMovForm(p => ({ ...p, quantity: Number(e.target.value) }))} className="mt-1" />
+                            <Input type="text" inputMode="decimal" step="0.001" value={movForm.quantity} onChange={e => setMovForm(p => ({ ...p, quantity: Number(e.target.value) }))} className="mt-1" />
                         </div>
                         <div>
                             <Label>Motivo / Observação</Label>
@@ -1052,11 +1063,11 @@ export default function AdminCatalogManagement() {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label>Último preço (R$)</Label>
-                                <Input type="number" step="0.01" value={supplierForm.lastPrice} onChange={e => setSupplierForm(p => ({ ...p, lastPrice: Number(e.target.value) }))} className="mt-1" />
+                                <Input type="text" inputMode="decimal" step="0.01" value={supplierForm.lastPrice} onChange={e => setSupplierForm(p => ({ ...p, lastPrice: Number(e.target.value) }))} className="mt-1" />
                             </div>
                             <div>
                                 <Label>Prazo (dias)</Label>
-                                <Input type="number" value={supplierForm.leadTimeDays} onChange={e => setSupplierForm(p => ({ ...p, leadTimeDays: Number(e.target.value) }))} className="mt-1" />
+                                <Input type="text" inputMode="decimal" value={supplierForm.leadTimeDays} onChange={e => setSupplierForm(p => ({ ...p, leadTimeDays: Number(e.target.value) }))} className="mt-1" />
                             </div>
                         </div>
                     </div>

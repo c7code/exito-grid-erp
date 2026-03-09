@@ -36,28 +36,81 @@ import {
   MessageSquare,
   Receipt,
   Package,
+  Wrench,
+  Warehouse,
+  FileSignature,
+  Sun,
 } from 'lucide-react';
 
-const navItems = [
-  { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, module: 'dashboard', roles: ['admin', 'commercial', 'engineer', 'finance'] },
-  { path: '/admin/pipeline', label: 'Pipeline', icon: Kanban, module: 'pipeline', roles: ['admin', 'commercial'] },
-  { path: '/admin/works', label: 'Obras', icon: Building2, module: 'works', roles: ['admin', 'engineer', 'commercial'] },
-  { path: '/admin/tasks', label: 'Tarefas', icon: ClipboardList, module: 'tasks', roles: ['admin', 'engineer', 'commercial'] },
-  { path: '/admin/proposals', label: 'Propostas', icon: FileText, module: 'proposals', roles: ['admin', 'commercial'] },
-  { path: '/admin/protocols', label: 'Protocolos', icon: FileCheck, module: 'protocols', roles: ['admin', 'engineer'] },
-  { path: '/admin/documents', label: 'Documentos', icon: FolderOpen, module: 'documents', roles: ['admin', 'engineer', 'commercial', 'finance'] },
-  { path: '/admin/employees', label: 'Funcionários', icon: Users, module: 'employees', roles: ['admin'] },
-  { path: '/admin/users', label: 'Usuários', icon: Users, module: 'users', roles: ['admin'] },
-  { path: '/admin/clients', label: 'Clientes', icon: UserCircle, module: 'clients', roles: ['admin', 'commercial'] },
-  { path: '/admin/finance', label: 'Financeiro', icon: DollarSign, module: 'finance', roles: ['admin', 'finance'] },
-  { path: '/admin/fiscal', label: 'Fiscal', icon: Receipt, module: 'fiscal', roles: ['admin', 'finance'] },
-  { path: '/admin/finance-simulator', label: 'Simulador Investimento', icon: Calculator, module: 'finance-simulator', roles: ['admin', 'commercial', 'finance'] },
-  { path: '/admin/catalog', label: 'Produtos & Estoque', icon: Package, module: 'catalog', roles: ['admin', 'commercial', 'engineer'] },
-  { path: '/admin/suppliers', label: 'Fornecedores', icon: Truck, module: 'suppliers', roles: ['admin', 'commercial', 'engineer'] },
-  { path: '/admin/quotations', label: 'Cotações', icon: FileText, module: 'quotations', roles: ['admin', 'commercial', 'engineer'] },
-  { path: '/admin/price-history', label: 'Memorial Preços', icon: History, module: 'price-history', roles: ['admin', 'commercial', 'finance'] },
-  { path: '/admin/client-requests', label: 'Solicitações', icon: MessageSquare, module: 'client-requests', roles: ['admin', 'commercial'] },
-  { path: '/admin/settings', label: 'Configurações', icon: Settings, module: 'settings', roles: ['admin'] },
+type NavItem = { path: string; label: string; icon: any; module: string; roles: string[] };
+type NavSection = { section: string; items: NavItem[] };
+
+const navSections: NavSection[] = [
+  {
+    section: 'GERAL',
+    items: [
+      { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, module: 'dashboard', roles: ['admin', 'commercial', 'engineer', 'finance'] },
+    ],
+  },
+  {
+    section: 'COMERCIAL',
+    items: [
+      { path: '/admin/pipeline', label: 'Pipeline de Vendas', icon: Kanban, module: 'pipeline', roles: ['admin', 'commercial'] },
+      { path: '/admin/clients', label: 'Clientes', icon: UserCircle, module: 'clients', roles: ['admin', 'commercial'] },
+      { path: '/admin/proposals', label: 'Propostas', icon: FileText, module: 'proposals', roles: ['admin', 'commercial'] },
+      { path: '/admin/client-requests', label: 'Solicitações', icon: MessageSquare, module: 'client-requests', roles: ['admin', 'commercial'] },
+      { path: '/admin/finance-simulator', label: 'Simulador', icon: Calculator, module: 'finance-simulator', roles: ['admin', 'commercial', 'finance'] },
+    ],
+  },
+  {
+    section: 'ENERGIA SOLAR',
+    items: [
+      { path: '/admin/solar', label: 'Energia Solar', icon: Sun, module: 'solar', roles: ['admin', 'commercial', 'engineer'] },
+    ],
+  },
+  {
+    section: 'ENGENHARIA',
+    items: [
+      { path: '/admin/works', label: 'Obras', icon: Building2, module: 'works', roles: ['admin', 'engineer', 'commercial'] },
+      { path: '/admin/tasks', label: 'Tarefas', icon: ClipboardList, module: 'tasks', roles: ['admin', 'engineer', 'commercial'] },
+      { path: '/admin/protocols', label: 'Protocolos', icon: FileCheck, module: 'protocols', roles: ['admin', 'engineer'] },
+      { path: '/admin/daily-logs', label: 'Diário de Obra', icon: ClipboardList, module: 'daily-logs', roles: ['admin', 'engineer'] },
+      { path: '/admin/service-orders', label: 'Ordens de Serviço', icon: Wrench, module: 'service-orders', roles: ['admin', 'engineer'] },
+      { path: '/admin/contracts', label: 'Contratos', icon: FileSignature, module: 'contracts', roles: ['admin', 'engineer', 'commercial'] },
+    ],
+  },
+  {
+    section: 'SUPRIMENTOS',
+    items: [
+      { path: '/admin/catalog', label: 'Produtos & Estoque', icon: Package, module: 'catalog', roles: ['admin', 'commercial', 'engineer'] },
+      { path: '/admin/inventory', label: 'Almoxarifado', icon: Warehouse, module: 'inventory', roles: ['admin', 'engineer', 'commercial'] },
+      { path: '/admin/suppliers', label: 'Fornecedores', icon: Truck, module: 'suppliers', roles: ['admin', 'commercial', 'engineer'] },
+      { path: '/admin/quotations', label: 'Cotações', icon: FileText, module: 'quotations', roles: ['admin', 'commercial', 'engineer'] },
+      { path: '/admin/price-history', label: 'Memorial Preços', icon: History, module: 'price-history', roles: ['admin', 'commercial', 'finance'] },
+    ],
+  },
+  {
+    section: 'DOCUMENTAÇÃO',
+    items: [
+      { path: '/admin/documents', label: 'Documentos', icon: FolderOpen, module: 'documents', roles: ['admin', 'engineer', 'commercial', 'finance'] },
+    ],
+  },
+  {
+    section: 'FINANCEIRO',
+    items: [
+      { path: '/admin/finance', label: 'Financeiro', icon: DollarSign, module: 'finance', roles: ['admin', 'finance'] },
+      { path: '/admin/fiscal', label: 'Fiscal', icon: Receipt, module: 'fiscal', roles: ['admin', 'finance'] },
+    ],
+  },
+  {
+    section: 'SISTEMA',
+    items: [
+      { path: '/admin/employees', label: 'Funcionários', icon: Users, module: 'employees', roles: ['admin'] },
+      { path: '/admin/users', label: 'Usuários', icon: Users, module: 'users', roles: ['admin'] },
+      { path: '/admin/companies', label: 'Empresas', icon: Building2, module: 'companies', roles: ['admin'] },
+      { path: '/admin/settings', label: 'Configurações', icon: Settings, module: 'settings', roles: ['admin'] },
+    ],
+  },
 ];
 
 export default function AdminLayout() {
@@ -70,12 +123,17 @@ export default function AdminLayout() {
     navigate('/login');
   };
 
-  const filteredNavItems = navItems.filter(item => {
-    if (!user) return false;
-    if (user.role === 'admin') return true;
-    if (item.module && hasPermission(item.module)) return true;
-    return false;
-  });
+  const filteredSections = navSections
+    .map(section => ({
+      ...section,
+      items: section.items.filter(item => {
+        if (!user) return false;
+        if (user.role === 'admin') return true;
+        if (item.module && hasPermission(item.module)) return true;
+        return false;
+      }),
+    }))
+    .filter(section => section.items.length > 0);
 
   const closeSidebar = () => setSidebarOpen(false);
 
@@ -124,26 +182,34 @@ export default function AdminLayout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4">
-          <ul className="space-y-1 px-3">
-            {filteredNavItems.map((item) => (
-              <li key={item.path}>
-                <NavLink
-                  to={item.path}
-                  onClick={closeSidebar}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${isActive
-                      ? 'bg-amber-500 text-slate-900 font-medium'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                    }`
-                  }
-                >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+        <nav className="flex-1 overflow-y-auto py-2">
+          {filteredSections.map((section, sIdx) => (
+            <div key={section.section}>
+              {/* Section Header */}
+              <div className="px-5 pb-1.5" style={{ paddingTop: sIdx === 0 ? '0.75rem' : '1rem' }}>
+                <span className="text-[10px] font-bold text-slate-500 tracking-widest">{section.section}</span>
+              </div>
+              <ul className="space-y-0.5 px-3">
+                {section.items.map((item) => (
+                  <li key={item.path}>
+                    <NavLink
+                      to={item.path}
+                      onClick={closeSidebar}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${isActive
+                          ? 'bg-amber-500 text-slate-900 font-medium'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                        }`
+                      }
+                    >
+                      <item.icon className="w-4.5 h-4.5 flex-shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </nav>
 
         {/* User Info */}

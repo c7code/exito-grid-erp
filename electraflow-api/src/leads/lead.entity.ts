@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToOne } from 'typeorm';
 import { Client } from '../clients/client.entity';
 import { Opportunity } from '../opportunities/opportunity.entity';
 
@@ -78,6 +78,9 @@ export class Lead {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 
   @OneToOne(() => Opportunity, opportunity => opportunity.lead)
   opportunity: Opportunity;

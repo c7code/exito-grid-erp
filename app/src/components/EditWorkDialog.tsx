@@ -146,7 +146,7 @@ export default function EditWorkDialog({ open, onOpenChange, work, onWorkUpdated
                     <div className="space-y-2">
                         <Label>Valor Total (R$)</Label>
                         <Input
-                            type="number"
+                            type="text" inputMode="decimal"
                             value={formData.totalValue}
                             onChange={(e) => setFormData({ ...formData, totalValue: e.target.value })}
                         />

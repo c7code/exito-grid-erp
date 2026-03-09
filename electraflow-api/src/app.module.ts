@@ -23,6 +23,12 @@ import { SupplyModule } from './supply/supply.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { FiscalModule } from './fiscal/fiscal.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { DailyLogsModule } from './daily-logs/daily-logs.module';
+import { InventoryModule } from './inventory/inventory.module';
+import { ServiceOrdersModule } from './service-orders/service-orders.module';
+import { ContractsModule } from './contracts/contracts.module';
+import { SolarModule } from './solar/solar.module';
+import { CompaniesModule } from './companies/companies.module';
 
 @Module({
   imports: [
@@ -64,6 +70,12 @@ import { NotificationsModule } from './notifications/notifications.module';
     ComplianceModule,
     FiscalModule,
     NotificationsModule,
+    DailyLogsModule,
+    InventoryModule,
+    ServiceOrdersModule,
+    ContractsModule,
+    SolarModule,
+    CompaniesModule,
   ],
 })
 export class AppModule { }

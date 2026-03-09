@@ -37,8 +37,13 @@ export default function Login() {
 
         if (user?.role === 'admin') {
           navigate('/admin/dashboard');
-        } else if (['employee', 'commercial', 'engineer', 'finance'].includes(user?.role)) {
-          navigate('/employee/dashboard');
+        } else if (['commercial', 'engineer', 'finance'].includes(user?.role)) {
+          // Roles com acesso direto ao admin layout
+          navigate('/admin/dashboard');
+        } else if (user?.role === 'employee') {
+          // Funcionário com permissões → admin layout; sem permissões → employee layout
+          const perms = user?.permissions || [];
+          navigate(perms.length > 0 ? '/admin/dashboard' : '/employee/dashboard');
         } else {
           navigate('/client/dashboard');
         }

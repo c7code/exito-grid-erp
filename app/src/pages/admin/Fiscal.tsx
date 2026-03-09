@@ -1222,7 +1222,7 @@ export default function AdminFiscal() {
                                                                 <Label className="text-xs font-medium text-blue-800">Valor desta NF-e (R$)</Label>
                                                                 <Input
                                                                     className="mt-1"
-                                                                    type="number"
+                                                                    type="text" inputMode="decimal"
                                                                     step="0.01"
                                                                     placeholder={`Máx: ${fmt(preview.material.remaining)}`}
                                                                     value={customValueNfe}
@@ -1235,7 +1235,7 @@ export default function AdminFiscal() {
                                                                     <Label className="text-[10px] font-medium text-blue-800">Parcela nº</Label>
                                                                     <Input
                                                                         className="mt-0.5"
-                                                                        type="number"
+                                                                        type="text" inputMode="decimal"
                                                                         min="1"
                                                                         placeholder="1"
                                                                         value={installmentNumberNfe}
@@ -1246,7 +1246,7 @@ export default function AdminFiscal() {
                                                                     <Label className="text-[10px] font-medium text-blue-800">de (total)</Label>
                                                                     <Input
                                                                         className="mt-0.5"
-                                                                        type="number"
+                                                                        type="text" inputMode="decimal"
                                                                         min="1"
                                                                         placeholder="3"
                                                                         value={installmentTotalNfe}
@@ -1334,7 +1334,7 @@ export default function AdminFiscal() {
                                                                 <Label className="text-xs font-medium text-purple-800">Valor desta NFS-e (R$)</Label>
                                                                 <Input
                                                                     className="mt-1"
-                                                                    type="number"
+                                                                    type="text" inputMode="decimal"
                                                                     step="0.01"
                                                                     placeholder={`Máx: ${fmt(preview.service.remaining)}`}
                                                                     value={customValueNfse}
@@ -1347,7 +1347,7 @@ export default function AdminFiscal() {
                                                                     <Label className="text-[10px] font-medium text-purple-800">Parcela nº</Label>
                                                                     <Input
                                                                         className="mt-0.5"
-                                                                        type="number"
+                                                                        type="text" inputMode="decimal"
                                                                         min="1"
                                                                         placeholder="1"
                                                                         value={installmentNumberNfse}
@@ -1358,7 +1358,7 @@ export default function AdminFiscal() {
                                                                     <Label className="text-[10px] font-medium text-purple-800">de (total)</Label>
                                                                     <Input
                                                                         className="mt-0.5"
-                                                                        type="number"
+                                                                        type="text" inputMode="decimal"
                                                                         min="1"
                                                                         placeholder="3"
                                                                         value={installmentTotalNfse}
@@ -1670,7 +1670,7 @@ export default function AdminFiscal() {
                                                 <Label className="text-xs">Qtd *</Label>
                                                 <Input
                                                     className="mt-0.5"
-                                                    type="number"
+                                                    type="text" inputMode="decimal"
                                                     min="1"
                                                     value={item.quantity}
                                                     onChange={(e) => {
@@ -1684,7 +1684,7 @@ export default function AdminFiscal() {
                                                 <Label className="text-xs">Preço Unit. (R$) *</Label>
                                                 <Input
                                                     className="mt-0.5"
-                                                    type="number"
+                                                    type="text" inputMode="decimal"
                                                     step="0.01"
                                                     value={item.unitPrice || ''}
                                                     onChange={(e) => {
@@ -2157,7 +2157,7 @@ export default function AdminFiscal() {
                                     <div>
                                         <Label className="text-sm">Alíquota ISS (%)</Label>
                                         <Input
-                                            type="number" step="0.01" min="0" max="10"
+                                            type="text" inputMode="decimal" step="0.01" min="0" max="10"
                                             value={configForm.aliquotaIss ?? 5}
                                             onChange={(e) => setConfigForm({ ...configForm, aliquotaIss: Number(e.target.value) })}
                                             className="mt-1"
@@ -2252,7 +2252,7 @@ export default function AdminFiscal() {
                                                 <span className="text-sm font-medium">{label}</span>
                                                 {key !== 'retIss' && (
                                                     <Input
-                                                        type="number" step="0.01" min="0" max="100"
+                                                        type="text" inputMode="decimal" step="0.01" min="0" max="100"
                                                         value={aliq}
                                                         onChange={(e) => setConfigForm({ ...configForm, [aliqKey]: e.target.value })}
                                                         className="mt-1 h-7 text-xs"
@@ -2596,7 +2596,7 @@ export default function AdminFiscal() {
                                 <Label className="text-sm font-medium">Novo Valor (R$)</Label>
                                 <Input
                                     className="mt-1"
-                                    type="number"
+                                    type="text" inputMode="decimal"
                                     step="0.01"
                                     value={editNewValue}
                                     onChange={(e) => setEditNewValue(e.target.value)}

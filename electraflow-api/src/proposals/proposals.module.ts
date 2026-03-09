@@ -4,9 +4,11 @@ import { ProposalsController, ProposalPublicController } from './proposals.contr
 import { ProposalsService } from './proposals.service';
 import { Proposal, ProposalItem } from './proposal.entity';
 import { Client } from '../clients/client.entity';
+import { Work } from '../works/work.entity';
+import { Notification } from '../notifications/notification.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Proposal, ProposalItem, Client])],
+  imports: [TypeOrmModule.forFeature([Proposal, ProposalItem, Client, Work, Notification])],
   controllers: [ProposalsController, ProposalPublicController],
   providers: [ProposalsService],
   exports: [ProposalsService],

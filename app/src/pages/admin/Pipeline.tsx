@@ -43,6 +43,13 @@ import {
   FileText,
   MessageSquare,
   ExternalLink,
+  Settings2,
+  GripVertical,
+  Pencil,
+  Eye,
+  EyeOff,
+  RotateCcw,
+  AlertTriangle,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ClientDetailViewer } from '@/components/ClientDetailViewer';
@@ -51,14 +58,59 @@ import { toast } from 'sonner';
 import { api } from '@/api';
 import NewProposalDialog from '@/components/NewProposalDialog';
 
-const columns: { id: OpportunityStage; title: string; color: string }[] = [
-  { id: 'lead_new', title: 'Novos', color: 'bg-blue-500' },
-  { id: 'qualification', title: 'Qualificação', color: 'bg-cyan-500' },
-  { id: 'visit', title: 'Visita', color: 'bg-teal-500' },
-  { id: 'proposal', title: 'Proposta', color: 'bg-purple-500' },
-  { id: 'negotiation', title: 'Negociação', color: 'bg-orange-500' },
-  { id: 'closed_won', title: 'Ganhos', color: 'bg-emerald-500' },
-  { id: 'closed_lost', title: 'Perdidos', color: 'bg-red-500' },
+// ═══════════════════════════════════════════════
+// ALL AVAILABLE STAGES (matches backend enum)
+// ═══════════════════════════════════════════════
+
+interface PipelineColumn {
+  id: string;
+  title: string;
+  color: string;
+  visible: boolean;
+}
+
+const DEFAULT_COLUMNS: PipelineColumn[] = [
+  { id: 'lead_new', title: 'Novos', color: 'bg-blue-500', visible: true },
+  { id: 'qualification', title: 'Qualificação', color: 'bg-cyan-500', visible: true },
+  { id: 'visit', title: 'Visita', color: 'bg-teal-500', visible: true },
+  { id: 'proposal', title: 'Proposta', color: 'bg-purple-500', visible: true },
+  { id: 'negotiation', title: 'Negociação', color: 'bg-orange-500', visible: true },
+  { id: 'closed_won', title: 'Ganhos', color: 'bg-emerald-500', visible: true },
+  { id: 'closed_lost', title: 'Perdidos', color: 'bg-red-500', visible: true },
+  { id: 'execution', title: 'Execução', color: 'bg-indigo-500', visible: false },
+  { id: 'completed', title: 'Concluído', color: 'bg-gray-500', visible: false },
+];
+
+const STORAGE_KEY = 'pipeline_columns_config';
+
+function loadColumnsFromStorage(): PipelineColumn[] {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed: PipelineColumn[] = JSON.parse(saved);
+      // Merge with defaults to handle new stages added later
+      const savedIds = new Set(parsed.map(c => c.id));
+      const merged = [...parsed];
+      for (const def of DEFAULT_COLUMNS) {
+        if (!savedIds.has(def.id)) merged.push(def);
+      }
+      return merged;
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_COLUMNS.map(c => ({ ...c }));
+}
+
+function saveColumnsToStorage(cols: PipelineColumn[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cols));
+}
+
+const DEFAULT_COLUMN_IDS = new Set(DEFAULT_COLUMNS.map(c => c.id));
+
+const COLOR_OPTIONS = [
+  'bg-blue-500', 'bg-cyan-500', 'bg-teal-500', 'bg-purple-500',
+  'bg-orange-500', 'bg-emerald-500', 'bg-red-500', 'bg-indigo-500',
+  'bg-gray-500', 'bg-pink-500', 'bg-yellow-500', 'bg-lime-500',
+  'bg-amber-500', 'bg-rose-500', 'bg-sky-500', 'bg-violet-500',
 ];
 
 const sourceLabels: Record<string, string> = {
@@ -93,11 +145,24 @@ const emptyForm = {
   stage: 'lead_new' as string,
 };
 
+// ═══════════════════════════════════════════════
+// COMPONENT
+// ═══════════════════════════════════════════════
+
 export default function AdminPipeline() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+
+  // Customizable columns
+  const [columns, setColumns] = useState<PipelineColumn[]>(loadColumnsFromStorage);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsColumns, setSettingsColumns] = useState<PipelineColumn[]>([]);
+  const [draggingSettingsIdx, setDraggingSettingsIdx] = useState<number | null>(null);
+  const [editingColIdx, setEditingColIdx] = useState<number | null>(null);
+
+  const visibleColumns = columns.filter(c => c.visible);
 
   // Create/Edit dialog
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -112,6 +177,14 @@ export default function AdminPipeline() {
     targetStage: OpportunityStage;
   } | null>(null);
   const [movingStage, setMovingStage] = useState(false);
+
+  // Leave proposal confirmation
+  const [leaveProposalConfirm, setLeaveProposalConfirm] = useState<{
+    oppId: string;
+    oppTitle: string;
+    targetStage: OpportunityStage;
+    proposals: { id: string; proposalNumber?: string; title?: string }[];
+  } | null>(null);
 
   // Proposal dialog from card menu
   const [showProposalDialog, setShowProposalDialog] = useState(false);
@@ -139,7 +212,46 @@ export default function AdminPipeline() {
   const getByStage = (stage: OpportunityStage) =>
     opportunities.filter((o) => o.stage === stage);
 
-  // ===== Drag and Drop =====
+  // ═══════════ SETTINGS ═══════════
+
+  const openSettings = () => {
+    setSettingsColumns(columns.map(c => ({ ...c })));
+    setEditingColIdx(null);
+    setSettingsOpen(true);
+  };
+
+  const saveSettings = () => {
+    setColumns(settingsColumns);
+    saveColumnsToStorage(settingsColumns);
+    setSettingsOpen(false);
+    toast.success('Pipeline atualizado!');
+  };
+
+  const resetSettings = () => {
+    const defaults = DEFAULT_COLUMNS.map(c => ({ ...c }));
+    setSettingsColumns(defaults);
+  };
+
+  const handleSettingsDragStart = (idx: number) => {
+    setDraggingSettingsIdx(idx);
+  };
+
+  const handleSettingsDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (draggingSettingsIdx === null || draggingSettingsIdx === idx) return;
+    const updated = [...settingsColumns];
+    const [moved] = updated.splice(draggingSettingsIdx, 1);
+    updated.splice(idx, 0, moved);
+    setSettingsColumns(updated);
+    setDraggingSettingsIdx(idx);
+  };
+
+  const handleSettingsDragEnd = () => {
+    setDraggingSettingsIdx(null);
+  };
+
+  // ═══════════ Drag and Drop ═══════════
+
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('opportunityId', id);
     setDraggingId(id);
@@ -166,31 +278,89 @@ export default function AdminPipeline() {
     const opp = opportunities.find((o) => o.id === oppId);
     if (!opp || opp.stage === targetStage) return;
 
-    // Stages that create entities → show confirmation
-    if (targetStage === 'proposal' || targetStage === 'closed_won') {
-      setConfirmStage({ oppId, oppTitle: opp.title, targetStage });
-    } else {
-      performMoveStage(oppId, targetStage);
+    initiateStageMove(opp, targetStage);
+  };
+
+  const initiateStageMove = (opp: Opportunity, targetStage: OpportunityStage) => {
+    // Leaving proposal stage → check for linked proposals
+    if (opp.stage === 'proposal' && targetStage !== 'proposal') {
+      const linkedProposals = (opp as any).proposals || [];
+      if (linkedProposals.length > 0) {
+        setLeaveProposalConfirm({
+          oppId: opp.id,
+          oppTitle: opp.title,
+          targetStage,
+          proposals: linkedProposals.map((p: any) => ({
+            id: p.id,
+            proposalNumber: p.proposalNumber,
+            title: p.title,
+          })),
+        });
+        return;
+      }
     }
+
+    // Entering proposal or closed_won → show confirmation
+    if (targetStage === 'proposal' || targetStage === 'closed_won') {
+      setConfirmStage({ oppId: opp.id, oppTitle: opp.title, targetStage });
+    } else {
+      performMoveStage(opp.id, targetStage);
+    }
+  };
+
+  const handleLeaveProposalConfirm = async (deleteProposals: boolean) => {
+    if (!leaveProposalConfirm) return;
+    setMovingStage(true);
+
+    try {
+      if (deleteProposals) {
+        for (const p of leaveProposalConfirm.proposals) {
+          try {
+            await api.deleteProposal(p.id);
+          } catch { /* continue */ }
+        }
+        toast.success('Propostas excluídas.');
+      }
+
+      // Now check if target stage needs its own confirmation (entering proposal or closed_won)
+      const { oppId, targetStage } = leaveProposalConfirm;
+      setLeaveProposalConfirm(null);
+
+      if (targetStage === 'closed_won') {
+        setMovingStage(false);
+        const opp = opportunities.find(o => o.id === oppId);
+        setConfirmStage({ oppId, oppTitle: opp?.title || '', targetStage });
+        return;
+      }
+
+      await performMoveStageRaw(oppId, targetStage);
+    } catch {
+      toast.error('Erro ao mover oportunidade.');
+    } finally {
+      setMovingStage(false);
+      setLeaveProposalConfirm(null);
+    }
+  };
+
+  const performMoveStageRaw = async (id: string, stage: OpportunityStage) => {
+    const result = await api.moveOpportunityStage(id, stage);
+    if (result.createdProposal) {
+      toast.success(`Proposta "${result.createdProposal.proposalNumber}" criada automaticamente!`);
+    }
+    if (result.createdWork) {
+      toast.success(`Obra "${result.createdWork.code}" criada automaticamente!`);
+    }
+    if (result.createdPayment) {
+      toast.success('Pagamento pendente criado no financeiro!');
+    }
+    loadOpportunities();
+    toast.success(`Movido para "${stageLabels[stage]}"`);
   };
 
   const performMoveStage = async (id: string, stage: OpportunityStage) => {
     setMovingStage(true);
     try {
-      const result = await api.moveOpportunityStage(id, stage);
-
-      if (result.createdProposal) {
-        toast.success(`Proposta "${result.createdProposal.proposalNumber}" criada automaticamente!`);
-      }
-      if (result.createdWork) {
-        toast.success(`Obra "${result.createdWork.code}" criada automaticamente!`);
-      }
-      if (result.createdPayment) {
-        toast.success('Pagamento pendente criado no financeiro!');
-      }
-
-      loadOpportunities();
-      toast.success(`Movido para "${stageLabels[stage]}"`);
+      await performMoveStageRaw(id, stage);
     } catch (error) {
       toast.error('Erro ao mover oportunidade.');
     } finally {
@@ -199,10 +369,27 @@ export default function AdminPipeline() {
     }
   };
 
-  // ===== CRUD =====
+  // ═══════════ CRUD ═══════════
+
   const openCreate = () => {
     setEditingId(null);
     setFormData(emptyForm);
+    setIsFormOpen(true);
+  };
+
+  const openEdit = (opp: Opportunity) => {
+    setEditingId(opp.id);
+    setFormData({
+      title: opp.title || '',
+      serviceType: opp.serviceType || '',
+      clientName: opp.clientName || (opp.client?.name) || '',
+      clientEmail: opp.clientEmail || (opp.client?.email) || '',
+      clientPhone: opp.clientPhone || (opp.client?.phone) || '',
+      estimatedValue: opp.estimatedValue ? String(opp.estimatedValue) : '',
+      source: (opp as any).source || 'other',
+      description: opp.description || '',
+      stage: opp.stage || 'lead_new',
+    });
     setIsFormOpen(true);
   };
 
@@ -278,6 +465,8 @@ export default function AdminPipeline() {
     );
   }
 
+  // ═══════════ RENDER ═══════════
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -286,18 +475,23 @@ export default function AdminPipeline() {
           <h1 className="text-xl md:text-2xl font-bold text-slate-900">Pipeline de Vendas</h1>
           <p className="text-slate-500">Gerencie suas oportunidades</p>
         </div>
-        <Button
-          className="bg-amber-500 hover:bg-amber-600 text-slate-900"
-          onClick={openCreate}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Oportunidade
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={openSettings} title="Configurar Pipeline">
+            <Settings2 className="w-4 h-4" />
+          </Button>
+          <Button
+            className="bg-amber-500 hover:bg-amber-600 text-slate-900"
+            onClick={openCreate}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nova Oportunidade
+          </Button>
+        </div>
       </div>
 
       {/* Kanban Board */}
       <div className="flex gap-4 overflow-x-auto pb-4">
-        {columns.map((column) => {
+        {visibleColumns.map((column) => {
           const colOpps = getByStage(column.id);
           const isOver = dragOverColumn === column.id;
 
@@ -344,6 +538,10 @@ export default function AdminPipeline() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEdit(opp)}>
+                                <Pencil className="w-4 h-4 mr-2" />
+                                Editar
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => {
                                 setSelectedOppForProposal(opp);
                                 setShowProposalDialog(true);
@@ -352,22 +550,12 @@ export default function AdminPipeline() {
                                 Nova Proposta
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              {columns
+                              {visibleColumns
                                 .filter((c) => c.id !== opp.stage)
                                 .map((c) => (
                                   <DropdownMenuItem
                                     key={c.id}
-                                    onClick={() => {
-                                      if (c.id === 'proposal' || c.id === 'closed_won') {
-                                        setConfirmStage({
-                                          oppId: opp.id,
-                                          oppTitle: opp.title,
-                                          targetStage: c.id,
-                                        });
-                                      } else {
-                                        performMoveStage(opp.id, c.id);
-                                      }
-                                    }}
+                                    onClick={() => initiateStageMove(opp, c.id)}
                                   >
                                     <ArrowRight className="w-4 h-4 mr-2" />
                                     Mover → {c.title}
@@ -434,10 +622,10 @@ export default function AdminPipeline() {
                           )}
 
                           <div className="flex items-center justify-between pt-1.5">
-                            {opp.source && (
+                            {(opp as any).source && (
                               <Badge variant="outline" className="text-xs">
-                                {getSourceIcon(opp.source)}
-                                <span className="ml-1">{sourceLabels[opp.source] || opp.source}</span>
+                                {getSourceIcon((opp as any).source)}
+                                <span className="ml-1">{sourceLabels[(opp as any).source] || (opp as any).source}</span>
                               </Badge>
                             )}
                             <span className="text-xs text-slate-400">
@@ -461,7 +649,161 @@ export default function AdminPipeline() {
         })}
       </div>
 
-      {/* Create/Edit Dialog */}
+      {/* ═══════════ SETTINGS DIALOG ═══════════ */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings2 className="w-5 h-5" />
+              Configurar Pipeline
+            </DialogTitle>
+            <DialogDescription>
+              Arraste para reordenar, renomeie ou oculte colunas do pipeline
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {settingsColumns.map((col, idx) => (
+              <div
+                key={col.id}
+                draggable
+                onDragStart={() => handleSettingsDragStart(idx)}
+                onDragOver={(e) => handleSettingsDragOver(e, idx)}
+                onDragEnd={handleSettingsDragEnd}
+                className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-grab active:cursor-grabbing ${draggingSettingsIdx === idx ? 'opacity-50 bg-amber-50 ring-2 ring-amber-300' : 'bg-white hover:bg-slate-50'
+                  }`}
+              >
+                <GripVertical className="w-4 h-4 text-slate-300 shrink-0" />
+                <div className={`w-4 h-4 rounded-full shrink-0 ${col.color}`} />
+
+                {editingColIdx === idx ? (
+                  <div className="flex-1 flex gap-2">
+                    <Input
+                      value={col.title}
+                      onChange={(e) => {
+                        const updated = [...settingsColumns];
+                        updated[idx] = { ...updated[idx], title: e.target.value };
+                        setSettingsColumns(updated);
+                      }}
+                      className="h-8 text-sm flex-1"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') setEditingColIdx(null);
+                      }}
+                    />
+                    <Select
+                      value={col.color}
+                      onValueChange={(v) => {
+                        const updated = [...settingsColumns];
+                        updated[idx] = { ...updated[idx], color: v };
+                        setSettingsColumns(updated);
+                      }}
+                    >
+                      <SelectTrigger className="w-14 h-8 p-1">
+                        <div className={`w-5 h-5 rounded-full ${col.color}`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <div className="grid grid-cols-4 gap-1 p-1">
+                          {COLOR_OPTIONS.map(c => (
+                            <button
+                              key={c}
+                              className={`w-7 h-7 rounded-full ${c} hover:ring-2 ring-offset-1 ring-slate-400 transition ${col.color === c ? 'ring-2 ring-offset-1 ring-amber-500' : ''
+                                }`}
+                              onClick={() => {
+                                const updated = [...settingsColumns];
+                                updated[idx] = { ...updated[idx], color: c };
+                                setSettingsColumns(updated);
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingColIdx(null)}>
+                      <CheckCircle2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <span className={`flex-1 text-sm font-medium ${!col.visible ? 'text-slate-400' : ''}`}>
+                      {col.title}
+                    </span>
+                    <span className="text-xs text-slate-400 mr-1">{col.id}</span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() => setEditingColIdx(idx)}
+                      title="Renomear"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className={`h-7 w-7 ${col.visible ? 'text-emerald-500' : 'text-slate-300'}`}
+                      onClick={() => {
+                        const updated = [...settingsColumns];
+                        updated[idx] = { ...updated[idx], visible: !updated[idx].visible };
+                        setSettingsColumns(updated);
+                      }}
+                      title={col.visible ? 'Ocultar' : 'Mostrar'}
+                    >
+                      {col.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    </Button>
+                    {!DEFAULT_COLUMN_IDS.has(col.id) && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-red-400 hover:text-red-600"
+                        onClick={() => {
+                          setSettingsColumns(settingsColumns.filter((_, i) => i !== idx));
+                        }}
+                        title="Excluir etapa"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Add new custom stage */}
+          <Button
+            variant="outline"
+            className="w-full gap-2 border-dashed"
+            onClick={() => {
+              const newId = `custom_${Date.now()}`;
+              const usedColors = new Set(settingsColumns.map(c => c.color));
+              const availableColor = COLOR_OPTIONS.find(c => !usedColors.has(c)) || 'bg-slate-500';
+              setSettingsColumns([
+                ...settingsColumns,
+                { id: newId, title: 'Nova Etapa', color: availableColor, visible: true },
+              ]);
+              setEditingColIdx(settingsColumns.length);
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            Nova Etapa
+          </Button>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="ghost" size="sm" onClick={resetSettings} className="gap-1">
+              <RotateCcw className="w-4 h-4" />
+              Restaurar padrão
+            </Button>
+            <div className="flex-1" />
+            <Button variant="outline" onClick={() => setSettingsOpen(false)}>Cancelar</Button>
+            <Button className="bg-amber-500 hover:bg-amber-600 text-slate-900" onClick={saveSettings}>
+              Salvar configuração
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════ CREATE/EDIT DIALOG ═══════════ */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -545,7 +887,7 @@ export default function AdminPipeline() {
               <div>
                 <Label>Valor Estimado</Label>
                 <Input
-                  type="number"
+                  type="text" inputMode="decimal"
                   placeholder="0,00"
                   value={formData.estimatedValue}
                   onChange={(e) => setFormData({ ...formData, estimatedValue: e.target.value })}
@@ -598,7 +940,7 @@ export default function AdminPipeline() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirm Stage Move Dialog */}
+      {/* ═══════════ CONFIRM STAGE MOVE DIALOG ═══════════ */}
       <Dialog open={!!confirmStage} onOpenChange={() => setConfirmStage(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -663,6 +1005,64 @@ export default function AdminPipeline() {
             >
               {movingStage && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {movingStage ? 'Processando...' : 'Confirmar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════ LEAVE PROPOSAL CONFIRMATION DIALOG ═══════════ */}
+      <Dialog open={!!leaveProposalConfirm} onOpenChange={() => setLeaveProposalConfirm(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-amber-100">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <DialogTitle>Mover de Proposta</DialogTitle>
+                <DialogDescription>
+                  Esta oportunidade tem propostas vinculadas. O que deseja fazer?
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="bg-slate-50 rounded-lg p-4 my-2">
+            <p className="text-sm font-medium">{leaveProposalConfirm?.oppTitle}</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Mover para → <strong>{leaveProposalConfirm?.targetStage && stageLabels[leaveProposalConfirm.targetStage]}</strong>
+            </p>
+            <div className="mt-3 space-y-1">
+              <p className="text-xs font-medium text-slate-600">Propostas vinculadas:</p>
+              {leaveProposalConfirm?.proposals.map(p => (
+                <div key={p.id} className="flex items-center gap-2 text-xs text-slate-500">
+                  <FileText className="w-3 h-3" />
+                  {p.proposalNumber || p.title || p.id}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setLeaveProposalConfirm(null)} className="flex-1">
+              Cancelar
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+              onClick={() => handleLeaveProposalConfirm(false)}
+              disabled={movingStage}
+            >
+              {movingStage && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Manter propostas
+            </Button>
+            <Button
+              className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+              onClick={() => handleLeaveProposalConfirm(true)}
+              disabled={movingStage}
+            >
+              {movingStage && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Excluir propostas
             </Button>
           </DialogFooter>
         </DialogContent>

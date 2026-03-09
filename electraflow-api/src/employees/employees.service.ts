@@ -42,7 +42,7 @@ export class EmployeesService {
 
     async remove(id: string): Promise<void> {
         const employee = await this.findOne(id);
-        await this.employeeRepository.remove(employee);
+        await this.employeeRepository.softRemove(employee);
     }
 
     async findDocument(id: string): Promise<EmployeeDocument> {
@@ -69,6 +69,6 @@ export class EmployeesService {
     async removeDocument(id: string): Promise<void> {
         const doc = await this.documentRepository.findOneBy({ id });
         if (!doc) throw new NotFoundException('Documento não encontrado');
-        await this.documentRepository.remove(doc);
+        await this.documentRepository.softRemove(doc);
     }
 }

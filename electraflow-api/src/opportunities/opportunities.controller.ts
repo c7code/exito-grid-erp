@@ -2,18 +2,18 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } fro
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OpportunitiesService } from './opportunities.service';
-import { Opportunity, OpportunityStage } from './opportunity.entity';
+import { Opportunity } from './opportunity.entity';
 
 @ApiTags('Oportunidades')
 @Controller('opportunities')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class OpportunitiesController {
-  constructor(private opportunitiesService: OpportunitiesService) {}
+  constructor(private opportunitiesService: OpportunitiesService) { }
 
   @Get()
   @ApiOperation({ summary: 'Listar oportunidades' })
-  async findAll(@Query('stage') stage?: OpportunityStage) {
+  async findAll(@Query('stage') stage?: string) {
     return this.opportunitiesService.findAll(stage);
   }
 
@@ -37,7 +37,7 @@ export class OpportunitiesController {
 
   @Post(':id/move')
   @ApiOperation({ summary: 'Mover oportunidade de estágio' })
-  async moveStage(@Param('id') id: string, @Body('stage') stage: OpportunityStage) {
+  async moveStage(@Param('id') id: string, @Body('stage') stage: string) {
     return this.opportunitiesService.moveStage(id, stage);
   }
 
