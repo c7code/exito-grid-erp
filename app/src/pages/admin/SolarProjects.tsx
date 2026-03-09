@@ -495,14 +495,6 @@ export default function SolarProjects() {
     });
   };
 
-  const _addGuaranteeToAllKits = () => {
-    setForm((f: any) => {
-      const kits = (f.commercialKits || []).map((k: any) => ({
-        ...k, guarantees: [...(k.guarantees || []), { text: '', included: k.isRecommended, value: 0 }],
-      }));
-      return { ...f, commercialKits: kits };
-    });
-  };
 
   const cloneEquipmentToKit = (kitIndex: number) => {
     setForm((f: any) => {
@@ -691,8 +683,8 @@ export default function SolarProjects() {
                 {['BT', 'MT'].map(cat => (
                   <button key={cat} onClick={() => setForm({ ...form, billingCategory: cat })}
                     className={`flex-1 px-4 py-3 rounded-xl border-2 font-bold text-sm transition-all ${form.billingCategory === cat
-                        ? cat === 'BT' ? 'border-blue-400 bg-blue-50 text-blue-900' : 'border-orange-400 bg-orange-50 text-orange-900'
-                        : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'
+                      ? cat === 'BT' ? 'border-blue-400 bg-blue-50 text-blue-900' : 'border-orange-400 bg-orange-50 text-orange-900'
+                      : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'
                       }`}>
                     <p className="font-bold">{cat === 'BT' ? '⚡ Baixa Tensão (BT)' : '🏭 Média Tensão (MT)'}</p>
                     <p className="text-[10px] mt-0.5 font-normal">{cat === 'BT' ? 'Residencial / Comercial pequeno' : 'Industrial / Comercial — Ponta e Fora Ponta'}</p>
@@ -1312,8 +1304,8 @@ export default function SolarProjects() {
                     {(form.commercialKits || []).map((kit: any, ki: number) => (
                       <div key={ki} role="button" tabIndex={0} onClick={() => setActiveKitTab(ki)}
                         className={`flex-1 min-w-[140px] px-4 py-3 rounded-xl text-sm font-bold border-2 transition-all relative group cursor-pointer ${activeKitTab === ki
-                            ? kit.isRecommended ? 'border-amber-400 bg-amber-50 text-amber-900 shadow-md' : 'border-slate-300 bg-white text-slate-900 shadow-md'
-                            : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'
+                          ? kit.isRecommended ? 'border-amber-400 bg-amber-50 text-amber-900 shadow-md' : 'border-slate-300 bg-white text-slate-900 shadow-md'
+                          : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'
                           }`}>
                         {(form.commercialKits || []).length > 1 && (
                           <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center" onClick={e => { e.stopPropagation(); handleRemoveKit(ki); }}>×</span>
@@ -1451,7 +1443,7 @@ export default function SolarProjects() {
                       <div className={`grid gap-3 ${(form.commercialKits || []).length === 1 ? 'grid-cols-1 max-w-md mx-auto' : (form.commercialKits || []).length === 2 ? 'grid-cols-2' : (form.commercialKits || []).length === 3 ? 'grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'}`}>
                         {form.commercialKits.map((kit: any, ki: number) => {
                           const guaranteeValueIncluded = (kit.guarantees || []).filter((g: any) => g.included).reduce((s: number, g: any) => s + Number(g.value || 0), 0);
-                          const _guaranteeValueTotal = (kit.guarantees || []).reduce((s: number, g: any) => s + Number(g.value || 0), 0);
+
                           const realValue = (kit.totalPrice || 0) + guaranteeValueIncluded;
                           const savings = realValue - (kit.totalPrice || 0);
                           const savingsPercent = realValue > 0 ? ((savings / realValue) * 100) : 0;

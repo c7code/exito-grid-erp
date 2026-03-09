@@ -238,7 +238,7 @@ const PageFooter = ({ empresa, pageNum }: { empresa: any; pageNum: string }) => 
 // PÁGINA 1 — CAPA
 // ══════════════════════════════════════════════════════════════════════════
 const Page1 = ({ data }: { data: any }) => {
-  const { empresa: _empresa, cliente, proposta, sistema } = data;
+  const { cliente, proposta, sistema } = data;
   return (
     <Page bg={C.navy} style={{ color: C.white }}>
       {/* Decoração de fundo */}
