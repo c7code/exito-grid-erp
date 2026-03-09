@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '@/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
     Plus, Search, FileSignature, TrendingUp,
-    Calendar, DollarSign, Eye, Trash2, Building2, Printer,
+    DollarSign, Eye, Trash2, Building2, Printer,
     ArrowLeft, Save, FileText, Link2, Users, Shield, Gavel,
     Send, CheckCircle2, Copy, ExternalLink,
 } from 'lucide-react';
@@ -54,7 +54,6 @@ export default function Contracts() {
     const [signatureLinkDialogOpen, setSignatureLinkDialogOpen] = useState(false);
     const [signatureLink, setSignatureLink] = useState('');
     const [signatureStatus, setSignatureStatus] = useState<any>(null);
-    const pdfRef = useRef<HTMLDivElement>(null);
 
     const fetchAll = async () => {
         try {

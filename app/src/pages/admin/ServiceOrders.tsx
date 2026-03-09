@@ -16,7 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
     Wrench, Plus, Search, Loader2, Clock, CheckCircle2, AlertCircle, Pause, Eye,
     Calendar, User, Building2, MapPin, ArrowLeft, Save,
-    FileText, DollarSign, ClipboardList, Trash2,
+    DollarSign, ClipboardList, Trash2,
 } from 'lucide-react';
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {

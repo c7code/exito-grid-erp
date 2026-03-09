@@ -325,7 +325,7 @@ export default function SolarProjects() {
         filename: `proposta_solar_${currentProject.code || 'projeto'}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
-        jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
+        jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
         pagebreak: { avoid: 'img' },
       };
 
@@ -495,7 +495,7 @@ export default function SolarProjects() {
     });
   };
 
-  const addGuaranteeToAllKits = () => {
+  const _addGuaranteeToAllKits = () => {
     setForm((f: any) => {
       const kits = (f.commercialKits || []).map((k: any) => ({
         ...k, guarantees: [...(k.guarantees || []), { text: '', included: k.isRecommended, value: 0 }],
@@ -690,11 +690,10 @@ export default function SolarProjects() {
               <div className="flex gap-2">
                 {['BT', 'MT'].map(cat => (
                   <button key={cat} onClick={() => setForm({ ...form, billingCategory: cat })}
-                    className={`flex-1 px-4 py-3 rounded-xl border-2 font-bold text-sm transition-all ${
-                      form.billingCategory === cat
+                    className={`flex-1 px-4 py-3 rounded-xl border-2 font-bold text-sm transition-all ${form.billingCategory === cat
                         ? cat === 'BT' ? 'border-blue-400 bg-blue-50 text-blue-900' : 'border-orange-400 bg-orange-50 text-orange-900'
                         : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'
-                    }`}>
+                      }`}>
                     <p className="font-bold">{cat === 'BT' ? '⚡ Baixa Tensão (BT)' : '🏭 Média Tensão (MT)'}</p>
                     <p className="text-[10px] mt-0.5 font-normal">{cat === 'BT' ? 'Residencial / Comercial pequeno' : 'Industrial / Comercial — Ponta e Fora Ponta'}</p>
                   </button>
@@ -1058,7 +1057,7 @@ export default function SolarProjects() {
                             }));
                             toast.success('Endereço preenchido via CEP!');
                           }
-                        }).catch(() => {});
+                        }).catch(() => { });
                     }
                   }} placeholder="00000-000" maxLength={9} />
                 </div>
@@ -1312,11 +1311,10 @@ export default function SolarProjects() {
                   <div className="flex gap-2 flex-wrap">
                     {(form.commercialKits || []).map((kit: any, ki: number) => (
                       <div key={ki} role="button" tabIndex={0} onClick={() => setActiveKitTab(ki)}
-                        className={`flex-1 min-w-[140px] px-4 py-3 rounded-xl text-sm font-bold border-2 transition-all relative group cursor-pointer ${
-                          activeKitTab === ki
+                        className={`flex-1 min-w-[140px] px-4 py-3 rounded-xl text-sm font-bold border-2 transition-all relative group cursor-pointer ${activeKitTab === ki
                             ? kit.isRecommended ? 'border-amber-400 bg-amber-50 text-amber-900 shadow-md' : 'border-slate-300 bg-white text-slate-900 shadow-md'
                             : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'
-                        }`}>
+                          }`}>
                         {(form.commercialKits || []).length > 1 && (
                           <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center" onClick={e => { e.stopPropagation(); handleRemoveKit(ki); }}>×</span>
                         )}
@@ -1418,9 +1416,8 @@ export default function SolarProjects() {
                             {(kit.guarantees || []).map((g: any, gi: number) => (
                               <div key={gi} className="flex items-center gap-2">
                                 <button onClick={() => updateKitGuarantee(ki, gi, 'included', !g.included)}
-                                  className={`w-6 h-6 rounded flex items-center justify-center flex-shrink-0 border transition-colors ${
-                                    g.included ? 'bg-green-100 border-green-300 text-green-600' : 'bg-red-50 border-red-200 text-red-400'
-                                  }`}>
+                                  className={`w-6 h-6 rounded flex items-center justify-center flex-shrink-0 border transition-colors ${g.included ? 'bg-green-100 border-green-300 text-green-600' : 'bg-red-50 border-red-200 text-red-400'
+                                    }`}>
                                   {g.included ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
                                 </button>
                                 <Input className="h-7 text-xs flex-1" value={g.text} onChange={e => updateKitGuarantee(ki, gi, 'text', e.target.value)} placeholder="Descrição da garantia..." />
@@ -1454,14 +1451,13 @@ export default function SolarProjects() {
                       <div className={`grid gap-3 ${(form.commercialKits || []).length === 1 ? 'grid-cols-1 max-w-md mx-auto' : (form.commercialKits || []).length === 2 ? 'grid-cols-2' : (form.commercialKits || []).length === 3 ? 'grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'}`}>
                         {form.commercialKits.map((kit: any, ki: number) => {
                           const guaranteeValueIncluded = (kit.guarantees || []).filter((g: any) => g.included).reduce((s: number, g: any) => s + Number(g.value || 0), 0);
-                          const guaranteeValueTotal = (kit.guarantees || []).reduce((s: number, g: any) => s + Number(g.value || 0), 0);
+                          const _guaranteeValueTotal = (kit.guarantees || []).reduce((s: number, g: any) => s + Number(g.value || 0), 0);
                           const realValue = (kit.totalPrice || 0) + guaranteeValueIncluded;
                           const savings = realValue - (kit.totalPrice || 0);
                           const savingsPercent = realValue > 0 ? ((savings / realValue) * 100) : 0;
                           return (
-                            <div key={ki} className={`rounded-xl border-2 p-4 space-y-3 relative ${
-                              kit.isRecommended ? 'border-amber-400 bg-amber-50/50 ring-2 ring-amber-200' : 'border-slate-200 bg-white'
-                            }`}>
+                            <div key={ki} className={`rounded-xl border-2 p-4 space-y-3 relative ${kit.isRecommended ? 'border-amber-400 bg-amber-50/50 ring-2 ring-amber-200' : 'border-slate-200 bg-white'
+                              }`}>
                               {kit.isRecommended && (
                                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-bold px-3 py-0.5 rounded-full">RECOMENDADO</div>
                               )}

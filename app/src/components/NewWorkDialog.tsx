@@ -93,12 +93,6 @@ export default function NewWorkDialog({
         if (open) loadClients();
     }, [open, loadClients]);
 
-    // CEP auto-fill
-    useEffect(() => {
-        const cleanCep = formData.address?.replace(/\D/g, '');
-        // We use a dedicated zipCode field concept - but here it's embedded in address
-    }, []);
-
     // Separate CEP field state
     const [zipCode, setZipCode] = useState('');
 

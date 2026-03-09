@@ -9,22 +9,22 @@ interface SolarProposalPDFTemplateProps {
 
 // ─── PALETA ────────────────────────────────────────────────────────────────
 const C = {
-  navy:     "#0A1628",
-  navyMid:  "#0F2040",
-  navyLight:"#1A3055",
-  green:    "#16A34A",
-  greenDark:"#0F7A35",
-  greenLight:"#22C55E",
-  gold:     "#E8920A",
-  goldLight:"#F5A623",
-  red:      "#DC2626",
-  white:    "#FFFFFF",
-  gray50:   "#F9FAFB",
-  gray100:  "#F3F4F6",
-  gray200:  "#E5E7EB",
-  gray400:  "#9CA3AF",
-  gray600:  "#4B5563",
-  gray800:  "#1F2937",
+  navy: "#0A1628",
+  navyMid: "#0F2040",
+  navyLight: "#1A3055",
+  green: "#16A34A",
+  greenDark: "#0F7A35",
+  greenLight: "#22C55E",
+  gold: "#E8920A",
+  goldLight: "#F5A623",
+  red: "#DC2626",
+  white: "#FFFFFF",
+  gray50: "#F9FAFB",
+  gray100: "#F3F4F6",
+  gray200: "#E5E7EB",
+  gray400: "#9CA3AF",
+  gray600: "#4B5563",
+  gray800: "#1F2937",
 };
 
 // ─── MAPPER: ERP props → template data ──────────────────────────────────────
@@ -169,8 +169,8 @@ function buildData(proposal: any, solarProject: any, company: any) {
 // ─── UTILITÁRIOS ───────────────────────────────────────────────────────────
 const fmt = (n: number) => Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtN = (n: number) => Math.round(Number(n || 0)).toLocaleString("pt-BR");
-const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-const MESES_FULL = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const MESES_FULL = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
 // ─── COMPONENTES BASE ──────────────────────────────────────────────────────
 
@@ -238,7 +238,7 @@ const PageFooter = ({ empresa, pageNum }: { empresa: any; pageNum: string }) => 
 // PÁGINA 1 — CAPA
 // ══════════════════════════════════════════════════════════════════════════
 const Page1 = ({ data }: { data: any }) => {
-  const { empresa, cliente, proposta, sistema } = data;
+  const { empresa: _empresa, cliente, proposta, sistema } = data;
   return (
     <Page bg={C.navy} style={{ color: C.white }}>
       {/* Decoração de fundo */}
@@ -328,8 +328,8 @@ const Page1 = ({ data }: { data: any }) => {
               Sistema de {sistema.potenciaKwp} kWp · {sistema.modulosQtd} Módulos Fotovoltaicos
             </div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: 1.6 }}>
-              Geração estimada de <strong style={{ color: C.white }}>{fmtN(sistema.geracaoAnual)} kWh/ano</strong>, 
-              com economia anual de <strong style={{ color: C.gold }}>R$ {fmt(sistema.economiaAnual)}</strong>. 
+              Geração estimada de <strong style={{ color: C.white }}>{fmtN(sistema.geracaoAnual)} kWh/ano</strong>,
+              com economia anual de <strong style={{ color: C.gold }}>R$ {fmt(sistema.economiaAnual)}</strong>.
               Redução de até <strong style={{ color: C.greenLight }}>{sistema.reducaoPerc}%</strong> na sua conta de energia.
             </div>
           </div>
@@ -342,7 +342,7 @@ const Page1 = ({ data }: { data: any }) => {
 
         {/* Credenciais */}
         <div style={{ display: "flex", gap: 8 }}>
-          {["✅ NR-10 Certificado","✅ NR-35 Certificado","✅ ART/CREA","✅ Neoenergia Pernambuco","✅ +8.000 projetos"].map(b => (
+          {["✅ NR-10 Certificado", "✅ NR-35 Certificado", "✅ ART/CREA", "✅ Neoenergia Pernambuco", "✅ +8.000 projetos"].map(b => (
             <div key={b} style={{
               fontSize: 9, color: C.greenLight, fontWeight: 700,
               border: `1px solid rgba(22,163,74,0.4)`,
@@ -482,7 +482,7 @@ const Page2 = ({ data }: { data: any }) => {
 
           {/* Badges */}
           <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
-            {["⚡ NR-10","⚡ NR-35","📋 ART/CREA","🏢 Credenciada Neoenergia","🌿 Empresa Sustentável"].map(b => (
+            {["⚡ NR-10", "⚡ NR-35", "📋 ART/CREA", "🏢 Credenciada Neoenergia", "🌿 Empresa Sustentável"].map(b => (
               <div key={b} style={{
                 fontSize: 10, fontWeight: 600, color: C.navy,
                 backgroundColor: C.gold, borderRadius: 6, padding: "5px 12px",
@@ -922,7 +922,7 @@ const Page4 = ({ data }: { data: any }) => {
 // ══════════════════════════════════════════════════════════════════════════
 const Page5 = ({ data }: { data: any }) => {
   const { empresa, sistema, equipment: rawEq } = data;
-  const typeLabels: Record<string,string> = { module: 'Módulo Fotovoltaico', inverter: 'Inversor Solar', structure: 'Estrutura de Fixação', stringbox: 'String Box CC/CA', cable: 'Cabos e Conectores', protection: 'Proteção', other: 'Outros' };
+  const typeLabels: Record<string, string> = { module: 'Módulo Fotovoltaico', inverter: 'Inversor Solar', structure: 'Estrutura de Fixação', stringbox: 'String Box CC/CA', cable: 'Cabos e Conectores', protection: 'Proteção', other: 'Outros' };
   const equip = (rawEq && rawEq.length > 0 ? rawEq : [
     { type: 'module', description: 'Painel Monocristalino', brand: '—', model: '—', quantity: sistema.modulosQtd },
     { type: 'inverter', description: 'Inversor On-Grid', brand: '—', model: '—', quantity: 1 },
@@ -970,7 +970,7 @@ const Page5 = ({ data }: { data: any }) => {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ backgroundColor: C.gray50 }}>
-                  {["Tipo","Descrição","Marca","Modelo","Qtd"].map(h => (
+                  {["Tipo", "Descrição", "Marca", "Modelo", "Qtd"].map(h => (
                     <th key={h} style={{
                       padding: "10px 14px", fontSize: 10, fontWeight: 700,
                       color: C.gray600, textAlign: "left",
@@ -1045,7 +1045,7 @@ const Page6 = ({ data }: { data: any }) => {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ backgroundColor: C.gray50 }}>
-                  {["Mês","Geração (kWh)","Economia (R$)","% Suprida"].map(h => (
+                  {["Mês", "Geração (kWh)", "Economia (R$)", "% Suprida"].map(h => (
                     <th key={h} style={{
                       padding: "10px 16px", fontSize: 10, fontWeight: 700,
                       color: C.gray600, textAlign: "right",
@@ -1190,7 +1190,7 @@ const Page7 = ({ data }: { data: any }) => {
           {/* Tabela resumo */}
           <div style={{ border: `1px solid ${C.gray200}`, borderRadius: 8, overflow: "hidden", marginBottom: 24 }}>
             <div style={{ display: "flex", backgroundColor: C.gray50, borderBottom: `1px solid ${C.gray200}` }}>
-              {["Geração Média","Consumo Médio","% Suprido","Valor Médio da Conta"].map(h => (
+              {["Geração Média", "Consumo Médio", "% Suprido", "Valor Médio da Conta"].map(h => (
                 <div key={h} style={{ flex: 1, padding: "10px 14px", fontSize: 10, fontWeight: 700, color: C.gray600, textAlign: "center", textTransform: "uppercase", letterSpacing: 0.5 }}>{h}</div>
               ))}
             </div>
@@ -1367,7 +1367,7 @@ const Page8 = ({ data }: { data: any }) => {
             backgroundColor: "rgba(10,22,40,0.06)", borderRadius: 8,
             fontSize: 10, color: C.gray600, textAlign: "center",
           }}>
-            ⚠️ Preços válidos até <strong>{data.proposta.validade}</strong> · Sujeito a disponibilidade de estoque · 
+            ⚠️ Preços válidos até <strong>{data.proposta.validade}</strong> · Sujeito a disponibilidade de estoque ·
             Condições de parcelamento via financiamento solar disponíveis · CNPJ {empresa.cnpj}
           </div>
         </div>

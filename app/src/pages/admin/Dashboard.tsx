@@ -608,7 +608,7 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={kpis.marginPerWork} layout="vertical" margin={{ left: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis type="text" inputMode="decimal" domain={[0, 100]} tickFormatter={v => `${v}%`} fontSize={11} />
+                  <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} fontSize={11} />
                   <YAxis type="category" dataKey="name" width={120} fontSize={10} tick={{ fill: '#475569' }} />
                   <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }} />
                   <Bar dataKey="margin" name="Margem">
