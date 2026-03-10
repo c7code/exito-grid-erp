@@ -10,7 +10,7 @@ import type { Alert, EvaluatedCondition } from './simulatorTypes';
 export function generateAlerts(
   condition: EvaluatedCondition,
   minMargin: number,
-  immediateCost: number,
+  _immediateCost: number,
 ): Alert[] {
   const alerts: Alert[] = [];
 

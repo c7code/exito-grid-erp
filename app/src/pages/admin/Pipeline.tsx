@@ -51,7 +51,6 @@ import {
   RotateCcw,
   AlertTriangle,
   MapPin,
-  Building2,
   Search,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -212,7 +211,7 @@ export default function AdminPipeline() {
   // Load clients for search when form opens
   useEffect(() => {
     if (isFormOpen) {
-      api.getClients().then((data) => setClientsList(data)).catch(() => {});
+      api.getClients().then((data) => setClientsList(data)).catch(() => { });
     }
   }, [isFormOpen]);
 
@@ -292,10 +291,10 @@ export default function AdminPipeline() {
 
   const filteredClientsList = clientSearch.trim()
     ? clientsList.filter(c =>
-        c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-        c.email?.toLowerCase().includes(clientSearch.toLowerCase()) ||
-        c.document?.includes(clientSearch)
-      )
+      c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+      c.email?.toLowerCase().includes(clientSearch.toLowerCase()) ||
+      c.document?.includes(clientSearch)
+    )
     : clientsList.slice(0, 8);
 
   const loadOpportunities = useCallback(async () => {
