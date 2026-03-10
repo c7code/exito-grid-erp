@@ -3,9 +3,9 @@
 
 import type {
   EvaluatedCondition, SimulatorResult, WizardInput, ClientProfile,
-  ConditionTag, ResultSummary, CashFlowRow,
+  ResultSummary, CashFlowRow,
 } from './simulatorTypes';
-import { PROFILE_WEIGHTS, getSecurityLevel, getScoreClassification } from './simulatorTypes';
+import { PROFILE_WEIGHTS, getScoreClassification } from './simulatorTypes';
 import { classifyProfile } from './profileClassifier';
 import {
   calcRealMargin, calcPaybackMonth, calcAvgReceivingDays,

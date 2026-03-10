@@ -210,7 +210,7 @@ export function calcCashScore(
   coverageRatio: number,
   paybackMonth: number,
   liquidityScore: number,
-  installments: number,
+  _installments: number,
 ): number {
   let score = 0;
 
