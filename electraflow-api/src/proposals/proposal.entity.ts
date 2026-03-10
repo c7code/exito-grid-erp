@@ -71,6 +71,9 @@ export class Proposal {
   paymentConditions: string;
 
   @Column({ type: 'text', nullable: true })
+  simulationData: string;               // JSON da simulação financeira vinculada
+
+  @Column({ type: 'text', nullable: true })
   obligations: string;
 
   @Column({ type: 'text', nullable: true })
@@ -273,6 +276,9 @@ export class Proposal {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 
   @OneToMany(() => ProposalItem, item => item.proposal, { cascade: true })
   items: ProposalItem[];

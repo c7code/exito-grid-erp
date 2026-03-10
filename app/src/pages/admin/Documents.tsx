@@ -49,7 +49,23 @@ const categoryLabels: Record<string, { label: string; color: string; icon: any }
   photo: { label: 'Foto', color: 'bg-purple-100 text-purple-700', icon: Image },
   invoice: { label: 'Nota Fiscal', color: 'bg-green-100 text-green-700', icon: FileSpreadsheet },
   certificate: { label: 'Certificado', color: 'bg-yellow-100 text-yellow-700', icon: FileText },
+  norm: { label: 'Norma Técnica', color: 'bg-rose-100 text-rose-700', icon: FileText },
+  pop: { label: 'POP', color: 'bg-teal-100 text-teal-700', icon: FileText },
+  supplier_catalog: { label: 'Cat. Fornecedor', color: 'bg-amber-100 text-amber-700', icon: FileSpreadsheet },
+  protocol: { label: 'Protocolo', color: 'bg-pink-100 text-pink-700', icon: FileText },
   other: { label: 'Outro', color: 'bg-slate-100 text-slate-700', icon: File },
+};
+
+const purposeLabels: Record<string, string> = {
+  norma_tecnica: 'Norma Técnica',
+  pop: 'POP',
+  catalogo_fornecedor: 'Catálogo Fornecedor',
+  manual: 'Manual',
+  projeto_tipo: 'Projeto Tipo',
+  tabela_preco: 'Tabela de Preços',
+  book_estruturas: 'Book de Estruturas',
+  documentacao_obra: 'Doc. Obra',
+  other: 'Outro',
 };
 
 interface FolderNode {
@@ -66,6 +82,7 @@ export default function AdminDocuments() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [purposeFilter, setPurposeFilter] = useState<string>('all');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [showUploadDialog, setShowUploadDialog] = useState(false);
@@ -101,7 +118,8 @@ export default function AdminDocuments() {
     const matchSearch = (doc.name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchType = typeFilter === 'all' || doc.type === typeFilter;
     const matchFolder = selectedFolderId === null || doc.folderId === selectedFolderId;
-    return matchSearch && matchType && matchFolder;
+    const matchPurpose = purposeFilter === 'all' || doc.purpose === purposeFilter;
+    return matchSearch && matchType && matchFolder && matchPurpose;
   });
 
   // Group documents by date for timeline
@@ -376,6 +394,17 @@ export default function AdminDocuments() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={purposeFilter} onValueChange={setPurposeFilter}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder="Finalidade" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas finalidades</SelectItem>
+            {Object.entries(purposeLabels).map(([k, v]) => (
+              <SelectItem key={k} value={k}>{v}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Main Content: Sidebar + Timeline */}
@@ -564,6 +593,19 @@ export default function AdminDocuments() {
                                     <p className="text-xs text-amber-500 mt-1">
                                       📁 {doc.folder.name}
                                     </p>
+                                  )}
+                                  {doc.purpose && doc.purpose !== 'other' && (
+                                    <p className="text-xs text-rose-500 mt-0.5">
+                                      🎯 {purposeLabels[doc.purpose] || doc.purpose}
+                                    </p>
+                                  )}
+                                  {doc.tags && doc.tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {doc.tags.slice(0, 3).map((tag: string, i: number) => (
+                                        <span key={i} className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{tag}</span>
+                                      ))}
+                                      {doc.tags.length > 3 && <span className="text-[10px] text-slate-400">+{doc.tags.length - 3}</span>}
+                                    </div>
                                   )}
                                 </div>
                               </div>

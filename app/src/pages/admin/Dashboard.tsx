@@ -8,15 +8,16 @@ import {
   AlertCircle, CheckCircle2, ArrowRight, Plus, Users, Shield,
   AlertTriangle, Target, Award, Percent, Activity, BarChart3,
   FileText, MapPin, Briefcase, Zap, Eye, Calendar, Filter, X,
-  Wrench, Warehouse, PackageX,
+  Wrench, Warehouse, PackageX, FileSignature,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import { api } from '@/api';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -87,6 +88,16 @@ function KPI({ icon: Icon, label, value, sub, color = 'text-slate-700', accent =
 // ── Main Component ────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 export default function AdminDashboard() {
+  const { user } = useAuth();
+
+  // ── Guard: only admin can access the dashboard
+  if (user?.role !== 'admin') {
+    const redirectTo = user?.role === 'employee' ? '/employee/dashboard'
+      : user?.role === 'client' ? '/client/dashboard'
+      : '/admin/works';
+    return <Navigate to={redirectTo} replace />;
+  }
+
   // ── RAW DATA ────────────────────────────────────────────────────────
   const [works, setWorks] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
@@ -99,6 +110,7 @@ export default function AdminDashboard() {
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [quotations, setQuotations] = useState<any[]>([]);
   const [dailyLogs, setDailyLogs] = useState<any[]>([]);
+  const [contracts, setContracts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // ── FILTERS ─────────────────────────────────────────────────────────
@@ -117,10 +129,11 @@ export default function AdminDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const [w, t, e, p, pr, py, c, so, inv, qt, dl] = await Promise.allSettled([
+        const [w, t, e, p, pr, py, c, so, inv, qt, dl, ct] = await Promise.allSettled([
           api.getWorks(), api.getTasks(), api.getEmployees(),
           api.getProposals(), api.getProtocols(), api.getPayments(), api.getClients(),
           api.getServiceOrders({}), api.getInventoryItems(), api.getQuotations(), api.getDailyLogs(),
+          api.getContracts(),
         ]);
         setWorks(w.status === 'fulfilled' ? (Array.isArray(w.value) ? w.value : w.value?.data ?? []) : []);
         setTasks(t.status === 'fulfilled' ? (Array.isArray(t.value) ? t.value : t.value?.data ?? []) : []);
@@ -133,6 +146,7 @@ export default function AdminDashboard() {
         setInventoryItems(inv.status === 'fulfilled' ? (Array.isArray(inv.value) ? inv.value : []) : []);
         setQuotations(qt.status === 'fulfilled' ? (Array.isArray(qt.value) ? qt.value : []) : []);
         setDailyLogs(dl.status === 'fulfilled' ? (Array.isArray(dl.value) ? dl.value : []) : []);
+        setContracts(ct.status === 'fulfilled' ? (Array.isArray(ct.value) ? ct.value : ct.value?.data ?? []) : []);
       } catch { toast.error('Erro ao carregar dashboard'); }
       finally { setLoading(false); }
     })();
@@ -521,7 +535,11 @@ export default function AdminDashboard() {
       </div>
 
       {/* ═══ ROW 5: NEW MODULES KPIs ═════════════════════════════════ */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <KPI icon={FileSignature} label="Contratos Ativos"
+          value={contracts.filter((c: any) => c.status === 'active' || c.status === 'signed').length}
+          sub={`${contracts.length} total`}
+          accent="bg-violet-50" iconColor="text-violet-600" />
         <KPI icon={Wrench} label="OS Abertas"
           value={serviceOrders.filter((o: any) => o.status === 'open' || o.status === 'in_progress').length}
           sub={`${serviceOrders.filter((o: any) => o.status === 'completed').length} concluídas`}

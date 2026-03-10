@@ -1,5 +1,5 @@
 import {
-    Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn,
+    Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn,
 } from 'typeorm';
 import { DocumentType } from './document-type.entity';
 
@@ -57,4 +57,7 @@ export class DocumentTypeRule {
 
     @CreateDateColumn()
     createdAt: Date;
+
+    @DeleteDateColumn()
+    deletedAt: Date;
 }

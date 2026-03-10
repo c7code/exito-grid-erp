@@ -17,11 +17,18 @@ const statusConfig: Record<string, { label: string; color: string }> = {
     inactive: { label: 'Inativo', color: 'bg-slate-100 text-slate-600' },
     blocked: { label: 'Bloqueado', color: 'bg-red-100 text-red-700' },
 };
+const supplierTypeConfig: Record<string, { label: string; color: string }> = {
+    factory: { label: 'Fábrica', color: 'bg-blue-100 text-blue-700' },
+    distributor: { label: 'Distribuidor', color: 'bg-indigo-100 text-indigo-700' },
+    retailer: { label: 'Varejista', color: 'bg-purple-100 text-purple-700' },
+    representative: { label: 'Representante', color: 'bg-cyan-100 text-cyan-700' },
+    other: { label: 'Outro', color: 'bg-slate-100 text-slate-600' },
+};
 
 const emptyForm = {
     name: '', tradeName: '', cnpj: '', email: '', phone: '', whatsapp: '',
     address: '', city: '', state: '', zipCode: '',
-    segment: 'material', status: 'active', rating: 0, notes: '', paymentTerms: '',
+    segment: 'material', status: 'active', supplierType: 'other', rating: 0, notes: '', paymentTerms: '',
 };
 
 export default function Suppliers() {
@@ -29,6 +36,7 @@ export default function Suppliers() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filterSegment, setFilterSegment] = useState('');
+    const [filterType, setFilterType] = useState('');
     const [showDialog, setShowDialog] = useState(false);
     const [showContactDialog, setShowContactDialog] = useState(false);
     const [editing, setEditing] = useState<any>(null);
@@ -121,7 +129,7 @@ export default function Suppliers() {
 
     const openEdit = (s: any) => {
         setEditing(s);
-        setForm({ name: s.name, tradeName: s.tradeName || '', cnpj: s.cnpj || '', email: s.email || '', phone: s.phone || '', whatsapp: s.whatsapp || '', address: s.address || '', city: s.city || '', state: s.state || '', zipCode: s.zipCode || '', segment: s.segment, status: s.status, rating: s.rating, notes: s.notes || '', paymentTerms: s.paymentTerms || '' });
+        setForm({ name: s.name, tradeName: s.tradeName || '', cnpj: s.cnpj || '', email: s.email || '', phone: s.phone || '', whatsapp: s.whatsapp || '', address: s.address || '', city: s.city || '', state: s.state || '', zipCode: s.zipCode || '', segment: s.segment, status: s.status, supplierType: s.supplierType || 'other', rating: s.rating, notes: s.notes || '', paymentTerms: s.paymentTerms || '' });
         setShowDialog(true);
     };
 
@@ -149,11 +157,13 @@ export default function Suppliers() {
         } catch (e) { console.error(e); }
     };
 
-    const filtered = suppliers.filter(s =>
-        s.name?.toLowerCase().includes(search.toLowerCase()) ||
-        s.cnpj?.includes(search) ||
-        s.email?.toLowerCase().includes(search.toLowerCase())
-    );
+    const filtered = suppliers.filter(s => {
+        const matchSearch = s.name?.toLowerCase().includes(search.toLowerCase()) ||
+            s.cnpj?.includes(search) ||
+            s.email?.toLowerCase().includes(search.toLowerCase());
+        const matchType = !filterType || filterType === 'all' || s.supplierType === filterType;
+        return matchSearch && matchType;
+    });
 
     return (
         <div className="space-y-6">
@@ -181,6 +191,17 @@ export default function Suppliers() {
                         <SelectItem value="material">Material</SelectItem>
                         <SelectItem value="service">Serviço</SelectItem>
                         <SelectItem value="both">Ambos</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger className="w-48"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todos os tipos</SelectItem>
+                        <SelectItem value="factory">Fábrica</SelectItem>
+                        <SelectItem value="distributor">Distribuidor</SelectItem>
+                        <SelectItem value="retailer">Varejista</SelectItem>
+                        <SelectItem value="representative">Representante</SelectItem>
+                        <SelectItem value="other">Outro</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -235,9 +256,14 @@ export default function Suppliers() {
                                     </div>
 
                                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-2 flex-wrap">
                                             <Badge variant="outline" className="text-xs">{segmentLabels[s.segment]}</Badge>
                                             <Badge className={cn('text-xs', st.color)}>{st.label}</Badge>
+                                            {s.supplierType && s.supplierType !== 'other' && (
+                                                <Badge className={cn('text-xs', supplierTypeConfig[s.supplierType]?.color || 'bg-slate-100 text-slate-600')}>
+                                                    {supplierTypeConfig[s.supplierType]?.label || s.supplierType}
+                                                </Badge>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-0.5">
                                             {[1, 2, 3, 4, 5].map(i => (
@@ -278,7 +304,7 @@ export default function Suppliers() {
                             <div><label className="text-sm font-medium">E-mail</label><Input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} /></div>
                             <div><label className="text-sm font-medium">Telefone</label><Input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} /></div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                             <div><label className="text-sm font-medium">WhatsApp</label><Input value={form.whatsapp} onChange={e => setForm(p => ({ ...p, whatsapp: e.target.value }))} /></div>
                             <div>
                                 <label className="text-sm font-medium">Segmento</label>
@@ -288,6 +314,19 @@ export default function Suppliers() {
                                         <SelectItem value="material">Material</SelectItem>
                                         <SelectItem value="service">Serviço</SelectItem>
                                         <SelectItem value="both">Ambos</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium">Tipo de Fornecedor</label>
+                                <Select value={form.supplierType} onValueChange={v => setForm(p => ({ ...p, supplierType: v }))}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="factory">Fábrica</SelectItem>
+                                        <SelectItem value="distributor">Distribuidor</SelectItem>
+                                        <SelectItem value="retailer">Varejista</SelectItem>
+                                        <SelectItem value="representative">Representante</SelectItem>
+                                        <SelectItem value="other">Outro</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>

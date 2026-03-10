@@ -5,6 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { api } from '@/api';
 import {
   Bell,
   Shield,
@@ -12,7 +17,16 @@ import {
   Save,
   Mail,
   MessageSquare,
+  DollarSign,
+  Trash2,
+  Plus,
+  Edit,
+  Loader2,
+  Bot,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const workflowStages = [
   { id: 'vistoria', name: 'Vistoria Técnica', defaultDays: 3 },
@@ -34,6 +48,103 @@ export default function AdminSettings() {
 
   const [stages, setStages] = useState(workflowStages);
 
+  // Markup management
+  const [markupConfigs, setMarkupConfigs] = useState<any[]>([]);
+  const [loadingMarkup, setLoadingMarkup] = useState(false);
+  const [showMarkupDialog, setShowMarkupDialog] = useState(false);
+  const [editingMarkup, setEditingMarkup] = useState<any>(null);
+  const [markupForm, setMarkupForm] = useState({
+    name: '', scope: 'global', scopeValue: '',
+    markupMultiplier: 1.0, markupPercentage: 0, minimumMargin: 0,
+    priority: 0, isActive: true, description: '',
+  });
+
+  const loadMarkupConfigs = async () => {
+    setLoadingMarkup(true);
+    try { const data = await api.getMarkupConfigs(); setMarkupConfigs(data); }
+    catch { toast.error('Erro ao carregar markups'); }
+    setLoadingMarkup(false);
+  };
+
+  const handleSaveMarkup = async () => {
+    if (!markupForm.name) { toast.error('Nome é obrigatório'); return; }
+    try {
+      if (editingMarkup) {
+        await api.updateMarkupConfig(editingMarkup.id, markupForm);
+        toast.success('Markup atualizado!');
+      } else {
+        await api.createMarkupConfig(markupForm);
+        toast.success('Markup criado!');
+      }
+      setShowMarkupDialog(false);
+      loadMarkupConfigs();
+    } catch { toast.error('Erro ao salvar markup'); }
+  };
+
+  const handleDeleteMarkup = async (id: string) => {
+    if (!confirm('Remover esta regra de markup?')) return;
+    try { await api.deleteMarkupConfig(id); toast.success('Removido'); loadMarkupConfigs(); }
+    catch { toast.error('Erro ao remover'); }
+  };
+
+  const openNewMarkup = () => {
+    setEditingMarkup(null);
+    setMarkupForm({
+      name: '', scope: 'global', scopeValue: '',
+      markupMultiplier: 1.0, markupPercentage: 0, minimumMargin: 0,
+      priority: 0, isActive: true, description: '',
+    });
+    setShowMarkupDialog(true);
+  };
+
+  const openEditMarkup = (m: any) => {
+    setEditingMarkup(m);
+    setMarkupForm({
+      name: m.name, scope: m.scope, scopeValue: m.scopeValue || '',
+      markupMultiplier: m.markupMultiplier, markupPercentage: m.markupPercentage,
+      minimumMargin: m.minimumMargin, priority: m.priority,
+      isActive: m.isActive, description: m.description || '',
+    });
+    setShowMarkupDialog(true);
+  };
+
+  const scopeLabels: Record<string, string> = {
+    global: 'Global', category: 'Categoria', activity_type: 'Tipo de Atividade',
+    supplier_type: 'Tipo Fornecedor', client_type: 'Tipo Cliente',
+  };
+
+  // AI Config
+  const [aiApiKey, setAiApiKey] = useState('');
+  const [aiModel, setAiModel] = useState('gpt-4o-mini');
+  const [aiEnabled, setAiEnabled] = useState(true);
+  const [showKey, setShowKey] = useState(false);
+  const [savingAi, setSavingAi] = useState(false);
+  const [aiLoaded, setAiLoaded] = useState(false);
+
+  const loadAiConfig = async () => {
+    if (aiLoaded) return;
+    try {
+      const configs = await api.getAiConfigs();
+      for (const c of configs) {
+        if (c.key === 'ai_api_key') setAiApiKey(c.value);
+        if (c.key === 'ai_model') setAiModel(c.value);
+        if (c.key === 'ai_enabled') setAiEnabled(c.value !== 'false');
+      }
+      setAiLoaded(true);
+    } catch { /* ignore */ }
+  };
+
+  const handleSaveAiConfig = async () => {
+    setSavingAi(true);
+    try {
+      await api.setAiConfig('ai_api_key', aiApiKey, true);
+      await api.setAiConfig('ai_model', aiModel);
+      await api.setAiConfig('ai_enabled', String(aiEnabled));
+      toast.success('Configurações de IA salvas!');
+    } catch { toast.error('Erro ao salvar'); }
+    setSavingAi(false);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -42,8 +153,10 @@ export default function AdminSettings() {
       </div>
 
       <Tabs defaultValue="workflow">
-        <TabsList>
+        <TabsList className="flex flex-wrap h-auto">
           <TabsTrigger value="workflow">Fluxo de Trabalho</TabsTrigger>
+          <TabsTrigger value="markup" onClick={() => markupConfigs.length === 0 && loadMarkupConfigs()}>Markup</TabsTrigger>
+          <TabsTrigger value="ai" onClick={loadAiConfig}>IA</TabsTrigger>
           <TabsTrigger value="notifications">Notificações</TabsTrigger>
           <TabsTrigger value="integrations">Integrações</TabsTrigger>
           <TabsTrigger value="security">Segurança</TabsTrigger>
@@ -116,6 +229,114 @@ export default function AdminSettings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ═══ MARKUP TAB ═══ */}
+        <TabsContent value="markup" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><DollarSign className="w-5 h-5" /> Regras de Markup</CardTitle>
+                  <CardDescription>Configure as margens de lucro por escopo (global, categoria, tipo de fornecedor, etc.)</CardDescription>
+                </div>
+                <Button onClick={openNewMarkup} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm">
+                  <Plus className="w-4 h-4 mr-1" /> Nova Regra
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingMarkup ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-amber-500 mr-2" /> Carregando...</div>
+              ) : markupConfigs.length === 0 ? (
+                <p className="text-center text-sm text-slate-400 py-8">Nenhuma regra de markup configurada. Clique em "Nova Regra" para começar.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Escopo</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead className="text-right">Multiplicador</TableHead>
+                      <TableHead className="text-right">%</TableHead>
+                      <TableHead className="text-center">Prioridade</TableHead>
+                      <TableHead className="text-center">Ativo</TableHead>
+                      <TableHead className="w-20"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {markupConfigs.map(m => (
+                      <TableRow key={m.id}>
+                        <TableCell className="font-medium">{m.name}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-xs">{scopeLabels[m.scope] || m.scope}</Badge></TableCell>
+                        <TableCell className="text-xs text-slate-500">{m.scopeValue || '—'}</TableCell>
+                        <TableCell className="text-right">x{Number(m.markupMultiplier).toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{Number(m.markupPercentage).toFixed(1)}%</TableCell>
+                        <TableCell className="text-center">{m.priority}</TableCell>
+                        <TableCell className="text-center">{m.isActive ? '✅' : '❌'}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditMarkup(m)}><Edit className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => handleDeleteMarkup(m.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Markup Dialog */}
+          <Dialog open={showMarkupDialog} onOpenChange={setShowMarkupDialog}>
+            <DialogContent className="max-w-lg w-[95vw] md:w-auto">
+              <DialogHeader>
+                <DialogTitle>{editingMarkup ? 'Editar Regra' : 'Nova Regra de Markup'}</DialogTitle>
+                <DialogDescription>Defina escopo e valores de markup</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div><Label>Nome *</Label><Input value={markupForm.name} onChange={e => setMarkupForm(p => ({ ...p, name: e.target.value }))} placeholder="Markup Padrão" /></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Escopo</Label>
+                    <Select value={markupForm.scope} onValueChange={v => setMarkupForm(p => ({ ...p, scope: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="global">Global</SelectItem>
+                        <SelectItem value="category">Por Categoria</SelectItem>
+                        <SelectItem value="activity_type">Por Tipo de Atividade</SelectItem>
+                        <SelectItem value="supplier_type">Por Tipo Fornecedor</SelectItem>
+                        <SelectItem value="client_type">Por Tipo Cliente</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {markupForm.scope !== 'global' && (
+                    <div><Label>Valor do Escopo</Label><Input value={markupForm.scopeValue} onChange={e => setMarkupForm(p => ({ ...p, scopeValue: e.target.value }))} placeholder="Ex: BT, factory, material" /></div>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div><Label>Multiplicador</Label><Input type="number" step="0.01" value={markupForm.markupMultiplier} onChange={e => setMarkupForm(p => ({ ...p, markupMultiplier: Number(e.target.value) }))} /></div>
+                  <div><Label>Percentual (%)</Label><Input type="number" step="0.1" value={markupForm.markupPercentage} onChange={e => setMarkupForm(p => ({ ...p, markupPercentage: Number(e.target.value) }))} /></div>
+                  <div><Label>Margem Mín. (R$)</Label><Input type="number" step="0.01" value={markupForm.minimumMargin} onChange={e => setMarkupForm(p => ({ ...p, minimumMargin: Number(e.target.value) }))} /></div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><Label>Prioridade</Label><Input type="number" value={markupForm.priority} onChange={e => setMarkupForm(p => ({ ...p, priority: Number(e.target.value) }))} /></div>
+                  <div className="flex items-end gap-2 pb-1">
+                    <Switch checked={markupForm.isActive} onCheckedChange={v => setMarkupForm(p => ({ ...p, isActive: v }))} />
+                    <Label className="text-sm">Ativa</Label>
+                  </div>
+                </div>
+                <div><Label>Descrição</Label><Input value={markupForm.description} onChange={e => setMarkupForm(p => ({ ...p, description: e.target.value }))} placeholder="Descrição opcional..." /></div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowMarkupDialog(false)}>Cancelar</Button>
+                  <Button onClick={handleSaveMarkup} className="bg-amber-500 hover:bg-amber-600 text-slate-900">{editingMarkup ? 'Salvar' : 'Criar'}</Button>
+                </DialogFooter>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-6">
@@ -252,6 +473,75 @@ export default function AdminSettings() {
                 </div>
                 <Switch defaultChecked />
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ═══ IA TAB ═══ */}
+        <TabsContent value="ai" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Bot className="w-5 h-5" /> Configuração de IA</CardTitle>
+              <CardDescription>Configure a chave de API e preferências do assistente inteligente</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <Label className="text-sm font-medium">Chave de API (OpenAI)</Label>
+                <div className="flex gap-2 mt-1">
+                  <div className="relative flex-1">
+                    <Input
+                      type={showKey ? 'text' : 'password'}
+                      value={aiApiKey}
+                      onChange={e => setAiApiKey(e.target.value)}
+                      placeholder="sk-..."
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      onClick={() => setShowKey(!showKey)}
+                    >
+                      {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Obtenha em platform.openai.com → API Keys</p>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Modelo</Label>
+                <Select value={aiModel} onValueChange={setAiModel}>
+                  <SelectTrigger className="w-full sm:w-64 mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gpt-4o-mini">GPT-4o Mini (rápido, econômico)</SelectItem>
+                    <SelectItem value="gpt-4o">GPT-4o (mais inteligente)</SelectItem>
+                    <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                    <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (mais barato)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                <div>
+                  <p className="font-medium">Assistente IA</p>
+                  <p className="text-sm text-slate-500">Habilitar o chat assistente no sistema</p>
+                </div>
+                <Switch checked={aiEnabled} onCheckedChange={setAiEnabled} />
+              </div>
+
+              <Button onClick={handleSaveAiConfig} disabled={savingAi} className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900">
+                {savingAi ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Salvando...</> : <><Save className="w-4 h-4 mr-2" /> Salvar Configurações de IA</>}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Como funciona?</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-slate-600">
+              <div className="flex gap-3 items-start"><span className="text-lg">💬</span><div><p className="font-medium text-slate-800">Chat Assistente</p><p>Clique no botão ⚡ no canto inferior direito para conversar com a IA sobre materiais, estruturas, custos e normas.</p></div></div>
+              <div className="flex gap-3 items-start"><span className="text-lg">📋</span><div><p className="font-medium text-slate-800">Análise de Materiais</p><p>Cole uma lista de materiais do fornecedor no chat e a IA identifica e faz matching com o catálogo.</p></div></div>
+              <div className="flex gap-3 items-start"><span className="text-lg">🧠</span><div><p className="font-medium text-slate-800">Contexto Inteligente</p><p>A IA conhece seu catálogo, fornecedores, estruturas e regras de markup para respostas personalizadas.</p></div></div>
             </CardContent>
           </Card>
         </TabsContent>

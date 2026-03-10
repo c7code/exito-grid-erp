@@ -296,6 +296,11 @@ class ApiService {
     const response = await this.client.delete(`/tasks/${id}`);
     return response.data;
   }
+
+  async completeTask(id: string, data: { result?: string; resolutionType: string; resolutionNotes?: string }) {
+    const response = await this.client.post(`/tasks/${id}/complete`, data);
+    return response.data;
+  }
   // Opportunities
   async getOpportunities(stage?: string) {
     const params = stage ? { stage } : {};
@@ -354,7 +359,7 @@ class ApiService {
     return response.data;
   }
 
-  async uploadDocument(file: File, data?: { name?: string; workId?: string; taskId?: string; type?: string; folderId?: string; description?: string }) {
+  async uploadDocument(file: File, data?: { name?: string; workId?: string; taskId?: string; type?: string; folderId?: string; description?: string; purpose?: string; tags?: string[]; sourceOrganization?: string }) {
     const formData = new FormData();
     formData.append('file', file);
     if (data?.name) formData.append('name', data.name);
@@ -363,6 +368,9 @@ class ApiService {
     if (data?.type) formData.append('type', data.type);
     if (data?.folderId) formData.append('folderId', data.folderId);
     if (data?.description) formData.append('description', data.description);
+    if (data?.purpose) formData.append('purpose', data.purpose);
+    if (data?.tags?.length) formData.append('tags', JSON.stringify(data.tags));
+    if (data?.sourceOrganization) formData.append('sourceOrganization', data.sourceOrganization);
 
     const response = await this.client.post('/documents/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -1782,6 +1790,105 @@ class ApiService {
     const response = await this.client.post(`/companies/${id}/logo`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    return response.data;
+  }
+
+  // Structure Templates
+  async getStructureTemplates(filters?: { concessionaria?: string; tensionLevel?: string; category?: string; search?: string }) {
+    const response = await this.client.get('/structure-templates', { params: filters });
+    return response.data;
+  }
+
+  async getStructureTemplate(id: string) {
+    const response = await this.client.get(`/structure-templates/${id}`);
+    return response.data;
+  }
+
+  async getStructureTemplateSummary(id: string) {
+    const response = await this.client.get(`/structure-templates/${id}/summary`);
+    return response.data;
+  }
+
+  async createStructureTemplate(data: any) {
+    const response = await this.client.post('/structure-templates', data);
+    return response.data;
+  }
+
+  async updateStructureTemplate(id: string, data: any) {
+    const response = await this.client.put(`/structure-templates/${id}`, data);
+    return response.data;
+  }
+
+  async deleteStructureTemplate(id: string) {
+    const response = await this.client.delete(`/structure-templates/${id}`);
+    return response.data;
+  }
+
+  async addStructureTemplateItem(templateId: string, data: any) {
+    const response = await this.client.post(`/structure-templates/${templateId}/items`, data);
+    return response.data;
+  }
+
+  async updateStructureTemplateItem(itemId: string, data: any) {
+    const response = await this.client.put(`/structure-templates/items/${itemId}`, data);
+    return response.data;
+  }
+
+  async deleteStructureTemplateItem(itemId: string) {
+    const response = await this.client.delete(`/structure-templates/items/${itemId}`);
+    return response.data;
+  }
+
+  // Markup
+  async getMarkupConfigs(scope?: string) {
+    const params = scope ? { scope } : {};
+    const response = await this.client.get('/markup', { params });
+    return response.data;
+  }
+
+  async getMarkupConfig(id: string) {
+    const response = await this.client.get(`/markup/${id}`);
+    return response.data;
+  }
+
+  async resolveMarkup(criteria: { categoryId?: string; activityType?: string; supplierType?: string; clientType?: string }) {
+    const response = await this.client.get('/markup/resolve', { params: criteria });
+    return response.data;
+  }
+
+  async createMarkupConfig(data: any) {
+    const response = await this.client.post('/markup', data);
+    return response.data;
+  }
+
+  async updateMarkupConfig(id: string, data: any) {
+    const response = await this.client.put(`/markup/${id}`, data);
+    return response.data;
+  }
+
+  async deleteMarkupConfig(id: string) {
+    const response = await this.client.delete(`/markup/${id}`);
+    return response.data;
+  }
+
+  // AI
+  async aiChat(message: string, history: { role: string; content: string }[] = []) {
+    const response = await this.client.post('/ai/chat', { message, history });
+    return response.data;
+  }
+
+  async aiAnalyzeMaterials(text: string) {
+    const response = await this.client.post('/ai/analyze-materials', { text });
+    return response.data;
+  }
+
+  async getAiConfigs() {
+    const response = await this.client.get('/ai/config');
+    return response.data;
+  }
+
+  async setAiConfig(key: string, value: string, isSecret = false) {
+    const response = await this.client.put('/ai/config', { key, value, isSecret });
     return response.data;
   }
 }

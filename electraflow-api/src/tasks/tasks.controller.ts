@@ -55,8 +55,21 @@ export class TasksController {
 
   @Post(':id/complete')
   @ApiOperation({ summary: 'Completar tarefa' })
-  async complete(@Param('id') id: string, @Body('result') result: string, @Request() req) {
-    return this.tasksService.complete(id, req.user.userId, result);
+  async complete(
+    @Param('id') id: string,
+    @Body('result') result: string,
+    @Body('resolutionType') resolutionType: string,
+    @Body('resolutionNotes') resolutionNotes: string,
+    @Request() req,
+  ) {
+    return this.tasksService.complete(
+      id,
+      req.user.userId,
+      result,
+      req.user.email, // resolvedByEmail from JWT
+      resolutionType || 'total',
+      resolutionNotes,
+    );
   }
 
   @Put(':id/resolvers')

@@ -50,6 +50,9 @@ import {
   EyeOff,
   RotateCcw,
   AlertTriangle,
+  MapPin,
+  Building2,
+  Search,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ClientDetailViewer } from '@/components/ClientDetailViewer';
@@ -139,10 +142,17 @@ const emptyForm = {
   clientName: '',
   clientEmail: '',
   clientPhone: '',
+  clientDocument: '',
+  clientCep: '',
+  clientAddress: '',
+  clientCity: '',
+  clientState: '',
+  clientNeighborhood: '',
   estimatedValue: '',
   source: 'website' as string,
   description: '',
   stage: 'lead_new' as string,
+  linkedClientId: '' as string,
 };
 
 // ═══════════════════════════════════════════════
@@ -191,6 +201,102 @@ export default function AdminPipeline() {
   const [selectedOppForProposal, setSelectedOppForProposal] = useState<Opportunity | null>(null);
   const [isClientViewerOpen, setIsClientViewerOpen] = useState(false);
   const [viewingClient, setViewingClient] = useState<Client | null>(null);
+
+  // Auto-fill states
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
+  const [clientsList, setClientsList] = useState<Client[]>([]);
+  const [clientSearch, setClientSearch] = useState('');
+  const [showClientSearch, setShowClientSearch] = useState(false);
+
+  // Load clients for search when form opens
+  useEffect(() => {
+    if (isFormOpen) {
+      api.getClients().then((data) => setClientsList(data)).catch(() => {});
+    }
+  }, [isFormOpen]);
+
+  // CNPJ auto-lookup
+  useEffect(() => {
+    const clean = formData.clientDocument.replace(/\D/g, '');
+    if (clean.length !== 14) return;
+    const timer = setTimeout(async () => {
+      setCnpjLoading(true);
+      try {
+        const data = await api.fetchCnpjData(clean);
+        setFormData(prev => ({
+          ...prev,
+          clientName: data.razao_social || prev.clientName,
+          clientEmail: data.email || prev.clientEmail,
+          clientPhone: data.ddd_telefone_1 || prev.clientPhone,
+          clientAddress: data.logradouro || prev.clientAddress,
+          clientNeighborhood: data.bairro || prev.clientNeighborhood,
+          clientCity: data.municipio || prev.clientCity,
+          clientState: data.uf || prev.clientState,
+          clientCep: data.cep?.replace(/\D/g, '') || prev.clientCep,
+        }));
+        toast.success('Dados da empresa carregados automaticamente');
+      } catch {
+        toast.error('CNPJ não encontrado');
+      } finally {
+        setCnpjLoading(false);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [formData.clientDocument]);
+
+  // CEP auto-lookup
+  useEffect(() => {
+    const clean = formData.clientCep.replace(/\D/g, '');
+    if (clean.length !== 8) return;
+    const timer = setTimeout(async () => {
+      setCepLoading(true);
+      try {
+        const data = await api.fetchCepData(clean);
+        setFormData(prev => ({
+          ...prev,
+          clientAddress: data.logradouro || prev.clientAddress,
+          clientNeighborhood: data.bairro || prev.clientNeighborhood,
+          clientCity: data.localidade || prev.clientCity,
+          clientState: data.uf || prev.clientState,
+        }));
+        toast.success('Endereço preenchido pelo CEP');
+      } catch {
+        toast.error('CEP não encontrado');
+      } finally {
+        setCepLoading(false);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [formData.clientCep]);
+
+  // Select existing client from search
+  const handleSelectClient = (client: Client) => {
+    setFormData(prev => ({
+      ...prev,
+      linkedClientId: client.id,
+      clientName: client.name || prev.clientName,
+      clientEmail: client.email || prev.clientEmail,
+      clientPhone: client.phone || client.whatsapp || prev.clientPhone,
+      clientDocument: client.document || prev.clientDocument,
+      clientCep: client.zipCode || prev.clientCep,
+      clientAddress: client.address || prev.clientAddress,
+      clientCity: client.city || prev.clientCity,
+      clientState: client.state || prev.clientState,
+      clientNeighborhood: client.neighborhood || prev.clientNeighborhood,
+    }));
+    setShowClientSearch(false);
+    setClientSearch('');
+    toast.success(`Cliente "${client.name}" selecionado`);
+  };
+
+  const filteredClientsList = clientSearch.trim()
+    ? clientsList.filter(c =>
+        c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+        c.email?.toLowerCase().includes(clientSearch.toLowerCase()) ||
+        c.document?.includes(clientSearch)
+      )
+    : clientsList.slice(0, 8);
 
   const loadOpportunities = useCallback(async () => {
     try {
@@ -385,10 +491,17 @@ export default function AdminPipeline() {
       clientName: opp.clientName || (opp.client?.name) || '',
       clientEmail: opp.clientEmail || (opp.client?.email) || '',
       clientPhone: opp.clientPhone || (opp.client?.phone) || '',
+      clientDocument: (opp.client as any)?.document || '',
+      clientCep: (opp.client as any)?.zipCode || '',
+      clientAddress: (opp.client as any)?.address || '',
+      clientCity: (opp.client as any)?.city || '',
+      clientState: (opp.client as any)?.state || '',
+      clientNeighborhood: (opp.client as any)?.neighborhood || '',
       estimatedValue: opp.estimatedValue ? String(opp.estimatedValue) : '',
       source: (opp as any).source || 'other',
       description: opp.description || '',
       stage: opp.stage || 'lead_new',
+      linkedClientId: opp.clientId || '',
     });
     setIsFormOpen(true);
   };
@@ -411,6 +524,7 @@ export default function AdminPipeline() {
         source: formData.source,
         description: formData.description || null,
         stage: formData.stage,
+        clientId: formData.linkedClientId || null,
       };
 
       if (editingId) {
@@ -804,8 +918,8 @@ export default function AdminPipeline() {
       </Dialog>
 
       {/* ═══════════ CREATE/EDIT DIALOG ═══════════ */}
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) { setShowClientSearch(false); setClientSearch(''); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingId ? 'Editar Oportunidade' : 'Nova Oportunidade'}
@@ -817,7 +931,8 @@ export default function AdminPipeline() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 pt-2">
+          <div className="space-y-5 pt-2">
+            {/* ── Título e Serviço ── */}
             <div>
               <Label>Título *</Label>
               <Input
@@ -854,35 +969,175 @@ export default function AdminPipeline() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Nome do Cliente</Label>
-                <Input
-                  placeholder="Nome completo"
-                  value={formData.clientName}
-                  onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                />
+            {/* ── Dados do Interesse / Cliente ── */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-amber-600 font-bold text-xs uppercase tracking-wider border-b border-slate-200 pb-2">
+                <User className="w-3.5 h-3.5" />
+                <span>Dados do Interesse</span>
               </div>
-              <div>
-                <Label>Telefone</Label>
-                <Input
-                  placeholder="(11) 99999-9999"
-                  value={formData.clientPhone}
-                  onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
-                />
+
+              {/* Client search */}
+              <div className="relative">
+                <Label className="text-xs text-slate-500 mb-1 block">Buscar Cliente Existente</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    placeholder="Digite nome, email ou CNPJ para buscar..."
+                    className="pl-10 h-10"
+                    value={clientSearch}
+                    onChange={(e) => { setClientSearch(e.target.value); setShowClientSearch(true); }}
+                    onFocus={() => setShowClientSearch(true)}
+                  />
+                </div>
+                {showClientSearch && filteredClientsList.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                    {filteredClientsList.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-amber-50 transition-colors text-left border-b last:border-b-0"
+                        onClick={() => handleSelectClient(c)}
+                      >
+                        <Avatar className="w-7 h-7 shrink-0">
+                          <AvatarFallback className="bg-amber-100 text-amber-600 text-[10px] font-bold">{c.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-slate-700 truncate">{c.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{c.email} {c.document ? `• ${c.document}` : ''}</p>
+                        </div>
+                        {c.city && <span className="text-[10px] text-slate-400 shrink-0">{c.city}/{c.state}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {formData.linkedClientId && (
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <Badge className="bg-emerald-100 text-emerald-700 text-[10px] border-none">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Cliente vinculado
+                    </Badge>
+                    <button
+                      type="button"
+                      className="text-[10px] text-red-500 hover:text-red-700 underline"
+                      onClick={() => setFormData({ ...formData, linkedClientId: '' })}
+                    >
+                      desvincular
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Nome do Cliente</Label>
+                  <Input
+                    placeholder="Nome completo / Razão Social"
+                    value={formData.clientName}
+                    onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>CPF / CNPJ</Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="00.000.000/0000-00"
+                      value={formData.clientDocument}
+                      onChange={(e) => setFormData({ ...formData, clientDocument: e.target.value })}
+                      className="pr-10"
+                    />
+                    {cnpjLoading && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-amber-500" />
+                    )}
+                  </div>
+                  {formData.clientDocument.replace(/\D/g, '').length === 14 && !cnpjLoading && (
+                    <p className="text-[10px] text-amber-600 mt-0.5">✓ CNPJ detectado — dados carregados automaticamente</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Telefone</Label>
+                  <Input
+                    placeholder="(11) 99999-9999"
+                    value={formData.clientPhone}
+                    onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    placeholder="cliente@email.com"
+                    value={formData.clientEmail}
+                    onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
 
-            <div>
-              <Label>Email</Label>
-              <Input
-                type="email"
-                placeholder="cliente@email.com"
-                value={formData.clientEmail}
-                onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
-              />
+            {/* ── Endereço ── */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-amber-600 font-bold text-xs uppercase tracking-wider border-b border-slate-200 pb-2">
+                <MapPin className="w-3.5 h-3.5" />
+                <span>Localização</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>CEP</Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="00000-000"
+                      value={formData.clientCep}
+                      onChange={(e) => setFormData({ ...formData, clientCep: e.target.value })}
+                      maxLength={9}
+                      className="pr-10"
+                    />
+                    {cepLoading && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-amber-500" />
+                    )}
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <Label>Logradouro</Label>
+                  <Input
+                    placeholder="Rua, Avenida..."
+                    value={formData.clientAddress}
+                    onChange={(e) => setFormData({ ...formData, clientAddress: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>Bairro</Label>
+                  <Input
+                    placeholder="Bairro"
+                    value={formData.clientNeighborhood}
+                    onChange={(e) => setFormData({ ...formData, clientNeighborhood: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Cidade</Label>
+                  <Input
+                    placeholder="Cidade"
+                    value={formData.clientCity}
+                    onChange={(e) => setFormData({ ...formData, clientCity: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>UF</Label>
+                  <Input
+                    placeholder="UF"
+                    value={formData.clientState}
+                    onChange={(e) => setFormData({ ...formData, clientState: e.target.value })}
+                    maxLength={2}
+                  />
+                </div>
+              </div>
             </div>
 
+            {/* ── Valor e Origem ── */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Valor Estimado</Label>

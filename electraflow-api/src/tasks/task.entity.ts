@@ -81,6 +81,15 @@ export class Task {
   @Column({ type: 'text', nullable: true })
   result: string;
 
+  @Column({ nullable: true })
+  resolvedByEmail: string;              // E-mail do usuário que resolveu a tarefa
+
+  @Column({ nullable: true, default: null })
+  resolutionType: string;               // 'partial' | 'total'
+
+  @Column({ type: 'text', nullable: true })
+  resolutionNotes: string;              // Observações sobre a resolução
+
   @Column({ default: 0 })
   progress: number;
 

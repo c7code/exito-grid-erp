@@ -1,5 +1,5 @@
 import {
-    Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn,
+    Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn,
     ManyToOne, JoinColumn, OneToMany,
 } from 'typeorm';
 import { DocumentType } from './document-type.entity';
@@ -91,4 +91,7 @@ export class ComplianceDocument {
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+    @DeleteDateColumn()
+    deletedAt: Date;
 }

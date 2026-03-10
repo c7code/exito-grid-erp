@@ -1,0 +1,131 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Like } from 'typeorm';
+import { StructureTemplate, StructureTemplateItem } from './structure-template.entity';
+
+@Injectable()
+export class StructureTemplatesService {
+    constructor(
+        @InjectRepository(StructureTemplate)
+        private templateRepo: Repository<StructureTemplate>,
+        @InjectRepository(StructureTemplateItem)
+        private itemRepo: Repository<StructureTemplateItem>,
+    ) { }
+
+    // ═══════════════════════════════════════════════════════════════
+    // TEMPLATES
+    // ═══════════════════════════════════════════════════════════════
+
+    async findAll(filters?: {
+        concessionaria?: string;
+        tensionLevel?: string;
+        category?: string;
+        search?: string;
+    }) {
+        const qb = this.templateRepo
+            .createQueryBuilder('t')
+            .leftJoinAndSelect('t.items', 'item')
+            .leftJoinAndSelect('item.catalogItem', 'catalog')
+            .where('t.deletedAt IS NULL');
+
+        if (filters?.concessionaria) {
+            qb.andWhere('t.concessionaria = :conc', { conc: filters.concessionaria });
+        }
+        if (filters?.tensionLevel) {
+            qb.andWhere('t.tensionLevel = :tl', { tl: filters.tensionLevel });
+        }
+        if (filters?.category) {
+            qb.andWhere('t.category = :cat', { cat: filters.category });
+        }
+        if (filters?.search) {
+            qb.andWhere('(t.code ILIKE :s OR t.name ILIKE :s)', { s: `%${filters.search}%` });
+        }
+
+        qb.orderBy('t.code', 'ASC');
+        return qb.getMany();
+    }
+
+    async findOne(id: string) {
+        const template = await this.templateRepo.findOne({
+            where: { id },
+            relations: ['items', 'items.catalogItem'],
+        });
+        if (!template) throw new NotFoundException('Template não encontrado');
+        return template;
+    }
+
+    async create(data: Partial<StructureTemplate>) {
+        const template = this.templateRepo.create(data);
+        return this.templateRepo.save(template);
+    }
+
+    async update(id: string, data: Partial<StructureTemplate>) {
+        const template = await this.findOne(id);
+        Object.assign(template, data);
+
+        // If items are provided, handle them
+        if (data.items) {
+            // Remove existing items
+            await this.itemRepo.delete({ templateId: id });
+            // Create new items
+            template.items = data.items.map(item =>
+                this.itemRepo.create({ ...item, templateId: id })
+            );
+        }
+
+        return this.templateRepo.save(template);
+    }
+
+    async remove(id: string) {
+        await this.findOne(id); // Validates existence
+        await this.templateRepo.softDelete(id);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ITEMS
+    // ═══════════════════════════════════════════════════════════════
+
+    async addItem(templateId: string, data: Partial<StructureTemplateItem>) {
+        await this.findOne(templateId); // Validates template exists
+        const item = this.itemRepo.create({ ...data, templateId });
+        return this.itemRepo.save(item);
+    }
+
+    async updateItem(itemId: string, data: Partial<StructureTemplateItem>) {
+        const item = await this.itemRepo.findOne({ where: { id: itemId } });
+        if (!item) throw new NotFoundException('Item não encontrado');
+        Object.assign(item, data);
+        return this.itemRepo.save(item);
+    }
+
+    async removeItem(itemId: string) {
+        const item = await this.itemRepo.findOne({ where: { id: itemId } });
+        if (!item) throw new NotFoundException('Item não encontrado');
+        await this.itemRepo.remove(item);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // UTILITÁRIOS
+    // ═══════════════════════════════════════════════════════════════
+
+    async getTemplateSummary(id: string) {
+        const template = await this.findOne(id);
+        let totalCost = 0;
+        let uncatalogedCount = 0;
+
+        for (const item of template.items) {
+            if (item.catalogItem) {
+                totalCost += Number(item.catalogItem.costPrice || 0) * Number(item.quantity);
+            } else {
+                uncatalogedCount++;
+            }
+        }
+
+        return {
+            template,
+            totalItems: template.items.length,
+            totalCost,
+            uncatalogedCount,
+        };
+    }
+}

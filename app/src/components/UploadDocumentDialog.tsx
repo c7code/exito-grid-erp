@@ -50,6 +50,21 @@ const documentTypes: Record<string, string> = {
     contract: 'Contrato',
     invoice: 'Nota Fiscal',
     certificate: 'Certificado',
+    norm: 'Norma Técnica',
+    pop: 'POP',
+    supplier_catalog: 'Cat. Fornecedor',
+    other: 'Outro',
+};
+
+const purposeTypes: Record<string, string> = {
+    norma_tecnica: 'Norma Técnica',
+    pop: 'POP',
+    catalogo_fornecedor: 'Catálogo Fornecedor',
+    manual: 'Manual',
+    projeto_tipo: 'Projeto Tipo',
+    tabela_preco: 'Tabela de Preços',
+    book_estruturas: 'Book de Estruturas',
+    documentacao_obra: 'Doc. Obra',
     other: 'Outro',
 };
 
@@ -79,6 +94,9 @@ export default function UploadDocumentDialog({
         workId: preselectedWorkId || '',
         folderId: preselectedFolderId || '',
         description: '',
+        purpose: '' as string,
+        tagsInput: '',
+        sourceOrganization: '',
     });
 
     useEffect(() => {
@@ -130,6 +148,9 @@ export default function UploadDocumentDialog({
             workId: preselectedWorkId || '',
             folderId: preselectedFolderId || '',
             description: '',
+            purpose: '',
+            tagsInput: '',
+            sourceOrganization: '',
         });
         setSelectedFile(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -158,12 +179,20 @@ export default function UploadDocumentDialog({
 
         setLoading(true);
         try {
+            const tags = formData.tagsInput
+                .split(',')
+                .map(t => t.trim())
+                .filter(t => t.length > 0);
+
             await api.uploadDocument(selectedFile, {
                 name: formData.name,
                 type: formData.type,
                 workId: formData.workId || undefined,
                 folderId: formData.folderId || undefined,
                 description: formData.description || undefined,
+                purpose: formData.purpose || undefined,
+                tags: tags.length > 0 ? tags : undefined,
+                sourceOrganization: formData.sourceOrganization || undefined,
             });
             toast.success('Documento enviado com sucesso!');
             resetForm();
@@ -310,6 +339,47 @@ export default function UploadDocumentDialog({
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                         />
+                    </div>
+
+                    {/* Campos para IA */}
+                    <div className="border-t pt-4 space-y-4">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">🎯 Classificação para IA</p>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label>Finalidade</Label>
+                                <Select
+                                    value={formData.purpose}
+                                    onValueChange={(v) => setFormData({ ...formData, purpose: v === 'none' ? '' : v })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Nenhuma</SelectItem>
+                                        {Object.entries(purposeTypes).map(([k, l]) => (
+                                            <SelectItem key={k} value={k}>{l}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label>Origem</Label>
+                                <Input
+                                    placeholder="Ex: ABNT, Neoenergia, WEG"
+                                    value={formData.sourceOrganization}
+                                    onChange={(e) => setFormData({ ...formData, sourceOrganization: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <Label>Tags</Label>
+                            <Input
+                                placeholder="Separar por vírgula: BT, CE4, poste_9m, monofasico"
+                                value={formData.tagsInput}
+                                onChange={(e) => setFormData({ ...formData, tagsInput: e.target.value })}
+                            />
+                            <p className="text-[11px] text-slate-400 mt-1">Tags ajudam a IA a encontrar e classificar o documento</p>
+                        </div>
                     </div>
 
                     <DialogFooter>

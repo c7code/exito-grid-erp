@@ -303,6 +303,7 @@ export default function AdminProposals() {
                   <TableHead>Status</TableHead>
                   <TableHead>Validade</TableHead>
                   <TableHead>Valor</TableHead>
+                  <TableHead>Simulação</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -355,6 +356,15 @@ export default function AdminProposals() {
                       </TableCell>
                       <TableCell className="font-medium">
                         R$ {Number(proposal.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                      </TableCell>
+                      <TableCell>
+                        {proposal.simulationData ? (
+                          <Badge className="bg-cyan-500/20 text-cyan-600 border-cyan-500/30 hover:bg-cyan-500/30">
+                            📊 Sim
+                          </Badge>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

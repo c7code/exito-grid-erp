@@ -27,6 +27,14 @@ export enum SupplierStatus {
     BLOCKED = 'blocked',
 }
 
+export enum SupplierType {
+    FACTORY = 'factory',               // Fábrica / Fabricante
+    DISTRIBUTOR = 'distributor',       // Distribuidor
+    RETAILER = 'retailer',            // Varejista
+    REPRESENTATIVE = 'representative', // Representante
+    OTHER = 'other',
+}
+
 @Entity('suppliers')
 export class Supplier {
     @PrimaryGeneratedColumn('uuid')
@@ -68,6 +76,9 @@ export class Supplier {
     @Column({ type: 'enum', enum: SupplierStatus, default: SupplierStatus.ACTIVE })
     status: SupplierStatus;
 
+    @Column({ type: 'varchar', default: 'other' })
+    supplierType: string;              // factory | distributor | retailer | representative | other
+
     @Column({ type: 'int', default: 0 })
     rating: number;
 
@@ -91,6 +102,9 @@ export class Supplier {
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+    @DeleteDateColumn()
+    deletedAt: Date;
 }
 
 // ============================================================
@@ -126,6 +140,9 @@ export class SupplierContact {
 
     @CreateDateColumn()
     createdAt: Date;
+
+    @DeleteDateColumn()
+    deletedAt: Date;
 }
 
 // ============================================================

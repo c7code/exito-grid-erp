@@ -29,6 +29,9 @@ import { ServiceOrdersModule } from './service-orders/service-orders.module';
 import { ContractsModule } from './contracts/contracts.module';
 import { SolarModule } from './solar/solar.module';
 import { CompaniesModule } from './companies/companies.module';
+import { StructureTemplatesModule } from './structure-templates/structure-templates.module';
+import { MarkupModule } from './markup/markup.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -76,6 +79,9 @@ import { CompaniesModule } from './companies/companies.module';
     ContractsModule,
     SolarModule,
     CompaniesModule,
+    StructureTemplatesModule,
+    MarkupModule,
+    AiModule,
   ],
 })
 export class AppModule { }

@@ -11,6 +11,21 @@ export enum DocumentType {
   INVOICE = 'invoice',
   CERTIFICATE = 'certificate',
   PROTOCOL = 'protocol',
+  NORM = 'norm',
+  POP = 'pop',
+  SUPPLIER_CATALOG = 'supplier_catalog',
+  OTHER = 'other',
+}
+
+export enum DocumentPurpose {
+  NORMA_TECNICA = 'norma_tecnica',           // Norma técnica (ABNT, concessionária)
+  POP = 'pop',                               // Procedimento Operacional Padrão
+  CATALOGO_FORNECEDOR = 'catalogo_fornecedor',// Catálogo/lista de material de fornecedor
+  MANUAL = 'manual',                         // Manual de equipamento
+  PROJETO_TIPO = 'projeto_tipo',             // Projeto tipo / padrão
+  TABELA_PRECO = 'tabela_preco',             // Tabela de preços
+  BOOK_ESTRUTURAS = 'book_estruturas',       // Book de estruturas da concessionária
+  DOCUMENTACAO_OBRA = 'documentacao_obra',   // Documentação de obra
   OTHER = 'other',
 }
 
@@ -56,6 +71,9 @@ export class DocumentFolder {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 }
 
 @Entity('documents')
@@ -134,6 +152,25 @@ export class Document {
 
   @Column({ type: 'text', nullable: true })
   description: string;
+
+  // ═══════════════════════════════════════════════════════════════
+  // CAMPOS PARA IA
+  // ═══════════════════════════════════════════════════════════════
+
+  @Column({ nullable: true })
+  purpose: string;                  // Finalidade: 'norma_tecnica' | 'pop' | 'catalogo_fornecedor' | 'manual' | etc.
+
+  @Column({ type: 'simple-array', nullable: true })
+  tags: string[];                   // Tags livres: ["neoenergia", "BT", "CE4", "poste_9m"]
+
+  @Column({ type: 'text', nullable: true })
+  extractedText: string;            // Texto extraído do PDF (para futura IA)
+
+  @Column({ default: false })
+  textExtracted: boolean;           // Flag: texto já foi extraído
+
+  @Column({ nullable: true })
+  sourceOrganization: string;       // Origem: "ABNT", "Neoenergia", "CEMIG", nome do fornecedor
 
   @CreateDateColumn()
   createdAt: Date;

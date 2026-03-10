@@ -1,5 +1,5 @@
 import {
-    Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn,
+    Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn,
     ManyToOne, JoinColumn,
 } from 'typeorm';
 import { Employee } from '../employees/employee.entity';
@@ -56,4 +56,7 @@ export class EmployeeDocRequirement {
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+    @DeleteDateColumn()
+    deletedAt: Date;
 }

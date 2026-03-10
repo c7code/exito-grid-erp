@@ -3,6 +3,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -10,6 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -43,6 +53,9 @@ import {
   Trash2,
   Percent,
   ExternalLink,
+  CheckCheck,
+  CircleDot,
+  UserCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -75,6 +88,12 @@ export default function AdminTasks() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [isClientViewerOpen, setIsClientViewerOpen] = useState(false);
   const [viewingClient, setViewingClient] = useState<Client | null>(null);
+  // Resolution dialog state
+  const [showResolutionDialog, setShowResolutionDialog] = useState(false);
+  const [resolvingTask, setResolvingTask] = useState<Task | null>(null);
+  const [resolutionType, setResolutionType] = useState<string>('total');
+  const [resolutionNotes, setResolutionNotes] = useState('');
+  const [resolving, setResolving] = useState(false);
 
   useEffect(() => {
     loadTasks();
@@ -117,18 +136,37 @@ export default function AdminTasks() {
     setShowEditDialog(true);
   };
 
-  const handleCompleteTask = async (task: Task) => {
+  const handleOpenResolution = (task: Task) => {
+    setResolvingTask(task);
+    setResolutionType('total');
+    setResolutionNotes('');
+    setShowResolutionDialog(true);
+  };
+
+  const handleSubmitResolution = async () => {
+    if (!resolvingTask) return;
+    setResolving(true);
     try {
-      await api.updateTask(task.id, { status: 'completed' });
-      if (task.workId && task.weightPercentage) {
-        toast.success(`Tarefa concluída! Progresso da obra atualizado (+${task.weightPercentage}%).`);
+      await api.completeTask(resolvingTask.id, {
+        resolutionType,
+        resolutionNotes: resolutionNotes || undefined,
+      });
+      if (resolutionType === 'total') {
+        if (resolvingTask.workId && resolvingTask.weightPercentage) {
+          toast.success(`Tarefa concluída totalmente! Progresso da obra atualizado (+${resolvingTask.weightPercentage}%).`);
+        } else {
+          toast.success('Tarefa concluída totalmente!');
+        }
       } else {
-        toast.success('Tarefa concluída!');
+        toast.success('Resolução parcial registrada!');
       }
+      setShowResolutionDialog(false);
       loadTasks();
     } catch (error) {
-      console.error('Erro ao concluir tarefa:', error);
-      toast.error('Erro ao concluir tarefa.');
+      console.error('Erro ao resolver tarefa:', error);
+      toast.error('Erro ao resolver tarefa.');
+    } finally {
+      setResolving(false);
     }
   };
 
@@ -254,7 +292,7 @@ export default function AdminTasks() {
                   <TableHead>Status</TableHead>
                   <TableHead>Prioridade</TableHead>
                   <TableHead>Prazo</TableHead>
-                  <TableHead>Horas</TableHead>
+                  <TableHead>Resolvido por</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -327,7 +365,23 @@ export default function AdminTasks() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {task.actualHours || 0} / {task.estimatedHours || '-'} h
+                      {(task as any).resolvedByEmail ? (
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
+                            <span className="text-xs text-slate-600 truncate max-w-[120px]" title={(task as any).resolvedByEmail}>
+                              {(task as any).resolvedByEmail}
+                            </span>
+                          </div>
+                          <Badge variant={(task as any).resolutionType === 'total' ? 'default' : 'secondary'}
+                            className={`text-[10px] py-0 ${(task as any).resolutionType === 'total' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}
+                          >
+                            {(task as any).resolutionType === 'total' ? 'Total' : 'Parcial'}
+                          </Badge>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-slate-300">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -342,9 +396,9 @@ export default function AdminTasks() {
                             Editar
                           </DropdownMenuItem>
                           {task.status !== 'completed' && (
-                            <DropdownMenuItem onClick={() => handleCompleteTask(task)}>
+                            <DropdownMenuItem onClick={() => handleOpenResolution(task)}>
                               <Check className="w-4 h-4 mr-2" />
-                              Concluir
+                              Resolver
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
@@ -384,6 +438,99 @@ export default function AdminTasks() {
         onOpenChange={setIsClientViewerOpen}
         client={viewingClient}
       />
+
+      {/* ── Resolution Dialog ──────────────────────────────────────── */}
+      <Dialog open={showResolutionDialog} onOpenChange={setShowResolutionDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                <CheckCheck className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <DialogTitle>Resolver Tarefa</DialogTitle>
+                <DialogDescription>
+                  {resolvingTask?.title}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            {/* Resolution Type */}
+            <div>
+              <Label className="text-sm font-medium">Tipo de Resolução</Label>
+              <div className="flex gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setResolutionType('total')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all text-sm font-medium ${
+                    resolutionType === 'total'
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                      : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                  }`}
+                >
+                  <CheckCheck className="w-4 h-4" />
+                  Total
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setResolutionType('partial')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all text-sm font-medium ${
+                    resolutionType === 'partial'
+                      ? 'border-amber-500 bg-amber-50 text-amber-700'
+                      : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                  }`}
+                >
+                  <CircleDot className="w-4 h-4" />
+                  Parcial
+                </button>
+              </div>
+              <p className="text-xs text-slate-400 mt-1.5">
+                {resolutionType === 'total'
+                  ? '✅ A tarefa será marcada como Concluída.'
+                  : '⚠️ A tarefa permanecerá em andamento com a resolução registrada.'}
+              </p>
+            </div>
+
+            {/* Resolution Notes */}
+            <div>
+              <Label htmlFor="resolution-notes">Observações da Resolução</Label>
+              <Textarea
+                id="resolution-notes"
+                placeholder="Descreva o que foi feito, o resultado obtido..."
+                rows={3}
+                value={resolutionNotes}
+                onChange={(e) => setResolutionNotes(e.target.value)}
+              />
+            </div>
+
+            {/* Info */}
+            <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-500 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Será registrado automaticamente com seu e-mail de acesso</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                <span>Data/hora de resolução: agora</span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowResolutionDialog(false)}>Cancelar</Button>
+            <Button
+              onClick={handleSubmitResolution}
+              disabled={resolving}
+              className={resolutionType === 'total' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-amber-500 hover:bg-amber-600 text-slate-900'}
+            >
+              {resolving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {resolving ? 'Resolvendo...' : resolutionType === 'total' ? 'Concluir Tarefa' : 'Registrar Parcial'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

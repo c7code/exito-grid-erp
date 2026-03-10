@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany, OneToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToMany, OneToOne } from 'typeorm';
 import { Work } from '../works/work.entity';
 
 export enum ProcessStatus {
@@ -40,6 +40,9 @@ export class Process {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 
   @OneToMany(() => ProcessStage, stage => stage.process, { cascade: true })
   stages: ProcessStage[];
@@ -87,6 +90,9 @@ export class ProcessStage {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  @DeleteDateColumn()
+  deletedAt: Date;
+
   @OneToMany(() => ChecklistItem, item => item.stage, { cascade: true })
   checklist: ChecklistItem[];
 }
@@ -126,4 +132,7 @@ export class ChecklistItem {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 }

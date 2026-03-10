@@ -452,7 +452,7 @@ export function simulate(inputs: SimInputs): Condition[] {
     }
 
     // ── 3. Tabela Price ─────────────────────────────────────────────────────
-    for (const n of [6, 10, 12, 18, 24]) {
+    for (const n of [6, 10, 12, 18, 24, 36, 48, 60, 72, 84, 96, 120]) {
         const useReadjust = n > 12;
         let cashFlow: CashFlowRow[];
         let annualBlocks: AnnualBlock[] | undefined;
@@ -487,7 +487,7 @@ export function simulate(inputs: SimInputs): Condition[] {
 
     // ── 4. Leasing ──────────────────────────────────────────────────────────
     const leasingRate = rate + inputs.leasingSpread;
-    for (const months of [12, 24, 36]) {
+    for (const months of [12, 24, 36, 48, 60]) {
         const useReadjust = months > 12;
         let cashFlow: CashFlowRow[];
         let annualBlocks: AnnualBlock[] | undefined;

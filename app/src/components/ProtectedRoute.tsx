@@ -26,13 +26,11 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     if (user!.role === 'admin') {
       return <Navigate to="/admin/dashboard" replace />;
     } else if (user!.role === 'employee') {
-      // Funcionário com permissões pode acessar admin, senão vai para employee
-      const perms = (user as any).permissions || [];
-      return <Navigate to={perms.length > 0 ? '/admin/dashboard' : '/employee/dashboard'} replace />;
+      return <Navigate to="/employee/dashboard" replace />;
     } else if (user!.role === 'client') {
       return <Navigate to="/client/dashboard" replace />;
     } else {
-      return <Navigate to="/admin/dashboard" replace />;
+      return <Navigate to="/admin/works" replace />;
     }
   }
 

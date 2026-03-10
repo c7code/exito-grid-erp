@@ -26,6 +26,7 @@ import AdminUsers from './pages/admin/Users';
 import AdminClients from './pages/admin/Clients';
 import AdminFinance from './pages/admin/Finance';
 import AdminFinanceSimulator from './pages/admin/FinanceSimulator';
+import AdminSimulatorWizard from './pages/admin/simulator/SimulatorWizard';
 import AdminSettings from './pages/admin/Settings';
 import AdminCatalogManagement from './pages/admin/CatalogManagement';
 import AdminSuppliers from './pages/admin/Suppliers';
@@ -40,6 +41,7 @@ import AdminServiceOrders from './pages/admin/ServiceOrders';
 import AdminContracts from './pages/admin/Contracts';
 import AdminSolarProjects from './pages/admin/SolarProjects';
 import AdminCompanies from './pages/admin/Companies';
+import AdminStructureTemplates from './pages/admin/StructureTemplates';
 
 // Employee Pages
 import EmployeeDashboard from './pages/employee/Dashboard';
@@ -92,6 +94,7 @@ function App() {
               <Route path="/admin/clients" element={<AdminClients />} />
               <Route path="/admin/finance" element={<AdminFinance />} />
               <Route path="/admin/finance-simulator" element={<AdminFinanceSimulator />} />
+              <Route path="/admin/simulator" element={<AdminSimulatorWizard />} />
               <Route path="/admin/catalog" element={<AdminCatalogManagement />} />
               <Route path="/admin/suppliers" element={<AdminSuppliers />} />
               <Route path="/admin/quotations" element={<AdminQuotations />} />
@@ -103,6 +106,7 @@ function App() {
               <Route path="/admin/service-orders" element={<AdminServiceOrders />} />
               <Route path="/admin/contracts" element={<AdminContracts />} />
               <Route path="/admin/solar" element={<AdminSolarProjects />} />
+              <Route path="/admin/structures" element={<AdminStructureTemplates />} />
 
               {/* Restricted Admin-only routes */}
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>

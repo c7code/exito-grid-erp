@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Task } from './task.entity';
 import { Employee } from '../employees/employee.entity';
 
@@ -26,4 +26,7 @@ export class TaskResolver {
 
     @CreateDateColumn()
     assignedAt: Date;
+
+    @DeleteDateColumn()
+    deletedAt: Date;
 }

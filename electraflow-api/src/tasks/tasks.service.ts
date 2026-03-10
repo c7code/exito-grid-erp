@@ -152,12 +152,31 @@ export class TasksService {
     return fullTask;
   }
 
-  async complete(id: string, userId: string, result?: string): Promise<Task> {
+  async complete(
+    id: string,
+    userId: string,
+    result?: string,
+    resolvedByEmail?: string,
+    resolutionType?: string,
+    resolutionNotes?: string,
+  ): Promise<Task> {
     const task = await this.findOne(id);
-    task.status = TaskStatus.COMPLETED;
-    task.completedAt = new Date();
+
+    if (resolutionType === 'partial') {
+      // Partial resolution: keep in_progress but track who worked on it
+      task.status = TaskStatus.IN_PROGRESS;
+    } else {
+      // Total resolution: mark as completed
+      task.status = TaskStatus.COMPLETED;
+      task.completedAt = new Date();
+    }
+
     task.completedById = userId;
+    task.resolvedByEmail = resolvedByEmail || null;
+    task.resolutionType = resolutionType || 'total';
+    task.resolutionNotes = resolutionNotes || null;
     if (result) task.result = result;
+
     const saved = await this.taskRepository.save(task);
 
     // Recalculate work progress
@@ -167,8 +186,10 @@ export class TasksService {
 
     const fullTask = await this.findOne(saved.id);
 
-    // Notify admins about task completion
-    this.notificationsService.onTaskCompleted(fullTask).catch(() => { });
+    // Notify admins about task completion (only for total)
+    if (resolutionType !== 'partial') {
+      this.notificationsService.onTaskCompleted(fullTask).catch(() => { });
+    }
 
     return fullTask;
   }

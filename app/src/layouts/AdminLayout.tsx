@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import NotificationDropdown from '@/components/NotificationDropdown';
+import AiChatPanel from '@/components/AiChatPanel';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -40,6 +41,7 @@ import {
   Warehouse,
   FileSignature,
   Sun,
+  Layers,
 } from 'lucide-react';
 
 type NavItem = { path: string; label: string; icon: any; module: string; roles: string[] };
@@ -49,7 +51,7 @@ const navSections: NavSection[] = [
   {
     section: 'GERAL',
     items: [
-      { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, module: 'dashboard', roles: ['admin', 'commercial', 'engineer', 'finance'] },
+      { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, module: 'dashboard', roles: ['admin'] },
     ],
   },
   {
@@ -59,7 +61,7 @@ const navSections: NavSection[] = [
       { path: '/admin/clients', label: 'Clientes', icon: UserCircle, module: 'clients', roles: ['admin', 'commercial'] },
       { path: '/admin/proposals', label: 'Propostas', icon: FileText, module: 'proposals', roles: ['admin', 'commercial'] },
       { path: '/admin/client-requests', label: 'Solicitações', icon: MessageSquare, module: 'client-requests', roles: ['admin', 'commercial'] },
-      { path: '/admin/finance-simulator', label: 'Simulador', icon: Calculator, module: 'finance-simulator', roles: ['admin', 'commercial', 'finance'] },
+      { path: '/admin/simulator', label: 'Simulador', icon: Calculator, module: 'finance-simulator', roles: ['admin', 'commercial', 'finance'] },
     ],
   },
   {
@@ -77,6 +79,7 @@ const navSections: NavSection[] = [
       { path: '/admin/daily-logs', label: 'Diário de Obra', icon: ClipboardList, module: 'daily-logs', roles: ['admin', 'engineer'] },
       { path: '/admin/service-orders', label: 'Ordens de Serviço', icon: Wrench, module: 'service-orders', roles: ['admin', 'engineer'] },
       { path: '/admin/contracts', label: 'Contratos', icon: FileSignature, module: 'contracts', roles: ['admin', 'engineer', 'commercial'] },
+      { path: '/admin/structures', label: 'Estruturas', icon: Layers, module: 'structures', roles: ['admin', 'engineer'] },
     ],
   },
   {
@@ -269,6 +272,7 @@ export default function AdminLayout() {
           <Outlet />
         </div>
       </main>
+      <AiChatPanel />
     </div>
   );
 }

@@ -70,8 +70,14 @@ export class DocumentsController {
   )
   async upload(
     @UploadedFile() file: Express.Multer.File,
-    @Body() body: { name?: string; type?: string; workId?: string; folderId?: string; description?: string },
+    @Body() body: { name?: string; type?: string; workId?: string; folderId?: string; description?: string; purpose?: string; tags?: string; sourceOrganization?: string },
   ) {
+    // Parse tags from JSON string (sent via FormData)
+    let parsedTags: string[] | null = null;
+    if (body.tags) {
+      try { parsedTags = JSON.parse(body.tags); } catch { parsedTags = null; }
+    }
+
     const docData: Partial<Document> = {
       name: body.name || file.originalname,
       fileName: file.originalname,
@@ -84,6 +90,9 @@ export class DocumentsController {
       workId: body.workId || null,
       folderId: body.folderId || null,
       description: body.description || null,
+      purpose: body.purpose || null,
+      tags: parsedTags,
+      sourceOrganization: body.sourceOrganization || null,
     };
     return this.documentsService.create(docData);
   }

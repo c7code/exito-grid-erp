@@ -504,6 +504,122 @@ export function ProposalPDFTemplate({ proposal }: ProposalPDFTemplateProps) {
                 {/* PAGAMENTO */}
                 {(() => {
                     const n = (materialItems.length > 0 ? 1 : 0) + (serviceItems.length > 0 ? 1 : 0) + 5;
+                    
+                    // Parse simulation data if available
+                    let simData: any = null;
+                    if (proposal.simulationData) {
+                        try { simData = JSON.parse(proposal.simulationData); } catch {}
+                    }
+
+                    if (simData?.selected) {
+                        // ═══ RENDER SIMULATION-BASED PAYMENT CONDITIONS ═══
+                        const sel = simData.selected;
+                        const alts = simData.alternatives || [];
+
+                        return (
+                            <>
+                                <div style={s.sectionTitle}>{n}. Condições de Pagamento</div>
+
+                                {/* Persuasive intro */}
+                                <p style={s.para}>
+                                    Visando oferecer a melhor experiência e flexibilidade para viabilizar seu investimento, 
+                                    apresentamos abaixo a condição de pagamento personalizada, elaborada especificamente 
+                                    para atender ao seu perfil e garantir o melhor custo-benefício.
+                                </p>
+
+                                {/* Recommended condition box */}
+                                <div style={{ background: '#FFF7ED', border: '2px solid #E8620A', borderRadius: '8px', padding: '18px 22px', margin: '16px 0' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                                        <span style={{ background: '#E8620A', color: '#fff', padding: '3px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' as const }}>
+                                            ⭐ CONDIÇÃO RECOMENDADA
+                                        </span>
+                                    </div>
+                                    <p style={{ fontSize: '14px', fontWeight: 700, color: '#E8620A', margin: '0 0 6px 0' }}>
+                                        {sel.commercialName}
+                                    </p>
+                                    <p style={{ fontSize: '10px', color: '#92400e', margin: '0 0 14px 0', lineHeight: '1.6', fontStyle: 'italic' }}>
+                                        {sel.argument}
+                                    </p>
+
+                                    {/* Payment breakdown table */}
+                                    <table style={{ width: '100%', borderCollapse: 'collapse' as const }}>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ ...s.th, background: '#FEF3C7' }}>Descrição</th>
+                                                <th style={{ ...s.thRight, background: '#FEF3C7' }}>Valor</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {sel.entry > 0 && (
+                                                <tr>
+                                                    <td style={s.td}>Investimento Inicial (Entrada via PIX/Transferência)</td>
+                                                    <td style={{ ...s.tdRight, fontWeight: 700, color: '#E8620A' }}>R$ {fmt(sel.entry)}</td>
+                                                </tr>
+                                            )}
+                                            {sel.installmentAmount > 0 && (
+                                                <tr>
+                                                    <td style={s.td}>
+                                                        {sel.installments}x parcelas {sel.frequency === 1 ? 'mensais' : sel.frequency === 2 ? 'bimestrais' : 'trimestrais'}
+                                                    </td>
+                                                    <td style={{ ...s.tdRight, fontWeight: 700 }}>R$ {fmt(sel.installmentAmount)}</td>
+                                                </tr>
+                                            )}
+                                            {sel.correctionAmount > 0 && (
+                                                <tr>
+                                                    <td style={{ ...s.td, color: '#666' }}>Correção monetária</td>
+                                                    <td style={{ ...s.tdRight, color: '#666' }}>R$ {fmt(sel.correctionAmount)}</td>
+                                                </tr>
+                                            )}
+                                            <tr style={{ background: '#fafafa' }}>
+                                                <td style={{ ...s.td, fontWeight: 800, fontSize: '11px', borderTop: '2px solid #E8620A' }}>TOTAL DO INVESTIMENTO</td>
+                                                <td style={{ ...s.tdRight, fontWeight: 800, fontSize: '13px', color: '#E8620A', borderTop: '2px solid #E8620A' }}>
+                                                    R$ {fmt(sel.totalClient)}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Persuasive closing */}
+                                <p style={{ ...s.para, fontStyle: 'italic', color: '#555' }}>
+                                    Esta condição foi estruturada para garantir parcelas acessíveis sem comprometer 
+                                    a qualidade do serviço e dos materiais empregados. O investimento é protegido 
+                                    com garantia integral sobre a execução e os componentes instalados.
+                                </p>
+
+                                {/* Alternative conditions */}
+                                {alts.length > 0 && (
+                                    <>
+                                        <p style={s.clauseHeading}>Opções alternativas disponíveis:</p>
+                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' as const, margin: '10px 0 16px 0' }}>
+                                            {alts.slice(0, 3).map((alt: any, idx: number) => (
+                                                <div key={idx} style={{
+                                                    flex: 1, minWidth: '140px', border: '1px solid #e2e8f0', borderRadius: '6px',
+                                                    padding: '12px', background: '#fafafa',
+                                                }}>
+                                                    <p style={{ fontSize: '10px', fontWeight: 700, color: '#E8620A', margin: '0 0 6px 0', textTransform: 'uppercase' as const, letterSpacing: '0.5px' }}>
+                                                        {alt.commercialName}
+                                                    </p>
+                                                    {alt.entry > 0 && <p style={{ fontSize: '9px', color: '#555', margin: '0 0 2px 0' }}>▸ Entrada: R$ {fmt(alt.entry)}</p>}
+                                                    {alt.installmentAmount > 0 && <p style={{ fontSize: '9px', color: '#555', margin: '0 0 2px 0' }}>▸ {alt.installments}x de R$ {fmt(alt.installmentAmount)}</p>}
+                                                    <p style={{ fontSize: '11px', fontWeight: 700, color: '#1a1a1a', margin: '6px 0 0 0' }}>Total: R$ {fmt(alt.totalClient)}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+
+                                {proposal.paymentBank && (
+                                    <>
+                                        <p style={s.clauseHeading}>Dados Bancários:</p>
+                                        <p style={{ ...s.para, whiteSpace: 'pre-line' }}>{proposal.paymentBank}</p>
+                                    </>
+                                )}
+                            </>
+                        );
+                    }
+
+                    // ═══ FALLBACK: plain text payment conditions ═══
                     return (
                         <>
                             <div style={s.sectionTitle}>{n}. Condições de Pagamento</div>
