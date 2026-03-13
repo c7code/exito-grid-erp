@@ -211,12 +211,20 @@ export default function AdminProposals() {
   const handleDownloadPDF = async (proposal: any) => {
     toast.info('Gerando PDF profissional...');
 
+    // ═══ FETCH FRESH DATA from API to ensure PDF uses latest saved values ═══
+    let freshProposal = proposal;
+    try {
+      freshProposal = await api.getProposal(proposal.id);
+    } catch (err) {
+      console.warn('Could not fetch fresh proposal data, using local data:', err);
+    }
+
     // If solar proposal, load solar project data first
     let solarData = null;
     let coData = null;
-    if (proposal.activityType === 'energia_solar') {
+    if (freshProposal.activityType === 'energia_solar') {
       try {
-        solarData = await api.getSolarProjectByProposal(proposal.id);
+        solarData = await api.getSolarProjectByProposal(freshProposal.id);
         setSolarProjectData(solarData);
       } catch (err) {
         console.warn('Could not load solar project data:', err);
@@ -240,7 +248,7 @@ export default function AdminProposals() {
       }
     }
 
-    setProposalToPrint(proposal);
+    setProposalToPrint(freshProposal);
 
     // Delay to ensure the template renders
     setTimeout(() => {
