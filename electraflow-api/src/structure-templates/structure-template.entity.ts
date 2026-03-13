@@ -101,6 +101,9 @@ export class StructureTemplateItem {
     @Column({ default: false })
     isOptional: boolean;               // Material opcional na estrutura
 
+    @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+    unitPrice: number;                 // Preço unitário do material (direto, sem depender do catálogo)
+
     @Column({ type: 'int', default: 0 })
     sortOrder: number;                 // Ordem de exibição
 

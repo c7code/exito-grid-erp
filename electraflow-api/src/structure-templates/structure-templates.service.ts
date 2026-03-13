@@ -114,9 +114,12 @@ export class StructureTemplatesService {
         let uncatalogedCount = 0;
 
         for (const item of template.items) {
-            if (item.catalogItem) {
-                totalCost += Number(item.catalogItem.costPrice || 0) * Number(item.quantity);
-            } else {
+            // Prioridade: unitPrice direto > catalogItem.costPrice
+            const price = Number(item.unitPrice || 0) > 0
+                ? Number(item.unitPrice)
+                : Number(item.catalogItem?.costPrice || 0);
+            totalCost += price * Number(item.quantity);
+            if (!item.catalogItemId && Number(item.unitPrice || 0) === 0) {
                 uncatalogedCount++;
             }
         }
@@ -126,6 +129,38 @@ export class StructureTemplatesService {
             totalItems: template.items.length,
             totalCost,
             uncatalogedCount,
+        };
+    }
+
+    async getTemplateForProposal(id: string) {
+        const template = await this.findOne(id);
+
+        const proposalItems = template.items
+            .filter(item => !item.isOptional)
+            .map(item => {
+                // Prioridade: unitPrice direto > catalogItem.unitPrice > catalogItem.costPrice
+                const price = Number(item.unitPrice || 0) > 0
+                    ? Number(item.unitPrice)
+                    : Number(item.catalogItem?.unitPrice || item.catalogItem?.costPrice || 0);
+
+                return {
+                    description: item.description,
+                    serviceType: 'material',
+                    unitPrice: price,
+                    quantity: Number(item.quantity),
+                    unit: item.unit || 'UN',
+                };
+            });
+
+        const totalValue = proposalItems.reduce(
+            (sum, item) => sum + item.unitPrice * item.quantity, 0
+        );
+
+        return {
+            templateCode: template.code,
+            templateName: template.name,
+            items: proposalItems,
+            totalValue,
         };
     }
 }

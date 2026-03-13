@@ -41,6 +41,12 @@ export class StructureTemplatesController {
         return this.service.getTemplateSummary(id);
     }
 
+    @Get(':id/for-proposal')
+    @ApiOperation({ summary: 'Obter itens do template formatados para proposta' })
+    getForProposal(@Param('id') id: string) {
+        return this.service.getTemplateForProposal(id);
+    }
+
     @Post()
     @ApiOperation({ summary: 'Criar template de estrutura' })
     create(@Body() data: Partial<StructureTemplate>) {
