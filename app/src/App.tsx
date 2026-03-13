@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
 
 // Layouts
@@ -60,6 +60,25 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ProposalSignature from './pages/public/ProposalSignature';
 import ContractSignature from './pages/public/ContractSignature';
 
+// Smart redirect for /employee/* routes
+function EmployeeRedirect() {
+  const { user, hasPermission } = useAuth();
+  
+  if (!user) return <Navigate to="/login" replace />;
+  
+  // Check dashboard first
+  if (hasPermission('dashboard')) return <Navigate to="/admin/dashboard" replace />;
+  
+  // Fallback to first permitted module
+  const fallbacks = ['works', 'tasks', 'pipeline', 'proposals', 'clients'];
+  for (const mod of fallbacks) {
+    if (hasPermission(mod)) return <Navigate to={`/admin/${mod}`} replace />;
+  }
+  
+  // Ultimate fallback
+  return <Navigate to="/admin/works" replace />;
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -116,9 +135,9 @@ function App() {
             </Route>
           </Route>
 
-          {/* Employee Routes — redireciona para admin (funcionário usa AdminLayout com tema azul) */}
-          <Route path="/employee" element={<Navigate to="/admin/dashboard" replace />} />
-          <Route path="/employee/*" element={<Navigate to="/admin/dashboard" replace />} />
+          {/* Employee Routes — redirect inteligente baseado em permissões */}
+          <Route path="/employee" element={<EmployeeRedirect />} />
+          <Route path="/employee/*" element={<EmployeeRedirect />} />
 
           {/* Client Routes */}
           <Route element={<ProtectedRoute allowedRoles={['client']} />}>
