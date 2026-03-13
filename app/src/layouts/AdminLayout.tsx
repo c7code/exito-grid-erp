@@ -135,7 +135,10 @@ export default function AdminLayout() {
       items: section.items.filter(item => {
         if (!user) return false;
         if (user.role === 'admin') return true;
-        if (user.role === 'employee') return item.roles.includes('employee');
+        if (user.role === 'employee') {
+          // Employee must have role AND module permission
+          return item.roles.includes('employee') && hasPermission(item.module);
+        }
         if (item.module && hasPermission(item.module)) return true;
         return false;
       }),

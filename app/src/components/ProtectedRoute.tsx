@@ -6,8 +6,17 @@ interface ProtectedRouteProps {
   allowedRoles: UserRole[];
 }
 
+// Fallback routes for employees without dashboard access
+const employeeFallbackRoutes = [
+  '/admin/works',
+  '/admin/tasks',
+  '/admin/pipeline',
+  '/admin/proposals',
+  '/admin/clients',
+];
+
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, hasPermission } = useAuth();
 
   if (isLoading) {
     return (
@@ -26,7 +35,19 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     if (user!.role === 'admin') {
       return <Navigate to="/admin/dashboard" replace />;
     } else if (user!.role === 'employee') {
-      return <Navigate to="/admin/dashboard" replace />;
+      // Check if employee has dashboard permission
+      if (hasPermission('dashboard')) {
+        return <Navigate to="/admin/dashboard" replace />;
+      }
+      // Otherwise, redirect to the first available module
+      for (const route of employeeFallbackRoutes) {
+        const module = route.replace('/admin/', '');
+        if (hasPermission(module)) {
+          return <Navigate to={route} replace />;
+        }
+      }
+      // Ultimate fallback
+      return <Navigate to="/admin/works" replace />;
     } else if (user!.role === 'client') {
       return <Navigate to="/client/dashboard" replace />;
     } else {
@@ -36,3 +57,4 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
 
   return <Outlet />;
 }
+
