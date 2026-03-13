@@ -60,6 +60,7 @@ interface ActivityItem {
     serviceType: string;
     unitPrice: string;
     quantity: string;
+    unit: string;
     isBundleParent?: boolean;
     parentId?: string;
     showDetailedPrices?: boolean;
@@ -71,11 +72,14 @@ const serviceTypes: Record<string, string> = {
     material: 'Material',
 };
 
+const unitOptions = ['UN', 'M', 'M²', 'KG', 'CX', 'PCT', 'JG', 'RL', 'PÇ', 'CDA', 'KIT', 'VB'];
+
 const emptyItem: ActivityItem = {
     description: '',
     serviceType: 'service',
     unitPrice: '',
     quantity: '1',
+    unit: 'UN',
 };
 
 export default function NewProposalDialog({
@@ -279,6 +283,7 @@ export default function NewProposalDialog({
                         serviceType: it.serviceType === 'material' ? 'material' : 'service',
                         unitPrice: String(it.unitPrice),
                         quantity: String(it.quantity),
+                        unit: it.unit || 'UN',
                         isBundleParent: it.isBundleParent || false,
                         parentId: it.parentId || undefined,
                         showDetailedPrices: it.showDetailedPrices !== undefined ? it.showDetailedPrices : true,
@@ -463,6 +468,7 @@ export default function NewProposalDialog({
                     showDetailedPrices: item.showDetailedPrices,
                     unitPrice: Number(item.unitPrice || 0),
                     quantity: Number(item.quantity || 1),
+                    unit: item.unit || 'UN',
                     total: getItemTotal(item),
                 }));
 
@@ -782,6 +788,7 @@ export default function NewProposalDialog({
                                                                         serviceType: ri.serviceType || 'material',
                                                                         unitPrice: String(ri.unitPrice || 0),
                                                                         quantity: String(ri.quantity || 1),
+                                                                        unit: ri.unit || 'UN',
                                                                         isBundleParent: false,
                                                                         parentId: undefined,
                                                                         showDetailedPrices: true,
@@ -824,10 +831,11 @@ export default function NewProposalDialog({
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="w-[35%]">Descrição</TableHead>
+                                            <TableHead className="w-[30%]">Descrição</TableHead>
                                             <TableHead>Tipo</TableHead>
                                             <TableHead>Preço Unit.</TableHead>
                                             <TableHead>Qtd</TableHead>
+                                            <TableHead>UN</TableHead>
                                             <TableHead>Total</TableHead>
                                             <TableHead className="w-[40px]"></TableHead>
                                         </TableRow>
@@ -894,6 +902,7 @@ export default function NewProposalDialog({
                                                                                                 description: ci.name,
                                                                                                 unitPrice: String(ci.unitPrice),
                                                                                                 quantity: '1',
+                                                                                                unit: ci.unit || 'UN',
                                                                                                 serviceType: ci.type === 'service' ? 'service' : 'material',
                                                                                                 parentId: parentTempId,
                                                                                                 catalogItemId: ci.id,
@@ -911,6 +920,7 @@ export default function NewProposalDialog({
                                                                                             description: suggestion.name,
                                                                                             unitPrice: String(suggestion.unitPrice),
                                                                                             serviceType: mappedType,
+                                                                                            unit: suggestion.unit || 'UN',
                                                                                             catalogItemId: suggestion.id,
                                                                                         };
                                                                                     }
@@ -988,6 +998,25 @@ export default function NewProposalDialog({
                                                             }
                                                             className="h-8 text-sm w-16"
                                                         />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Select
+                                                            value={item.unit || 'UN'}
+                                                            onValueChange={(v) =>
+                                                                updateItem(index, 'unit', v)
+                                                            }
+                                                        >
+                                                            <SelectTrigger className="h-8 text-sm w-20">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {unitOptions.map((u) => (
+                                                                    <SelectItem key={u} value={u}>
+                                                                        {u}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex flex-col items-end">
