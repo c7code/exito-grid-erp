@@ -91,6 +91,12 @@ export default function NewProposalDialog({
     const [showClientDialog, setShowClientDialog] = useState(false);
     const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
+    // Structure import
+    const [showStructureSearch, setShowStructureSearch] = useState(false);
+    const [structureSearchQuery, setStructureSearchQuery] = useState('');
+    const [structureResults, setStructureResults] = useState<any[]>([]);
+    const [loadingStructures, setLoadingStructures] = useState(false);
+
     const [formData, setFormData] = useState({
         title: '',
         clientId: '',
@@ -714,9 +720,101 @@ export default function NewProposalDialog({
                                             <Search className="w-4 h-4 mr-2 text-slate-400" />
                                             Item do Catálogo
                                         </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={async () => {
+                                            setShowStructureSearch(true);
+                                            setStructureSearchQuery('');
+                                            setStructureResults([]);
+                                            setLoadingStructures(true);
+                                            try {
+                                                const data = await api.getStructureTemplates();
+                                                setStructureResults(Array.isArray(data) ? data : []);
+                                            } catch { toast.error('Erro ao carregar estruturas'); }
+                                            setLoadingStructures(false);
+                                        }}>
+                                            <Layers className="w-4 h-4 mr-2 text-amber-500" />
+                                            Importar de Estrutura
+                                        </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
+
+                            {/* Structure search popup */}
+                            {showStructureSearch && (
+                                <div className="border rounded-lg p-4 bg-amber-50/50 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm font-medium text-amber-800 flex items-center gap-2">
+                                            <Layers className="w-4 h-4" /> Selecione uma Estrutura
+                                        </p>
+                                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowStructureSearch(false)}>
+                                            <X className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </div>
+                                    <Input
+                                        placeholder="Filtrar por código ou nome..."
+                                        value={structureSearchQuery}
+                                        onChange={e => setStructureSearchQuery(e.target.value)}
+                                        className="bg-white"
+                                    />
+                                    {loadingStructures ? (
+                                        <div className="flex items-center gap-2 py-3 justify-center text-sm text-slate-400">
+                                            <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
+                                        </div>
+                                    ) : (
+                                        <div className="max-h-48 overflow-y-auto space-y-1">
+                                            {structureResults
+                                                .filter(s => {
+                                                    if (!structureSearchQuery) return true;
+                                                    const q = structureSearchQuery.toLowerCase();
+                                                    return s.code?.toLowerCase().includes(q) || s.name?.toLowerCase().includes(q);
+                                                })
+                                                .map(st => (
+                                                    <button
+                                                        key={st.id}
+                                                        type="button"
+                                                        className="w-full text-left px-3 py-2 rounded-md hover:bg-amber-100 text-sm flex justify-between items-center transition-colors"
+                                                        onClick={async () => {
+                                                            try {
+                                                                const result = await api.getStructureTemplateForProposal(st.id);
+                                                                if (result.items && result.items.length > 0) {
+                                                                    const newItems = result.items.map((ri: any) => ({
+                                                                        id: undefined,
+                                                                        description: ri.description,
+                                                                        serviceType: ri.serviceType || 'material',
+                                                                        unitPrice: String(ri.unitPrice || 0),
+                                                                        quantity: String(ri.quantity || 1),
+                                                                        isBundleParent: false,
+                                                                        parentId: undefined,
+                                                                        showDetailedPrices: true,
+                                                                    }));
+                                                                    setItems(prev => [...prev.filter(i => i.description.trim()), ...newItems]);
+                                                                    toast.success(`${result.items.length} itens importados da estrutura ${result.templateCode}`);
+                                                                } else {
+                                                                    toast.warning('Estrutura sem itens para importar');
+                                                                }
+                                                            } catch { toast.error('Erro ao importar estrutura'); }
+                                                            setShowStructureSearch(false);
+                                                        }}
+                                                    >
+                                                        <div>
+                                                            <span className="font-semibold text-amber-800">{st.code}</span>
+                                                            <span className="text-slate-600 ml-2">{st.name}</span>
+                                                        </div>
+                                                        <span className="text-xs text-slate-400">
+                                                            {(st.items || []).length} itens
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                            {structureResults.filter(s => {
+                                                if (!structureSearchQuery) return true;
+                                                const q = structureSearchQuery.toLowerCase();
+                                                return s.code?.toLowerCase().includes(q) || s.name?.toLowerCase().includes(q);
+                                            }).length === 0 && (
+                                                <p className="text-center text-sm text-slate-400 py-3">Nenhuma estrutura encontrada</p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {errors.items && (
                                 <p className="text-red-500 text-xs">{errors.items}</p>

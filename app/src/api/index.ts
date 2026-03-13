@@ -1838,6 +1838,11 @@ class ApiService {
     return response.data;
   }
 
+  async getStructureTemplateForProposal(id: string) {
+    const response = await this.client.get(`/structure-templates/${id}/for-proposal`);
+    return response.data;
+  }
+
   async createStructureTemplate(data: any) {
     const response = await this.client.post('/structure-templates', data);
     return response.data;

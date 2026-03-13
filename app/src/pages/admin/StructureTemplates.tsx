@@ -43,6 +43,7 @@ interface TemplateItem {
     description: string;
     quantity: number;
     unit: string;
+    unitPrice: number;
     isOptional: boolean;
     sortOrder: number;
 }
@@ -65,7 +66,7 @@ export default function StructureTemplates() {
     const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
     const [items, setItems] = useState<TemplateItem[]>([]);
     const [newItem, setNewItem] = useState<TemplateItem>({
-        description: '', quantity: 1, unit: 'UN', isOptional: false, sortOrder: 0,
+        description: '', quantity: 1, unit: 'UN', unitPrice: 0, isOptional: false, sortOrder: 0,
     });
 
     // Catalog search
@@ -137,7 +138,7 @@ export default function StructureTemplates() {
     const openItems = (t: any) => {
         setSelectedTemplate(t);
         setItems(t.items || []);
-        setNewItem({ description: '', quantity: 1, unit: 'UN', isOptional: false, sortOrder: items.length });
+        setNewItem({ description: '', quantity: 1, unit: 'UN', unitPrice: 0, isOptional: false, sortOrder: items.length });
         setCatalogSearch('');
         setCatalogResults([]);
         setShowItemDialog(true);
@@ -159,6 +160,7 @@ export default function StructureTemplates() {
             catalogItem: ci,
             description: ci.name,
             unit: ci.unit || 'UN',
+            unitPrice: Number(ci.unitPrice || ci.costPrice || 0),
         }));
         setCatalogSearch('');
         setCatalogResults([]);
@@ -176,7 +178,7 @@ export default function StructureTemplates() {
             const updated = await api.getStructureTemplate(selectedTemplate.id);
             setSelectedTemplate(updated);
             setItems(updated.items || []);
-            setNewItem({ description: '', quantity: 1, unit: 'UN', isOptional: false, sortOrder: 0 });
+            setNewItem({ description: '', quantity: 1, unit: 'UN', unitPrice: 0, isOptional: false, sortOrder: 0 });
         } catch { toast.error('Erro ao adicionar item'); }
         setSaving(false);
     };
@@ -190,11 +192,11 @@ export default function StructureTemplates() {
     };
 
     const totalCost = items.reduce((sum, i) => {
-        const price = i.catalogItem?.costPrice || 0;
-        return sum + Number(price) * Number(i.quantity);
+        const price = Number(i.unitPrice || 0) > 0 ? Number(i.unitPrice) : Number(i.catalogItem?.costPrice || 0);
+        return sum + price * Number(i.quantity);
     }, 0);
 
-    const uncatalogedItems = items.filter(i => !i.catalogItemId).length;
+    const uncatalogedItems = items.filter(i => !i.catalogItemId && Number(i.unitPrice || 0) === 0).length;
 
     return (
         <div className="space-y-6">
@@ -446,7 +448,7 @@ export default function StructureTemplates() {
                             </div>
                         )}
 
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                             <div className="col-span-2">
                                 <Input
                                     placeholder="Descrição do material"
@@ -454,6 +456,12 @@ export default function StructureTemplates() {
                                     onChange={e => setNewItem(p => ({ ...p, description: e.target.value }))}
                                 />
                             </div>
+                            <Input
+                                type="number"
+                                placeholder="Preço Unit."
+                                value={newItem.unitPrice || ''}
+                                onChange={e => setNewItem(p => ({ ...p, unitPrice: Number(e.target.value) }))}
+                            />
                             <Input
                                 type="number"
                                 placeholder="Qtd"
@@ -499,7 +507,7 @@ export default function StructureTemplates() {
                             </TableHeader>
                             <TableBody>
                                 {items.map((item, idx) => {
-                                    const unitCost = Number(item.catalogItem?.costPrice || 0);
+                                    const unitCost = Number(item.unitPrice || 0) > 0 ? Number(item.unitPrice) : Number(item.catalogItem?.costPrice || 0);
                                     const subtotal = unitCost * Number(item.quantity);
                                     return (
                                         <TableRow key={item.id || idx}>
