@@ -39,8 +39,8 @@ export class ClientsController {
 
   @Post()
   @ApiOperation({ summary: 'Criar cliente (gera acesso ao portal automaticamente)' })
-  async create(@Body() clientData: Partial<Client>) {
-    return this.clientsService.create(clientData);
+  async create(@Body() clientData: Partial<Client>, @Request() req) {
+    return this.clientsService.create({ ...clientData, createdById: req.user?.userId || req.user?.id });
   }
 
   @Put(':id')

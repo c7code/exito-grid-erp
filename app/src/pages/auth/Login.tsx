@@ -41,9 +41,8 @@ export default function Login() {
           // Roles com acesso direto ao admin layout
           navigate('/admin/dashboard');
         } else if (user?.role === 'employee') {
-          // Funcionário com permissões → admin layout; sem permissões → employee layout
-          const perms = user?.permissions || [];
-          navigate(perms.length > 0 ? '/admin/dashboard' : '/employee/dashboard');
+          // Funcionário back-office → mesma tela do admin com tema azul
+          navigate('/admin/dashboard');
         } else {
           navigate('/client/dashboard');
         }

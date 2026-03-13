@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Request } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
 import { CatalogCategory, CatalogItem, CatalogType } from './catalog.entity';
 import { StockMovementType } from './stock-movement.entity';
@@ -61,13 +61,13 @@ export class CatalogController {
     }
 
     @Post('items')
-    createItem(@Body() data: Partial<CatalogItem>) {
-        return this.catalogService.createItem(data);
+    createItem(@Body() data: Partial<CatalogItem>, @Request() req) {
+        return this.catalogService.createItem({ ...data, createdById: req.user?.userId || req.user?.id });
     }
 
     @Put('items/:id')
-    updateItem(@Param('id') id: string, @Body() data: Partial<CatalogItem>) {
-        return this.catalogService.updateItem(id, data);
+    updateItem(@Param('id') id: string, @Body() data: Partial<CatalogItem>, @Request() req) {
+        return this.catalogService.updateItem(id, { ...data, updatedById: req.user?.userId || req.user?.id });
     }
 
     @Delete('items/:id')

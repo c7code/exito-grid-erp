@@ -28,13 +28,13 @@ export class ContractsController {
     }
 
     @Post()
-    create(@Body() data: any) {
-        return this.contractsService.create(data);
+    create(@Body() data: any, @Req() req: any) {
+        return this.contractsService.create({ ...data, createdById: req.user?.userId || req.user?.id });
     }
 
     @Put(':id')
-    update(@Param('id') id: string, @Body() data: any) {
-        return this.contractsService.update(id, data);
+    update(@Param('id') id: string, @Body() data: any, @Req() req: any) {
+        return this.contractsService.update(id, { ...data, updatedById: req.user?.userId || req.user?.id });
     }
 
     @Delete(':id')

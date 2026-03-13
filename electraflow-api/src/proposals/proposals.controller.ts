@@ -18,16 +18,41 @@ export class ProposalsController {
     return this.proposalsService.findAll(status);
   }
 
+  @Get('admin/all')
+  @ApiOperation({ summary: 'Listar todas as propostas (incluindo excluídas)' })
+  async findAllWithDeleted() {
+    return this.proposalsService.findAllWithDeleted();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Buscar proposta por ID' })
   async findOne(@Param('id') id: string) {
     return this.proposalsService.findOne(id);
   }
 
+  @Get(':id/revisions')
+  @ApiOperation({ summary: 'Listar revisões da proposta' })
+  async getRevisions(@Param('id') id: string) {
+    return this.proposalsService.getRevisions(id);
+  }
+
+  @Post(':id/restore-revision')
+  @ApiOperation({ summary: 'Restaurar proposta para uma revisão anterior' })
+  async restoreRevision(@Param('id') id: string, @Body() data: { revisionId: string }) {
+    return this.proposalsService.restoreRevision(id, data.revisionId);
+  }
+
+  @Delete(':id/revisions')
+  @ApiOperation({ summary: 'Excluir revisão (soft delete)' })
+  async softDeleteRevision(@Param('id') id: string, @Body() data: { revisionId: string }) {
+    await this.proposalsService.softDeleteRevision(id, data.revisionId);
+    return { message: 'Revisão excluída com sucesso' };
+  }
+
   @Post()
   @ApiOperation({ summary: 'Criar proposta' })
-  async create(@Body() data: { proposal: Partial<Proposal>; items: any[] }) {
-    return this.proposalsService.create(data.proposal, data.items);
+  async create(@Body() data: { proposal: Partial<Proposal>; items: any[] }, @Req() req: any) {
+    return this.proposalsService.create({ ...data.proposal, createdById: req.user?.userId || req.user?.id }, data.items);
   }
 
   @Put(':id')
@@ -68,10 +93,17 @@ export class ProposalsController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Remover proposta' })
+  @ApiOperation({ summary: 'Remover proposta (soft delete)' })
   async remove(@Param('id') id: string) {
     await this.proposalsService.remove(id);
     return { message: 'Proposta removida com sucesso' };
+  }
+
+  @Delete(':id/permanent')
+  @ApiOperation({ summary: 'Remover proposta permanentemente' })
+  async permanentDelete(@Param('id') id: string) {
+    await this.proposalsService.permanentDelete(id);
+    return { message: 'Proposta removida permanentemente' };
   }
 
   // ═══ Assinatura Digital (endpoints protegidos) ═══

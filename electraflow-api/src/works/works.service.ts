@@ -27,7 +27,7 @@ export class WorksService {
     if (status) where.status = status;
     return this.workRepository.find({
       where,
-      relations: ['client'],
+      relations: ['client', 'createdByUser'],
       order: { updatedAt: 'DESC' },
     });
   }
@@ -54,7 +54,7 @@ export class WorksService {
 
     return this.workRepository.find({
       where: workIds.map(id => ({ id })),
-      relations: ['client'],
+      relations: ['client', 'createdByUser'],
       order: { updatedAt: 'DESC' },
     });
   }

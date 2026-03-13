@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Put, Delete, Body, Param, Query,
-  UseGuards, UseInterceptors, UploadedFile, Res, NotFoundException,
+  UseGuards, UseInterceptors, UploadedFile, Res, NotFoundException, Request,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -71,6 +71,7 @@ export class DocumentsController {
   async upload(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: { name?: string; type?: string; workId?: string; folderId?: string; description?: string; purpose?: string; tags?: string; sourceOrganization?: string },
+    @Request() req,
   ) {
     // Parse tags from JSON string (sent via FormData)
     let parsedTags: string[] | null = null;
@@ -93,6 +94,7 @@ export class DocumentsController {
       purpose: body.purpose || null,
       tags: parsedTags,
       sourceOrganization: body.sourceOrganization || null,
+      createdById: req.user?.userId || req.user?.id,
     };
     return this.documentsService.create(docData);
   }

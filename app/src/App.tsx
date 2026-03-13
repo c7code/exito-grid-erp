@@ -4,7 +4,7 @@ import { Toaster } from '@/components/ui/sonner';
 
 // Layouts
 import AdminLayout from './layouts/AdminLayout';
-import EmployeeLayout from './layouts/EmployeeLayout';
+// EmployeeLayout no longer used (employees use AdminLayout with blue theme)
 import ClientLayout from './layouts/ClientLayout';
 import AuthLayout from './layouts/AuthLayout';
 
@@ -42,13 +42,9 @@ import AdminContracts from './pages/admin/Contracts';
 import AdminSolarProjects from './pages/admin/SolarProjects';
 import AdminCompanies from './pages/admin/Companies';
 import AdminStructureTemplates from './pages/admin/StructureTemplates';
+import AdminActivityReport from './pages/admin/ActivityReport';
 
-// Employee Pages
-import EmployeeDashboard from './pages/employee/Dashboard';
-import EmployeeWorks from './pages/employee/Works';
-import EmployeeWorkDetail from './pages/employee/WorkDetail';
-import EmployeeTasks from './pages/employee/Tasks';
-import EmployeeDocuments from './pages/employee/Documents';
+// Employee Pages (no longer used — employees redirect to admin layout)
 
 // Client Pages
 import ClientDashboard from './pages/client/Dashboard';
@@ -115,21 +111,14 @@ function App() {
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/admin/settings" element={<AdminSettings />} />
                 <Route path="/admin/companies" element={<AdminCompanies />} />
+                <Route path="/admin/activity-report" element={<AdminActivityReport />} />
               </Route>
             </Route>
           </Route>
 
-          {/* Employee Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['employee', 'admin', 'engineer', 'commercial', 'finance']} />}>
-            <Route element={<EmployeeLayout />}>
-              <Route path="/employee" element={<Navigate to="/employee/dashboard" replace />} />
-              <Route path="/employee/dashboard" element={<EmployeeDashboard />} />
-              <Route path="/employee/works" element={<EmployeeWorks />} />
-              <Route path="/employee/works/:id" element={<EmployeeWorkDetail />} />
-              <Route path="/employee/tasks" element={<EmployeeTasks />} />
-              <Route path="/employee/documents" element={<EmployeeDocuments />} />
-            </Route>
-          </Route>
+          {/* Employee Routes — redireciona para admin (funcionário usa AdminLayout com tema azul) */}
+          <Route path="/employee" element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="/employee/*" element={<Navigate to="/admin/dashboard" replace />} />
 
           {/* Client Routes */}
           <Route element={<ProtectedRoute allowedRoles={['client']} />}>

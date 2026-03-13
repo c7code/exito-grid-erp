@@ -2,6 +2,7 @@ import {
     Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn,
     DeleteDateColumn, ManyToOne, JoinColumn,
 } from 'typeorm';
+import { User } from '../users/user.entity';
 import { Client } from '../clients/client.entity';
 import { Proposal } from '../proposals/proposal.entity';
 
@@ -278,6 +279,14 @@ export class SolarProject {
 
     @Column({ type: 'decimal', precision: 6, scale: 2, default: 0.5 })
     annualDegradation: number;     // % degradação anual dos painéis
+
+    // ── Audit Trail ──
+    @Column({ nullable: true })
+    createdById: string;
+
+    @ManyToOne(() => User, { nullable: true })
+    @JoinColumn({ name: 'createdById' })
+    createdByUser: User;
 
     // ═══ TIMESTAMPS ═════════════════════════════════════════════════════
     @CreateDateColumn()

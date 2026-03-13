@@ -188,14 +188,15 @@ export default function AdminProtocols() {
                 <TableHead className="font-bold">Nº Registro</TableHead>
                 <TableHead className="font-bold">Status</TableHead>
                 <TableHead className="font-bold">Abertura</TableHead>
+                <TableHead className="font-bold">Cadastrado por</TableHead>
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8">Carregando...</TableCell></TableRow>
               ) : filteredProtocols.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8">Nenhum protocolo encontrado.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8">Nenhum protocolo encontrado.</TableCell></TableRow>
               ) : filteredProtocols.map((protocol) => {
                 const status = statusLabels[protocol.status] || statusLabels.open;
                 const StatusIcon = status.icon;
@@ -235,6 +236,13 @@ export default function AdminProtocols() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-slate-500">{protocol.openedAt ? new Date(protocol.openedAt).toLocaleDateString('pt-BR') : '-'}</TableCell>
+                    <TableCell>
+                      {(protocol as any).createdByUser ? (
+                        <span className="text-sm text-slate-600 truncate max-w-[100px] block">{(protocol as any).createdByUser.name}</span>
+                      ) : (
+                        <span className="text-sm text-slate-400">—</span>
+                      )}
+                    </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

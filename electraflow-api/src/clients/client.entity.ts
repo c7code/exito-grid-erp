@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from '../users/user.entity';
 import { Lead } from '../leads/lead.entity';
 import { Work } from '../works/work.entity';
 
@@ -133,6 +134,14 @@ export class Client {
 
   @Column({ nullable: true })
   notes: string;
+
+  // ── Audit Trail ──
+  @Column({ nullable: true })
+  createdById: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'createdById' })
+  createdByUser: User;
 
   @CreateDateColumn()
   createdAt: Date;

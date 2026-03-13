@@ -43,14 +43,14 @@ export class WorksController {
 
   @Post()
   @ApiOperation({ summary: 'Criar obra' })
-  async create(@Body() workData: Partial<Work>) {
-    return this.worksService.create(workData);
+  async create(@Body() workData: Partial<Work>, @Request() req) {
+    return this.worksService.create({ ...workData, createdById: req.user?.userId || req.user?.id });
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar obra' })
-  async update(@Param('id') id: string, @Body() workData: Partial<Work>) {
-    return this.worksService.update(id, workData);
+  async update(@Param('id') id: string, @Body() workData: Partial<Work>, @Request() req) {
+    return this.worksService.update(id, { ...workData, updatedById: req.user?.userId || req.user?.id });
   }
 
   @Post(':id/progress')

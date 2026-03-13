@@ -533,12 +533,13 @@ export default function Contracts() {
                             <TableHead>Vigência</TableHead>
                             <TableHead>V.</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead>Cadastrado por</TableHead>
                             <TableHead />
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filtered.length === 0 ? (
-                            <TableRow><TableCell colSpan={10} className="text-center py-8 text-slate-400">Nenhum contrato encontrado</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={11} className="text-center py-8 text-slate-400">Nenhum contrato encontrado</TableCell></TableRow>
                         ) : filtered.map((c: any) => (
                             <TableRow key={c.id} className="cursor-pointer hover:bg-slate-50" onClick={() => openDetail(c)}>
                                 <TableCell className="font-mono text-xs">{c.contractNumber}</TableCell>
@@ -552,6 +553,13 @@ export default function Contracts() {
                                 </TableCell>
                                 <TableCell><Badge variant="secondary" className="text-[10px]">v{c.version || 1}</Badge></TableCell>
                                 <TableCell><Badge className={`text-[10px] ${statusColors[c.status] || ''}`}>{statusLabels[c.status] || c.status}</Badge></TableCell>
+                                <TableCell>
+                                    {c.createdByUser ? (
+                                        <span className="text-sm text-slate-600 truncate max-w-[100px] block">{c.createdByUser.name}</span>
+                                    ) : (
+                                        <span className="text-sm text-slate-400">—</span>
+                                    )}
+                                </TableCell>
                                 <TableCell>
                                     <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDetail(c)}><Eye className="w-3.5 h-3.5" /></Button>

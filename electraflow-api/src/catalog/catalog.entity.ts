@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { User } from '../users/user.entity';
 
 export enum CatalogType {
     MATERIAL = 'material',
@@ -182,6 +183,17 @@ export class CatalogItem {
 
     @OneToMany('StockMovement', 'catalogItem')
     stockMovements: any[];
+
+    // ── Audit Trail ──
+    @Column({ nullable: true })
+    createdById: string;
+
+    @ManyToOne(() => User, { nullable: true })
+    @JoinColumn({ name: 'createdById' })
+    createdByUser: User;
+
+    @Column({ nullable: true })
+    updatedById: string;
 
     @CreateDateColumn()
     createdAt: Date;

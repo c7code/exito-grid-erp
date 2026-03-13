@@ -26,7 +26,7 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     if (user!.role === 'admin') {
       return <Navigate to="/admin/dashboard" replace />;
     } else if (user!.role === 'employee') {
-      return <Navigate to="/employee/dashboard" replace />;
+      return <Navigate to="/admin/dashboard" replace />;
     } else if (user!.role === 'client') {
       return <Navigate to="/client/dashboard" replace />;
     } else {

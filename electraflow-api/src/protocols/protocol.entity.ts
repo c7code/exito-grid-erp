@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { User } from '../users/user.entity';
 import { Work } from '../works/work.entity';
 import { Client } from '../clients/client.entity';
 import { Task } from '../tasks/task.entity';
@@ -94,6 +95,14 @@ export class Protocol {
 
   @OneToMany(() => ProtocolEvent, (event) => event.protocol)
   events: ProtocolEvent[];
+
+  // ── Audit Trail ──
+  @Column({ nullable: true })
+  createdById: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'createdById' })
+  createdByUser: User;
 
   @CreateDateColumn()
   createdAt: Date;

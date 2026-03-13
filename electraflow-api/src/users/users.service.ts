@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, LessThan, MoreThanOrEqual } from 'typeorm';
+import { Repository, Between, LessThan, MoreThanOrEqual, DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User, UserRole, UserStatus } from './user.entity';
 import { UserSession } from './user-session.entity';
@@ -16,6 +16,7 @@ export class UsersService {
     @InjectRepository(UserSession)
     private sessionRepository: Repository<UserSession>,
     private emailService: EmailService,
+    private dataSource: DataSource,
   ) { }
 
   async findAll(): Promise<User[]> {
@@ -258,5 +259,69 @@ export class UsersService {
     result.sort((a, b) => b.totalMinutes - a.totalMinutes);
 
     return result;
+  }
+
+  // ═══ Relatório de Atividades ═══
+  async getActivityReport(filters?: { userId?: string; startDate?: string; endDate?: string }) {
+    const tables = [
+      { table: 'works', label: 'Obra', nameCol: 'title' },
+      { table: 'proposals', label: 'Proposta', nameCol: 'title' },
+      { table: 'contracts', label: 'Contrato', nameCol: 'title' },
+      { table: 'catalog_items', label: 'Material/Serviço', nameCol: 'name' },
+      { table: 'clients', label: 'Cliente', nameCol: 'name' },
+      { table: 'protocols', label: 'Protocolo', nameCol: 'code' },
+      { table: 'solar_projects', label: 'Projeto Solar', nameCol: 'code' },
+      { table: 'opportunities', label: 'Oportunidade', nameCol: 'title' },
+      { table: 'service_orders', label: 'Ordem de Serviço', nameCol: 'code' },
+      { table: 'tasks', label: 'Tarefa', nameCol: 'title' },
+    ];
+
+    const unions = tables.map(t =>
+      `SELECT '${t.label}' as module, CAST("${t.nameCol}" AS TEXT) as record_name, CAST("createdById" AS TEXT) as user_id, CAST("createdAt" AS TIMESTAMP) as action_date, 'Cadastro' as action_type FROM "${t.table}" WHERE "createdById" IS NOT NULL`
+    );
+
+    let query = unions.join(' UNION ALL ');
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    query = `SELECT * FROM (${query}) AS activities WHERE 1=1`;
+
+    if (filters?.userId) {
+      query += ` AND user_id = $${paramIndex}`;
+      params.push(filters.userId);
+      paramIndex++;
+    }
+
+    if (filters?.startDate) {
+      query += ` AND action_date >= $${paramIndex}`;
+      params.push(filters.startDate);
+      paramIndex++;
+    }
+    if (filters?.endDate) {
+      query += ` AND action_date <= $${paramIndex}`;
+      params.push(filters.endDate + 'T23:59:59');
+      paramIndex++;
+    }
+
+    query += ' ORDER BY action_date DESC LIMIT 500';
+
+    const activities = await this.dataSource.query(query, params);
+
+    // Get user names
+    const userIds = [...new Set(activities.map((a: any) => a.user_id))];
+    let usersMap: Record<string, string> = {};
+    if (userIds.length > 0) {
+      const users = await this.userRepository.find({ select: ['id', 'name'] });
+      usersMap = Object.fromEntries(users.map(u => [u.id, u.name]));
+    }
+
+    return activities.map((a: any) => ({
+      module: a.module,
+      recordName: a.record_name,
+      userId: a.user_id,
+      userName: usersMap[a.user_id] || 'Desconhecido',
+      actionDate: a.action_date,
+      actionType: a.action_type,
+    }));
   }
 }

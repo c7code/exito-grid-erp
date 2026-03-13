@@ -19,6 +19,7 @@ export class ContractsService {
             .leftJoinAndSelect('c.client', 'client')
             .leftJoinAndSelect('c.proposal', 'proposal')
             .leftJoinAndSelect('c.addendums', 'addendums')
+            .leftJoinAndSelect('c.createdByUser', 'createdByUser')
             .where('c.deletedAt IS NULL')
             .orderBy('c.createdAt', 'DESC');
 

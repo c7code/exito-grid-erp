@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { SolarService } from './solar.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -33,8 +33,8 @@ export class SolarController {
     }
 
     @Post()
-    create(@Body() data: any) {
-        return this.solarService.create(data);
+    create(@Body() data: any, @Request() req) {
+        return this.solarService.create({ ...data, createdById: req.user?.userId || req.user?.id });
     }
 
     @Put(':id')

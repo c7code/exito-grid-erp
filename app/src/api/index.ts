@@ -133,6 +133,15 @@ class ApiService {
     return response.data;
   }
 
+  async getActivityReport(filters?: { userId?: string; startDate?: string; endDate?: string }) {
+    const params = new URLSearchParams();
+    if (filters?.userId) params.set('userId', filters.userId);
+    if (filters?.startDate) params.set('startDate', filters.startDate);
+    if (filters?.endDate) params.set('endDate', filters.endDate);
+    const response = await this.client.get(`/users/activity-report?${params.toString()}`);
+    return response.data;
+  }
+
   async getUserAvailability(date?: string) {
     const params = date ? { date } : {};
     const response = await this.client.get('/users/availability', { params });
@@ -570,6 +579,26 @@ class ApiService {
 
   async deleteProposal(id: string) {
     const response = await this.client.delete(`/proposals/${id}`);
+    return response.data;
+  }
+
+  async permanentDeleteProposal(id: string) {
+    const response = await this.client.delete(`/proposals/${id}/permanent`);
+    return response.data;
+  }
+
+  async getProposalRevisions(id: string) {
+    const response = await this.client.get(`/proposals/${id}/revisions`);
+    return response.data;
+  }
+
+  async restoreProposalRevision(proposalId: string, revisionId: string) {
+    const response = await this.client.post(`/proposals/${proposalId}/restore-revision`, { revisionId });
+    return response.data;
+  }
+
+  async deleteProposalRevision(proposalId: string, revisionId: string) {
+    const response = await this.client.delete(`/proposals/${proposalId}/revisions`, { data: { revisionId } });
     return response.data;
   }
 

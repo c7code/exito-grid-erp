@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { User } from '../users/user.entity';
 import { Work } from '../works/work.entity';
 
 export enum DocumentType {
@@ -171,6 +172,14 @@ export class Document {
 
   @Column({ nullable: true })
   sourceOrganization: string;       // Origem: "ABNT", "Neoenergia", "CEMIG", nome do fornecedor
+
+  // ── Audit Trail ──
+  @Column({ nullable: true })
+  createdById: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'createdById' })
+  createdByUser: User;
 
   @CreateDateColumn()
   createdAt: Date;

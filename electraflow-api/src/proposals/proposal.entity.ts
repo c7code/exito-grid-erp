@@ -1,7 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Opportunity } from '../opportunities/opportunity.entity';
 import { Client } from '../clients/client.entity';
+import { User } from '../users/user.entity';
 import { FiscalInvoice } from '../fiscal/fiscal.entity';
+import { ProposalRevision } from './proposal-revision.entity';
 
 export enum ProposalStatus {
   DRAFT = 'draft',
@@ -271,6 +273,20 @@ export class Proposal {
   @Column({ nullable: true })
   signatureVerificationCode: string;   // Código de verificação (6 dígitos)
 
+  @Column({ type: 'int', default: 1 })
+  revisionNumber: number;
+
+  // ── Audit Trail ──
+  @Column({ nullable: true })
+  createdById: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'createdById' })
+  createdByUser: User;
+
+  @Column({ nullable: true })
+  updatedById: string;
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -285,6 +301,9 @@ export class Proposal {
 
   @OneToMany(() => FiscalInvoice, invoice => invoice.proposal)
   fiscalInvoices: FiscalInvoice[];
+
+  @OneToMany(() => ProposalRevision, revision => revision.proposal)
+  revisions: ProposalRevision[];
 }
 
 @Entity('proposal_items')

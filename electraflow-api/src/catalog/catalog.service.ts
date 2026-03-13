@@ -98,7 +98,7 @@ export class CatalogService {
         if (categoryId) where.categoryId = categoryId;
         return this.itemRepository.find({
             where,
-            relations: ['category'],
+            relations: ['category', 'createdByUser'],
             order: { name: 'ASC' },
         });
     }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OpportunitiesService } from './opportunities.service';
@@ -25,8 +25,8 @@ export class OpportunitiesController {
 
   @Post()
   @ApiOperation({ summary: 'Criar oportunidade' })
-  async create(@Body() oppData: Partial<Opportunity>) {
-    return this.opportunitiesService.create(oppData);
+  async create(@Body() oppData: Partial<Opportunity>, @Request() req) {
+    return this.opportunitiesService.create({ ...oppData, createdById: req.user?.userId || req.user?.id });
   }
 
   @Put(':id')

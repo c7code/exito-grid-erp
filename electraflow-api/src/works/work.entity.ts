@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToOne, OneToMany } from 'typeorm';
+import { User } from '../users/user.entity';
 import { Client } from '../clients/client.entity';
 import { Opportunity } from '../opportunities/opportunity.entity';
 import { Process } from '../processes/process.entity';
@@ -166,6 +167,17 @@ export class Work {
 
   @Column({ default: 0 })
   progress: number;
+
+  // ── Audit Trail ──
+  @Column({ nullable: true })
+  createdById: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'createdById' })
+  createdByUser: User;
+
+  @Column({ nullable: true })
+  updatedById: string;
 
   @CreateDateColumn()
   createdAt: Date;

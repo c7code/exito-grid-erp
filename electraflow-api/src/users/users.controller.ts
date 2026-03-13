@@ -43,6 +43,16 @@ export class UsersController {
     return this.usersService.getAvailability(date);
   }
 
+  @Get('activity-report')
+  @ApiOperation({ summary: 'Relatório de atividades por usuário' })
+  async getActivityReport(
+    @Query('userId') userId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.usersService.getActivityReport({ userId, startDate, endDate });
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Buscar usuário por ID' })
   async findOne(@Param('id') id: string) {

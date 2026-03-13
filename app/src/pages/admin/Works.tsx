@@ -47,6 +47,7 @@ import {
   Trash2,
   TrendingUp,
   ExternalLink,
+  UserCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -248,6 +249,7 @@ export default function AdminWorks() {
                   <TableHead>Status</TableHead>
                   <TableHead>Progresso</TableHead>
                   <TableHead>Valor</TableHead>
+                  <TableHead>Cadastrado por</TableHead>
                   <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -307,6 +309,16 @@ export default function AdminWorks() {
                     </TableCell>
                     <TableCell>
                       R$ {Number(work.totalValue || 0).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      {work.createdByUser ? (
+                        <div className="flex items-center gap-1.5">
+                          <UserCircle className="w-4 h-4 text-slate-400" />
+                          <span className="text-sm text-slate-600 truncate max-w-[100px]">{work.createdByUser.name}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-slate-400">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">

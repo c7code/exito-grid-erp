@@ -241,6 +241,7 @@ export default function AdminClients() {
                 <TableHead className="font-bold text-slate-700">Contato</TableHead>
                 <TableHead className="font-bold text-slate-700">Localização</TableHead>
                 <TableHead className="font-bold text-slate-700">Status</TableHead>
+                <TableHead className="font-bold text-slate-700">Cadastrado por</TableHead>
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -301,6 +302,13 @@ export default function AdminClients() {
                     </Badge>
                   </TableCell>
                   <TableCell>
+                    {(client as any).createdByUser ? (
+                      <span className="text-sm text-slate-600 truncate max-w-[100px] block">{(client as any).createdByUser.name}</span>
+                    ) : (
+                      <span className="text-sm text-slate-400">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="text-slate-400 hover:text-amber-500 group-hover:bg-amber-50 transition-colors">
@@ -339,7 +347,7 @@ export default function AdminClients() {
               ))}
               {filteredClients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-24 text-slate-400 italic">
+                   <TableCell colSpan={7} className="text-center py-24 text-slate-400 italic">
                     Nenhum cliente encontrado.
                   </TableCell>
                 </TableRow>
