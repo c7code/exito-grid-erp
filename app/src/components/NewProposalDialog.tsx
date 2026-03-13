@@ -447,7 +447,7 @@ export default function NewProposalDialog({
         setLoading(true);
         try {
             const validItems = items
-                .filter((item) => item.description.trim() && Number(item.unitPrice) > 0)
+                .filter((item) => item.description.trim() && (getItemTotal(item) > 0 || item.isBundleParent))
                 .map((item) => ({
                     id: item.id,
                     description: item.description,
@@ -465,6 +465,8 @@ export default function NewProposalDialog({
                     title: formData.title,
                     clientId: formData.clientId,
                     opportunityId: formData.opportunityId || null,
+                    subtotal: subtotal,
+                    total: total,
                     validUntil: formData.validUntil || null,
                     discount: discount,
                     scope: formData.scope || null,
