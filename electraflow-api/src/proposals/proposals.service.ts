@@ -172,25 +172,28 @@ export class ProposalsService {
   }
 
   async updateItems(id: string, items: Partial<ProposalItem>[]): Promise<Proposal> {
-    const proposal = await this.findOne(id);
-
     // ── HARD DELETE itens antigos (evita conflito de UUID com soft-deleted) ──
     await this.itemRepository
       .createQueryBuilder()
       .delete()
       .from(ProposalItem)
-      .where('proposalId = :id', { id })
+      .where('"proposalId" = :id', { id })
       .execute();
 
     // ── Salvar novos itens ──
     await this.saveProposalItems(id, items);
 
-    // ── Recalcular totais ──
-    const proposalWithItems = await this.findOne(id);
-    const subtotal = proposalWithItems.items.reduce((sum, item) => sum + Number(item.total), 0);
-    proposal.subtotal = subtotal;
-    proposal.total = subtotal - Number(proposal.discount || 0);
-    await this.proposalRepository.save(proposal);
+    // ── Recalcular totais usando query direta (evita cascade sobrescrever itens) ──
+    const freshProposal = await this.findOne(id);
+    const subtotal = freshProposal.items.reduce((sum, item) => sum + Number(item.total), 0);
+    const total = subtotal - Number(freshProposal.discount || 0);
+
+    await this.proposalRepository
+      .createQueryBuilder()
+      .update(Proposal)
+      .set({ subtotal, total })
+      .where('id = :id', { id })
+      .execute();
 
     return this.findOne(id);
   }
