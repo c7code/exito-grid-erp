@@ -45,7 +45,7 @@ import { AiModule } from './ai/ai.module';
         type: 'postgres',
         url: configService.get('DATABASE_URL'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false, // Desativado — schema já existe no Supabase
+        synchronize: true, // Habilitado temporariamente para criar coluna contractId
         logging: configService.get('NODE_ENV') === 'development' ? ['error', 'warn', 'schema'] : false,
         ssl: { rejectUnauthorized: false },
       }),
