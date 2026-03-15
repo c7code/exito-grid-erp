@@ -215,7 +215,9 @@ export default function AdminLayout() {
                       }
                     >
                       <item.icon className="w-4.5 h-4.5 flex-shrink-0" />
-                      <span className="truncate">{item.label}</span>
+                      <span className="truncate">
+                        {isEmployee && item.module === 'tasks' ? 'Minhas Tarefas' : item.label}
+                      </span>
                     </NavLink>
                   </li>
                 ))}

@@ -345,18 +345,28 @@ export default function NewProposalDialog({
         }
     };
 
+    // Normaliza qualquer formato numérico BR (ex: "3.900,00" ou "3900,00" ou "3900.00") para número
+    const parsePrice = (value: string | number): number => {
+        if (typeof value === 'number') return isNaN(value) ? 0 : value;
+        const s = String(value).trim();
+        // Remove todos os pontos de milhar e troca vírgula decimal por ponto
+        // Ex: "3.900,50" → "3900.50" | "3900,50" → "3900.50" | "3900.50" → "3900.50"
+        const normalized = s.replace(/\.(\d{3})/g, '$1').replace(',', '.');
+        const n = parseFloat(normalized);
+        return isNaN(n) ? 0 : n;
+    };
+
     const getItemTotal = (item: ActivityItem): number => {
-        // Se for um pai de bundle, o total é a soma dos filhos
         if (item.isBundleParent) {
             return items
                 .filter(i => i.parentId === item.id)
-                .reduce((sum, i) => sum + (Number(i.unitPrice || 0) * Number(i.quantity || 1)), 0);
+                .reduce((sum, i) => sum + parsePrice(i.unitPrice) * Math.max(parsePrice(i.quantity) || 1, 0), 0);
         }
-        return Number(item.unitPrice || 0) * Number(item.quantity || 1);
+        return parsePrice(item.unitPrice) * Math.max(parsePrice(item.quantity) || 1, 0);
     };
 
     const subtotal = items.reduce((sum, item) => sum + getItemTotal(item), 0);
-    const discount = Number(formData.discount || 0);
+    const discount = parsePrice(formData.discount);
     const total = subtotal - discount;
 
     const validate = () => {
@@ -466,8 +476,8 @@ export default function NewProposalDialog({
                     parentId: item.parentId,
                     isBundleParent: item.isBundleParent,
                     showDetailedPrices: item.showDetailedPrices,
-                    unitPrice: Number(item.unitPrice || 0),
-                    quantity: Number(item.quantity || 1),
+                    unitPrice: parsePrice(item.unitPrice),
+                    quantity: parsePrice(item.quantity) || 1,
                     unit: item.unit || 'UN',
                     total: getItemTotal(item),
                 }));

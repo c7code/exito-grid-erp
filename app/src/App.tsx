@@ -18,6 +18,7 @@ import AdminPipeline from './pages/admin/Pipeline';
 import AdminWorks from './pages/admin/Works';
 import AdminWorkDetail from './pages/admin/WorkDetail';
 import AdminTasks from './pages/admin/Tasks';
+import EmployeeTasks from './pages/employee/Tasks';
 import AdminProposals from './pages/admin/Proposals';
 import AdminProtocols from './pages/admin/Protocols';
 import AdminDocuments from './pages/admin/Documents';
@@ -59,6 +60,13 @@ import ProtectedRoute from './components/ProtectedRoute';
 // Public Pages
 import ProposalSignature from './pages/public/ProposalSignature';
 import ContractSignature from './pages/public/ContractSignature';
+
+// Smart Tasks page: employees see only their tasks; admins see all
+function SmartTasksPage() {
+  const { user } = useAuth();
+  if (user?.role === 'employee') return <EmployeeTasks />;
+  return <AdminTasks />;
+}
 
 // Smart redirect for /employee/* routes
 function EmployeeRedirect() {
@@ -102,7 +110,7 @@ function App() {
               <Route path="/admin/pipeline" element={<AdminPipeline />} />
               <Route path="/admin/works" element={<AdminWorks />} />
               <Route path="/admin/works/:id" element={<AdminWorkDetail />} />
-              <Route path="/admin/tasks" element={<AdminTasks />} />
+              <Route path="/admin/tasks" element={<SmartTasksPage />} />
               <Route path="/admin/proposals" element={<AdminProposals />} />
               <Route path="/admin/protocols" element={<AdminProtocols />} />
               <Route path="/admin/documents" element={<AdminDocuments />} />

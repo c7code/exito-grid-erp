@@ -197,6 +197,13 @@ export default function NewWorkDialog({
         c.email?.toLowerCase().includes(clientSearch.toLowerCase())
     );
 
+    const parsePrice = (value: string): number => {
+        const s = String(value || '').trim();
+        const normalized = s.replace(/\.(\d{3})/g, '$1').replace(',', '.');
+        const n = parseFloat(normalized);
+        return isNaN(n) ? 0 : n;
+    };
+
     const validate = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.title.trim()) newErrors.title = 'Título é obrigatório';
@@ -205,7 +212,7 @@ export default function NewWorkDialog({
         if (!formData.address.trim()) newErrors.address = 'Endereço é obrigatório';
         if (!formData.city.trim()) newErrors.city = 'Cidade é obrigatória';
         if (!formData.state) newErrors.state = 'Estado é obrigatório';
-        if (!formData.estimatedValue || Number(formData.estimatedValue) <= 0) {
+        if (!formData.estimatedValue || parsePrice(formData.estimatedValue) <= 0) {
             newErrors.estimatedValue = 'Valor estimado deve ser maior que zero';
         }
         setErrors(newErrors);
@@ -240,7 +247,7 @@ export default function NewWorkDialog({
                 title: formData.title,
                 type: formData.type,
                 status: 'pending',
-                totalValue: Number(formData.estimatedValue),
+                totalValue: parsePrice(formData.estimatedValue),
                 address: formData.address,
                 city: formData.city,
                 state: formData.state,

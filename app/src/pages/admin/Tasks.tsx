@@ -365,19 +365,23 @@ export default function AdminTasks() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {(task as any).resolvedByEmail ? (
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-1.5">
-                            <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
-                            <span className="text-xs text-slate-600 truncate max-w-[120px]" title={(task as any).resolvedByEmail}>
-                              {(task as any).resolvedByEmail}
-                            </span>
-                          </div>
-                          <Badge variant={(task as any).resolutionType === 'total' ? 'default' : 'secondary'}
-                            className={`text-[10px] py-0 ${(task as any).resolutionType === 'total' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}
-                          >
-                            {(task as any).resolutionType === 'total' ? 'Total' : 'Parcial'}
-                          </Badge>
+                      {(task as any).resolvers && (task as any).resolvers.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {(task as any).resolvers.slice(0, 2).map((r: any) => (
+                            <div key={r.id} className="flex items-center gap-1.5">
+                              <Avatar className="w-5 h-5 shrink-0">
+                                <AvatarFallback className="bg-blue-100 text-blue-700 text-[8px] font-bold">
+                                  {r.employee?.name?.charAt(0).toUpperCase() || '?'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs text-slate-600 truncate max-w-[110px]" title={r.employee?.name}>
+                                {r.employee?.name || '—'}
+                              </span>
+                            </div>
+                          ))}
+                          {(task as any).resolvers.length > 2 && (
+                            <span className="text-[10px] text-slate-400 ml-6">+{(task as any).resolvers.length - 2} mais</span>
+                          )}
                         </div>
                       ) : (
                         <span className="text-sm text-slate-300">—</span>

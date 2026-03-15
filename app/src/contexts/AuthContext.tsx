@@ -148,6 +148,8 @@ function mapBackendRole(backendRole: string): UserRole {
       return 'engineer';
     case 'finance':
       return 'finance';
+    case 'employee':
+      return 'employee';
     case 'viewer':
       return 'viewer';
     default:
