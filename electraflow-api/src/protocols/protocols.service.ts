@@ -84,6 +84,12 @@ export class ProtocolsService {
     return savedProtocol;
   }
 
+  async softDelete(id: string): Promise<void> {
+    const protocol = await this.protocolRepository.findOneBy({ id });
+    if (!protocol) throw new NotFoundException('Protocolo não encontrado');
+    await this.protocolRepository.softRemove(protocol);
+  }
+
   async addEvent(protocolId: string, eventData: Partial<ProtocolEvent>): Promise<ProtocolEvent> {
     const event = this.eventRepository.create({
       ...eventData,

@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request, UseInterceptors, UploadedFiles } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request, UseInterceptors, UploadedFiles, UploadedFile } from '@nestjs/common';
+import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ClientsService } from './clients.service';
@@ -9,6 +9,14 @@ import { ClientRequest, RequestStatus } from './client-request.entity';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { v4 as uuid } from 'uuid';
+
+const documentUploadStorage = diskStorage({
+  destination: './uploads/client-documents',
+  filename: (_req, file, cb) => {
+    const uniqueName = `${uuid()}${extname(file.originalname)}`;
+    cb(null, uniqueName);
+  },
+});
 
 const requestUploadStorage = diskStorage({
   destination: './uploads/requests',
@@ -101,6 +109,25 @@ export class ClientsController {
   @ApiOperation({ summary: 'Adicionar documento ao cliente' })
   async addDocument(@Param('id') id: string, @Body() data: Partial<ClientDocument>) {
     return this.clientsService.addDocument(id, data);
+  }
+
+  @Post(':id/documents/upload')
+  @ApiOperation({ summary: 'Upload de documento do cliente' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { storage: documentUploadStorage }))
+  async uploadDocument(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { type?: string; issueDate?: string; expiryDate?: string },
+  ) {
+    const fileUrl = `/uploads/client-documents/${file.filename}`;
+    return this.clientsService.addDocument(id, {
+      name: file.originalname,
+      url: fileUrl,
+      type: body.type || 'other',
+      issueDate: body.issueDate || null,
+      expiryDate: body.expiryDate || null,
+    } as any);
   }
 
   @Put('documents/:id')

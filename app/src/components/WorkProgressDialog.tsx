@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,9 @@ import { Slider } from '@/components/ui/slider';
 import { ImagePlus, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
+import { cn } from '@/lib/utils';
+
+const QUICK_VALUES = [0, 25, 50, 75, 100];
 
 interface WorkProgressDialogProps {
     open: boolean;
@@ -22,6 +25,12 @@ export default function WorkProgressDialog({ open, onOpenChange, work, onProgres
     const [progress, setProgress] = useState(work?.progress || 0);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (open && work) {
+            setProgress(work.progress || 0);
+        }
+    }, [open, work]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -80,19 +89,46 @@ export default function WorkProgressDialog({ open, onOpenChange, work, onProgres
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Progress Slider + manual input */}
                     <div className="space-y-3">
-                        <Label>Progresso: {progress}%</Label>
+                        <div className="flex items-center justify-between">
+                            <Label>Progresso:</Label>
+                            <div className="flex items-center gap-1">
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    value={progress}
+                                    onChange={e => setProgress(Math.min(100, Math.max(0, Number(e.target.value))))}
+                                    className="w-20 h-8 text-sm text-center font-mono font-bold"
+                                />
+                                <span className="text-sm text-slate-500 font-medium">%</span>
+                            </div>
+                        </div>
                         <Slider
                             value={[progress]}
                             onValueChange={(vals) => setProgress(vals[0])}
                             max={100}
-                            step={5}
+                            step={1}
                             className="py-2"
                         />
-                        <div className="flex justify-between text-xs text-slate-400">
-                            <span>0%</span>
-                            <span>50%</span>
-                            <span>100%</span>
+                        {/* Quick-access percentage buttons */}
+                        <div className="flex gap-2">
+                            {QUICK_VALUES.map(val => (
+                                <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => setProgress(val)}
+                                    className={cn(
+                                        "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                                        progress === val
+                                            ? "bg-amber-500 text-white border-amber-500 shadow-sm"
+                                            : "bg-white text-slate-600 border-slate-200 hover:border-amber-300 hover:bg-amber-50"
+                                    )}
+                                >
+                                    {val}%
+                                </button>
+                            ))}
                         </div>
                     </div>
 

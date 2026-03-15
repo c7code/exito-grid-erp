@@ -65,10 +65,17 @@ const statusLabels: Record<string, { label: string; variant: 'default' | 'second
   cancelled: { label: 'Cancelada', variant: 'destructive' },
 };
 
-const typeLabels: Record<string, string> = {
+const defaultTypeLabels: Record<string, string> = {
+  muc: 'MUC',
+  rede_bt: 'Rede BT',
+  rede_mt: 'Rede MT',
+  rede_mt_bt: 'Rede MT e BT',
+  subestacao_definitiva: 'Subestação Definitiva',
+  subestacao_provisoria: 'Subestação Provisória',
   residential: 'Residencial',
   commercial: 'Comercial',
   industrial: 'Industrial',
+  pde: 'PDE',
   pde_bt: 'PDE BT',
   pde_at: 'PDE AT',
   project_bt: 'Projeto BT',
@@ -81,6 +88,7 @@ const typeLabels: Record<string, string> = {
   spda: 'SPDA',
   grounding: 'Aterramento',
   maintenance: 'Manutenção',
+  adequacy: 'Adequação',
 };
 
 export default function AdminWorks() {
@@ -110,8 +118,17 @@ export default function AdminWorks() {
     }
   };
 
+  // Dynamic types
+  const [typeLabels, setTypeLabels] = useState<Record<string, string>>(defaultTypeLabels);
+
   useEffect(() => {
     fetchWorks();
+    // Load dynamic types and merge with defaults
+    api.getWorkTypes().then((data: any[]) => {
+      const merged = { ...defaultTypeLabels };
+      (data || []).forEach((t: any) => { merged[t.key] = t.label; });
+      setTypeLabels(merged);
+    }).catch(() => {});
   }, []);
 
   const handleWorkCreated = () => {

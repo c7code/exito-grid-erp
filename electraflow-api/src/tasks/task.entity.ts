@@ -58,6 +58,9 @@ export class Task {
   work: Work;
 
   @Column({ nullable: true })
+  phaseId: string;
+
+  @Column({ nullable: true })
   assignedToId: string;
 
   @Column({ nullable: true })

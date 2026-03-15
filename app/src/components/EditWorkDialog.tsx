@@ -5,9 +5,35 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
+
+const defaultTypeLabels: Record<string, string> = {
+    muc: 'MUC',
+    rede_bt: 'Rede BT',
+    rede_mt: 'Rede MT',
+    rede_mt_bt: 'Rede MT e BT',
+    subestacao_definitiva: 'Subestação Definitiva',
+    subestacao_provisoria: 'Subestação Provisória',
+    pde: 'PDE',
+    pde_bt: 'PDE BT',
+    pde_at: 'PDE AT',
+    project_bt: 'Projeto BT',
+    project_mt: 'Projeto MT',
+    project_at: 'Projeto AT',
+    solar: 'Solar',
+    network_donation: 'Doação de Rede',
+    network_work: 'Obra de Rede',
+    report: 'Laudo',
+    spda: 'SPDA',
+    grounding: 'Aterramento',
+    maintenance: 'Manutenção',
+    residential: 'Residencial',
+    commercial: 'Comercial',
+    industrial: 'Industrial',
+    adequacy: 'Adequação',
+};
 
 interface EditWorkDialogProps {
     open: boolean;
@@ -29,6 +55,18 @@ export default function EditWorkDialog({ open, onOpenChange, work, onWorkUpdated
         description: '',
     });
 
+    // Dynamic types
+    const [dynamicTypes, setDynamicTypes] = useState<{ key: string; label: string }[]>([]);
+    const [newTypeName, setNewTypeName] = useState('');
+    const [showNewTypeInput, setShowNewTypeInput] = useState(false);
+    const [creatingType, setCreatingType] = useState(false);
+
+    const allTypes = (() => {
+        const merged: Record<string, string> = { ...defaultTypeLabels };
+        dynamicTypes.forEach(t => { merged[t.key] = t.label; });
+        return Object.entries(merged).sort(([,a], [,b]) => a.localeCompare(b));
+    })();
+
     useEffect(() => {
         if (work && open) {
             setFormData({
@@ -41,8 +79,28 @@ export default function EditWorkDialog({ open, onOpenChange, work, onWorkUpdated
                 totalValue: work.totalValue?.toString() || '',
                 description: work.description || '',
             });
+            api.getWorkTypes().then((data: any[]) => {
+                setDynamicTypes((data || []).map((t: any) => ({ key: t.key, label: t.label })));
+            }).catch(() => {});
         }
     }, [work, open]);
+
+    const handleCreateType = async () => {
+        if (!newTypeName.trim()) return;
+        setCreatingType(true);
+        try {
+            const created = await api.createWorkType({ label: newTypeName.trim() });
+            setDynamicTypes(prev => [...prev, { key: created.key, label: created.label }]);
+            setFormData(f => ({ ...f, type: created.key }));
+            setNewTypeName('');
+            setShowNewTypeInput(false);
+            toast.success(`Tipo "${created.label}" cadastrado!`);
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || 'Erro ao criar tipo');
+        } finally {
+            setCreatingType(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -90,13 +148,39 @@ export default function EditWorkDialog({ open, onOpenChange, work, onWorkUpdated
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label>Tipo</Label>
+                            <div className="flex items-center justify-between">
+                                <Label>Tipo</Label>
+                                <Button
+                                    type="button"
+                                    variant="link"
+                                    size="sm"
+                                    className="h-auto p-0 text-xs text-blue-600 gap-1"
+                                    onClick={() => setShowNewTypeInput(!showNewTypeInput)}
+                                >
+                                    <Plus className="w-3 h-3" />
+                                    Novo
+                                </Button>
+                            </div>
+                            {showNewTypeInput && (
+                                <div className="flex gap-1 mb-1">
+                                    <Input
+                                        placeholder="Ex: Infraestrutura"
+                                        value={newTypeName}
+                                        onChange={e => setNewTypeName(e.target.value)}
+                                        className="h-7 text-xs flex-1"
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateType(); } }}
+                                    />
+                                    <Button type="button" size="sm" className="h-7 w-7 p-0 bg-blue-600" disabled={creatingType || !newTypeName.trim()} onClick={handleCreateType}>
+                                        {creatingType ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                    </Button>
+                                </div>
+                            )}
                             <Select value={formData.type} onValueChange={(val) => setFormData({ ...formData, type: val })}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="residential">Residencial</SelectItem>
-                                    <SelectItem value="commercial">Comercial</SelectItem>
-                                    <SelectItem value="industrial">Industrial</SelectItem>
+                                    {allTypes.map(([key, label]) => (
+                                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>

@@ -8,6 +8,13 @@ import { WorkUpdate } from './work-update.entity';
 import { Task } from '../tasks/task.entity';
 
 export enum WorkType {
+  MUC = 'muc',
+  SUBESTACAO_DEFINITIVA = 'subestacao_definitiva',
+  SUBESTACAO_PROVISORIA = 'subestacao_provisoria',
+  REDE_MT = 'rede_mt',
+  REDE_BT = 'rede_bt',
+  REDE_MT_BT = 'rede_mt_bt',
+  // Legacy types kept for backward compatibility
   PDE = 'pde',
   PDE_BT = 'pde_bt',
   PDE_AT = 'pde_at',
@@ -66,8 +73,8 @@ export class Work {
   @Column()
   title: string;
 
-  @Column({ type: 'enum', enum: WorkType })
-  type: WorkType;
+  @Column({ type: 'varchar', length: 100 })
+  type: string;
 
   @Column({ type: 'enum', enum: WorkStatus, default: WorkStatus.PENDING })
   status: WorkStatus;

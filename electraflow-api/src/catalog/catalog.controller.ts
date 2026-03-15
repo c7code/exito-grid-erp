@@ -76,6 +76,25 @@ export class CatalogController {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // GROUPING — Composição de Produtos
+    // ═══════════════════════════════════════════════════════════════
+
+    @Get('items/:id/grouping')
+    getGroupingItems(@Param('id') id: string) {
+        return this.catalogService.getGroupingItems(id);
+    }
+
+    @Put('items/:id/grouping')
+    setGroupingItems(@Param('id') id: string, @Body() data: { items: any[] }) {
+        return this.catalogService.setGroupingItems(id, data.items);
+    }
+
+    @Get('items/:id/expand-grouping')
+    expandGrouping(@Param('id') id: string, @Query('multiplier') multiplier?: string) {
+        return this.catalogService.expandGrouping(id, multiplier ? parseFloat(multiplier) : 1);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // NCM — Busca
     // ═══════════════════════════════════════════════════════════════
 

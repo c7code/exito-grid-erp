@@ -3,8 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Work, WorkStatus } from './work.entity';
 import { WorkUpdate } from './work-update.entity';
+import { WorkPhase } from './work-phase.entity';
+import { WorkTypeConfig } from './work-type-config.entity';
 import { Client } from '../clients/client.entity';
 import { Employee } from '../employees/employee.entity';
+import { Task } from '../tasks/task.entity';
 import { TaskResolver } from '../tasks/task-resolver.entity';
 
 @Injectable()
@@ -16,10 +19,16 @@ export class WorksService {
     private clientRepository: Repository<Client>,
     @InjectRepository(WorkUpdate)
     private workUpdateRepository: Repository<WorkUpdate>,
+    @InjectRepository(WorkPhase)
+    private workPhaseRepository: Repository<WorkPhase>,
     @InjectRepository(Employee)
     private employeeRepository: Repository<Employee>,
+    @InjectRepository(Task)
+    private taskRepository: Repository<Task>,
     @InjectRepository(TaskResolver)
     private resolverRepository: Repository<TaskResolver>,
+    @InjectRepository(WorkTypeConfig)
+    private workTypeConfigRepository: Repository<WorkTypeConfig>,
   ) { }
 
   async findAll(status?: WorkStatus): Promise<Work[]> {
@@ -165,5 +174,133 @@ export class WorksService {
       where: { workId },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async updateWorkUpdate(updateId: string, data: { description?: string; progress?: number }): Promise<WorkUpdate> {
+    const update = await this.workUpdateRepository.findOneBy({ id: updateId });
+    if (!update) throw new NotFoundException('Atualização não encontrada');
+    if (data.description !== undefined) update.description = data.description;
+    if (data.progress !== undefined) update.progress = data.progress;
+    return this.workUpdateRepository.save(update);
+  }
+
+  async deleteWorkUpdate(updateId: string): Promise<void> {
+    const update = await this.workUpdateRepository.findOneBy({ id: updateId });
+    if (!update) throw new NotFoundException('Atualização não encontrada');
+    await this.workUpdateRepository.softRemove(update);
+  }
+
+  // ═══════ WORK TYPE CONFIGS (dynamic types) ═══════
+
+  async findAllWorkTypes(): Promise<WorkTypeConfig[]> {
+    return this.workTypeConfigRepository.find({
+      order: { sortOrder: 'ASC', label: 'ASC' },
+    });
+  }
+
+  async createWorkType(data: Partial<WorkTypeConfig>): Promise<WorkTypeConfig> {
+    // Auto-generate key from label if not provided
+    if (!data.key && data.label) {
+      data.key = data.label
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_|_$/g, '');
+    }
+    const wt = this.workTypeConfigRepository.create(data);
+    return this.workTypeConfigRepository.save(wt);
+  }
+
+  async updateWorkType(id: string, data: Partial<WorkTypeConfig>): Promise<WorkTypeConfig> {
+    await this.workTypeConfigRepository.update(id, data);
+    return this.workTypeConfigRepository.findOneBy({ id });
+  }
+
+  async removeWorkType(id: string): Promise<void> {
+    await this.workTypeConfigRepository.delete(id);
+  }
+
+  // ═══════ WORK PHASES (dynamic stages) ═══════
+
+  async findPhases(workId: string): Promise<WorkPhase[]> {
+    return this.workPhaseRepository.find({
+      where: { workId },
+      order: { order: 'ASC', createdAt: 'ASC' },
+    });
+  }
+
+  async createPhase(workId: string, data: Partial<WorkPhase>): Promise<WorkPhase> {
+    const work = await this.workRepository.findOneBy({ id: workId });
+    if (!work) throw new NotFoundException('Obra não encontrada');
+
+    // Auto-set order to next available
+    const existingPhases = await this.findPhases(workId);
+    const nextOrder = existingPhases.length > 0
+      ? Math.max(...existingPhases.map(p => p.order)) + 1
+      : 0;
+
+    const phase = this.workPhaseRepository.create({
+      ...data,
+      workId,
+      order: data.order ?? nextOrder,
+    });
+    const saved = await this.workPhaseRepository.save(phase);
+    return saved;
+  }
+
+  async updatePhase(phaseId: string, data: Partial<WorkPhase>): Promise<WorkPhase> {
+    const phase = await this.workPhaseRepository.findOneBy({ id: phaseId });
+    if (!phase) throw new NotFoundException('Etapa não encontrada');
+    Object.assign(phase, data);
+    const saved = await this.workPhaseRepository.save(phase);
+    // Recalculate work progress
+    await this.recalculateProgress(phase.workId);
+    return saved;
+  }
+
+  async deletePhase(phaseId: string): Promise<void> {
+    const phase = await this.workPhaseRepository.findOneBy({ id: phaseId });
+    if (!phase) throw new NotFoundException('Etapa não encontrada');
+    // Unlink tasks from this phase
+    await this.taskRepository.update({ phaseId }, { phaseId: null });
+    await this.workPhaseRepository.softRemove(phase);
+    // Recalculate
+    await this.recalculateProgress(phase.workId);
+  }
+
+  async recalculateProgress(workId: string): Promise<number> {
+    const phases = await this.findPhases(workId);
+    if (phases.length === 0) return 0;
+
+    let totalWeightedProgress = 0;
+    let totalWeight = 0;
+
+    for (const phase of phases) {
+      const tasks = await this.taskRepository.find({ where: { phaseId: phase.id } });
+      let phaseProgress = Number(phase.progress) || 0;
+
+      if (tasks.length > 0) {
+        // Calculate from tasks: completed / total
+        const completedCount = tasks.filter(t => t.status === 'completed').length;
+        phaseProgress = Math.round((completedCount / tasks.length) * 100);
+        // Update phase progress
+        await this.workPhaseRepository.update(phase.id, {
+          progress: phaseProgress,
+          status: phaseProgress >= 100 ? 'completed' : phaseProgress > 0 ? 'in_progress' : 'pending',
+        });
+      }
+
+      const weight = Number(phase.weight) || 0;
+      totalWeight += weight;
+      totalWeightedProgress += (weight * phaseProgress) / 100;
+    }
+
+    // Normalize if weights don't sum to 100
+    const workProgress = totalWeight > 0
+      ? Math.round((totalWeightedProgress / totalWeight) * 100)
+      : 0;
+
+    await this.workRepository.update(workId, { progress: workProgress });
+    return workProgress;
   }
 }

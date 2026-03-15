@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ProtocolsService } from './protocols.service';
@@ -46,6 +46,13 @@ export class ProtocolsController {
   @ApiOperation({ summary: 'Atualizar protocolo' })
   async update(@Param('id') id: string, @Body() protocolData: Partial<Protocol>, @Req() req: any) {
     return this.protocolsService.update(id, protocolData, req.user?.id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Excluir protocolo (soft delete)' })
+  async remove(@Param('id') id: string) {
+    await this.protocolsService.softDelete(id);
+    return { message: 'Protocolo desativado com sucesso' };
   }
 
   @Post(':id/events')

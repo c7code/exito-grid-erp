@@ -18,10 +18,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Building2, Loader2, Search, UserPlus, X, User, Check, Upload, FileText } from 'lucide-react';
+import { Building2, Loader2, Search, UserPlus, X, User, Check, Upload, FileText, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
-import type { Client, WorkType } from '@/types';
+import type { Client } from '@/types';
 import { ClientDialog } from '@/components/ClientDialog';
 
 interface NewWorkDialogProps {
@@ -36,10 +36,61 @@ const brazilianStates = [
     'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ];
 
-const typeLabels: Record<WorkType, string> = {
+// Default hardcoded types (fallback if DB is empty)
+const defaultTypeLabels: Record<string, string> = {
+    muc: 'MUC',
+    rede_bt: 'Rede BT',
+    rede_mt: 'Rede MT',
+    rede_mt_bt: 'Rede MT e BT',
+    subestacao_definitiva: 'Subestação Definitiva',
+    subestacao_provisoria: 'Subestação Provisória',
+    pde: 'PDE',
+    pde_bt: 'PDE BT',
+    pde_at: 'PDE AT',
+    project_bt: 'Projeto BT',
+    project_mt: 'Projeto MT',
+    project_at: 'Projeto AT',
+    solar: 'Solar',
+    network_donation: 'Doação de Rede',
+    network_work: 'Obra de Rede',
+    report: 'Laudo',
+    spda: 'SPDA',
+    grounding: 'Aterramento',
+    maintenance: 'Manutenção',
     residential: 'Residencial',
     commercial: 'Comercial',
     industrial: 'Industrial',
+    adequacy: 'Adequação',
+};
+
+// Technical spec fields per type
+const techSpecFields: Record<string, { key: string; label: string; unit: string; placeholder: string }[]> = {
+    subestacao_definitiva: [
+        { key: 'power', label: 'Potência', unit: 'kVA', placeholder: 'Ex: 300' },
+        { key: 'amperage', label: 'Amperagem', unit: 'A', placeholder: 'Ex: 150' },
+        { key: 'voltage', label: 'Tensão', unit: 'kV', placeholder: 'Ex: 13.8' },
+    ],
+    subestacao_provisoria: [
+        { key: 'power', label: 'Potência', unit: 'kVA', placeholder: 'Ex: 150' },
+        { key: 'amperage', label: 'Amperagem', unit: 'A', placeholder: 'Ex: 75' },
+        { key: 'voltage', label: 'Tensão', unit: 'kV', placeholder: 'Ex: 13.8' },
+    ],
+    rede_mt: [
+        { key: 'voltage', label: 'Tensão', unit: 'kV', placeholder: 'Ex: 13.8' },
+        { key: 'resistance', label: 'Resistência', unit: 'Ω', placeholder: 'Ex: 10' },
+    ],
+    rede_bt: [
+        { key: 'voltage', label: 'Tensão', unit: 'V', placeholder: 'Ex: 220' },
+        { key: 'amperage', label: 'Amperagem', unit: 'A', placeholder: 'Ex: 63' },
+    ],
+    rede_mt_bt: [
+        { key: 'voltage', label: 'Tensão MT', unit: 'kV', placeholder: 'Ex: 13.8' },
+        { key: 'voltageBT', label: 'Tensão BT', unit: 'V', placeholder: 'Ex: 220' },
+        { key: 'amperage', label: 'Amperagem', unit: 'A', placeholder: 'Ex: 100' },
+    ],
+    muc: [
+        { key: 'power', label: 'Potência', unit: 'kVA', placeholder: 'Ex: 75' },
+    ],
 };
 
 export default function NewWorkDialog({
@@ -50,13 +101,14 @@ export default function NewWorkDialog({
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
-        type: '' as WorkType | '',
+        type: '' as string,
         address: '',
         city: '',
         state: '',
         estimatedValue: '',
         description: '',
     });
+    const [techSpecs, setTechSpecs] = useState<Record<string, string>>({});
 
     // Client selection
     const [clients, setClients] = useState<Client[]>([]);
@@ -76,6 +128,19 @@ export default function NewWorkDialog({
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
+    // Dynamic work types
+    const [dynamicTypes, setDynamicTypes] = useState<{ key: string; label: string }[]>([]);
+    const [newTypeName, setNewTypeName] = useState('');
+    const [showNewTypeInput, setShowNewTypeInput] = useState(false);
+    const [creatingType, setCreatingType] = useState(false);
+
+    // Merge defaults + DB types, deduplicated, sorted alphabetically
+    const allTypes = (() => {
+        const merged: Record<string, string> = { ...defaultTypeLabels };
+        dynamicTypes.forEach(t => { merged[t.key] = t.label; });
+        return Object.entries(merged).sort(([,a], [,b]) => a.localeCompare(b));
+    })();
+
     const loadClients = useCallback(async () => {
         setLoadingClients(true);
         try {
@@ -90,7 +155,13 @@ export default function NewWorkDialog({
     }, []);
 
     useEffect(() => {
-        if (open) loadClients();
+        if (open) {
+            loadClients();
+            // Load dynamic types
+            api.getWorkTypes().then((data: any[]) => {
+                setDynamicTypes((data || []).map((t: any) => ({ key: t.key, label: t.label })));
+            }).catch(() => {});
+        }
     }, [open, loadClients]);
 
     // Separate CEP field state
@@ -144,7 +215,7 @@ export default function NewWorkDialog({
     const resetForm = () => {
         setFormData({
             title: '',
-            type: '' as WorkType | '',
+            type: '',
             address: '',
             city: '',
             state: '',
@@ -155,6 +226,7 @@ export default function NewWorkDialog({
         setClientSearch('');
         setZipCode('');
         setAttachedFiles([]);
+        setTechSpecs({});
         setErrors({});
     };
 
@@ -174,6 +246,7 @@ export default function NewWorkDialog({
                 state: formData.state,
                 description: formData.description || undefined,
                 clientId: selectedClient!.id,
+                technicalData: Object.keys(techSpecs).length > 0 ? techSpecs : undefined,
             });
 
             // Upload attached files to Documents module
@@ -271,19 +344,87 @@ export default function NewWorkDialog({
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="type">Tipo *</Label>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <Label htmlFor="type">Tipo *</Label>
+                                        <Button
+                                            type="button"
+                                            variant="link"
+                                            size="sm"
+                                            className="h-auto p-0 text-xs text-blue-600 gap-1"
+                                            onClick={() => setShowNewTypeInput(!showNewTypeInput)}
+                                        >
+                                            <Plus className="w-3 h-3" />
+                                            Novo Tipo
+                                        </Button>
+                                    </div>
+                                    {showNewTypeInput && (
+                                        <div className="flex gap-2 mb-2">
+                                            <Input
+                                                placeholder="Ex: Infraestrutura"
+                                                value={newTypeName}
+                                                onChange={e => setNewTypeName(e.target.value)}
+                                                className="h-8 text-sm flex-1"
+                                                onKeyDown={async (e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        if (!newTypeName.trim()) return;
+                                                        setCreatingType(true);
+                                                        try {
+                                                            const created = await api.createWorkType({ label: newTypeName.trim() });
+                                                            setDynamicTypes(prev => [...prev, { key: created.key, label: created.label }]);
+                                                            setFormData(f => ({ ...f, type: created.key }));
+                                                            setTechSpecs({});
+                                                            setNewTypeName('');
+                                                            setShowNewTypeInput(false);
+                                                            toast.success(`Tipo "${created.label}" cadastrado!`);
+                                                        } catch (err: any) {
+                                                            toast.error(err?.response?.data?.message || 'Erro ao criar tipo');
+                                                        } finally {
+                                                            setCreatingType(false);
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                className="h-8 bg-blue-600 hover:bg-blue-700"
+                                                disabled={creatingType || !newTypeName.trim()}
+                                                onClick={async () => {
+                                                    if (!newTypeName.trim()) return;
+                                                    setCreatingType(true);
+                                                    try {
+                                                        const created = await api.createWorkType({ label: newTypeName.trim() });
+                                                        setDynamicTypes(prev => [...prev, { key: created.key, label: created.label }]);
+                                                        setFormData(f => ({ ...f, type: created.key }));
+                                                        setTechSpecs({});
+                                                        setNewTypeName('');
+                                                        setShowNewTypeInput(false);
+                                                        toast.success(`Tipo "${created.label}" cadastrado!`);
+                                                    } catch (err: any) {
+                                                        toast.error(err?.response?.data?.message || 'Erro ao criar tipo');
+                                                    } finally {
+                                                        setCreatingType(false);
+                                                    }
+                                                }}
+                                            >
+                                                {creatingType ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                            </Button>
+                                        </div>
+                                    )}
                                     <Select
                                         value={formData.type}
-                                        onValueChange={(value) => setFormData({ ...formData, type: value as WorkType })}
+                                        onValueChange={(value) => {
+                                            setFormData({ ...formData, type: value });
+                                            setTechSpecs({});
+                                        }}
                                     >
                                         <SelectTrigger className={errors.type ? 'border-red-500' : ''}>
                                             <SelectValue placeholder="Selecione o tipo" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {(Object.keys(typeLabels) as WorkType[]).map((key) => (
-                                                <SelectItem key={key} value={key}>
-                                                    {typeLabels[key]}
-                                                </SelectItem>
+                                            {allTypes.map(([key, label]) => (
+                                                <SelectItem key={key} value={key}>{label}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -306,6 +447,31 @@ export default function NewWorkDialog({
                                 </div>
                             </div>
                         </div>
+
+                        {/* Technical Specs (contextual) */}
+                        {formData.type && techSpecFields[formData.type] && (
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-blue-600 uppercase tracking-wider flex items-center gap-2">
+                                    ⚡ Dados Técnicos
+                                    <span className="text-xs font-normal text-slate-400 normal-case">(opcional)</span>
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-blue-50/50 border border-blue-100 rounded-lg">
+                                    {techSpecFields[formData.type].map((spec) => (
+                                        <div key={spec.key} className="space-y-1">
+                                            <Label className="text-xs text-slate-600">{spec.label} ({spec.unit})</Label>
+                                            <Input
+                                                type="text"
+                                                inputMode="decimal"
+                                                placeholder={spec.placeholder}
+                                                value={techSpecs[spec.key] || ''}
+                                                onChange={(e) => setTechSpecs(prev => ({ ...prev, [spec.key]: e.target.value }))}
+                                                className="bg-white"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Cliente */}
                         <div className="space-y-4">

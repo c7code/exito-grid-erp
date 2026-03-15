@@ -174,6 +174,13 @@ class ApiService {
     return response.data;
   }
 
+  async uploadClientDocument(clientId: string, formData: FormData) {
+    const response = await this.client.post(`/clients/${clientId}/documents/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
   async updateClientDocument(id: string, data: any) {
     const response = await this.client.put(`/clients/documents/${id}`, data);
     return response.data;
@@ -252,6 +259,63 @@ class ApiService {
     const response = await this.client.post(`/works/${id}/updates`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    return response.data;
+  }
+
+  async updateWorkUpdate(updateId: string, data: { description?: string; progress?: number }) {
+    const response = await this.client.put(`/works/updates/${updateId}`, data);
+    return response.data;
+  }
+
+  async deleteWorkUpdate(updateId: string) {
+    const response = await this.client.delete(`/works/updates/${updateId}`);
+    return response.data;
+  }
+
+  // Work Phases
+  async getWorkPhases(workId: string) {
+    const response = await this.client.get(`/works/${workId}/phases`);
+    return response.data;
+  }
+
+  async createWorkPhase(workId: string, data: { title: string; weight: number }) {
+    const response = await this.client.post(`/works/${workId}/phases`, data);
+    return response.data;
+  }
+
+  async updateWorkPhase(phaseId: string, data: any) {
+    const response = await this.client.put(`/works/phases/${phaseId}`, data);
+    return response.data;
+  }
+
+  async deleteWorkPhase(phaseId: string) {
+    const response = await this.client.delete(`/works/phases/${phaseId}`);
+    return response.data;
+  }
+
+  async recalculateWorkProgress(workId: string) {
+    const response = await this.client.post(`/works/${workId}/recalculate-progress`);
+    return response.data;
+  }
+
+  // Work Type Configs
+  async getWorkTypes() {
+    const response = await this.client.get('/works/types/all');
+    return response.data;
+  }
+
+  async createWorkType(data: { label: string; key?: string }) {
+    const response = await this.client.post('/works/types', data);
+    return response.data;
+  }
+
+  async updateWorkType(id: string, data: any) {
+    const response = await this.client.put(`/works/types/${id}`, data);
+    return response.data;
+  }
+
+  async deleteWorkType(id: string) {
+    const response = await this.client.delete(`/works/types/${id}`);
     return response.data;
   }
 
@@ -680,6 +744,23 @@ class ApiService {
 
   async deleteCatalogItem(id: string) {
     const response = await this.client.delete(`/catalog/items/${id}`);
+    return response.data;
+  }
+
+  // Grouping — Composição de Produtos
+  async getGroupingItems(itemId: string) {
+    const response = await this.client.get(`/catalog/items/${itemId}/grouping`);
+    return response.data;
+  }
+
+  async saveGroupingItems(itemId: string, items: { childItemId: string; quantity: number; unit?: string; sortOrder?: number; notes?: string }[]) {
+    const response = await this.client.put(`/catalog/items/${itemId}/grouping`, { items });
+    return response.data;
+  }
+
+  async expandGrouping(itemId: string, multiplier?: number) {
+    const params = multiplier ? { multiplier: String(multiplier) } : {};
+    const response = await this.client.get(`/catalog/items/${itemId}/expand-grouping`, { params });
     return response.data;
   }
 

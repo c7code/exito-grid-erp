@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, ManyToMany, OneToMany, JoinColumn, JoinTable } from 'typeorm';
 import { User } from '../users/user.entity';
+import { CatalogGroupingItem } from './catalog-grouping-item.entity';
 
 export enum CatalogType {
     MATERIAL = 'material',
@@ -27,7 +28,7 @@ export class CatalogCategory {
     @OneToMany(() => CatalogCategory, (category) => category.parent)
     children: CatalogCategory[];
 
-    @OneToMany(() => CatalogItem, (item) => item.category)
+    @ManyToMany(() => CatalogItem, (item) => item.categories)
     items: CatalogItem[];
 
     @CreateDateColumn()
@@ -35,6 +36,9 @@ export class CatalogCategory {
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+    @DeleteDateColumn()
+    deletedAt: Date;
 }
 
 @Entity('catalog_items')
@@ -54,12 +58,20 @@ export class CatalogItem {
     @Column({ nullable: true })
     unit: string; // e.g., 'm', 'kg', 'h', 'un'
 
-    @Column()
+    @Column({ nullable: true })
     categoryId: string;
 
-    @ManyToOne(() => CatalogCategory, (category) => category.items, { onDelete: 'CASCADE' })
+    @ManyToOne(() => CatalogCategory, { onDelete: 'SET NULL', nullable: true })
     @JoinColumn({ name: 'categoryId' })
     category: CatalogCategory;
+
+    @ManyToMany(() => CatalogCategory, (category) => category.items, { eager: false })
+    @JoinTable({
+        name: 'catalog_item_categories',
+        joinColumn: { name: 'itemId', referencedColumnName: 'id' },
+        inverseJoinColumn: { name: 'categoryId', referencedColumnName: 'id' },
+    })
+    categories: CatalogCategory[];
 
     @Column({ type: 'enum', enum: CatalogType })
     type: CatalogType;
@@ -82,6 +94,9 @@ export class CatalogItem {
 
     @Column({ default: false })
     isPos: boolean;                        // Comercializável no PDV
+
+    @Column({ default: false })
+    isGrouping: boolean;                   // Produto agrupador (composição)
 
     @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
     commission: number;                    // Comissão (%)
@@ -183,6 +198,9 @@ export class CatalogItem {
 
     @OneToMany('StockMovement', 'catalogItem')
     stockMovements: any[];
+
+    @OneToMany(() => CatalogGroupingItem, (gi) => gi.parentItem, { cascade: true })
+    groupingItems: CatalogGroupingItem[];
 
     // ── Audit Trail ──
     @Column({ nullable: true })

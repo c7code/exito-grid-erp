@@ -240,16 +240,26 @@ export function ClientDialog({
                 toast.success('Cliente cadastrado com sucesso');
             }
 
-            // Upload files (Mocked for now as we did for employees)
+            // Upload files
             for (const item of files) {
-                const mockUrl = `https://supabase.storage/client-vault/${item.file.name}`;
-                await api.addClientDocument(savedClient.id, {
-                    name: item.file.name,
-                    url: mockUrl,
-                    type: item.type,
-                    issueDate: item.issueDate || null,
-                    expiryDate: item.expiryDate || null
-                });
+                const formPayload = new FormData();
+                formPayload.append('file', item.file);
+                formPayload.append('type', item.type);
+                if (item.issueDate) formPayload.append('issueDate', item.issueDate);
+                if (item.expiryDate) formPayload.append('expiryDate', item.expiryDate);
+                try {
+                    await api.uploadClientDocument(savedClient.id, formPayload);
+                } catch (uploadErr) {
+                    console.error('Erro no upload:', uploadErr);
+                    // Fallback: save just metadata if upload endpoint doesn't exist
+                    await api.addClientDocument(savedClient.id, {
+                        name: item.file.name,
+                        url: '',
+                        type: item.type,
+                        issueDate: item.issueDate || null,
+                        expiryDate: item.expiryDate || null
+                    });
+                }
             }
 
             onSuccess();
@@ -501,7 +511,7 @@ export function ClientDialog({
                                     onChange={e => setFormData({ ...formData, email: e.target.value })}
                                     className="bg-white"
                                     type="email"
-                                    required
+                                    required={false}
                                 />
                             </div>
                             <div className="space-y-2">

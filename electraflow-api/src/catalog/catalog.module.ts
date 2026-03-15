@@ -2,6 +2,7 @@ import { Module, OnModuleInit } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CatalogCategory, CatalogItem } from './catalog.entity';
+import { CatalogGroupingItem } from './catalog-grouping-item.entity';
 import { NcmCode } from './ncm.entity';
 import { ProductSupplier } from './product-supplier.entity';
 import { StockMovement } from './stock-movement.entity';
@@ -15,6 +16,7 @@ import { seedNcm } from './seed-ncm';
         TypeOrmModule.forFeature([
             CatalogCategory,
             CatalogItem,
+            CatalogGroupingItem,
             NcmCode,
             ProductSupplier,
             StockMovement,

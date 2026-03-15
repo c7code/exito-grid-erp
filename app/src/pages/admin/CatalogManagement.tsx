@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
+import NewGroupingDialog from '@/components/NewGroupingDialog';
 
 // ═════════════════════════════════════════════
 // TYPES
@@ -95,6 +96,19 @@ interface CatalogItem {
     reservedStock: number;
     stockLocation: string;
     extraFields: { key: string; value: string }[];
+    isGrouping?: boolean;
+    categories?: Category[];
+    categoryIds?: string[];
+}
+
+interface GroupingItem {
+    id?: string;
+    childItemId: string;
+    childItem?: CatalogItem;
+    quantity: number;
+    unit: string;
+    sortOrder: number;
+    notes: string;
 }
 
 interface NcmResult {
@@ -133,6 +147,7 @@ const EMPTY_ITEM: Partial<CatalogItem> = {
     codigoBeneficio: '', produtoEspecifico: 'nao_usar', numeroFci: '',
     trackStock: false, currentStock: 0, minStock: 0, maxStock: 0,
     reservedStock: 0, stockLocation: '', extraFields: [],
+    isGrouping: false,
 };
 
 const ORIGENS = [
@@ -158,10 +173,12 @@ export default function AdminCatalogManagement() {
     const [categories, setCategories] = useState<Category[]>([]);
     const [activeTab, setActiveTab] = useState<'material' | 'service'>('material');
     const [search, setSearch] = useState('');
+    const [selectedCatFilter, setSelectedCatFilter] = useState('');
 
     // Dialog states
     const [itemDialogOpen, setItemDialogOpen] = useState(false);
     const [catDialogOpen, setCatDialogOpen] = useState(false);
+    const [groupingDialogOpen, setGroupingDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<Partial<CatalogItem>>(EMPTY_ITEM);
     const [isEditing, setIsEditing] = useState(false);
     const [activeFormTab, setActiveFormTab] = useState('dados');
@@ -186,6 +203,12 @@ export default function AdminCatalogManagement() {
     const [allSuppliers, setAllSuppliers] = useState<any[]>([]);
     const [supplierDialog, setSupplierDialog] = useState(false);
     const [supplierForm, setSupplierForm] = useState({ supplierId: '', supplierProductCode: '', lastPrice: 0, leadTimeDays: 0 });
+
+    // Grouping (composição)
+    const [groupingItems, setGroupingItems] = useState<GroupingItem[]>([]);
+    const [groupingSearch, setGroupingSearch] = useState('');
+    const [groupingSearchResults, setGroupingSearchResults] = useState<CatalogItem[]>([]);
+    const groupingTimeout = useRef<any>(null);
 
     // ═══════════ DATA LOADING ═══════════
 
@@ -232,7 +255,10 @@ export default function AdminCatalogManagement() {
 
     const handleOpenItemDialog = (item?: CatalogItem) => {
         if (item) {
-            setEditingItem({ ...item });
+            setEditingItem({
+                ...item,
+                categoryIds: item.categories?.map((c: any) => c.id) || (item.categoryId ? [item.categoryId] : []),
+            });
             setIsEditing(true);
         } else {
             setEditingItem({ ...EMPTY_ITEM, type: activeTab });
@@ -241,21 +267,30 @@ export default function AdminCatalogManagement() {
         setActiveFormTab('dados');
         setStockMovements([]);
         setProdSuppliers([]);
+        setGroupingItems([]);
+        setGroupingSearch('');
+        setGroupingSearchResults([]);
         setItemDialogOpen(true);
     };
 
+    const handleOpenGroupingDialog = () => {
+        setGroupingDialogOpen(true);
+    };
+
     const handleSaveItem = async () => {
-        if (!editingItem.name || !editingItem.categoryId) {
-            toast.error('Nome e categoria são obrigatórios');
+        const catIds = editingItem.categoryIds || (editingItem.categoryId ? [editingItem.categoryId] : []);
+        if (!editingItem.name || catIds.length === 0) {
+            toast.error('Nome e pelo menos uma categoria são obrigatórios');
             return;
         }
+        const payload: any = { ...editingItem, categoryIds: catIds, categoryId: catIds[0] };
         setSaving(true);
         try {
             if (isEditing && editingItem.id) {
-                await api.updateCatalogItem(editingItem.id, editingItem);
+                await api.updateCatalogItem(editingItem.id, payload);
                 toast.success('Produto atualizado!');
             } else {
-                await api.createCatalogItem(editingItem);
+                await api.createCatalogItem(payload);
                 toast.success('Produto cadastrado!');
             }
             setItemDialogOpen(false);
@@ -264,6 +299,77 @@ export default function AdminCatalogManagement() {
             toast.error(err?.response?.data?.message || 'Erro ao salvar');
         }
         setSaving(false);
+    };
+
+    // ═══════════ GROUPING (COMPOSIÇÃO) ═══════════
+
+    const loadGroupingItems = async (itemId: string) => {
+        try {
+            const data = await api.getGroupingItems(itemId);
+            setGroupingItems(data.map((g: any) => ({
+                id: g.id,
+                childItemId: g.childItemId,
+                childItem: g.childItem,
+                quantity: Number(g.quantity),
+                unit: g.unit || 'UN',
+                sortOrder: g.sortOrder || 0,
+                notes: g.notes || '',
+            })));
+        } catch { setGroupingItems([]); }
+    };
+
+    const handleSaveGrouping = async () => {
+        if (!editingItem.id) return;
+        setSaving(true);
+        try {
+            await api.saveGroupingItems(editingItem.id, groupingItems.map((g, idx) => ({
+                childItemId: g.childItemId,
+                quantity: g.quantity,
+                unit: g.unit,
+                sortOrder: idx,
+                notes: g.notes,
+            })));
+            toast.success('Composição salva!');
+            await loadGroupingItems(editingItem.id);
+        } catch { toast.error('Erro ao salvar composição'); }
+        setSaving(false);
+    };
+
+    const handleGroupingSearch = (query: string) => {
+        setGroupingSearch(query);
+        if (groupingTimeout.current) clearTimeout(groupingTimeout.current);
+        if (query.length < 2) { setGroupingSearchResults([]); return; }
+        groupingTimeout.current = setTimeout(async () => {
+            try {
+                const results = await api.searchCatalogItems(query);
+                // Filtrar: não pode adicionar a si mesmo e não repetir
+                const existingIds = new Set(groupingItems.map(g => g.childItemId));
+                setGroupingSearchResults(results.filter((r: any) => r.id !== editingItem.id && !existingIds.has(r.id)));
+            } catch { setGroupingSearchResults([]); }
+        }, 300);
+    };
+
+    const addGroupingItem = (item: CatalogItem) => {
+        setGroupingItems(prev => [...prev, {
+            childItemId: item.id,
+            childItem: item,
+            quantity: 1,
+            unit: item.unit || 'UN',
+            sortOrder: prev.length,
+            notes: '',
+        }]);
+        setGroupingSearch('');
+        setGroupingSearchResults([]);
+    };
+
+    const removeGroupingItem = (childItemId: string) => {
+        setGroupingItems(prev => prev.filter(g => g.childItemId !== childItemId));
+    };
+
+    const updateGroupingItem = (childItemId: string, field: keyof GroupingItem, value: any) => {
+        setGroupingItems(prev => prev.map(g =>
+            g.childItemId === childItemId ? { ...g, [field]: value } : g
+        ));
     };
 
     const handleDeleteItem = async (id: string) => {
@@ -395,10 +501,13 @@ export default function AdminCatalogManagement() {
     const flatCats = flattenCategories(filteredCategories);
     const filteredItems = items
         .filter(i => i.type === activeTab)
+        .filter(i => !selectedCatFilter || i.categoryId === selectedCatFilter || (i.categories && i.categories.some((c: any) => c.id === selectedCatFilter)))
         .filter(i => !search || i.name.toLowerCase().includes(search.toLowerCase()) ||
             i.sku?.toLowerCase().includes(search.toLowerCase()) ||
             i.ncm?.includes(search) ||
-            i.barcode?.includes(search));
+            i.barcode?.includes(search) ||
+            i.category?.name?.toLowerCase().includes(search.toLowerCase()) ||
+            (i.categories && i.categories.some((c: any) => c.name?.toLowerCase().includes(search.toLowerCase()))));
 
     const getStockBadge = (item: CatalogItem) => {
         if (!item.trackStock) return null;
@@ -428,6 +537,9 @@ export default function AdminCatalogManagement() {
                     <Button variant="outline" size="sm" onClick={() => handleOpenCatDialog()}>
                         <FolderPlus className="h-4 w-4 mr-1" /> Nova Categoria
                     </Button>
+                    <Button variant="outline" size="sm" onClick={handleOpenGroupingDialog} className="border-blue-300 text-blue-700 hover:bg-blue-50">
+                        <Package className="h-4 w-4 mr-1" /> Novo Agrupamento
+                    </Button>
                     <Button size="sm" onClick={() => handleOpenItemDialog()}>
                         <Plus className="h-4 w-4 mr-1" /> Novo Produto
                     </Button>
@@ -455,14 +567,30 @@ export default function AdminCatalogManagement() {
                 <TabsContent value={activeTab} className="mt-4">
                     {/* Categories */}
                     {filteredCategories.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-4">
-                            {filteredCategories.map(cat => (
-                                <Badge key={cat.id} variant="secondary" className="gap-1 cursor-pointer hover:bg-gray-200 transition">
-                                    {cat.name}
-                                    <button className="ml-1 hover:text-blue-600" onClick={() => handleOpenCatDialog(cat)}><Pencil className="h-3 w-3" /></button>
-                                    <button className="hover:text-red-600" onClick={() => handleDeleteCategory(cat.id)}><Trash2 className="h-3 w-3" /></button>
-                                </Badge>
-                            ))}
+                        <div className="flex items-center gap-2 mb-4">
+                            <Label className="text-xs text-gray-500 whitespace-nowrap">Filtrar por categoria:</Label>
+                            <Select value={selectedCatFilter || '__ALL__'} onValueChange={v => setSelectedCatFilter(v === '__ALL__' ? '' : v)}>
+                                <SelectTrigger className="w-[200px] h-8 text-sm">
+                                    <SelectValue placeholder="Todas" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__ALL__">Todas ({filteredCategories.length})</SelectItem>
+                                    {filteredCategories.map(cat => (
+                                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {selectedCatFilter && (
+                                <div className="flex gap-1">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar categoria" onClick={() => {
+                                        const cat = filteredCategories.find(c => c.id === selectedCatFilter);
+                                        if (cat) handleOpenCatDialog(cat);
+                                    }}><Pencil className="h-3.5 w-3.5" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" title="Excluir categoria" onClick={() => handleDeleteCategory(selectedCatFilter)}>
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -506,7 +634,11 @@ export default function AdminCatalogManagement() {
                                             <TableCell className="text-right text-sm font-medium">R$ {Number(item.unitPrice).toFixed(2)}</TableCell>
                                             <TableCell className="hidden md:table-cell text-right text-sm text-gray-500">R$ {Number(item.costPrice || 0).toFixed(2)}</TableCell>
                                             <TableCell className="hidden lg:table-cell">{getStockBadge(item)}</TableCell>
-                                            <TableCell className="hidden md:table-cell text-sm text-gray-500">{item.category?.name || '—'}</TableCell>
+                                            <TableCell className="hidden md:table-cell text-sm text-gray-500">
+                                                {item.categories && item.categories.length > 0
+                                                    ? item.categories.map((c: any) => c.name).join(', ')
+                                                    : item.category?.name || '—'}
+                                            </TableCell>
                                             <TableCell onClick={e => e.stopPropagation()}>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -547,7 +679,7 @@ export default function AdminCatalogManagement() {
                         if (v === 'estoque' && isEditing && editingItem.id) loadStockMovements(editingItem.id);
                         if (v === 'fornecedores' && isEditing && editingItem.id) loadProductSuppliers(editingItem.id);
                     }}>
-                        <TabsList className="grid grid-cols-3 sm:grid-cols-6 mb-4">
+                        <TabsList className="flex flex-wrap gap-1 h-auto mb-4">
                             <TabsTrigger value="dados">Dados</TabsTrigger>
                             <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
                             <TabsTrigger value="valores">Valores</TabsTrigger>
@@ -564,18 +696,72 @@ export default function AdminCatalogManagement() {
                                     <Input value={editingItem.name || ''} onChange={e => setEditingItem(p => ({ ...p, name: e.target.value }))} className="mt-1" placeholder="Ex: Cabo XLPE 3x95mm²" />
                                 </div>
                                 <div>
-                                    <Label>Categoria *</Label>
-                                    <div className="flex gap-2 mt-1">
-                                        <Select value={editingItem.categoryId || ''} onValueChange={v => setEditingItem(p => ({ ...p, categoryId: v }))}>
-                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                            <SelectContent>
-                                                {flatCats.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                        <Button type="button" variant="outline" size="icon" className="shrink-0" title="Nova Categoria" onClick={() => handleOpenCatDialog(undefined, true)}>
-                                            <FolderPlus className="h-4 w-4" />
-                                        </Button>
+                                    <Label>Categorias *</Label>
+                                    {/* Badges dos selecionados */}
+                                    <div className="flex flex-wrap gap-1 mt-1 min-h-[28px]">
+                                        {(editingItem.categoryIds || []).map(cid => {
+                                            const cat = flatCats.find(c => c.id === cid);
+                                            return cat ? (
+                                                <Badge key={cid} variant="secondary" className="text-xs gap-1 pr-1">
+                                                    {cat.name}
+                                                    <button className="ml-0.5 hover:text-red-500" onClick={() =>
+                                                        setEditingItem(p => {
+                                                            const next = (p.categoryIds || []).filter(id => id !== cid);
+                                                            return { ...p, categoryIds: next, categoryId: next[0] || '' };
+                                                        })
+                                                    }><X className="h-3 w-3" /></button>
+                                                </Badge>
+                                            ) : null;
+                                        })}
                                     </div>
+                                    {/* Busca + lista filtrável */}
+                                    <div className="mt-1 border rounded-md overflow-hidden">
+                                        <div className="relative">
+                                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar categoria..."
+                                                className="w-full pl-8 pr-3 py-1.5 text-sm border-b outline-none focus:ring-1 focus:ring-blue-400"
+                                                onChange={e => {
+                                                    const el = e.target.closest('.border')?.querySelector('[data-cat-list]') as HTMLDivElement;
+                                                    if (el) {
+                                                        const q = e.target.value.toLowerCase();
+                                                        el.querySelectorAll('[data-cat-item]').forEach((item: any) => {
+                                                            item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
+                                                        });
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                        <div data-cat-list className="max-h-[130px] overflow-y-auto py-1">
+                                            {flatCats.map(c => {
+                                                const isChecked = (editingItem.categoryIds || []).includes(c.id);
+                                                return (
+                                                    <label key={c.id} data-cat-item className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 px-2.5 py-1">
+                                                        <input
+                                                            type="checkbox"
+                                                            className="rounded border-gray-300"
+                                                            checked={isChecked}
+                                                            onChange={(e) => {
+                                                                setEditingItem(p => {
+                                                                    const current = p.categoryIds || [];
+                                                                    const next = e.target.checked
+                                                                        ? [...current, c.id]
+                                                                        : current.filter(id => id !== c.id);
+                                                                    return { ...p, categoryIds: next, categoryId: next[0] || '' };
+                                                                });
+                                                            }}
+                                                        />
+                                                        <span>{c.name}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                            {flatCats.length === 0 && <p className="text-xs text-gray-400 px-3 py-2">Nenhuma categoria</p>}
+                                        </div>
+                                    </div>
+                                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs mt-1" onClick={() => handleOpenCatDialog(undefined, true)}>
+                                        <FolderPlus className="h-3 w-3 mr-1" /> Nova Categoria
+                                    </Button>
                                 </div>
                                 <div>
                                     <Label>Tipo</Label>
@@ -584,6 +770,30 @@ export default function AdminCatalogManagement() {
                                         <SelectContent>
                                             <SelectItem value="material">Material</SelectItem>
                                             <SelectItem value="service">Serviço</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label>Unidade de medida</Label>
+                                    <Select value={editingItem.unit || 'UN'} onValueChange={v => setEditingItem(p => ({ ...p, unit: v }))}>
+                                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="UN">UN - Unidade</SelectItem>
+                                            <SelectItem value="M">M - Metro</SelectItem>
+                                            <SelectItem value="M2">M² - Metro²</SelectItem>
+                                            <SelectItem value="M3">M³ - Metro³</SelectItem>
+                                            <SelectItem value="KG">KG - Quilograma</SelectItem>
+                                            <SelectItem value="L">L - Litro</SelectItem>
+                                            <SelectItem value="CX">CX - Caixa</SelectItem>
+                                            <SelectItem value="PC">PC - Peça</SelectItem>
+                                            <SelectItem value="RL">RL - Rolo</SelectItem>
+                                            <SelectItem value="CDA">CDA - Cada</SelectItem>
+                                            <SelectItem value="PAR">PAR - Par</SelectItem>
+                                            <SelectItem value="JG">JG - Jogo</SelectItem>
+                                            <SelectItem value="SC">SC - Saco</SelectItem>
+                                            <SelectItem value="H">H - Hora</SelectItem>
+                                            <SelectItem value="DIA">DIA - Diária</SelectItem>
+                                            <SelectItem value="VB">VB - Verba</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -635,6 +845,111 @@ export default function AdminCatalogManagement() {
                                         <Input type="text" inputMode="decimal" step="0.001" value={editingItem.length || 0} onChange={e => setEditingItem(p => ({ ...p, length: Number(e.target.value) }))} className="mt-1" />
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* ── COMPOSIÇÃO / AGRUPAMENTO ── */}
+                            <div className="border-t pt-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="font-medium text-sm text-gray-700">🔗 Composição / Agrupamento</h4>
+                                    <div className="flex items-center gap-2">
+                                        <Switch
+                                            checked={editingItem.isGrouping || false}
+                                            onCheckedChange={(checked) => {
+                                                setEditingItem(p => ({ ...p, isGrouping: checked }));
+                                                if (checked && isEditing && editingItem.id) loadGroupingItems(editingItem.id);
+                                            }}
+                                        />
+                                        <Label className="text-xs">Este produto é um agrupamento</Label>
+                                    </div>
+                                </div>
+
+                                {editingItem.isGrouping && (
+                                    <div className="space-y-3">
+                                        {!isEditing ? (
+                                            <p className="text-sm text-gray-400 text-center py-4">Salve o produto primeiro para gerenciar a composição</p>
+                                        ) : (
+                                            <>
+                                                {/* Busca inline */}
+                                                <div className="relative">
+                                                    <div className="relative">
+                                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                                        <Input
+                                                            placeholder="Buscar item para adicionar..."
+                                                            className="pl-9"
+                                                            value={groupingSearch}
+                                                            onChange={e => handleGroupingSearch(e.target.value)}
+                                                        />
+                                                    </div>
+                                                    {groupingSearchResults.length > 0 && (
+                                                        <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-auto">
+                                                            {groupingSearchResults.map(r => (
+                                                                <button
+                                                                    key={r.id}
+                                                                    className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex justify-between items-center border-b last:border-0"
+                                                                    onClick={() => addGroupingItem(r)}
+                                                                >
+                                                                    <span className="font-medium">{r.name}</span>
+                                                                    <span className="text-xs text-gray-400">{r.unit || 'UN'} — R$ {Number(r.unitPrice || 0).toFixed(2)}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Tabela de componentes */}
+                                                {groupingItems.length === 0 ? (
+                                                    <p className="text-xs text-gray-400 text-center py-4">Nenhum item na composição. Use a busca acima.</p>
+                                                ) : (
+                                                    <>
+                                                        <Table>
+                                                            <TableHeader>
+                                                                <TableRow>
+                                                                    <TableHead>Item</TableHead>
+                                                                    <TableHead className="w-20">Qtd</TableHead>
+                                                                    <TableHead className="w-20">UN</TableHead>
+                                                                    <TableHead className="text-right w-24">Preço</TableHead>
+                                                                    <TableHead className="text-right w-24">Subtotal</TableHead>
+                                                                    <TableHead className="w-10"></TableHead>
+                                                                </TableRow>
+                                                            </TableHeader>
+                                                            <TableBody>
+                                                                {groupingItems.map(g => (
+                                                                    <TableRow key={g.childItemId}>
+                                                                        <TableCell className="font-medium text-sm">{g.childItem?.name || '—'}</TableCell>
+                                                                        <TableCell>
+                                                                            <Input type="number" step="0.001" min="0.001" className="h-8 text-sm"
+                                                                                value={g.quantity} onChange={e => updateGroupingItem(g.childItemId, 'quantity', parseFloat(e.target.value) || 0)} />
+                                                                        </TableCell>
+                                                                        <TableCell>
+                                                                            <Input className="h-8 text-sm" value={g.unit}
+                                                                                onChange={e => updateGroupingItem(g.childItemId, 'unit', e.target.value)} />
+                                                                        </TableCell>
+                                                                        <TableCell className="text-right text-sm">R$ {Number(g.childItem?.unitPrice || 0).toFixed(2)}</TableCell>
+                                                                        <TableCell className="text-right text-sm font-medium">R$ {(Number(g.childItem?.unitPrice || 0) * g.quantity).toFixed(2)}</TableCell>
+                                                                        <TableCell>
+                                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
+                                                                                onClick={() => removeGroupingItem(g.childItemId)}>
+                                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                                            </Button>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                ))}
+                                                            </TableBody>
+                                                        </Table>
+                                                        <div className="flex items-center justify-between pt-2 border-t">
+                                                            <span className="text-xs text-gray-500">{groupingItems.length} componente(s)</span>
+                                                            <span className="text-sm font-bold">Total: R$ {groupingItems.reduce((sum, g) => sum + Number(g.childItem?.unitPrice || 0) * g.quantity, 0).toFixed(2)}</span>
+                                                        </div>
+                                                        <Button onClick={handleSaveGrouping} disabled={saving} size="sm" className="w-full">
+                                                            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+                                                            Salvar Composição
+                                                        </Button>
+                                                    </>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </TabsContent>
 
@@ -693,7 +1008,7 @@ export default function AdminCatalogManagement() {
 
                         {/* ── ABA VALORES ── */}
                         <TabsContent value="valores" className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <Label>Preço de Venda (R$)</Label>
                                     <Input type="text" inputMode="decimal" step="0.01" value={editingItem.unitPrice || 0} onChange={e => setEditingItem(p => ({ ...p, unitPrice: Number(e.target.value) }))} className="mt-1" />
@@ -701,17 +1016,6 @@ export default function AdminCatalogManagement() {
                                 <div>
                                     <Label>Preço de Custo (R$)</Label>
                                     <Input type="text" inputMode="decimal" step="0.01" value={editingItem.costPrice || 0} onChange={e => setEditingItem(p => ({ ...p, costPrice: Number(e.target.value) }))} className="mt-1" />
-                                </div>
-                                <div>
-                                    <Label>Unidade</Label>
-                                    <Select value={editingItem.unit || 'UN'} onValueChange={v => setEditingItem(p => ({ ...p, unit: v }))}>
-                                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            {['UN', 'M', 'M²', 'M³', 'KG', 'TON', 'L', 'CX', 'PCT', 'HR', 'CDA', 'PÇ', 'JG', 'RL', 'SC'].map(u => (
-                                                <SelectItem key={u} value={u}>{u}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
                                 </div>
                             </div>
                             {Number(editingItem.costPrice) > 0 && Number(editingItem.unitPrice) > 0 && (
@@ -944,6 +1248,7 @@ export default function AdminCatalogManagement() {
                                 </>
                             )}
                         </TabsContent>
+
                     </Tabs>
 
                     <DialogFooter className="gap-2 pt-4 border-t">
@@ -1080,6 +1385,15 @@ export default function AdminCatalogManagement() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Grouping Dialog */}
+            <NewGroupingDialog
+                open={groupingDialogOpen}
+                onOpenChange={setGroupingDialogOpen}
+                onSuccess={loadData}
+                categories={categories}
+                activeTab={activeTab}
+            />
         </div>
     );
 }

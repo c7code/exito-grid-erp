@@ -119,6 +119,7 @@ export default function AdminWorkDetail() {
   const [serviceOrders, setServiceOrders] = useState<any[]>([]);
   const [inventoryMovements, setInventoryMovements] = useState<any[]>([]);
   const [workQuotations, setWorkQuotations] = useState<any[]>([]);
+  const [phases, setPhases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -129,8 +130,13 @@ export default function AdminWorkDetail() {
   const [isMeasurementDialogOpen, setIsMeasurementDialogOpen] = useState(false);
   const [newCostOpen, setNewCostOpen] = useState(false);
   const [newScheduleOpen, setNewScheduleOpen] = useState(false);
+  const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
+  const [editingUpdateData, setEditingUpdateData] = useState<{ description: string; progress: number }>({ description: '', progress: 0 });
+  const [newPhase, setNewPhase] = useState({ title: '', weight: '' });
+  const [editingPhaseId, setEditingPhaseId] = useState<string | null>(null);
+  const [editingPhaseData, setEditingPhaseData] = useState<{ title: string; weight: number; progress: number }>({ title: '', weight: 0, progress: 0 });
 
-  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', estimatedHours: '' });
+  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', estimatedHours: '', phaseId: 'none' });
   const [selectedResolvers, setSelectedResolvers] = useState<string[]>([]);
   const [taskLoading, setTaskLoading] = useState(false);
   const [newCost, setNewCost] = useState({ description: '', category: 'material', quantity: '1', unit: 'un', unitPrice: '', supplierId: '', employeeId: '', date: '', invoiceNumber: '', notes: '' });
@@ -250,10 +256,15 @@ export default function AdminWorkDetail() {
   }, [id]);
 
   const handleRefresh = () => {
-    fetchWork(); fetchUpdates(); fetchTasks(); fetchDocuments();
+    fetchWork(); fetchUpdates(); fetchTasks(); fetchDocuments(); fetchPhases();
     fetchProtocols(); fetchProposals(); fetchPayments(); fetchMeasurements();
     fetchWorkCosts(); fetchPaymentSchedules();
     fetchDailyLogs(); fetchServiceOrders(); fetchInventoryMovements(); fetchWorkQuotations();
+  };
+
+  const fetchPhases = async () => {
+    if (!id) return;
+    try { const data = await api.getWorkPhases(id); setPhases(data); } catch { /* ignore */ }
   };
 
   // ── Task handlers ────────────────────────────────────────────────────────
@@ -262,10 +273,18 @@ export default function AdminWorkDetail() {
     if (!newTask.title.trim()) { toast.error('Título é obrigatório.'); return; }
     setTaskLoading(true);
     try {
-      await api.createTask({ title: newTask.title, description: newTask.description || undefined, priority: newTask.priority, estimatedHours: newTask.estimatedHours ? Number(newTask.estimatedHours) : undefined, workId: id, resolverIds: selectedResolvers.length > 0 ? selectedResolvers : undefined });
+      await api.createTask({
+        title: newTask.title,
+        description: newTask.description || undefined,
+        priority: newTask.priority,
+        estimatedHours: newTask.estimatedHours ? Number(newTask.estimatedHours) : undefined,
+        workId: id,
+        phaseId: newTask.phaseId !== 'none' ? newTask.phaseId : undefined,
+        resolverIds: selectedResolvers.length > 0 ? selectedResolvers : undefined
+      });
       toast.success('Tarefa criada com sucesso!');
       setNewTaskOpen(false);
-      setNewTask({ title: '', description: '', priority: 'medium', estimatedHours: '' });
+      setNewTask({ title: '', description: '', priority: 'medium', estimatedHours: '', phaseId: 'none' });
       setSelectedResolvers([]);
       handleRefresh();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao criar tarefa.'); }
@@ -388,6 +407,7 @@ export default function AdminWorkDetail() {
           <TabsTrigger value="documents">Documentos ({documents.length})</TabsTrigger>
           <TabsTrigger value="team">Equipe ({teamMembers.length})</TabsTrigger>
           <TabsTrigger value="updates">Evolução ({updates.length})</TabsTrigger>
+          <TabsTrigger value="phases" className="text-violet-600">📊 Etapas ({phases.length})</TabsTrigger>
           <TabsTrigger value="diario" className="text-orange-600">📋 Diário ({dailyLogs.length})</TabsTrigger>
           <TabsTrigger value="os" className="text-amber-600">🔧 OS ({serviceOrders.length})</TabsTrigger>
           <TabsTrigger value="materiais" className="text-teal-600">📦 Materiais ({inventoryMovements.length})</TabsTrigger>
@@ -662,23 +682,221 @@ export default function AdminWorkDetail() {
             <Card><CardContent className="p-8 text-center text-slate-400"><TrendingUp className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma atualização registrada.</p></CardContent></Card>
           ) : (
             <div className="space-y-4">
-              {updates.map((update: any) => (
+              {updates.map((update: any) => {
+                const isEditing = editingUpdateId === update.id;
+                return (
                 <Card key={update.id}>
                   <CardContent className="p-5">
                     <div className="flex items-start gap-4">
                       <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0"><TrendingUp className="w-5 h-5 text-amber-600" /></div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-2">
-                          <Badge variant="outline">{update.progress}%</Badge>
-                          <span className="text-sm text-slate-400">{new Date(update.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                          <Badge variant="outline">{isEditing ? editingUpdateData.progress : update.progress}%</Badge>
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm text-slate-400 mr-2">{new Date(update.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                            {!isEditing && (
+                              <>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500 hover:bg-blue-50" onClick={() => {
+                                  setEditingUpdateId(update.id);
+                                  setEditingUpdateData({ description: update.description, progress: update.progress });
+                                }} title="Editar"><Edit className="w-3.5 h-3.5" /></Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={async () => {
+                                  if (!window.confirm('Tem certeza que deseja excluir esta atualização?')) return;
+                                  try {
+                                    await api.deleteWorkUpdate(update.id);
+                                    toast.success('Atualização removida');
+                                    handleRefresh();
+                                  } catch { toast.error('Erro ao excluir'); }
+                                }} title="Excluir"><Trash2 className="w-3.5 h-3.5" /></Button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-slate-700">{update.description}</p>
-                        {update.imageUrl && <img src={`${API_BASE}${update.imageUrl}`} alt="Atualização" className="mt-3 rounded-lg border max-h-64 object-cover" />}
+                        {isEditing ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              <label className="text-xs text-slate-500 font-medium">Progresso:</label>
+                              <Input type="number" min={0} max={100} className="w-20 h-8 text-sm"
+                                value={editingUpdateData.progress}
+                                onChange={e => setEditingUpdateData(prev => ({ ...prev, progress: Number(e.target.value) }))}
+                              />
+                              <span className="text-xs text-slate-400">%</span>
+                            </div>
+                            <Textarea className="min-h-[80px] text-sm" value={editingUpdateData.description}
+                              onChange={e => setEditingUpdateData(prev => ({ ...prev, description: e.target.value }))}
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <Button variant="outline" size="sm" onClick={() => setEditingUpdateId(null)}>Cancelar</Button>
+                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={async () => {
+                                try {
+                                  await api.updateWorkUpdate(update.id, editingUpdateData);
+                                  toast.success('Atualização editada!');
+                                  setEditingUpdateId(null);
+                                  handleRefresh();
+                                } catch { toast.error('Erro ao editar'); }
+                              }}>Salvar</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-slate-700">{update.description}</p>
+                            {update.imageUrl && <img src={`${API_BASE}${update.imageUrl}`} alt="Atualização" className="mt-3 rounded-lg border max-h-64 object-cover" />}
+                          </>
+                        )}
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ═══ PHASES TAB ════════════════════════════════════════════════ */}
+        <TabsContent value="phases" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold flex items-center gap-2">📊 Etapas da Obra</h3>
+            <Button variant="outline" size="sm" onClick={async () => {
+              await api.recalculateWorkProgress(id!);
+              handleRefresh();
+              toast.success('Progresso recalculado!');
+            }}>
+              <TrendingUp className="w-4 h-4 mr-1" />Recalcular
+            </Button>
+          </div>
+
+          {/* New Phase Form */}
+          <Card className="border-dashed border-2 border-violet-200 bg-violet-50/30">
+            <CardContent className="p-4">
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                if (!newPhase.title.trim()) return toast.error('Nome da etapa é obrigatório');
+                const weight = parseFloat(newPhase.weight) || 0;
+                if (weight <= 0 || weight > 100) return toast.error('Peso deve ser entre 1 e 100');
+                try {
+                  await api.createWorkPhase(id!, { title: newPhase.title, weight });
+                  toast.success('Etapa criada!');
+                  setNewPhase({ title: '', weight: '' });
+                  fetchPhases();
+                } catch { toast.error('Erro ao criar etapa'); }
+              }} className="flex gap-3 items-end">
+                <div className="flex-1">
+                  <Label className="text-xs font-bold text-violet-600 uppercase">Nome da Etapa</Label>
+                  <Input
+                    value={newPhase.title}
+                    onChange={e => setNewPhase(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Ex: Projeto, Instalação, Comissionamento..."
+                    className="mt-1"
+                  />
+                </div>
+                <div className="w-28">
+                  <Label className="text-xs font-bold text-violet-600 uppercase">Peso (%)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={newPhase.weight}
+                    onChange={e => setNewPhase(prev => ({ ...prev, weight: e.target.value }))}
+                    placeholder="30"
+                    className="mt-1 font-mono"
+                  />
+                </div>
+                <Button type="submit" className="bg-violet-600 hover:bg-violet-700"><Plus className="w-4 h-4 mr-1" />Criar</Button>
+              </form>
+              {phases.length > 0 && (
+                <div className="mt-2 text-xs text-slate-500">
+                  Peso total: <span className={`font-bold ${phases.reduce((s: number, p: any) => s + Number(p.weight || 0), 0) === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    {phases.reduce((s: number, p: any) => s + Number(p.weight || 0), 0)}%
+                  </span>
+                  {phases.reduce((s: number, p: any) => s + Number(p.weight || 0), 0) !== 100 && <span className="text-amber-500 ml-1">(ideal: 100%)</span>}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Phase List */}
+          {phases.length === 0 ? (
+            <Card><CardContent className="p-8 text-center text-slate-400"><p>Nenhuma etapa cadastrada. Crie etapas para controlar o progresso da obra.</p></CardContent></Card>
+          ) : (
+            <div className="space-y-3">
+              {phases.map((phase: any) => {
+                const phaseTasks = tasks.filter((t: any) => t.phaseId === phase.id);
+                const completedTasks = phaseTasks.filter((t: any) => t.status === 'completed').length;
+                const isEditing = editingPhaseId === phase.id;
+                return (
+                  <Card key={phase.id} className={`transition-all ${phase.status === 'completed' ? 'border-emerald-200 bg-emerald-50/30' : ''}`}>
+                    <CardContent className="p-4">
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <div className="flex gap-3">
+                            <div className="flex-1">
+                              <Label className="text-xs">Nome</Label>
+                              <Input value={editingPhaseData.title} onChange={e => setEditingPhaseData(prev => ({ ...prev, title: e.target.value }))} className="mt-1" />
+                            </div>
+                            <div className="w-24">
+                              <Label className="text-xs">Peso (%)</Label>
+                              <Input type="number" min={0} max={100} value={editingPhaseData.weight} onChange={e => setEditingPhaseData(prev => ({ ...prev, weight: Number(e.target.value) }))} className="mt-1 font-mono" />
+                            </div>
+                            <div className="w-28">
+                              <Label className="text-xs">Progresso (%)</Label>
+                              <Input type="number" min={0} max={100} value={editingPhaseData.progress} onChange={e => setEditingPhaseData(prev => ({ ...prev, progress: Number(e.target.value) }))} className="mt-1 font-mono" />
+                            </div>
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <Button variant="outline" size="sm" onClick={() => setEditingPhaseId(null)}>Cancelar</Button>
+                            <Button size="sm" className="bg-violet-600 hover:bg-violet-700" onClick={async () => {
+                              try {
+                                await api.updateWorkPhase(phase.id, editingPhaseData);
+                                toast.success('Etapa atualizada!');
+                                setEditingPhaseId(null);
+                                fetchPhases();
+                                handleRefresh();
+                              } catch { toast.error('Erro ao atualizar'); }
+                            }}>Salvar</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0 text-sm font-bold text-violet-700">
+                            {phase.order + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-semibold text-slate-900">{phase.title}</span>
+                              <Badge variant="outline" className="text-xs font-mono">{Number(phase.weight)}%</Badge>
+                              {phase.status === 'completed' && <Badge className="bg-emerald-500 text-xs">Concluída</Badge>}
+                              {phase.status === 'in_progress' && <Badge className="bg-amber-500 text-xs">Em Andamento</Badge>}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <Progress value={Number(phase.progress) || 0} className="h-2 flex-1" />
+                              <span className="text-sm font-mono font-bold text-slate-600 w-12 text-right">{phase.progress || 0}%</span>
+                            </div>
+                            {phaseTasks.length > 0 && (
+                              <p className="text-xs text-slate-400 mt-1">{completedTasks}/{phaseTasks.length} tarefas concluídas</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500 hover:bg-blue-50" onClick={() => {
+                              setEditingPhaseId(phase.id);
+                              setEditingPhaseData({ title: phase.title, weight: Number(phase.weight), progress: Number(phase.progress) || 0 });
+                            }} title="Editar"><Edit className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={async () => {
+                              if (!window.confirm(`Excluir etapa "${phase.title}"? As tarefas serão desvinculadas.`)) return;
+                              try {
+                                await api.deleteWorkPhase(phase.id);
+                                toast.success('Etapa removida');
+                                fetchPhases();
+                                handleRefresh();
+                              } catch { toast.error('Erro ao excluir'); }
+                            }} title="Excluir"><Trash2 className="w-3.5 h-3.5" /></Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -1092,6 +1310,20 @@ export default function AdminWorkDetail() {
               <div><Label>Prioridade</Label><Select value={newTask.priority} onValueChange={v => setNewTask({ ...newTask, priority: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Baixa</SelectItem><SelectItem value="medium">Média</SelectItem><SelectItem value="high">Alta</SelectItem><SelectItem value="urgent">Urgente</SelectItem></SelectContent></Select></div>
               <div><Label htmlFor="task-hours">Horas Estimadas</Label><Input id="task-hours" type="text" inputMode="decimal" step="0.5" min="0" placeholder="Ex: 4" value={newTask.estimatedHours} onChange={e => setNewTask({ ...newTask, estimatedHours: e.target.value })} /></div>
             </div>
+            {phases.length > 0 && (
+              <div>
+                <Label>Vincular à Etapa da Obra (Opcional)</Label>
+                <Select value={newTask.phaseId} onValueChange={v => setNewTask({ ...newTask, phaseId: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione uma etapa..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhuma etapa</SelectItem>
+                    {phases.map((p: any) => (
+                      <SelectItem key={p.id} value={p.id}>{p.title} ({Number(p.weight)}%)</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {employees.length > 0 && (
               <div>
                 <Label>Resolvedores</Label>

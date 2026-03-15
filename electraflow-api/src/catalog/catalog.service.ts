@@ -3,6 +3,7 @@ import * as https from 'https';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
 import { CatalogCategory, CatalogItem, CatalogType } from './catalog.entity';
+import { CatalogGroupingItem } from './catalog-grouping-item.entity';
 import { NcmCode } from './ncm.entity';
 import { ProductSupplier } from './product-supplier.entity';
 import { StockMovement, StockMovementType } from './stock-movement.entity';
@@ -48,6 +49,8 @@ export class CatalogService {
         private stockMovementRepository: Repository<StockMovement>,
         @InjectRepository(FiscalRule)
         private fiscalRuleRepository: Repository<FiscalRule>,
+        @InjectRepository(CatalogGroupingItem)
+        private groupingItemRepository: Repository<CatalogGroupingItem>,
     ) { }
 
     // ═══════════════════════════════════════════════════════════════
@@ -89,16 +92,74 @@ export class CatalogService {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // GROUPING — Composição de Produtos
+    // ═══════════════════════════════════════════════════════════════
+
+    async getGroupingItems(parentItemId: string): Promise<CatalogGroupingItem[]> {
+        return this.groupingItemRepository.find({
+            where: { parentItemId },
+            relations: ['childItem'],
+            order: { sortOrder: 'ASC', createdAt: 'ASC' },
+        });
+    }
+
+    async setGroupingItems(parentItemId: string, items: { childItemId: string; quantity: number; unit?: string; sortOrder?: number; notes?: string }[]): Promise<CatalogGroupingItem[]> {
+        // Apagar componentes antigos
+        await this.groupingItemRepository.delete({ parentItemId });
+
+        if (!items || items.length === 0) return [];
+
+        // Criar novos componentes
+        const newItems = items.map((item, idx) =>
+            this.groupingItemRepository.create({
+                parentItemId,
+                childItemId: item.childItemId,
+                quantity: item.quantity,
+                unit: item.unit || 'UN',
+                sortOrder: item.sortOrder ?? idx,
+                notes: item.notes || null,
+            }),
+        );
+        await this.groupingItemRepository.save(newItems);
+
+        // Marcar item como grouping
+        await this.itemRepository.update(parentItemId, { isGrouping: true });
+
+        return this.getGroupingItems(parentItemId);
+    }
+
+    async expandGrouping(parentItemId: string, multiplier = 1): Promise<any[]> {
+        const items = await this.getGroupingItems(parentItemId);
+        return items.map(gi => ({
+            catalogItemId: gi.childItemId,
+            description: gi.childItem?.name || 'Item',
+            unit: gi.unit || gi.childItem?.unit || 'UN',
+            unitPrice: Number(gi.childItem?.unitPrice || 0),
+            quantity: Number(gi.quantity) * multiplier,
+            total: Number(gi.childItem?.unitPrice || 0) * Number(gi.quantity) * multiplier,
+        }));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // ITENS / PRODUTOS
     // ═══════════════════════════════════════════════════════════════
 
     async findAllItems(type?: CatalogType, categoryId?: string): Promise<CatalogItem[]> {
+        if (categoryId) {
+            const qb = this.itemRepository.createQueryBuilder('item')
+                .leftJoinAndSelect('item.category', 'category')
+                .leftJoinAndSelect('item.categories', 'categories')
+                .leftJoinAndSelect('item.createdByUser', 'createdByUser')
+                .leftJoin('item.categories', 'catJoin')
+                .where('(item.categoryId = :categoryId OR catJoin.id = :categoryId)', { categoryId });
+            if (type) qb.andWhere('item.type = :type', { type });
+            return qb.orderBy('item.name', 'ASC').getMany();
+        }
         const where: any = {};
         if (type) where.type = type;
-        if (categoryId) where.categoryId = categoryId;
         return this.itemRepository.find({
             where,
-            relations: ['category', 'createdByUser'],
+            relations: ['category', 'categories', 'createdByUser'],
             order: { name: 'ASC' },
         });
     }
@@ -106,7 +167,7 @@ export class CatalogService {
     async findOneItem(id: string): Promise<CatalogItem> {
         const item = await this.itemRepository.findOne({
             where: { id },
-            relations: ['category'],
+            relations: ['category', 'categories'],
         });
         if (!item) throw new NotFoundException('Produto não encontrado');
         return item;
@@ -135,20 +196,46 @@ export class CatalogService {
     }
 
     async findItemsByCategory(categoryId: string): Promise<CatalogItem[]> {
-        return this.itemRepository.find({
-            where: { categoryId },
-            order: { name: 'ASC' },
-        });
+        return this.itemRepository.createQueryBuilder('item')
+            .leftJoinAndSelect('item.category', 'category')
+            .leftJoinAndSelect('item.categories', 'categories')
+            .leftJoin('item.categories', 'catJoin')
+            .where('item.categoryId = :categoryId OR catJoin.id = :categoryId', { categoryId })
+            .orderBy('item.name', 'ASC')
+            .getMany();
     }
 
-    async createItem(data: Partial<CatalogItem>): Promise<CatalogItem> {
-        const item = this.itemRepository.create(data);
-        return this.itemRepository.save(item);
+    async createItem(data: any): Promise<CatalogItem> {
+        const { categoryIds, ...itemData } = data;
+        const item: CatalogItem = this.itemRepository.create(itemData as Partial<CatalogItem>) as unknown as CatalogItem;
+        if (categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0) {
+            item.categories = categoryIds.map((id: string) => ({ id } as CatalogCategory));
+            if (!item.categoryId) item.categoryId = categoryIds[0];
+        }
+        return this.itemRepository.save(item) as Promise<CatalogItem>;
     }
 
-    async updateItem(id: string, data: Partial<CatalogItem>): Promise<CatalogItem> {
-        await this.itemRepository.update(id, data);
-        return this.itemRepository.findOne({ where: { id }, relations: ['category'] });
+    async updateItem(id: string, data: any): Promise<CatalogItem> {
+        const { categoryIds, ...itemData } = data;
+        // Update scalar fields
+        const cleanData = { ...itemData };
+        delete cleanData.category;
+        delete cleanData.categories;
+        delete cleanData.createdByUser;
+        delete cleanData.productSuppliers;
+        delete cleanData.stockMovements;
+        delete cleanData.groupingItems;
+        await this.itemRepository.update(id, cleanData);
+        // Update ManyToMany categories
+        if (categoryIds && Array.isArray(categoryIds)) {
+            const item = await this.itemRepository.findOne({ where: { id }, relations: ['categories'] });
+            item.categories = categoryIds.map((cid: string) => ({ id: cid } as CatalogCategory));
+            if (categoryIds.length > 0 && !cleanData.categoryId) {
+                item.categoryId = categoryIds[0];
+            }
+            await this.itemRepository.save(item);
+        }
+        return this.itemRepository.findOne({ where: { id }, relations: ['category', 'categories'] });
     }
 
     async removeItem(id: string): Promise<void> {

@@ -83,7 +83,7 @@ export interface Opportunity {
 }
 
 export type WorkStatus = 'draft' | 'pending_approval' | 'approved' | 'in_progress' | 'on_hold' | 'completed' | 'cancelled';
-export type WorkType = 'residential' | 'commercial' | 'industrial';
+export type WorkType = string;
 
 export interface Work {
   id: string;
@@ -91,7 +91,7 @@ export interface Work {
   title: string;
   description?: string;
   client: Client;
-  type: WorkType;
+  type: string;
   status: WorkStatus;
   address: string;
   city: string;

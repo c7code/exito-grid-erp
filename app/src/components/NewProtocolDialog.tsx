@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
-import type { Work, Client, Task } from '@/types';
+import type { Work, Client } from '@/types';
 import { format } from 'date-fns';
 import { ClientDialog } from '@/components/ClientDialog';
 
@@ -50,14 +50,13 @@ export function NewProtocolDialog({ open, onOpenChange, onSuccess, initialWorkId
     const [, setLoadingInitial] = useState(false);
     const [works, setWorks] = useState<Work[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
-    const [tasks, setTasks] = useState<Task[]>([]);
+
     const [showClientDialog, setShowClientDialog] = useState(false);
     const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
     const [formData, setFormData] = useState({
         workId: initialWorkId || '',
         clientId: '',
-        taskId: '',
         utilityCompany: '',
         concessionaria: '',
         protocolNumber: '',
@@ -76,13 +75,10 @@ export function NewProtocolDialog({ open, onOpenChange, onSuccess, initialWorkId
 
     useEffect(() => {
         if (formData.workId) {
-            loadTasks(formData.workId);
             const work = works.find(w => w.id === formData.workId);
             if (work && work.client && !formData.clientId) {
                 setFormData(prev => ({ ...prev, clientId: work.client.id }));
             }
-        } else {
-            setTasks([]);
         }
     }, [formData.workId, works]);
 
@@ -114,14 +110,7 @@ export function NewProtocolDialog({ open, onOpenChange, onSuccess, initialWorkId
         }
     };
 
-    const loadTasks = async (workId: string) => {
-        try {
-            const tasksData = await api.getTasksByWork(workId);
-            setTasks(tasksData);
-        } catch (err) {
-            console.error(err);
-        }
-    };
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -132,12 +121,20 @@ export function NewProtocolDialog({ open, onOpenChange, onSuccess, initialWorkId
 
         try {
             setLoading(true);
-            const createdProtocol = await api.createProtocol({
-                ...formData,
+            const payload: any = {
+                workId: formData.workId || undefined,
+                clientId: formData.clientId || undefined,
                 concessionaria: formData.utilityCompany,
+                utilityCompany: formData.utilityCompany,
+                protocolNumber: formData.protocolNumber || undefined,
+                description: formData.description || undefined,
+                type: formData.type,
+                priority: formData.priority,
+                slaDays: formData.slaDays,
                 openedAt: new Date(formData.openedAt),
-                status: 'open'
-            });
+                status: 'open',
+            };
+            const createdProtocol = await api.createProtocol(payload);
 
             // Upload attached files to Documents module
             if (attachedFiles.length > 0 && createdProtocol?.id) {
@@ -171,7 +168,6 @@ export function NewProtocolDialog({ open, onOpenChange, onSuccess, initialWorkId
         setFormData({
             workId: initialWorkId || '',
             clientId: '',
-            taskId: '',
             utilityCompany: '',
             concessionaria: '',
             protocolNumber: '',
@@ -227,7 +223,9 @@ export function NewProtocolDialog({ open, onOpenChange, onSuccess, initialWorkId
                                         <SelectValue placeholder="Selecione a obra" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {works.map(w => (
+                                        {works
+                                            .filter(w => !['completed', 'cancelled'].includes(w.status))
+                                            .map(w => (
                                             <SelectItem key={w.id} value={w.id}>{w.code} - {w.title}</SelectItem>
                                         ))}
                                     </SelectContent>
@@ -335,25 +333,7 @@ export function NewProtocolDialog({ open, onOpenChange, onSuccess, initialWorkId
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                                Etapa / Tarefa Relacionada
-                            </Label>
-                            <Select
-                                value={formData.taskId}
-                                onValueChange={(val) => setFormData(prev => ({ ...prev, taskId: val }))}
-                                disabled={!formData.workId || tasks.length === 0}
-                            >
-                                <SelectTrigger className="bg-white border-slate-200">
-                                    <SelectValue placeholder={!formData.workId ? "Selecione uma obra primeiro" : tasks.length === 0 ? "Nenhuma tarefa encontrada" : "Selecione a tarefa"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {tasks.map(t => (
-                                        <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+
 
                         <div className="space-y-2">
                             <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Observações Iniciais</Label>

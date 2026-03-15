@@ -30,6 +30,9 @@ import {
   MoreHorizontal,
   History,
   ExternalLink,
+  Edit,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -37,6 +40,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { api } from '@/api';
 import { ProtocolTimeline } from '@/components/ProtocolTimeline';
 import { NewProtocolDialog } from '@/components/NewProtocolDialog';
@@ -68,10 +76,24 @@ export default function AdminProtocols() {
   const [eventToEdit, setEventToEdit] = useState<ProtocolEvent | undefined>(undefined);
   const [isClientViewerOpen, setIsClientViewerOpen] = useState(false);
   const [viewingClient, setViewingClient] = useState<Client | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingProtocol, setEditingProtocol] = useState<any>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [works, setWorks] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
 
   useEffect(() => {
     loadProtocols();
+    loadAuxData();
   }, []);
+
+  const loadAuxData = async () => {
+    try {
+      const [w, c] = await Promise.all([api.getWorks(), api.getClients()]);
+      setWorks(Array.isArray(w) ? w : []);
+      setClients(Array.isArray(c) ? c : (c?.data ?? []));
+    } catch { /* ignore */ }
+  };
 
   const refreshProtocol = async () => {
     if (!selectedProtocol) return;
@@ -103,6 +125,58 @@ export default function AdminProtocols() {
     p.utilityCompany?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.protocolNumber?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleEditProtocol = (protocol: Protocol) => {
+    setEditingProtocol({
+      id: protocol.id,
+      workId: protocol.workId || '',
+      clientId: protocol.clientId || '',
+      protocolNumber: protocol.protocolNumber || '',
+      utilityCompany: protocol.utilityCompany || '',
+      status: protocol.status || 'open',
+      priority: protocol.priority || 'medium',
+      slaDays: protocol.slaDays || 30,
+      description: protocol.description || '',
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingProtocol) return;
+    try {
+      setEditLoading(true);
+      await api.updateProtocol(editingProtocol.id, {
+        workId: editingProtocol.workId || undefined,
+        clientId: editingProtocol.clientId || undefined,
+        protocolNumber: editingProtocol.protocolNumber || undefined,
+        utilityCompany: editingProtocol.utilityCompany,
+        concessionaria: editingProtocol.utilityCompany,
+        status: editingProtocol.status,
+        priority: editingProtocol.priority,
+        slaDays: editingProtocol.slaDays,
+        description: editingProtocol.description || undefined,
+      });
+      toast.success('Protocolo atualizado!');
+      setIsEditDialogOpen(false);
+      setEditingProtocol(null);
+      loadProtocols();
+    } catch {
+      toast.error('Erro ao atualizar protocolo');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeleteProtocol = async (protocol: Protocol) => {
+    if (!window.confirm(`Deseja desativar o protocolo ${protocol.code}? Ele será mantido no banco para possível reativação.`)) return;
+    try {
+      await api.deleteProtocol(protocol.id);
+      toast.success('Protocolo desativado com sucesso');
+      loadProtocols();
+    } catch {
+      toast.error('Erro ao desativar protocolo');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -254,8 +328,14 @@ export default function AdminProtocols() {
                           <DropdownMenuItem onClick={() => setSelectedProtocol(protocol)}>
                             <History className="w-4 h-4 mr-2" /> Visualizar Linha do Tempo
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditProtocol(protocol)}>
+                            <Edit className="w-4 h-4 mr-2" /> Editar Protocolo
+                          </DropdownMenuItem>
                           <DropdownMenuItem>
                             <ExternalLink className="w-4 h-4 mr-2" /> Acessar Portal Externo
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleDeleteProtocol(protocol)}>
+                            <Trash2 className="w-4 h-4 mr-2" /> Desativar Protocolo
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -356,6 +436,133 @@ export default function AdminProtocols() {
           currentProgress={selectedProtocol.work?.progress}
         />
       )}
+
+      {/* ═══ EDIT PROTOCOL DIALOG ═══ */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-lg p-0 border-none shadow-2xl">
+          <DialogHeader className="p-6 bg-slate-900 text-white">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Edit className="w-5 h-5 text-amber-500" />
+              Editar Protocolo
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-sm">
+              Atualize os dados do protocolo. A exclusão é por soft delete (desativação).
+            </DialogDescription>
+          </DialogHeader>
+          {editingProtocol && (
+            <div className="p-6 bg-slate-50 space-y-4">
+              {/* Obra e Cliente */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5" /> Obra Relacionada
+                  </Label>
+                  <Select value={editingProtocol.workId} onValueChange={val => {
+                    const work = works.find((w: any) => w.id === val);
+                    setEditingProtocol((p: any) => ({
+                      ...p,
+                      workId: val,
+                      clientId: work?.client?.id || p.clientId,
+                    }));
+                  }}>
+                    <SelectTrigger className="bg-white"><SelectValue placeholder="Selecione a obra" /></SelectTrigger>
+                    <SelectContent>
+                      {works.filter((w: any) => !['completed', 'cancelled'].includes(w.status)).map((w: any) => (
+                        <SelectItem key={w.id} value={w.id}>{w.code} - {w.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                    Cliente
+                  </Label>
+                  <Select value={editingProtocol.clientId} onValueChange={val => setEditingProtocol((p: any) => ({ ...p, clientId: val }))}>
+                    <SelectTrigger className="bg-white"><SelectValue placeholder="Selecione o cliente" /></SelectTrigger>
+                    <SelectContent>
+                      {clients.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Nº Protocolo</Label>
+                  <Input
+                    value={editingProtocol.protocolNumber}
+                    onChange={e => setEditingProtocol((p: any) => ({ ...p, protocolNumber: e.target.value }))}
+                    className="bg-white font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Concessionária</Label>
+                  <Input
+                    value={editingProtocol.utilityCompany}
+                    onChange={e => setEditingProtocol((p: any) => ({ ...p, utilityCompany: e.target.value }))}
+                    className="bg-white"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Status</Label>
+                  <Select value={editingProtocol.status} onValueChange={val => setEditingProtocol((p: any) => ({ ...p, status: val }))}>
+                    <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">Aberto</SelectItem>
+                      <SelectItem value="pending">Pendente</SelectItem>
+                      <SelectItem value="in_analysis">Em Análise</SelectItem>
+                      <SelectItem value="requirement">Exigência</SelectItem>
+                      <SelectItem value="approved">Aprovado</SelectItem>
+                      <SelectItem value="rejected">Rejeitado</SelectItem>
+                      <SelectItem value="expired">Expirado</SelectItem>
+                      <SelectItem value="closed">Fechado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Prioridade</Label>
+                  <Select value={editingProtocol.priority} onValueChange={val => setEditingProtocol((p: any) => ({ ...p, priority: val }))}>
+                    <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Baixa</SelectItem>
+                      <SelectItem value="medium">Média</SelectItem>
+                      <SelectItem value="high">Alta</SelectItem>
+                      <SelectItem value="critical">Crítica</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest">SLA (Dias)</Label>
+                  <Input
+                    type="number"
+                    value={editingProtocol.slaDays}
+                    onChange={e => setEditingProtocol((p: any) => ({ ...p, slaDays: parseInt(e.target.value) || 0 }))}
+                    className="bg-white"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Observações</Label>
+                <Textarea
+                  value={editingProtocol.description}
+                  onChange={e => setEditingProtocol((p: any) => ({ ...p, description: e.target.value }))}
+                  className="bg-white min-h-[80px] resize-none"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+                <Button className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold" onClick={handleSaveEdit} disabled={editLoading}>
+                  {editLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                  Salvar Alterações
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ClientDetailViewer
         open={isClientViewerOpen}
