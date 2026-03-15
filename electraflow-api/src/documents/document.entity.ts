@@ -111,6 +111,9 @@ export class Document {
   @Column({ nullable: true })
   proposalId: string;
 
+  @Column({ nullable: true })
+  contractId: string;
+
   @Column()
   url: string;
 

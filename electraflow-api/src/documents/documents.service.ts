@@ -19,12 +19,14 @@ export class DocumentsService {
     type?: DocumentType;
     folderId?: string;
     proposalId?: string;
+    contractId?: string;
   }): Promise<Document[]> {
     const where: any = {};
     if (filters?.workId) where.workId = filters.workId;
     if (filters?.type) where.type = filters.type;
     if (filters?.folderId) where.folderId = filters.folderId;
     if (filters?.proposalId) where.proposalId = filters.proposalId;
+    if (filters?.contractId) where.contractId = filters.contractId;
     return this.documentRepository.find({
       where,
       relations: ['work', 'folder'],

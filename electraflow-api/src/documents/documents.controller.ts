@@ -36,8 +36,9 @@ export class DocumentsController {
     @Query('type') type?: DocumentType,
     @Query('folderId') folderId?: string,
     @Query('proposalId') proposalId?: string,
+    @Query('contractId') contractId?: string,
   ) {
-    return this.documentsService.findAll({ workId, type, folderId, proposalId });
+    return this.documentsService.findAll({ workId, type, folderId, proposalId, contractId });
   }
 
   @Get('by-work/:workId')
@@ -70,7 +71,7 @@ export class DocumentsController {
   )
   async upload(
     @UploadedFile() file: Express.Multer.File,
-    @Body() body: { name?: string; type?: string; workId?: string; folderId?: string; description?: string; purpose?: string; tags?: string; sourceOrganization?: string },
+    @Body() body: { name?: string; type?: string; workId?: string; folderId?: string; description?: string; purpose?: string; tags?: string; sourceOrganization?: string; contractId?: string; proposalId?: string; clientId?: string },
     @Request() req,
   ) {
     // Parse tags from JSON string (sent via FormData)
@@ -90,6 +91,9 @@ export class DocumentsController {
       type: (body.type as DocumentType) || DocumentType.OTHER,
       workId: body.workId || null,
       folderId: body.folderId || null,
+      contractId: body.contractId || null,
+      proposalId: body.proposalId || null,
+      clientId: body.clientId || null,
       description: body.description || null,
       purpose: body.purpose || null,
       tags: parsedTags,

@@ -407,8 +407,26 @@ class ApiService {
   }
 
   // Documents
-  async getDocuments(filters?: { workId?: string; type?: string; folderId?: string; proposalId?: string }) {
+  async getDocuments(filters?: { workId?: string; type?: string; folderId?: string; proposalId?: string; contractId?: string }) {
     const response = await this.client.get('/documents', { params: filters });
+    return response.data;
+  }
+
+  async getContractDocuments(contractId: string) {
+    const response = await this.client.get('/documents', { params: { contractId } });
+    return response.data;
+  }
+
+  async uploadContractDocument(contractId: string, file: File, name?: string, description?: string) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('contractId', contractId);
+    formData.append('type', 'contract');
+    if (name) formData.append('name', name);
+    if (description) formData.append('description', description);
+    const response = await this.client.post('/documents/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   }
 

@@ -20,6 +20,7 @@ import {
     DollarSign, Eye, Trash2, Building2, Printer,
     ArrowLeft, Save, FileText, Link2, Users, Shield, Gavel,
     Send, CheckCircle2, Copy, ExternalLink,
+    Paperclip, Upload, FileType, Download, X,
 } from 'lucide-react';
 import { ContractPDFTemplate } from '@/components/ContractPDFTemplate';
 
@@ -54,6 +55,10 @@ export default function Contracts() {
     const [signatureLinkDialogOpen, setSignatureLinkDialogOpen] = useState(false);
     const [signatureLink, setSignatureLink] = useState('');
     const [signatureStatus, setSignatureStatus] = useState<any>(null);
+    const [contractDocs, setContractDocs] = useState<any[]>([]);
+    const [docsLoading, setDocsLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [isDragOver, setIsDragOver] = useState(false);
 
     const fetchAll = async () => {
         try {
@@ -138,16 +143,27 @@ export default function Contracts() {
         witness2Name: c.witness2Name || '', witness2Document: c.witness2Document || '',
     });
 
+    const loadContractDocs = async (contractId: string) => {
+        setDocsLoading(true);
+        try {
+            const docs = await api.getContractDocuments(contractId);
+            setContractDocs(Array.isArray(docs) ? docs : []);
+        } catch { setContractDocs([]); }
+        finally { setDocsLoading(false); }
+    };
+
     const openDetail = async (c: any) => {
         setSelectedContract(c);
         setForm(contractToForm(c));
         setView('detail');
-        // Load signature status
+        setContractDocs([]);
+        // Load signature status and docs
         if (c.id) {
             try {
                 const status = await api.getContractSignatureStatus(c.id);
                 setSignatureStatus(status);
             } catch { setSignatureStatus(null); }
+            loadContractDocs(c.id);
         }
     };
 
@@ -156,6 +172,29 @@ export default function Contracts() {
         setForm({ type: 'service', status: 'draft' });
         setView('detail');
         setSignatureStatus(null);
+        setContractDocs([]);
+    };
+
+    const handleUploadDocs = async (files: FileList | File[]) => {
+        if (!selectedContract?.id || !files.length) return;
+        setUploading(true);
+        try {
+            for (const file of Array.from(files)) {
+                await api.uploadContractDocument(selectedContract.id, file, file.name);
+            }
+            toast.success(`${Array.from(files).length > 1 ? 'Arquivos enviados' : 'Arquivo enviado'} com sucesso!`);
+            await loadContractDocs(selectedContract.id);
+        } catch { toast.error('Erro ao fazer upload do arquivo'); }
+        finally { setUploading(false); }
+    };
+
+    const handleDeleteDoc = async (docId: string) => {
+        if (!confirm('Remover este arquivo?')) return;
+        try {
+            await api.deleteDocument(docId);
+            setContractDocs(prev => prev.filter((d: any) => d.id !== docId));
+            toast.success('Arquivo removido');
+        } catch { toast.error('Erro ao remover arquivo'); }
     };
 
     const handleGenerateSignatureLink = async () => {
@@ -267,6 +306,12 @@ export default function Contracts() {
                         <TabsTrigger value="clausulas" className="gap-1.5"><Gavel className="w-3.5 h-3.5" /> Cláusulas Jurídicas</TabsTrigger>
                         <TabsTrigger value="obrigacoes" className="gap-1.5"><Shield className="w-3.5 h-3.5" /> Obrigações</TabsTrigger>
                         <TabsTrigger value="testemunhas" className="gap-1.5"><Users className="w-3.5 h-3.5" /> Testemunhas</TabsTrigger>
+                        <TabsTrigger value="documentos" className="gap-1.5">
+                            <Paperclip className="w-3.5 h-3.5" /> Documentos
+                            {contractDocs.length > 0 && (
+                                <span className="ml-1 bg-amber-500 text-white text-[9px] font-bold rounded-full px-1.5 py-0.5 leading-none">{contractDocs.length}</span>
+                            )}
+                        </TabsTrigger>
                         {selectedContract?.addendums?.length > 0 && (
                             <TabsTrigger value="aditivos" className="gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Aditivos ({selectedContract.addendums.length})</TabsTrigger>
                         )}
@@ -442,6 +487,113 @@ export default function Contracts() {
                                 </div>
                             </div>
                         </div>
+                    </TabsContent>
+
+                    {/* TAB: Documentos */}
+                    <TabsContent value="documentos" className="p-6">
+                        {/* Upload Zone */}
+                        {selectedContract?.id && (
+                            <div
+                                className={`relative border-2 border-dashed rounded-xl p-6 mb-5 text-center transition-all cursor-pointer ${
+                                    isDragOver ? 'border-amber-400 bg-amber-50' : 'border-slate-200 bg-slate-50 hover:border-amber-300 hover:bg-amber-50/50'
+                                }`}
+                                onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
+                                onDragLeave={() => setIsDragOver(false)}
+                                onDrop={e => { e.preventDefault(); setIsDragOver(false); handleUploadDocs(e.dataTransfer.files); }}
+                                onClick={() => document.getElementById('contract-file-input')?.click()}
+                            >
+                                <input
+                                    id="contract-file-input"
+                                    type="file"
+                                    multiple
+                                    accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx,.zip"
+                                    className="hidden"
+                                    onChange={e => e.target.files && handleUploadDocs(e.target.files)}
+                                />
+                                {uploading ? (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
+                                        <p className="text-sm text-slate-500">Enviando arquivo(s)...</p>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                                            <Upload className="w-5 h-5 text-amber-600" />
+                                        </div>
+                                        <p className="text-sm font-medium text-slate-700">Clique ou arraste arquivos aqui</p>
+                                        <p className="text-xs text-slate-400">PDF, fotos, documentos Word/Excel • Máx 50 MB por arquivo</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* File Grid */}
+                        {docsLoading ? (
+                            <div className="flex items-center justify-center py-10">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-500" />
+                            </div>
+                        ) : contractDocs.length === 0 ? (
+                            <div className="text-center py-10 text-slate-400">
+                                <Paperclip className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                                <p className="text-sm">Nenhum documento anexado</p>
+                                <p className="text-xs mt-1">Use a área acima para adicionar contrato assinado, fotos, etc.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                {contractDocs.map((doc: any) => {
+                                    const isImage = doc.mimeType?.startsWith('image/');
+                                    const isPdf = doc.mimeType === 'application/pdf';
+                                    const fileUrl = doc.url?.startsWith('http') ? doc.url : `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}${doc.url}`;
+                                    return (
+                                        <div key={doc.id} className="group relative bg-slate-50 border rounded-xl overflow-hidden hover:border-amber-300 hover:shadow-sm transition-all">
+                                            {/* Preview / Icon Area */}
+                                            <div
+                                                className="h-28 flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 cursor-pointer"
+                                                onClick={() => window.open(fileUrl, '_blank')}
+                                            >
+                                                {isImage ? (
+                                                    <img src={fileUrl} alt={doc.name} className="h-full w-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                                ) : isPdf ? (
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <FileType className="w-10 h-10 text-red-400" />
+                                                        <span className="text-[10px] font-bold text-red-400">PDF</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <FileText className="w-10 h-10 text-slate-400" />
+                                                        <span className="text-[10px] text-slate-400 uppercase">{doc.mimeType?.split('/').pop() || 'DOC'}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {/* Info */}
+                                            <div className="p-2">
+                                                <p className="text-xs font-medium text-slate-700 truncate" title={doc.name}>{doc.name || doc.originalName}</p>
+                                                <p className="text-[10px] text-slate-400 mt-0.5">
+                                                    {doc.size ? `${(doc.size / 1024).toFixed(0)} KB` : ''} · {new Date(doc.createdAt).toLocaleDateString('pt-BR')}
+                                                </p>
+                                            </div>
+                                            {/* Actions overlay */}
+                                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    className="w-6 h-6 bg-white rounded-full shadow flex items-center justify-center hover:bg-blue-50"
+                                                    title="Abrir/Download"
+                                                    onClick={e => { e.stopPropagation(); window.open(fileUrl, '_blank'); }}
+                                                >
+                                                    <Download className="w-3 h-3 text-blue-500" />
+                                                </button>
+                                                <button
+                                                    className="w-6 h-6 bg-white rounded-full shadow flex items-center justify-center hover:bg-red-50"
+                                                    title="Remover"
+                                                    onClick={e => { e.stopPropagation(); handleDeleteDoc(doc.id); }}
+                                                >
+                                                    <X className="w-3 h-3 text-red-500" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </TabsContent>
 
                     {/* TAB: Aditivos */}
