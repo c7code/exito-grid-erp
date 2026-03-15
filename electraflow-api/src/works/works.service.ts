@@ -148,13 +148,13 @@ export class WorksService {
   // --- Work Updates (progress tracking with images) ---
 
   async createUpdate(workId: string, data: { description: string; progress: number; imageUrl?: string }): Promise<WorkUpdate> {
-    // Make sure work exists (use findOneBy to avoid loading relations)
+    // Make sure work exists
     const work = await this.workRepository.findOneBy({ id: workId });
     if (!work) {
       throw new NotFoundException('Obra não encontrada');
     }
 
-    // Save the update record
+    // Save the update record with its incremental value
     const update = this.workUpdateRepository.create({
       workId,
       description: data.description,
@@ -163,8 +163,10 @@ export class WorksService {
     });
     const savedUpdate = await this.workUpdateRepository.save(update);
 
-    // Update the work's progress directly (avoids relation cascade issues)
-    await this.workRepository.update(workId, { progress: data.progress });
+    // Accumulate progress on the work (sum all updates, cap at 100)
+    const currentProgress = Number(work.progress) || 0;
+    const newProgress = Math.min(100, Math.max(0, currentProgress + Number(data.progress)));
+    await this.workRepository.update(workId, { progress: newProgress });
 
     return savedUpdate;
   }
@@ -187,6 +189,15 @@ export class WorksService {
   async deleteWorkUpdate(updateId: string): Promise<void> {
     const update = await this.workUpdateRepository.findOneBy({ id: updateId });
     if (!update) throw new NotFoundException('Atualização não encontrada');
+
+    // Subtract this update's progress from the work total before deleting
+    const work = await this.workRepository.findOneBy({ id: update.workId });
+    if (work) {
+      const currentProgress = Number(work.progress) || 0;
+      const restoredProgress = Math.min(100, Math.max(0, currentProgress - Number(update.progress)));
+      await this.workRepository.update(update.workId, { progress: restoredProgress });
+    }
+
     await this.workUpdateRepository.softRemove(update);
   }
 
