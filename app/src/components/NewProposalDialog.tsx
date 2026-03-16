@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -69,11 +69,11 @@ interface ActivityItem {
 }
 
 const serviceTypes: Record<string, string> = {
-    service: 'ServiÃ§o',
+    service: 'Serviço',
     material: 'Material',
 };
 
-const unitOptions = ['UN', 'M', 'MÂ²', 'KG', 'CX', 'PCT', 'JG', 'RL', 'PÃ‡', 'CDA', 'KIT', 'VB'];
+const unitOptions = ['UN', 'M', 'M²', 'KG', 'CX', 'PCT', 'JG', 'RL', 'PÇ', 'CDA', 'KIT', 'VB'];
 
 const emptyItem: ActivityItem = {
     description: '',
@@ -103,13 +103,11 @@ export default function NewProposalDialog({
         parentTempId: string;
         saving: boolean;
     } | null>(null);
-
-    // Editar o agrupamento de dentro da proposta
+    // Editar agrupamento de dentro da proposta
     const [editingKitInProposal, setEditingKitInProposal] = useState<{
-        catalogItem: any;      // o item CE1 do catÃ¡logo
-        parentTempId: string;  // id temporÃ¡rio na proposta
+        catalogItem: any;
+        parentTempId: string;
     } | null>(null);
-
     // Structure import
     const [showStructureSearch, setShowStructureSearch] = useState(false);
     const [structureSearchQuery, setStructureSearchQuery] = useState('');
@@ -146,28 +144,28 @@ export default function NewProposalDialog({
         logisticsCostApplyTo: 'material',
         logisticsCostEmbedMaterialPct: '100',
         logisticsCostEmbedServicePct: '0',
-        logisticsCostDescription: 'Custo referente Ã  mobilizaÃ§Ã£o e desmobilizaÃ§Ã£o de equipes, transporte de equipamentos especializados, veÃ­culos operacionais, combustÃ­vel, pedÃ¡gios e logÃ­stica de campo necessÃ¡rios para a execuÃ§Ã£o dos serviÃ§os no local da obra.',
+        logisticsCostDescription: 'Custo referente à mobilização e desmobilização de equipes, transporte de equipamentos especializados, veículos operacionais, combustível, pedágios e logística de campo necessários para a execução dos serviços no local da obra.',
         adminCostValue: '',
         adminCostMode: 'visible',
         adminCostPercent: '',
         adminCostApplyTo: 'material',
         adminCostEmbedMaterialPct: '100',
         adminCostEmbedServicePct: '0',
-        adminCostDescription: 'Custo referente Ã  gestÃ£o administrativa do contrato, incluindo coordenaÃ§Ã£o tÃ©cnica do projeto, acompanhamento e fiscalizaÃ§Ã£o de fornecedores, controle de qualidade, gestÃ£o documental, elaboraÃ§Ã£o de relatÃ³rios tÃ©cnicos e suporte operacional durante toda a vigÃªncia contratual.',
+        adminCostDescription: 'Custo referente à gestão administrativa do contrato, incluindo coordenação técnica do projeto, acompanhamento e fiscalização de fornecedores, controle de qualidade, gestão documental, elaboração de relatórios técnicos e suporte operacional durante toda a vigência contratual.',
         brokerageCostValue: '',
         brokerageCostMode: 'visible',
         brokerageCostPercent: '',
         brokerageCostApplyTo: 'material',
         brokerageCostEmbedMaterialPct: '100',
         brokerageCostEmbedServicePct: '0',
-        brokerageCostDescription: 'Custo referente a honorÃ¡rios de intermediaÃ§Ã£o comercial, prospecÃ§Ã£o de oportunidades, negociaÃ§Ã£o contratual e assessoria tÃ©cnico-comercial para viabilizaÃ§Ã£o do projeto junto ao contratante.',
+        brokerageCostDescription: 'Custo referente a honorários de intermediação comercial, prospecção de oportunidades, negociação contratual e assessoria técnico-comercial para viabilização do projeto junto ao contratante.',
         insuranceCostValue: '',
         insuranceCostMode: 'visible',
         insuranceCostPercent: '',
         insuranceCostApplyTo: 'material',
         insuranceCostEmbedMaterialPct: '100',
         insuranceCostEmbedServicePct: '0',
-        insuranceCostDescription: 'Custo referente Ã  contrataÃ§Ã£o de seguro de responsabilidade civil, cobertura de riscos operacionais, garantia sobre materiais e equipamentos, e proteÃ§Ã£o patrimonial durante a execuÃ§Ã£o dos serviÃ§os conforme exigÃªncias normativas aplicÃ¡veis.',
+        insuranceCostDescription: 'Custo referente à contratação de seguro de responsabilidade civil, cobertura de riscos operacionais, garantia sobre materiais e equipamentos, e proteção patrimonial durante a execução dos serviços conforme exigências normativas aplicáveis.',
         complianceText: '',
         // Visibilidade dos itens
         itemVisibilityMode: 'detailed',
@@ -195,9 +193,11 @@ export default function NewProposalDialog({
         searchTimerRef.current[index] = setTimeout(async () => {
             try {
                 const suggestions = await api.searchCatalogItems(query);
-                setSearchResults(prev => ({ ...prev, [index]: suggestions }));
+                // Mostrar agrupamentos + itens normais, sem categorias
+                const filtered = suggestions.filter((s: any) => s.dataType !== 'category');
+                setSearchResults(prev => ({ ...prev, [index]: filtered }));
             } catch (err) {
-                console.error('Erro ao buscar catÃ¡logo:', err);
+                console.error('Erro ao buscar catalogo:', err);
             }
         }, 300);
     }, []);
@@ -224,9 +224,9 @@ export default function NewProposalDialog({
                     unitPrice: Number(item.unitPrice || 0),
                     type: item.serviceType === 'service' ? 'service' : 'material',
                 });
-                toast.success('CatÃ¡logo atualizado', { duration: 2000, id: `catalog-sync-${catalogId}` });
+                toast.success('Catálogo atualizado', { duration: 2000, id: `catalog-sync-${catalogId}` });
 
-                // Se o item pertence a um bundle, recalcular o kit pai no catÃ¡logo
+                // Se o item pertence a um bundle, recalcular o kit pai no catálogo
                 // Isso garante que o unitPrice do kit seja a soma dos filhos atuais
                 if (item.parentId) {
                     try {
@@ -238,18 +238,17 @@ export default function NewProposalDialog({
                             );
                         }
                     } catch {
-                        // Silently ignore â€” a atualizaÃ§Ã£o do filho jÃ¡ foi feita
+                        // Silently ignore — a atualização do filho já foi feita
                     }
                 }
             } catch (err) {
-                console.error('Erro ao sincronizar com catÃ¡logo:', err);
-                toast.error('Erro ao atualizar o catÃ¡logo');
+                console.error('Erro ao sincronizar com catálogo:', err);
+                toast.error('Erro ao atualizar o catálogo');
             }
         }, 1500);
     }, []);
 
-
-    // Salvar as novas quantidades/preÃ§os do kit de volta no agrupamento original
+    // Salvar novas quantidades/precos do kit de volta no agrupamento original
     const confirmSaveToGrouping = useCallback(async () => {
         if (!kitUpdateConfirm) return;
         setKitUpdateConfirm(prev => prev ? { ...prev, saving: true } : null);
@@ -277,6 +276,39 @@ export default function NewProposalDialog({
             setKitUpdateConfirm(null);
         }
     }, [kitUpdateConfirm]);
+
+    // Recarregar filhos do kit na proposta apos editar no NewGroupingDialog
+    const reloadKitChildren = useCallback(async (catalogId: string, parentTempId: string) => {
+        try {
+            const groupingData = await api.getGroupingItems(catalogId);
+            const kitItem = await api.getCatalogItem(catalogId).catch(() => null);
+            setItems(prev => {
+                const withoutChildren = prev.filter(it => it.parentId !== parentTempId);
+                const updatedParent = withoutChildren.map(it =>
+                    it.id === parentTempId
+                        ? { ...it, unitPrice: String(kitItem?.unitPrice || '0'), description: kitItem?.name || it.description }
+                        : it
+                );
+                const parentIdx = updatedParent.findIndex(it => it.id === parentTempId);
+                if (parentIdx === -1) return prev;
+                const newChildren = groupingData.map((gi: any) => ({
+                    description: gi.childItem?.name || '',
+                    unitPrice: String(gi.childItem?.unitPrice || 0),
+                    quantity: String(gi.quantity || 1),
+                    unit: gi.unit || gi.childItem?.unit || 'UN',
+                    serviceType: gi.childItem?.type === 'service' ? 'service' : 'material',
+                    parentId: parentTempId,
+                    catalogItemId: gi.childItemId,
+                    showDetailedPrices: true,
+                }));
+                updatedParent.splice(parentIdx + 1, 0, ...newChildren);
+                return updatedParent;
+            });
+            toast.success(`Agrupamento recarregado com ${groupingData.length} item(s)`);
+        } catch {
+            toast.error('Erro ao recarregar o agrupamento na proposta');
+        }
+    }, []);
 
     useEffect(() => {
         if (open) {
@@ -312,28 +344,28 @@ export default function NewProposalDialog({
                     logisticsCostApplyTo: initialData.logisticsCostApplyTo || 'material',
                     logisticsCostEmbedMaterialPct: String(initialData.logisticsCostEmbedMaterialPct ?? '100'),
                     logisticsCostEmbedServicePct: String(initialData.logisticsCostEmbedServicePct ?? '0'),
-                    logisticsCostDescription: initialData.logisticsCostDescription || 'Custo referente Ã  mobilizaÃ§Ã£o e desmobilizaÃ§Ã£o de equipes, transporte de equipamentos especializados, veÃ­culos operacionais, combustÃ­vel, pedÃ¡gios e logÃ­stica de campo necessÃ¡rios para a execuÃ§Ã£o dos serviÃ§os no local da obra.',
+                    logisticsCostDescription: initialData.logisticsCostDescription || 'Custo referente à mobilização e desmobilização de equipes, transporte de equipamentos especializados, veículos operacionais, combustível, pedágios e logística de campo necessários para a execução dos serviços no local da obra.',
                     adminCostValue: String(initialData.adminCostValue || ''),
                     adminCostMode: initialData.adminCostMode || 'visible',
                     adminCostPercent: String(initialData.adminCostPercent || ''),
                     adminCostApplyTo: initialData.adminCostApplyTo || 'material',
                     adminCostEmbedMaterialPct: String(initialData.adminCostEmbedMaterialPct ?? '100'),
                     adminCostEmbedServicePct: String(initialData.adminCostEmbedServicePct ?? '0'),
-                    adminCostDescription: initialData.adminCostDescription || 'Custo referente Ã  gestÃ£o administrativa do contrato, incluindo coordenaÃ§Ã£o tÃ©cnica do projeto, acompanhamento e fiscalizaÃ§Ã£o de fornecedores, controle de qualidade, gestÃ£o documental, elaboraÃ§Ã£o de relatÃ³rios tÃ©cnicos e suporte operacional durante toda a vigÃªncia contratual.',
+                    adminCostDescription: initialData.adminCostDescription || 'Custo referente à gestão administrativa do contrato, incluindo coordenação técnica do projeto, acompanhamento e fiscalização de fornecedores, controle de qualidade, gestão documental, elaboração de relatórios técnicos e suporte operacional durante toda a vigência contratual.',
                     brokerageCostValue: String(initialData.brokerageCostValue || ''),
                     brokerageCostMode: initialData.brokerageCostMode || 'visible',
                     brokerageCostPercent: String(initialData.brokerageCostPercent || ''),
                     brokerageCostApplyTo: initialData.brokerageCostApplyTo || 'material',
                     brokerageCostEmbedMaterialPct: String(initialData.brokerageCostEmbedMaterialPct ?? '100'),
                     brokerageCostEmbedServicePct: String(initialData.brokerageCostEmbedServicePct ?? '0'),
-                    brokerageCostDescription: initialData.brokerageCostDescription || 'Custo referente a honorÃ¡rios de intermediaÃ§Ã£o comercial, prospecÃ§Ã£o de oportunidades, negociaÃ§Ã£o contratual e assessoria tÃ©cnico-comercial para viabilizaÃ§Ã£o do projeto junto ao contratante.',
+                    brokerageCostDescription: initialData.brokerageCostDescription || 'Custo referente a honorários de intermediação comercial, prospecção de oportunidades, negociação contratual e assessoria técnico-comercial para viabilização do projeto junto ao contratante.',
                     insuranceCostValue: String(initialData.insuranceCostValue || ''),
                     insuranceCostMode: initialData.insuranceCostMode || 'visible',
                     insuranceCostPercent: String(initialData.insuranceCostPercent || ''),
                     insuranceCostApplyTo: initialData.insuranceCostApplyTo || 'material',
                     insuranceCostEmbedMaterialPct: String(initialData.insuranceCostEmbedMaterialPct ?? '100'),
                     insuranceCostEmbedServicePct: String(initialData.insuranceCostEmbedServicePct ?? '0'),
-                    insuranceCostDescription: initialData.insuranceCostDescription || 'Custo referente Ã  contrataÃ§Ã£o de seguro de responsabilidade civil, cobertura de riscos operacionais, garantia sobre materiais e equipamentos, e proteÃ§Ã£o patrimonial durante a execuÃ§Ã£o dos serviÃ§os conforme exigÃªncias normativas aplicÃ¡veis.',
+                    insuranceCostDescription: initialData.insuranceCostDescription || 'Custo referente à contratação de seguro de responsabilidade civil, cobertura de riscos operacionais, garantia sobre materiais e equipamentos, e proteção patrimonial durante a execução dos serviços conforme exigências normativas aplicáveis.',
                     complianceText: initialData.complianceText || '',
                     itemVisibilityMode: initialData.itemVisibilityMode || 'detailed',
                     materialSummaryText: initialData.materialSummaryText || '',
@@ -407,70 +439,14 @@ export default function NewProposalDialog({
         if (updated[index].catalogItemId && ['description', 'unitPrice', 'serviceType'].includes(field)) {
             syncCatalogItem(updated[index]);
         }
-
-        // Se for filho de kit, detectar e mostrar banner de confirmaÃ§Ã£o
-        if ((field === 'unitPrice' || field === 'quantity') && updated[index].parentId && updated[index].catalogItemId) {
-            const parentTempId = updated[index].parentId!;
-            const parent = updated.find(it => it.id === parentTempId || (it.isBundleParent && it.id === parentTempId));
-            if (parent?.catalogItemId && parent?.description) {
-                setTimeout(() => {
-                    setKitUpdateConfirm(current => {
-                        if (!current || current.parentTempId !== parentTempId) {
-                            return {
-                                kitName: parent.description,
-                                kitCatalogId: parent.catalogItemId!,
-                                parentTempId,
-                                saving: false,
-                            };
-                        }
-                        return current;
-                    });
-                }, 800);
-            }
-        }
     };
 
-    // Recarregar os filhos do kit na proposta apÃ³s editar no NewGroupingDialog
-    const reloadKitChildren = useCallback(async (catalogId: string, parentTempId: string) => {
-        try {
-            const groupingData = await api.getGroupingItems(catalogId);
-            const kitItem = await api.getCatalogItem(catalogId).catch(() => null);
-            setItems(prev => {
-                // Remover filhos antigos
-                const withoutChildren = prev.filter(it => it.parentId !== parentTempId);
-                // Atualizar o pai com o novo preÃ§o
-                const updatedParent = withoutChildren.map(it =>
-                    it.id === parentTempId
-                        ? { ...it, unitPrice: String(kitItem?.unitPrice || '0'), description: kitItem?.name || it.description }
-                        : it
-                );
-                const parentIdx = updatedParent.findIndex(it => it.id === parentTempId);
-                if (parentIdx === -1) return prev;
-                // Inserir novos filhos
-                const newChildren = groupingData.map((gi: any) => ({
-                    description: gi.childItem?.name || '',
-                    unitPrice: String(gi.childItem?.unitPrice || 0),
-                    quantity: String(gi.quantity || 1),
-                    unit: gi.unit || gi.childItem?.unit || 'UN',
-                    serviceType: gi.childItem?.type === 'service' ? 'service' : 'material',
-                    parentId: parentTempId,
-                    catalogItemId: gi.childItemId,
-                    showDetailedPrices: true,
-                }));
-                updatedParent.splice(parentIdx + 1, 0, ...newChildren);
-                return updatedParent;
-            });
-            toast.success(`Agrupamento recarregado com ${groupingData.length} item(s)`);
-        } catch {
-            toast.error('Erro ao recarregar o agrupamento na proposta');
-        }
-    }, []);
-
+    // Normaliza qualquer formato numérico BR (ex: "3.900,00" ou "3900,00" ou "3900.00") para número
     const parsePrice = (value: string | number): number => {
         if (typeof value === 'number') return isNaN(value) ? 0 : value;
         const s = String(value).trim();
-        // Remove todos os pontos de milhar e troca vÃ­rgula decimal por ponto
-        // Ex: "3.900,50" â†’ "3900.50" | "3900,50" â†’ "3900.50" | "3900.50" â†’ "3900.50"
+        // Remove todos os pontos de milhar e troca vírgula decimal por ponto
+        // Ex: "3.900,50" → "3900.50" | "3900,50" → "3900.50" | "3900.50" → "3900.50"
         const normalized = s.replace(/\.(\d{3})/g, '$1').replace(',', '.');
         const n = parseFloat(normalized);
         return isNaN(n) ? 0 : n;
@@ -491,13 +467,13 @@ export default function NewProposalDialog({
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.title.trim()) newErrors.title = 'TÃ­tulo Ã© obrigatÃ³rio';
+        if (!formData.title.trim()) newErrors.title = 'Título é obrigatório';
         if (!formData.clientId) newErrors.clientId = 'Selecione um cliente';
 
         const hasValidItem = items.some(
             (item) => item.description.trim() && getItemTotal(item) > 0
         );
-        if (!hasValidItem) newErrors.items = 'Adicione ao menos uma atividade com descriÃ§Ã£o e valor';
+        if (!hasValidItem) newErrors.items = 'Adicione ao menos uma atividade com descrição e valor';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -532,28 +508,28 @@ export default function NewProposalDialog({
             logisticsCostApplyTo: 'material',
             logisticsCostEmbedMaterialPct: '100',
             logisticsCostEmbedServicePct: '0',
-            logisticsCostDescription: 'Custo referente Ã  mobilizaÃ§Ã£o e desmobilizaÃ§Ã£o de equipes, transporte de equipamentos especializados, veÃ­culos operacionais, combustÃ­vel, pedÃ¡gios e logÃ­stica de campo necessÃ¡rios para a execuÃ§Ã£o dos serviÃ§os no local da obra.',
+            logisticsCostDescription: 'Custo referente à mobilização e desmobilização de equipes, transporte de equipamentos especializados, veículos operacionais, combustível, pedágios e logística de campo necessários para a execução dos serviços no local da obra.',
             adminCostValue: '',
             adminCostMode: 'visible',
             adminCostPercent: '',
             adminCostApplyTo: 'material',
             adminCostEmbedMaterialPct: '100',
             adminCostEmbedServicePct: '0',
-            adminCostDescription: 'Custo referente Ã  gestÃ£o administrativa do contrato, incluindo coordenaÃ§Ã£o tÃ©cnica do projeto, acompanhamento e fiscalizaÃ§Ã£o de fornecedores, controle de qualidade, gestÃ£o documental, elaboraÃ§Ã£o de relatÃ³rios tÃ©cnicos e suporte operacional durante toda a vigÃªncia contratual.',
+            adminCostDescription: 'Custo referente à gestão administrativa do contrato, incluindo coordenação técnica do projeto, acompanhamento e fiscalização de fornecedores, controle de qualidade, gestão documental, elaboração de relatórios técnicos e suporte operacional durante toda a vigência contratual.',
             brokerageCostValue: '',
             brokerageCostMode: 'visible',
             brokerageCostPercent: '',
             brokerageCostApplyTo: 'material',
             brokerageCostEmbedMaterialPct: '100',
             brokerageCostEmbedServicePct: '0',
-            brokerageCostDescription: 'Custo referente a honorÃ¡rios de intermediaÃ§Ã£o comercial, prospecÃ§Ã£o de oportunidades, negociaÃ§Ã£o contratual e assessoria tÃ©cnico-comercial para viabilizaÃ§Ã£o do projeto junto ao contratante.',
+            brokerageCostDescription: 'Custo referente a honorários de intermediação comercial, prospecção de oportunidades, negociação contratual e assessoria técnico-comercial para viabilização do projeto junto ao contratante.',
             insuranceCostValue: '',
             insuranceCostMode: 'visible',
             insuranceCostPercent: '',
             insuranceCostApplyTo: 'material',
             insuranceCostEmbedMaterialPct: '100',
             insuranceCostEmbedServicePct: '0',
-            insuranceCostDescription: 'Custo referente Ã  contrataÃ§Ã£o de seguro de responsabilidade civil, cobertura de riscos operacionais, garantia sobre materiais e equipamentos, e proteÃ§Ã£o patrimonial durante a execuÃ§Ã£o dos serviÃ§os conforme exigÃªncias normativas aplicÃ¡veis.',
+            insuranceCostDescription: 'Custo referente à contratação de seguro de responsabilidade civil, cobertura de riscos operacionais, garantia sobre materiais e equipamentos, e proteção patrimonial durante a execução dos serviços conforme exigências normativas aplicáveis.',
             complianceText: '',
             itemVisibilityMode: 'detailed',
             materialSummaryText: '',
@@ -688,7 +664,7 @@ export default function NewProposalDialog({
                         console.error('Erro ao enviar anexo:', err);
                     }
                 }
-                toast.success(`${attachedFiles.length} anexo(s) enviado(s) ao mÃ³dulo Documentos`);
+                toast.success(`${attachedFiles.length} anexo(s) enviado(s) ao módulo Documentos`);
             }
 
             resetForm();
@@ -738,18 +714,18 @@ export default function NewProposalDialog({
                     </DialogHeader>
 
                     <form onSubmit={handleSubmit} className="space-y-6 mt-2">
-                        {/* InformaÃ§Ãµes da Proposta */}
+                        {/* Informações da Proposta */}
                         <div className="space-y-4">
                             <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
-                                InformaÃ§Ãµes da Proposta
+                                Informações da Proposta
                             </h3>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="sm:col-span-2">
-                                    <Label htmlFor="prop-title">TÃ­tulo *</Label>
+                                    <Label htmlFor="prop-title">Título *</Label>
                                     <Input
                                         id="prop-title"
-                                        placeholder="Ex: InstalaÃ§Ã£o Residencial Completa"
+                                        placeholder="Ex: Instalação Residencial Completa"
                                         value={formData.title}
                                         onChange={(e) =>
                                             setFormData({ ...formData, title: e.target.value })
@@ -829,7 +805,7 @@ export default function NewProposalDialog({
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
-                                    Atividades / ServiÃ§os
+                                    Atividades / Serviços
                                 </h3>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -848,13 +824,13 @@ export default function NewProposalDialog({
                                             addItem();
                                             // A pequena demora garante que o novo campo exista no DOM
                                             setTimeout(() => {
-                                                const inputs = document.querySelectorAll('input[placeholder="DescriÃ§Ã£o ou pesquisar catÃ¡logo..."]');
+                                                const inputs = document.querySelectorAll('input[placeholder="Descrição ou pesquisar catálogo..."]');
                                                 const lastInput = inputs[inputs.length - 1] as HTMLInputElement;
                                                 if (lastInput) lastInput.focus();
                                             }, 100);
                                         }}>
                                             <Search className="w-4 h-4 mr-2 text-slate-400" />
-                                            Item do CatÃ¡logo
+                                            Item do Catálogo
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={async () => {
                                             setShowStructureSearch(true);
@@ -886,7 +862,7 @@ export default function NewProposalDialog({
                                         </Button>
                                     </div>
                                     <Input
-                                        placeholder="Filtrar por cÃ³digo ou nome..."
+                                        placeholder="Filtrar por código ou nome..."
                                         value={structureSearchQuery}
                                         onChange={e => setStructureSearchQuery(e.target.value)}
                                         className="bg-white"
@@ -957,52 +933,13 @@ export default function NewProposalDialog({
                                 <p className="text-red-500 text-xs">{errors.items}</p>
                             )}
 
-                            {/* Banner de confirmaÃ§Ã£o: atualizar agrupamento? */}
-                            {kitUpdateConfirm && (
-                                <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm">
-                                    <Layers className="w-5 h-5 text-blue-600 shrink-0" />
-                                    <div className="flex-1">
-                                        <p className="font-semibold text-blue-800">
-                                            VocÃª alterou itens do kit <span className="underline">{kitUpdateConfirm.kitName}</span>
-                                        </p>
-                                        <p className="text-blue-600 text-xs mt-0.5">
-                                            Deseja salvar as novas quantidades/preÃ§os de volta no agrupamento original?
-                                        </p>
-                                    </div>
-                                    <div className="flex gap-2 shrink-0">
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-8 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
-                                            onClick={() => setKitUpdateConfirm(null)}
-                                        >
-                                            NÃ£o agora
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                                            disabled={kitUpdateConfirm.saving}
-                                            onClick={confirmSaveToGrouping}
-                                        >
-                                            {kitUpdateConfirm.saving ? (
-                                                <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Salvando...</>
-                                            ) : (
-                                                'Sim, atualizar agrupamento'
-                                            )}
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-
                             <div className="border rounded-lg overflow-hidden">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="w-[30%]">DescriÃ§Ã£o</TableHead>
+                                            <TableHead className="w-[30%]">Descrição</TableHead>
                                             <TableHead>Tipo</TableHead>
-                                            <TableHead>PreÃ§o Unit.</TableHead>
+                                            <TableHead>Preço Unit.</TableHead>
                                             <TableHead>Qtd</TableHead>
                                             <TableHead>UN</TableHead>
                                             <TableHead>Total</TableHead>
@@ -1011,7 +948,7 @@ export default function NewProposalDialog({
                                     </TableHeader>
                                     <TableBody>
                                         {items.map((item, index) => {
-                                            // Se for um filho, verificar se o pai estÃ¡ configurado para mostrar detalhes
+                                            // Se for um filho, verificar se o pai está configurado para mostrar detalhes
                                             if (item.parentId) {
                                                 const parent = items.find(it => it.id === item.parentId || (it.isBundleParent && 'temp-' + items.indexOf(it) === item.parentId));
                                                 if (parent && !parent.showDetailedPrices) {
@@ -1026,7 +963,7 @@ export default function NewProposalDialog({
                                                             <div className="flex items-center gap-2">
                                                                 {item.isBundleParent && <Layers className="w-4 h-4 text-amber-500 shrink-0" />}
                                                                 <Input
-                                                                    placeholder={item.isBundleParent ? "Nome do Kit..." : "DescriÃ§Ã£o ou pesquisar catÃ¡logo..."}
+                                                                    placeholder={item.isBundleParent ? "Nome do Kit..." : "Descrição ou pesquisar catálogo..."}
                                                                     value={item.description}
                                                                     onChange={(e) => {
                                                                         const val = e.target.value;
@@ -1082,7 +1019,7 @@ export default function NewProposalDialog({
                                                                                             toast.error('Erro ao carregar itens do kit.');
                                                                                         }
                                                                                     } else if (suggestion.isGrouping) {
-                                                                                        // Kit/Agrupamento â€” expandir filhos com quantidades corretas
+                                                                                        // Kit/Agrupamento — expandir filhos com quantidades corretas
                                                                                         const parentTempId = 'temp-kit-' + Date.now();
                                                                                         newItems[index] = {
                                                                                             ...newItems[index],
@@ -1118,7 +1055,7 @@ export default function NewProposalDialog({
                                                                                             toast.error('Erro ao carregar itens do agrupamento.');
                                                                                         }
                                                                                     } else {
-                                                                                        // Item normal â€” track catalogItemId for sync
+                                                                                        // Item normal — track catalogItemId for sync
                                                                                         const mappedType = suggestion.type === 'service' ? 'service' : 'material';
                                                                                         newItems[index] = {
                                                                                             ...newItems[index],
@@ -1132,24 +1069,26 @@ export default function NewProposalDialog({
                                                                                     setItems(newItems);
                                                                                 }}
                                                                             >
-                                                                                <div className="flex items-center justify-between">
-                                                                                    <div className="flex flex-col">
-                                                                                        <div className="font-medium flex items-center gap-2">
-                                                                                            {suggestion.dataType === 'category' ? (
-                                                                                                <Layers className="w-3.5 h-3.5 text-amber-500" />
-                                                                                            ) : (
-                                                                                                <Box className="w-3.5 h-3.5 text-slate-400" />
-                                                                                            )}
-                                                                                            {suggestion.name}
+                                                                                <div className="flex items-center justify-between w-full">
+                                                                                    {suggestion.isGrouping ? (
+                                                                                        <div className="flex items-center gap-3 w-full">
+                                                                                            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 shrink-0">
+                                                                                                <Layers className="w-4 h-4 text-blue-600" />
+                                                                                            </div>
+                                                                                            <div className="flex flex-col flex-1 min-w-0">
+                                                                                                <span className="font-semibold text-blue-900 text-sm truncate">{suggestion.name}</span>
+                                                                                                <span className="text-xs text-blue-500">R$ {Number(suggestion.unitPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} &bull; Agrupamento</span>
+                                                                                            </div>
+                                                                                            <span className="text-[11px] bg-blue-600 text-white px-2 py-1 rounded-md font-bold shrink-0">KIT</span>
                                                                                         </div>
-                                                                                        <div className="text-xs text-slate-500">
-                                                                                            {suggestion.dataType === 'category' || suggestion.isGrouping
-                                                                                                ? `Kit â€¢ R$ ${Number(suggestion.unitPrice || 0).toFixed(2)}`
-                                                                                                : `R$ ${Number(suggestion.unitPrice).toLocaleString('pt-BR')} â€¢ ${suggestion.type === 'material' ? 'Material' : 'ServiÃ§o'}`}
+                                                                                    ) : (
+                                                                                        <div className="flex items-center gap-2 w-full">
+                                                                                            <Box className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                                                            <div className="flex flex-col flex-1 min-w-0">
+                                                                                                <span className="font-medium text-sm truncate">{suggestion.name}</span>
+                                                                                                <span className="text-xs text-slate-500">R$ {Number(suggestion.unitPrice).toLocaleString('pt-BR')} &bull; {suggestion.type === 'material' ? 'Material' : 'Servico'}</span>
+                                                                                            </div>
                                                                                         </div>
-                                                                                    </div>
-                                                                                    {(suggestion.dataType === 'category' || suggestion.isGrouping) && (
-                                                                                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">KIT</span>
                                                                                     )}
                                                                                 </div>
                                                                             </div>
@@ -1244,25 +1183,6 @@ export default function NewProposalDialog({
                                                                             <EyeOff className="w-4 h-4 text-slate-400" />
                                                                         )}
                                                                     </Button>
-                                        {item.catalogItemId && (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                title="Editar Agrupamento"
-                                                className="h-6 w-8 p-0 hover:bg-blue-100"
-                                                onClick={async () => {
-                                                    try {
-                                                        const catalogItem = await api.getCatalogItem(item.catalogItemId!);
-                                                        setEditingKitInProposal({ catalogItem, parentTempId: item.id || '' });
-                                                    } catch {
-                                                        toast.error('Erro ao carregar agrupamento');
-                                                    }
-                                                }}
-                                            >
-                                                <Pencil className="w-3.5 h-3.5 text-blue-600" />
-                                            </Button>
-                                        )}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -1322,12 +1242,12 @@ export default function NewProposalDialog({
                                 <Eye className="w-4 h-4" /> Visibilidade para o Cliente
                             </h3>
                             <p className="text-xs text-slate-400">
-                                Controle o que o cliente vÃª na proposta: itens detalhados com preÃ§os unitÃ¡rios, ou um texto comercial profissional com valor global.
+                                Controle o que o cliente vê na proposta: itens detalhados com preços unitários, ou um texto comercial profissional com valor global.
                             </p>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="space-y-2">
-                                    <Label>Modo de ExibiÃ§Ã£o</Label>
+                                    <Label>Modo de Exibição</Label>
                                     <Select
                                         value={formData.itemVisibilityMode}
                                         onValueChange={(v) => setFormData({ ...formData, itemVisibilityMode: v })}
@@ -1337,13 +1257,13 @@ export default function NewProposalDialog({
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="detailed">
-                                                ðŸ“‹ Detalhado â€” Tabelas com preÃ§os unitÃ¡rios
+                                                📋 Detalhado — Tabelas com preços unitários
                                             </SelectItem>
                                             <SelectItem value="summary">
-                                                ðŸ“ Resumo Comercial â€” Texto + valor total
+                                                📝 Resumo Comercial — Texto + valor total
                                             </SelectItem>
                                             <SelectItem value="text_only">
-                                                ðŸ“„ Apenas Texto â€” Sem valores unitÃ¡rios
+                                                📄 Apenas Texto — Sem valores unitários
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -1364,7 +1284,7 @@ export default function NewProposalDialog({
                                 <div className="space-y-4 mt-3">
                                     <div className="flex items-center justify-between">
                                         <p className="text-xs text-slate-500 font-medium">
-                                            Textos comerciais que serÃ£o exibidos ao cliente no lugar das tabelas detalhadas:
+                                            Textos comerciais que serão exibidos ao cliente no lugar das tabelas detalhadas:
                                         </p>
                                         <Button
                                             type="button"
@@ -1379,10 +1299,10 @@ export default function NewProposalDialog({
                                                 if (matItems.length > 0) {
                                                     const descriptions = matItems.map(i => i.description.trim().toLowerCase());
                                                     if (descriptions.length === 1) {
-                                                        matText = `Fornecimento de ${descriptions[0]}, incluindo todo o material necessÃ¡rio para garantir a qualidade e durabilidade da instalaÃ§Ã£o, conforme especificaÃ§Ãµes tÃ©cnicas e normas vigentes.`;
+                                                        matText = `Fornecimento de ${descriptions[0]}, incluindo todo o material necessário para garantir a qualidade e durabilidade da instalação, conforme especificações técnicas e normas vigentes.`;
                                                     } else {
                                                         const last = descriptions.pop();
-                                                        matText = `Fornecimento completo de toda estrutura composta por ${descriptions.join(', ')} e ${last}, incluindo todos os insumos, acessÃ³rios e componentes necessÃ¡rios para a execuÃ§Ã£o conforme especificaÃ§Ãµes tÃ©cnicas aplicÃ¡veis.`;
+                                                        matText = `Fornecimento completo de toda estrutura composta por ${descriptions.join(', ')} e ${last}, incluindo todos os insumos, acessórios e componentes necessários para a execução conforme especificações técnicas aplicáveis.`;
                                                     }
                                                 }
 
@@ -1390,10 +1310,10 @@ export default function NewProposalDialog({
                                                 if (svcItems.length > 0) {
                                                     const descriptions = svcItems.map(i => i.description.trim().toLowerCase());
                                                     if (descriptions.length === 1) {
-                                                        svcText = `PrestaÃ§Ã£o de serviÃ§o de ${descriptions[0]}, executado por equipe tÃ©cnica qualificada e habilitada conforme as normas regulamentadoras aplicÃ¡veis, com garantia de execuÃ§Ã£o profissional.`;
+                                                        svcText = `Prestação de serviço de ${descriptions[0]}, executado por equipe técnica qualificada e habilitada conforme as normas regulamentadoras aplicáveis, com garantia de execução profissional.`;
                                                     } else {
                                                         const last = descriptions.pop();
-                                                        svcText = `PrestaÃ§Ã£o de serviÃ§os especializados incluindo ${descriptions.join(', ')} e ${last}, executados por equipe tÃ©cnica devidamente qualificada, habilitada e em conformidade com as normas regulamentadoras vigentes.`;
+                                                        svcText = `Prestação de serviços especializados incluindo ${descriptions.join(', ')} e ${last}, executados por equipe técnica devidamente qualificada, habilitada e em conformidade com as normas regulamentadoras vigentes.`;
                                                     }
                                                 }
 
@@ -1404,18 +1324,18 @@ export default function NewProposalDialog({
                                                 });
                                             }}
                                         >
-                                            âœ¨ Gerar Texto AutomÃ¡tico
+                                            ✨ Gerar Texto Automático
                                         </Button>
                                     </div>
 
                                     {items.some(i => i.serviceType === 'material') && (
                                         <div className="space-y-2">
                                             <Label className="text-xs text-amber-700 font-semibold">
-                                                Texto Comercial â€” Materiais
+                                                Texto Comercial — Materiais
                                             </Label>
                                             <Textarea
                                                 rows={4}
-                                                placeholder="Ex: Fornecimento de toda estrutura de suporte, derivaÃ§Ã£o e conexÃ£o..."
+                                                placeholder="Ex: Fornecimento de toda estrutura de suporte, derivação e conexão..."
                                                 value={formData.materialSummaryText}
                                                 onChange={(e) => setFormData({ ...formData, materialSummaryText: e.target.value })}
                                                 className="text-sm"
@@ -1426,11 +1346,11 @@ export default function NewProposalDialog({
                                     {items.some(i => i.serviceType !== 'material') && (
                                         <div className="space-y-2">
                                             <Label className="text-xs text-amber-700 font-semibold">
-                                                Texto Comercial â€” ServiÃ§os
+                                                Texto Comercial — Serviços
                                             </Label>
                                             <Textarea
                                                 rows={4}
-                                                placeholder="Ex: ExecuÃ§Ã£o completa dos serviÃ§os de instalaÃ§Ã£o, montagem e comissionamento..."
+                                                placeholder="Ex: Execução completa dos serviços de instalação, montagem e comissionamento..."
                                                 value={formData.serviceSummaryText}
                                                 onChange={(e) => setFormData({ ...formData, serviceSummaryText: e.target.value })}
                                                 className="text-sm"
@@ -1448,17 +1368,17 @@ export default function NewProposalDialog({
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label>DescriÃ§Ã£o da Obra</Label>
+                                    <Label>Descrição da Obra</Label>
                                     <Input
-                                        placeholder="Ex: CondomÃ­nio Real Prime"
+                                        placeholder="Ex: Condomínio Real Prime"
                                         value={formData.workDescription}
                                         onChange={(e) => setFormData({ ...formData, workDescription: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>EndereÃ§o da Obra</Label>
+                                    <Label>Endereço da Obra</Label>
                                     <Input
-                                        placeholder="Ex: Rua Principal, 100 â€” Recife/PE"
+                                        placeholder="Ex: Rua Principal, 100 — Recife/PE"
                                         value={formData.workAddress}
                                         onChange={(e) => setFormData({ ...formData, workAddress: e.target.value })}
                                     />
@@ -1473,11 +1393,11 @@ export default function NewProposalDialog({
                                             <SelectValue placeholder="Selecione o tipo" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="extensao_rede">ExtensÃ£o de Rede</SelectItem>
+                                            <SelectItem value="extensao_rede">Extensão de Rede</SelectItem>
                                             <SelectItem value="energia_solar">Energia Solar</SelectItem>
-                                            <SelectItem value="manutencao_eletrica">ManutenÃ§Ã£o ElÃ©trica</SelectItem>
-                                            <SelectItem value="construcao_civil">ConstruÃ§Ã£o Civil</SelectItem>
-                                            <SelectItem value="telecomunicacoes">TelecomunicaÃ§Ãµes</SelectItem>
+                                            <SelectItem value="manutencao_eletrica">Manutenção Elétrica</SelectItem>
+                                            <SelectItem value="construcao_civil">Construção Civil</SelectItem>
+                                            <SelectItem value="telecomunicacoes">Telecomunicações</SelectItem>
                                             <SelectItem value="outro">Outro</SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -1494,14 +1414,14 @@ export default function NewProposalDialog({
                             </div>
                         </div>
 
-                        {/* ClÃ¡usulas do Contrato */}
+                        {/* Cláusulas do Contrato */}
                         <div className="space-y-4 pt-4 border-t">
                             <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
-                                ClÃ¡usulas do Contrato
+                                Cláusulas do Contrato
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label>ClÃ¡usula de Fornecimento de Materiais</Label>
+                                    <Label>Cláusula de Fornecimento de Materiais</Label>
                                     <Textarea
                                         rows={3}
                                         placeholder="Texto sobre fornecimento de materiais..."
@@ -1510,55 +1430,55 @@ export default function NewProposalDialog({
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>ClÃ¡usula de ExecuÃ§Ã£o do ServiÃ§o</Label>
+                                    <Label>Cláusula de Execução do Serviço</Label>
                                     <Textarea
                                         rows={3}
-                                        placeholder="Texto sobre execuÃ§Ã£o do serviÃ§o..."
+                                        placeholder="Texto sobre execução do serviço..."
                                         value={formData.serviceDescription}
                                         onChange={(e) => setFormData({ ...formData, serviceDescription: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>CondiÃ§Ã£o de Pagamento / Vencimento</Label>
+                                    <Label>Condição de Pagamento / Vencimento</Label>
                                     <Textarea
                                         rows={3}
-                                        placeholder="Ex: ApÃ³s execuÃ§Ã£o do serviÃ§o, mediante emissÃ£o de NF com prazo de 30 dias"
+                                        placeholder="Ex: Após execução do serviço, mediante emissão de NF com prazo de 30 dias"
                                         value={formData.paymentDueCondition}
                                         onChange={(e) => setFormData({ ...formData, paymentDueCondition: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Dados BancÃ¡rios</Label>
+                                    <Label>Dados Bancários</Label>
                                     <Textarea
                                         rows={3}
-                                        placeholder="Banco, AgÃªncia, Conta, PIX..."
+                                        placeholder="Banco, Agência, Conta, PIX..."
                                         value={formData.paymentBank}
                                         onChange={(e) => setFormData({ ...formData, paymentBank: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2 md:col-span-2">
-                                    <Label>ObrigaÃ§Ãµes da CONTRATADA</Label>
+                                    <Label>Obrigações da CONTRATADA</Label>
                                     <Textarea
                                         rows={4}
-                                        placeholder="Cada obrigaÃ§Ã£o em uma nova linha..."
+                                        placeholder="Cada obrigação em uma nova linha..."
                                         value={formData.contractorObligations}
                                         onChange={(e) => setFormData({ ...formData, contractorObligations: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2 md:col-span-2">
-                                    <Label>ObrigaÃ§Ãµes do CONTRATANTE</Label>
+                                    <Label>Obrigações do CONTRATANTE</Label>
                                     <Textarea
                                         rows={4}
-                                        placeholder="Cada obrigaÃ§Ã£o em uma nova linha..."
+                                        placeholder="Cada obrigação em uma nova linha..."
                                         value={formData.clientObligations}
                                         onChange={(e) => setFormData({ ...formData, clientObligations: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2 md:col-span-2">
-                                    <Label>DisposiÃ§Ãµes Gerais</Label>
+                                    <Label>Disposições Gerais</Label>
                                     <Textarea
                                         rows={4}
-                                        placeholder="Deixe em branco para usar as clÃ¡usulas padrÃ£o..."
+                                        placeholder="Deixe em branco para usar as cláusulas padrão..."
                                         value={formData.generalProvisions}
                                         onChange={(e) => setFormData({ ...formData, generalProvisions: e.target.value })}
                                     />
@@ -1566,18 +1486,18 @@ export default function NewProposalDialog({
                             </div>
                         </div>
 
-                        {/* ComposiÃ§Ã£o de Custos */}
+                        {/* Composição de Custos */}
                         <div className="space-y-4 pt-4 border-t">
                             <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                <DollarSign className="w-4 h-4" /> ComposiÃ§Ã£o de Custos Adicionais
+                                <DollarSign className="w-4 h-4" /> Composição de Custos Adicionais
                             </h3>
                             <p className="text-xs text-slate-400">
-                                Configure os custos extras. Escolha se cada custo aparece visÃ­vel na proposta, Ã© embutido no preÃ§o ou Ã© evidenciado com descriÃ§Ã£o tÃ©cnica.
+                                Configure os custos extras. Escolha se cada custo aparece visível na proposta, é embutido no preço ou é evidenciado com descrição técnica.
                             </p>
 
-                            {/* â”€â”€ LogÃ­stico â”€â”€ */}
+                            {/* ── Logístico ── */}
                             <div className="border rounded-lg p-4 space-y-3">
-                                <p className="text-sm font-semibold text-slate-700">Custo LogÃ­stico</p>
+                                <p className="text-sm font-semibold text-slate-700">Custo Logístico</p>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                     <div className="space-y-1">
                                         <Label className="text-xs">Valor (R$)</Label>
@@ -1590,13 +1510,13 @@ export default function NewProposalDialog({
                                             onChange={(e) => setFormData({ ...formData, logisticsCostPercent: e.target.value })} className="h-8 text-sm" />
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="text-xs">ExibiÃ§Ã£o</Label>
+                                        <Label className="text-xs">Exibição</Label>
                                         <Select value={formData.logisticsCostMode} onValueChange={(v) => setFormData({ ...formData, logisticsCostMode: v })}>
                                             <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="visible">VisÃ­vel ao cliente</SelectItem>
-                                                <SelectItem value="embedded">Embutir no preÃ§o</SelectItem>
-                                                <SelectItem value="evidenciado">Evidenciado (com descriÃ§Ã£o)</SelectItem>
+                                                <SelectItem value="visible">Visível ao cliente</SelectItem>
+                                                <SelectItem value="embedded">Embutir no preço</SelectItem>
+                                                <SelectItem value="evidenciado">Evidenciado (com descrição)</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -1612,7 +1532,7 @@ export default function NewProposalDialog({
                                                 }} className="h-8 text-sm" />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label className="text-xs text-amber-700">% em ServiÃ§o</Label>
+                                            <Label className="text-xs text-amber-700">% em Serviço</Label>
                                             <Input type="text" inputMode="decimal" step="1" min="0" max="100" value={formData.logisticsCostEmbedServicePct}
                                                 onChange={(e) => {
                                                     const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
@@ -1623,7 +1543,7 @@ export default function NewProposalDialog({
                                 )}
                                 {formData.logisticsCostMode === 'evidenciado' && (
                                     <div className="space-y-1">
-                                        <Label className="text-xs text-blue-600">DescriÃ§Ã£o tÃ©cnico-comercial</Label>
+                                        <Label className="text-xs text-blue-600">Descrição técnico-comercial</Label>
                                         <Textarea rows={3} value={formData.logisticsCostDescription}
                                             onChange={(e) => setFormData({ ...formData, logisticsCostDescription: e.target.value })}
                                             className="text-sm" placeholder="Descreva a justificativa operacional e comercial deste custo..." />
@@ -1631,7 +1551,7 @@ export default function NewProposalDialog({
                                 )}
                             </div>
 
-                            {/* â”€â”€ Administrativo â”€â”€ */}
+                            {/* ── Administrativo ── */}
                             <div className="border rounded-lg p-4 space-y-3">
                                 <p className="text-sm font-semibold text-slate-700">Custo Administrativo</p>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1646,13 +1566,13 @@ export default function NewProposalDialog({
                                             onChange={(e) => setFormData({ ...formData, adminCostPercent: e.target.value })} className="h-8 text-sm" />
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="text-xs">ExibiÃ§Ã£o</Label>
+                                        <Label className="text-xs">Exibição</Label>
                                         <Select value={formData.adminCostMode} onValueChange={(v) => setFormData({ ...formData, adminCostMode: v })}>
                                             <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="visible">VisÃ­vel ao cliente</SelectItem>
-                                                <SelectItem value="embedded">Embutir no preÃ§o</SelectItem>
-                                                <SelectItem value="evidenciado">Evidenciado (com descriÃ§Ã£o)</SelectItem>
+                                                <SelectItem value="visible">Visível ao cliente</SelectItem>
+                                                <SelectItem value="embedded">Embutir no preço</SelectItem>
+                                                <SelectItem value="evidenciado">Evidenciado (com descrição)</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -1668,7 +1588,7 @@ export default function NewProposalDialog({
                                                 }} className="h-8 text-sm" />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label className="text-xs text-amber-700">% em ServiÃ§o</Label>
+                                            <Label className="text-xs text-amber-700">% em Serviço</Label>
                                             <Input type="text" inputMode="decimal" step="1" min="0" max="100" value={formData.adminCostEmbedServicePct}
                                                 onChange={(e) => {
                                                     const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
@@ -1679,7 +1599,7 @@ export default function NewProposalDialog({
                                 )}
                                 {formData.adminCostMode === 'evidenciado' && (
                                     <div className="space-y-1">
-                                        <Label className="text-xs text-blue-600">DescriÃ§Ã£o tÃ©cnico-comercial</Label>
+                                        <Label className="text-xs text-blue-600">Descrição técnico-comercial</Label>
                                         <Textarea rows={3} value={formData.adminCostDescription}
                                             onChange={(e) => setFormData({ ...formData, adminCostDescription: e.target.value })}
                                             className="text-sm" placeholder="Descreva a justificativa operacional e comercial deste custo..." />
@@ -1687,7 +1607,7 @@ export default function NewProposalDialog({
                                 )}
                             </div>
 
-                            {/* â”€â”€ Corretagem â”€â”€ */}
+                            {/* ── Corretagem ── */}
                             <div className="border rounded-lg p-4 space-y-3">
                                 <p className="text-sm font-semibold text-slate-700">Corretagem</p>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1702,13 +1622,13 @@ export default function NewProposalDialog({
                                             onChange={(e) => setFormData({ ...formData, brokerageCostPercent: e.target.value })} className="h-8 text-sm" />
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="text-xs">ExibiÃ§Ã£o</Label>
+                                        <Label className="text-xs">Exibição</Label>
                                         <Select value={formData.brokerageCostMode} onValueChange={(v) => setFormData({ ...formData, brokerageCostMode: v })}>
                                             <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="visible">VisÃ­vel ao cliente</SelectItem>
-                                                <SelectItem value="embedded">Embutir no preÃ§o</SelectItem>
-                                                <SelectItem value="evidenciado">Evidenciado (com descriÃ§Ã£o)</SelectItem>
+                                                <SelectItem value="visible">Visível ao cliente</SelectItem>
+                                                <SelectItem value="embedded">Embutir no preço</SelectItem>
+                                                <SelectItem value="evidenciado">Evidenciado (com descrição)</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -1724,7 +1644,7 @@ export default function NewProposalDialog({
                                                 }} className="h-8 text-sm" />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label className="text-xs text-amber-700">% em ServiÃ§o</Label>
+                                            <Label className="text-xs text-amber-700">% em Serviço</Label>
                                             <Input type="text" inputMode="decimal" step="1" min="0" max="100" value={formData.brokerageCostEmbedServicePct}
                                                 onChange={(e) => {
                                                     const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
@@ -1735,7 +1655,7 @@ export default function NewProposalDialog({
                                 )}
                                 {formData.brokerageCostMode === 'evidenciado' && (
                                     <div className="space-y-1">
-                                        <Label className="text-xs text-blue-600">DescriÃ§Ã£o tÃ©cnico-comercial</Label>
+                                        <Label className="text-xs text-blue-600">Descrição técnico-comercial</Label>
                                         <Textarea rows={3} value={formData.brokerageCostDescription}
                                             onChange={(e) => setFormData({ ...formData, brokerageCostDescription: e.target.value })}
                                             className="text-sm" placeholder="Descreva a justificativa operacional e comercial deste custo..." />
@@ -1743,7 +1663,7 @@ export default function NewProposalDialog({
                                 )}
                             </div>
 
-                            {/* â”€â”€ Seguro â”€â”€ */}
+                            {/* ── Seguro ── */}
                             <div className="border rounded-lg p-4 space-y-3">
                                 <p className="text-sm font-semibold text-slate-700">Seguro</p>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1758,13 +1678,13 @@ export default function NewProposalDialog({
                                             onChange={(e) => setFormData({ ...formData, insuranceCostPercent: e.target.value })} className="h-8 text-sm" />
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="text-xs">ExibiÃ§Ã£o</Label>
+                                        <Label className="text-xs">Exibição</Label>
                                         <Select value={formData.insuranceCostMode} onValueChange={(v) => setFormData({ ...formData, insuranceCostMode: v })}>
                                             <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="visible">VisÃ­vel ao cliente</SelectItem>
-                                                <SelectItem value="embedded">Embutir no preÃ§o</SelectItem>
-                                                <SelectItem value="evidenciado">Evidenciado (com descriÃ§Ã£o)</SelectItem>
+                                                <SelectItem value="visible">Visível ao cliente</SelectItem>
+                                                <SelectItem value="embedded">Embutir no preço</SelectItem>
+                                                <SelectItem value="evidenciado">Evidenciado (com descrição)</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -1780,7 +1700,7 @@ export default function NewProposalDialog({
                                                 }} className="h-8 text-sm" />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label className="text-xs text-amber-700">% em ServiÃ§o</Label>
+                                            <Label className="text-xs text-amber-700">% em Serviço</Label>
                                             <Input type="text" inputMode="decimal" step="1" min="0" max="100" value={formData.insuranceCostEmbedServicePct}
                                                 onChange={(e) => {
                                                     const v = Math.min(100, Math.max(0, Number(e.target.value) || 0));
@@ -1791,7 +1711,7 @@ export default function NewProposalDialog({
                                 )}
                                 {formData.insuranceCostMode === 'evidenciado' && (
                                     <div className="space-y-1">
-                                        <Label className="text-xs text-blue-600">DescriÃ§Ã£o tÃ©cnico-comercial</Label>
+                                        <Label className="text-xs text-blue-600">Descrição técnico-comercial</Label>
                                         <Textarea rows={3} value={formData.insuranceCostDescription}
                                             onChange={(e) => setFormData({ ...formData, insuranceCostDescription: e.target.value })}
                                             className="text-sm" placeholder="Descreva a justificativa operacional e comercial deste custo..." />
@@ -1809,19 +1729,19 @@ export default function NewProposalDialog({
                                 <Label>Texto de Conformidade (NRs)</Label>
                                 <Textarea
                                     rows={3}
-                                    placeholder="Deixe em branco para texto padrÃ£o: 'Todos os colaboradores da CONTRATADA atendem aos requisitos das NRs aplicÃ¡veis...'"
+                                    placeholder="Deixe em branco para texto padrão: 'Todos os colaboradores da CONTRATADA atendem aos requisitos das NRs aplicáveis...'"
                                     value={formData.complianceText}
                                     onChange={(e) => setFormData({ ...formData, complianceText: e.target.value })}
                                 />
                             </div>
                         </div>
 
-                        {/* ObservaÃ§Ãµes */}
+                        {/* Observações */}
                         <div className="space-y-2">
-                            <Label htmlFor="prop-notes">ObservaÃ§Ãµes</Label>
+                            <Label htmlFor="prop-notes">Observações</Label>
                             <Textarea
                                 id="prop-notes"
-                                placeholder="CondiÃ§Ãµes, prazos de execuÃ§Ã£o, garantias..."
+                                placeholder="Condições, prazos de execução, garantias..."
                                 rows={3}
                                 value={formData.notes}
                                 onChange={(e) =>
@@ -1849,7 +1769,7 @@ export default function NewProposalDialog({
                                 />
                                 <Upload className="w-5 h-5 text-slate-400 group-hover:text-amber-500 transition-colors" />
                                 <span className="text-xs text-slate-500 mt-1">Clique para anexar arquivos</span>
-                                <span className="text-[10px] text-slate-400">Salvos automaticamente no mÃ³dulo Documentos</span>
+                                <span className="text-[10px] text-slate-400">Salvos automaticamente no módulo Documentos</span>
                             </div>
 
                             {attachedFiles.length > 0 && (
@@ -1892,7 +1812,7 @@ export default function NewProposalDialog({
                                 {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                 {loading
                                     ? (initialData ? 'Salvando...' : 'Criando...')
-                                    : (initialData ? 'Salvar AlteraÃ§Ãµes' : 'Criar Proposta')
+                                    : (initialData ? 'Salvar Alterações' : 'Criar Proposta')
                                 }
                             </Button>
                         </DialogFooter>
@@ -1924,4 +1844,3 @@ export default function NewProposalDialog({
         </>
     );
 }
-
