@@ -33,7 +33,7 @@ const categoryLabels: Record<string, string> = {
 
 const emptyTemplate = {
     code: '', name: '', concessionaria: '', normCode: '', tensionLevel: '',
-    category: '', description: '', tags: [] as string[],
+    category: '', description: '', tags: [] as string[], markupPercent: 0,
 };
 
 interface TemplateItem {
@@ -103,7 +103,7 @@ export default function StructureTemplates() {
             code: t.code, name: t.name, concessionaria: t.concessionaria || '',
             normCode: t.normCode || '', tensionLevel: t.tensionLevel || '',
             category: t.category || '', description: t.description || '',
-            tags: t.tags || [],
+            tags: t.tags || [], markupPercent: Number(t.markupPercent || 0),
         });
         setTagsInput((t.tags || []).join(', '));
         setShowDialog(true);
@@ -377,6 +377,22 @@ export default function StructureTemplates() {
                         </div>
                         <div><Label>Descrição</Label><textarea className="w-full border rounded-md p-2 text-sm h-16 resize-none" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Descrição da estrutura..." /></div>
                         <div>
+                            <Label>Margem Agregada <span className="text-gray-400 font-normal text-xs">(% sobre o custo total)</span></Label>
+                            <div className="relative mt-1">
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    max={200}
+                                    step={0.5}
+                                    value={form.markupPercent ?? 0}
+                                    onChange={e => setForm(p => ({ ...p, markupPercent: Number(e.target.value) }))}
+                                    placeholder="Ex: 15"
+                                    className="pr-8"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                            </div>
+                        </div>
+                        <div>
                             <Label>Tags</Label>
                             <Input value={tagsInput} onChange={e => setTagsInput(e.target.value)} placeholder="Separar por vírgula: monofasico, poste_9m, rural" />
                         </div>
@@ -401,7 +417,10 @@ export default function StructureTemplates() {
                     {/* Summary */}
                     <div className="flex flex-col sm:flex-row gap-4 mb-4">
                         <Card className="flex-1"><CardContent className="p-3 text-center"><p className="text-lg font-bold">{items.length}</p><p className="text-xs text-slate-500">Itens</p></CardContent></Card>
-                        <Card className="flex-1"><CardContent className="p-3 text-center"><p className="text-lg font-bold text-green-600">R$ {totalCost.toFixed(2)}</p><p className="text-xs text-slate-500">Custo Total</p></CardContent></Card>
+                        <Card className="flex-1"><CardContent className="p-3 text-center"><p className="text-lg font-bold text-green-600">R$ {totalCost.toFixed(2)}</p><p className="text-xs text-slate-500">Custo Base</p></CardContent></Card>
+                        {Number(selectedTemplate?.markupPercent || 0) > 0 && (
+                            <Card className="flex-1 border-blue-200 bg-blue-50"><CardContent className="p-3 text-center"><p className="text-lg font-bold text-blue-600">R$ {(totalCost * (1 + Number(selectedTemplate.markupPercent) / 100)).toFixed(2)}</p><p className="text-xs text-blue-600">Com Margem ({selectedTemplate.markupPercent}%)</p></CardContent></Card>
+                        )}
                         {uncatalogedItems > 0 && (
                             <Card className="flex-1 border-amber-200 bg-amber-50"><CardContent className="p-3 text-center"><p className="text-lg font-bold text-amber-600">{uncatalogedItems}</p><p className="text-xs text-amber-600">Sem catálogo</p></CardContent></Card>
                         )}

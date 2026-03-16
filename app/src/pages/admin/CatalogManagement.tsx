@@ -279,11 +279,11 @@ export default function AdminCatalogManagement() {
 
     const handleSaveItem = async () => {
         const catIds = editingItem.categoryIds || (editingItem.categoryId ? [editingItem.categoryId] : []);
-        if (!editingItem.name || catIds.length === 0) {
-            toast.error('Nome e pelo menos uma categoria são obrigatórios');
+        if (!editingItem.name) {
+            toast.error('Nome do produto é obrigatório');
             return;
         }
-        const payload: any = { ...editingItem, categoryIds: catIds, categoryId: catIds[0] };
+        const payload: any = { ...editingItem, categoryIds: catIds, categoryId: catIds[0] || null };
         setSaving(true);
         try {
             if (isEditing && editingItem.id) {
@@ -696,7 +696,7 @@ export default function AdminCatalogManagement() {
                                     <Input value={editingItem.name || ''} onChange={e => setEditingItem(p => ({ ...p, name: e.target.value }))} className="mt-1" placeholder="Ex: Cabo XLPE 3x95mm²" />
                                 </div>
                                 <div>
-                                    <Label>Categorias *</Label>
+                                    <Label>Categorias <span className="text-gray-400 font-normal text-xs">(opcional)</span></Label>
                                     {/* Badges dos selecionados */}
                                     <div className="flex flex-wrap gap-1 mt-1 min-h-[28px]">
                                         {(editingItem.categoryIds || []).map(cid => {

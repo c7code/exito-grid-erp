@@ -50,6 +50,8 @@ export class StructureTemplate {
     @Column({ default: true })
     isActive: boolean;
 
+    @Column({ type: 'decimal', precision: 5, scale: 2, default: 0, nullable: true })
+    markupPercent: number;             // Margem agregada sobre o custo total (%)\r\n
     @OneToMany(() => StructureTemplateItem, (item) => item.template, {
         cascade: true,
         eager: true,

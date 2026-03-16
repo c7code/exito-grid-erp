@@ -114,7 +114,6 @@ export class StructureTemplatesService {
         let uncatalogedCount = 0;
 
         for (const item of template.items) {
-            // Prioridade: unitPrice direto > catalogItem.costPrice
             const price = Number(item.unitPrice || 0) > 0
                 ? Number(item.unitPrice)
                 : Number(item.catalogItem?.costPrice || 0);
@@ -124,24 +123,32 @@ export class StructureTemplatesService {
             }
         }
 
+        const markupPercent = Number(template.markupPercent || 0);
+        const totalWithMarkup = totalCost * (1 + markupPercent / 100);
+
         return {
             template,
             totalItems: template.items.length,
             totalCost,
+            markupPercent,
+            totalWithMarkup,
             uncatalogedCount,
         };
     }
 
     async getTemplateForProposal(id: string) {
         const template = await this.findOne(id);
+        const markupMultiplier = 1 + Number(template.markupPercent || 0) / 100;
 
         const proposalItems = template.items
             .filter(item => !item.isOptional)
             .map(item => {
-                // Prioridade: unitPrice direto > catalogItem.unitPrice > catalogItem.costPrice
-                const price = Number(item.unitPrice || 0) > 0
+                const basePrice = Number(item.unitPrice || 0) > 0
                     ? Number(item.unitPrice)
                     : Number(item.catalogItem?.unitPrice || item.catalogItem?.costPrice || 0);
+
+                // Apply markup on each item's unit price
+                const price = parseFloat((basePrice * markupMultiplier).toFixed(2));
 
                 return {
                     description: item.description,
@@ -159,6 +166,7 @@ export class StructureTemplatesService {
         return {
             templateCode: template.code,
             templateName: template.name,
+            markupPercent: Number(template.markupPercent || 0),
             items: proposalItems,
             totalValue,
         };
