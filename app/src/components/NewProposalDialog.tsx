@@ -95,6 +95,13 @@ export default function NewProposalDialog({
     const [showClientDialog, setShowClientDialog] = useState(false);
     const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
+    // Kit grouping update confirmation
+    const [kitUpdateConfirm, setKitUpdateConfirm] = useState<{
+        kitName: string;
+        kitCatalogId: string;
+        parentTempId: string;
+        saving: boolean;
+    } | null>(null);
     // Structure import
     const [showStructureSearch, setShowStructureSearch] = useState(false);
     const [structureSearchQuery, setStructureSearchQuery] = useState('');
@@ -233,6 +240,36 @@ export default function NewProposalDialog({
         }, 1500);
     }, []);
 
+
+    // Salvar as novas quantidades/preços do kit de volta no agrupamento original
+    const confirmSaveToGrouping = useCallback(async () => {
+        if (!kitUpdateConfirm) return;
+        setKitUpdateConfirm(prev => prev ? { ...prev, saving: true } : null);
+        try {
+            const currentItems = itemsRef.current;
+            const children = currentItems.filter(it =>
+                it.parentId === kitUpdateConfirm.parentTempId && it.catalogItemId
+            );
+            await api.saveGroupingItems(kitUpdateConfirm.kitCatalogId, children.map((c, idx) => ({
+                childItemId: c.catalogItemId!,
+                quantity: parseFloat(c.quantity) || 1,
+                unit: c.unit || 'UN',
+                sortOrder: idx,
+            })));
+            await Promise.all(children.map(c =>
+                api.updateCatalogItem(c.catalogItemId!, {
+                    unitPrice: parseFloat(c.unitPrice) || 0,
+                    costPrice: parseFloat(c.unitPrice) || 0,
+                }).catch(() => null)
+            ));
+            toast.success(`Agrupamento "${kitUpdateConfirm.kitName}" atualizado!`, { duration: 3000 });
+        } catch {
+            toast.error('Erro ao atualizar o agrupamento');
+        } finally {
+            setKitUpdateConfirm(null);
+        }
+    }, [kitUpdateConfirm]);
+
     useEffect(() => {
         if (open) {
             if (clients.length === 0) loadClients();
@@ -361,6 +398,27 @@ export default function NewProposalDialog({
         // Sync back to catalog if this item came from catalog
         if (updated[index].catalogItemId && ['description', 'unitPrice', 'serviceType'].includes(field)) {
             syncCatalogItem(updated[index]);
+        }
+
+        // Se for filho de kit, detectar e mostrar banner de confirmação
+        if ((field === 'unitPrice' || field === 'quantity') && updated[index].parentId && updated[index].catalogItemId) {
+            const parentTempId = updated[index].parentId!;
+            const parent = updated.find(it => it.id === parentTempId || (it.isBundleParent && it.id === parentTempId));
+            if (parent?.catalogItemId && parent?.description) {
+                setTimeout(() => {
+                    setKitUpdateConfirm(current => {
+                        if (!current || current.parentTempId !== parentTempId) {
+                            return {
+                                kitName: parent.description,
+                                kitCatalogId: parent.catalogItemId!,
+                                parentTempId,
+                                saving: false,
+                            };
+                        }
+                        return current;
+                    });
+                }, 800);
+            }
         }
     };
 
@@ -854,6 +912,45 @@ export default function NewProposalDialog({
 
                             {errors.items && (
                                 <p className="text-red-500 text-xs">{errors.items}</p>
+                            )}
+
+                            {/* Banner de confirmação: atualizar agrupamento? */}
+                            {kitUpdateConfirm && (
+                                <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm">
+                                    <Layers className="w-5 h-5 text-blue-600 shrink-0" />
+                                    <div className="flex-1">
+                                        <p className="font-semibold text-blue-800">
+                                            Você alterou itens do kit <span className="underline">{kitUpdateConfirm.kitName}</span>
+                                        </p>
+                                        <p className="text-blue-600 text-xs mt-0.5">
+                                            Deseja salvar as novas quantidades/preços de volta no agrupamento original?
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-2 shrink-0">
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                                            onClick={() => setKitUpdateConfirm(null)}
+                                        >
+                                            Não agora
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                                            disabled={kitUpdateConfirm.saving}
+                                            onClick={confirmSaveToGrouping}
+                                        >
+                                            {kitUpdateConfirm.saving ? (
+                                                <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Salvando...</>
+                                            ) : (
+                                                'Sim, atualizar agrupamento'
+                                            )}
+                                        </Button>
+                                    </div>
+                                </div>
                             )}
 
                             <div className="border rounded-lg overflow-hidden">

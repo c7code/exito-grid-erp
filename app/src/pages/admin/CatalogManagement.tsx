@@ -1432,14 +1432,12 @@ export default function AdminCatalogManagement() {
                 open={groupingDialogOpen}
                 onOpenChange={setGroupingDialogOpen}
                 onSuccess={loadData}
-                categories={categories}
                 activeTab={activeTab}
             />
             <NewGroupingDialog
                 open={groupingEditDialogOpen}
                 onOpenChange={(o) => { setGroupingEditDialogOpen(o); if (!o) setEditingGroupingItem(null); }}
                 onSuccess={loadData}
-                categories={categories}
                 activeTab={activeTab}
                 initialItem={editingGroupingItem}
             />

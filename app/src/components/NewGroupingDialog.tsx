@@ -21,7 +21,6 @@ import {
     Package,
     Search,
     Plus,
-    X,
     Loader2,
     Trash2,
     Layers,
@@ -42,23 +41,20 @@ interface NewGroupingDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSuccess: () => void;
-    categories: { id: string; name: string; type?: string }[];
     activeTab: 'material' | 'service';
-    initialItem?: any; // Para modo de edição
+    initialItem?: any;
 }
 
 export default function NewGroupingDialog({
     open,
     onOpenChange,
     onSuccess,
-    categories,
     activeTab,
     initialItem,
 }: NewGroupingDialogProps) {
     const isEditing = !!initialItem;
     const [saving, setSaving] = useState(false);
     const [kitName, setKitName] = useState('');
-    const [kitCategoryIds, setKitCategoryIds] = useState<string[]>([]);
     const [children, setChildren] = useState<GroupingChild[]>([]);
 
     // Product search
@@ -66,27 +62,15 @@ export default function NewGroupingDialog({
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [searching, setSearching] = useState(false);
 
-    // Category filter for search
-    const [catFilterSearch, setCatFilterSearch] = useState('');
-
-    const filteredCategories = categories.filter(c =>
-        (c.type || 'material') === activeTab
-    );
-
     useEffect(() => {
         if (!open) {
             setKitName('');
-            setKitCategoryIds([]);
             setChildren([]);
             setSearchTerm('');
             setSearchResults([]);
-            setCatFilterSearch('');
         } else if (open && initialItem) {
             // Modo edição: pré-preencher dados
             setKitName(initialItem.name || '');
-            const catIds = initialItem.categories?.map((c: any) => c.id) ||
-                (initialItem.categoryId ? [initialItem.categoryId] : []);
-            setKitCategoryIds(catIds);
             // Carregar os itens filhos do agrupamento
             api.getGroupingItems(initialItem.id).then((data: any[]) => {
                 setChildren(data.map((gi: any) => ({
@@ -156,7 +140,6 @@ export default function NewGroupingDialog({
 
     const handleSave = async () => {
         if (!kitName.trim()) { toast.error('Informe o nome do agrupamento'); return; }
-        if (!isEditing && kitCategoryIds.length === 0) { toast.error('Selecione pelo menos uma categoria'); return; }
         if (children.length === 0) { toast.error('Adicione pelo menos um produto ao agrupamento'); return; }
 
         setSaving(true);
@@ -164,22 +147,16 @@ export default function NewGroupingDialog({
             let parentId: string;
 
             if (isEditing) {
-                // Atualizar o item existente
                 await api.updateCatalogItem(initialItem.id, {
                     name: kitName,
                     unitPrice: totalPrice,
                     costPrice: totalPrice,
-                    categoryIds: kitCategoryIds.length > 0 ? kitCategoryIds : undefined,
-                    categoryId: kitCategoryIds[0] || undefined,
                 });
                 parentId = initialItem.id;
             } else {
-                // Criar novo item pai (o kit)
                 const parentItem = await api.createCatalogItem({
                     name: kitName,
                     type: activeTab,
-                    categoryIds: kitCategoryIds,
-                    categoryId: kitCategoryIds[0],
                     isGrouping: true,
                     unitPrice: totalPrice,
                     costPrice: totalPrice,
@@ -247,56 +224,6 @@ export default function NewGroupingDialog({
                                 placeholder="Ex: CE1, Kit Padrão MT, etc."
                                 className="bg-white h-10"
                             />
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-xs font-bold text-slate-500 uppercase">Categorias *</Label>
-                            <div className="space-y-2">
-                                {/* Category search & select */}
-                                <div className="relative">
-                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                                    <Input
-                                        placeholder="Buscar categoria..."
-                                        value={catFilterSearch}
-                                        onChange={e => setCatFilterSearch(e.target.value)}
-                                        className="pl-8 bg-white h-8 text-sm"
-                                    />
-                                </div>
-                                <div className="max-h-28 overflow-y-auto border rounded-lg bg-white p-1 space-y-0.5">
-                                    {filteredCategories
-                                        .filter(c => !catFilterSearch || c.name.toLowerCase().includes(catFilterSearch.toLowerCase()))
-                                        .map(c => {
-                                            const isChecked = kitCategoryIds.includes(c.id);
-                                            return (
-                                                <label key={c.id} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-blue-50 cursor-pointer text-sm">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isChecked}
-                                                        onChange={() => {
-                                                            setKitCategoryIds(prev =>
-                                                                isChecked ? prev.filter(id => id !== c.id) : [...prev, c.id]
-                                                            );
-                                                        }}
-                                                        className="accent-blue-600"
-                                                    />
-                                                    {c.name}
-                                                </label>
-                                            );
-                                        })}
-                                </div>
-                                {kitCategoryIds.length > 0 && (
-                                    <div className="flex flex-wrap gap-1">
-                                        {kitCategoryIds.map(id => {
-                                            const cat = filteredCategories.find(c => c.id === id);
-                                            return (
-                                                <Badge key={id} variant="secondary" className="text-xs gap-1">
-                                                    {cat?.name || id}
-                                                    <X className="w-3 h-3 cursor-pointer" onClick={() => setKitCategoryIds(prev => prev.filter(x => x !== id))} />
-                                                </Badge>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
                         </div>
                     </div>
 
