@@ -140,6 +140,53 @@ export class CatalogService {
         }));
     }
 
+    /**
+     * Recalcula o unitPrice e costPrice de todos os kits (agrupamentos) que contêm o childItemId.
+     * Chamado após atualizar um material para manter os kits sincronizados.
+     * Retorna quantos kits foram atualizados.
+     */
+    async recalcKitPricesForChild(childItemId: string): Promise<{ updatedKits: number; kits: { id: string; name: string; newPrice: number }[] }> {
+        // Buscar todos os registros de grouping onde este item é filho
+        const parentLinks = await this.groupingItemRepository.find({
+            where: { childItemId },
+        });
+
+        if (!parentLinks || parentLinks.length === 0) {
+            return { updatedKits: 0, kits: [] };
+        }
+
+        // IDs únicos dos kits pais
+        const parentIds = [...new Set(parentLinks.map(l => l.parentItemId))];
+        const updatedKits: { id: string; name: string; newPrice: number }[] = [];
+
+        for (const parentId of parentIds) {
+            // Buscar todos os filhos deste kit com preços atuais
+            const children = await this.groupingItemRepository.find({
+                where: { parentItemId: parentId },
+                relations: ['childItem'],
+            });
+
+            // Calcular novo total: soma (unitPrice_filho × quantidade)
+            const newTotal = children.reduce((sum, gi) => {
+                const price = Number(gi.childItem?.unitPrice || 0);
+                const qty = Number(gi.quantity || 1);
+                return sum + (price * qty);
+            }, 0);
+
+            // Atualizar o kit pai
+            const parentItem = await this.itemRepository.findOne({ where: { id: parentId } });
+            if (parentItem) {
+                await this.itemRepository.update(parentId, {
+                    unitPrice: newTotal,
+                    costPrice: newTotal,
+                });
+                updatedKits.push({ id: parentId, name: parentItem.name, newPrice: newTotal });
+            }
+        }
+
+        return { updatedKits: updatedKits.length, kits: updatedKits };
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // ITENS / PRODUTOS
     // ═══════════════════════════════════════════════════════════════

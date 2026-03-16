@@ -94,6 +94,11 @@ export class CatalogController {
         return this.catalogService.expandGrouping(id, multiplier ? parseFloat(multiplier) : 1);
     }
 
+    @Post('items/:id/recalc-kit-prices')
+    recalcKitPricesForChild(@Param('id') id: string) {
+        return this.catalogService.recalcKitPricesForChild(id);
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // NCM — Busca
     // ═══════════════════════════════════════════════════════════════

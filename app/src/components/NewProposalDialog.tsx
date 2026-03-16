@@ -187,6 +187,9 @@ export default function NewProposalDialog({
         }, 300);
     }, []);
 
+    const itemsRef = useRef<ActivityItem[]>([]);
+    useEffect(() => { itemsRef.current = items; }, [items]);
+
     const catalogSyncTimerRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
     const syncCatalogItem = useCallback((item: ActivityItem) => {
@@ -207,6 +210,22 @@ export default function NewProposalDialog({
                     type: item.serviceType === 'service' ? 'service' : 'material',
                 });
                 toast.success('Catálogo atualizado', { duration: 2000, id: `catalog-sync-${catalogId}` });
+
+                // Se o item pertence a um bundle, recalcular o kit pai no catálogo
+                // Isso garante que o unitPrice do kit seja a soma dos filhos atuais
+                if (item.parentId) {
+                    try {
+                        const result = await api.recalcKitPrices(catalogId);
+                        if (result.updatedKits > 0) {
+                            toast.success(
+                                `Kit "${result.kits[0]?.name}" atualizado: R$ ${result.kits[0]?.newPrice.toFixed(2)}`,
+                                { duration: 3000, id: `kit-sync-${result.kits[0]?.id}` }
+                            );
+                        }
+                    } catch {
+                        // Silently ignore — a atualização do filho já foi feita
+                    }
+                }
             } catch (err) {
                 console.error('Erro ao sincronizar com catálogo:', err);
                 toast.error('Erro ao atualizar o catálogo');

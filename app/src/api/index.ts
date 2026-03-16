@@ -782,6 +782,12 @@ class ApiService {
     return response.data;
   }
 
+  // Recalcula o unitPrice dos kits que contêm o item como filho
+  async recalcKitPrices(itemId: string): Promise<{ updatedKits: number; kits: { id: string; name: string; newPrice: number }[] }> {
+    const response = await this.client.post(`/catalog/items/${itemId}/recalc-kit-prices`);
+    return response.data;
+  }
+
   // Protocols
   async getProtocols(status?: string) {
     const params = status ? { status } : {};

@@ -298,6 +298,18 @@ export default function AdminCatalogManagement() {
             if (isEditing && editingItem.id) {
                 await api.updateCatalogItem(editingItem.id, payload);
                 toast.success('Produto atualizado!');
+                // Recalcular kits que contêm este item
+                try {
+                    const result = await api.recalcKitPrices(editingItem.id);
+                    if (result.updatedKits > 0) {
+                        toast.success(
+                            `${result.updatedKits} agrupamento(s) atualizado(s) automaticamente`,
+                            { duration: 3000 }
+                        );
+                    }
+                } catch {
+                    // Silently ignore — o item já foi salvo
+                }
             } else {
                 await api.createCatalogItem(payload);
                 toast.success('Produto cadastrado!');
