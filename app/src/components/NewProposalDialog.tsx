@@ -922,6 +922,42 @@ export default function NewProposalDialog({
                                                                                             console.error('Erro ao buscar itens da categoria:', err);
                                                                                             toast.error('Erro ao carregar itens do kit.');
                                                                                         }
+                                                                                    } else if (suggestion.isGrouping) {
+                                                                                        // Kit/Agrupamento — expandir filhos com quantidades corretas
+                                                                                        const parentTempId = 'temp-kit-' + Date.now();
+                                                                                        newItems[index] = {
+                                                                                            ...newItems[index],
+                                                                                            description: suggestion.name,
+                                                                                            isBundleParent: true,
+                                                                                            id: parentTempId,
+                                                                                            showDetailedPrices: true,
+                                                                                            unitPrice: '0',
+                                                                                            quantity: '1',
+                                                                                            serviceType: suggestion.type === 'service' ? 'service' : 'material',
+                                                                                            catalogItemId: suggestion.id,
+                                                                                        };
+                                                                                        try {
+                                                                                            const groupingData = await api.getGroupingItems(suggestion.id);
+                                                                                            if (groupingData && groupingData.length > 0) {
+                                                                                                const childItems = groupingData.map((gi: any) => ({
+                                                                                                    description: gi.childItem?.name || gi.description || '',
+                                                                                                    unitPrice: String(gi.childItem?.unitPrice || gi.unitPrice || 0),
+                                                                                                    quantity: String(gi.quantity || 1),
+                                                                                                    unit: gi.unit || gi.childItem?.unit || 'UN',
+                                                                                                    serviceType: gi.childItem?.type === 'service' ? 'service' : 'material',
+                                                                                                    parentId: parentTempId,
+                                                                                                    catalogItemId: gi.childItemId,
+                                                                                                    showDetailedPrices: true,
+                                                                                                }));
+                                                                                                newItems.splice(index + 1, 0, ...childItems);
+                                                                                                toast.success(`Kit "${suggestion.name}" expandido com ${childItems.length} item(s)`);
+                                                                                            } else {
+                                                                                                toast.warning('Agrupamento sem itens cadastrados');
+                                                                                            }
+                                                                                        } catch (err) {
+                                                                                            console.error('Erro ao buscar itens do agrupamento:', err);
+                                                                                            toast.error('Erro ao carregar itens do agrupamento.');
+                                                                                        }
                                                                                     } else {
                                                                                         // Item normal — track catalogItemId for sync
                                                                                         const mappedType = suggestion.type === 'service' ? 'service' : 'material';

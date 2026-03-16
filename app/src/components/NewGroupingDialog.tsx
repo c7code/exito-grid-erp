@@ -44,6 +44,7 @@ interface NewGroupingDialogProps {
     onSuccess: () => void;
     categories: { id: string; name: string; type?: string }[];
     activeTab: 'material' | 'service';
+    initialItem?: any; // Para modo de edição
 }
 
 export default function NewGroupingDialog({
@@ -52,7 +53,9 @@ export default function NewGroupingDialog({
     onSuccess,
     categories,
     activeTab,
+    initialItem,
 }: NewGroupingDialogProps) {
+    const isEditing = !!initialItem;
     const [saving, setSaving] = useState(false);
     const [kitName, setKitName] = useState('');
     const [kitCategoryIds, setKitCategoryIds] = useState<string[]>([]);
@@ -78,8 +81,25 @@ export default function NewGroupingDialog({
             setSearchTerm('');
             setSearchResults([]);
             setCatFilterSearch('');
+        } else if (open && initialItem) {
+            // Modo edição: pré-preencher dados
+            setKitName(initialItem.name || '');
+            const catIds = initialItem.categories?.map((c: any) => c.id) ||
+                (initialItem.categoryId ? [initialItem.categoryId] : []);
+            setKitCategoryIds(catIds);
+            // Carregar os itens filhos do agrupamento
+            api.getGroupingItems(initialItem.id).then((data: any[]) => {
+                setChildren(data.map((gi: any) => ({
+                    childItemId: gi.childItemId,
+                    name: gi.childItem?.name || gi.description || '',
+                    unit: gi.unit || gi.childItem?.unit || 'UN',
+                    unitPrice: Number(gi.childItem?.unitPrice || 0),
+                    quantity: Number(gi.quantity || 1),
+                    categoryName: gi.childItem?.category?.name || '',
+                })));
+            }).catch(() => setChildren([]));
         }
-    }, [open]);
+    }, [open, initialItem]);
 
     const handleSearch = useCallback(async (term: string) => {
         if (term.length < 2) { setSearchResults([]); return; }
@@ -132,39 +152,54 @@ export default function NewGroupingDialog({
 
     const handleSave = async () => {
         if (!kitName.trim()) { toast.error('Informe o nome do agrupamento'); return; }
-        if (kitCategoryIds.length === 0) { toast.error('Selecione pelo menos uma categoria'); return; }
+        if (!isEditing && kitCategoryIds.length === 0) { toast.error('Selecione pelo menos uma categoria'); return; }
         if (children.length === 0) { toast.error('Adicione pelo menos um produto ao agrupamento'); return; }
 
         setSaving(true);
         try {
-            // 1. Create the parent item (the kit itself)
-            const parentItem = await api.createCatalogItem({
-                name: kitName,
-                type: activeTab,
-                categoryIds: kitCategoryIds,
-                categoryId: kitCategoryIds[0],
-                isGrouping: true,
-                unitPrice: totalPrice,
-                costPrice: totalPrice,
-                unit: 'KIT',
-                isActive: true,
-                isSoldSeparately: true,
-            });
+            let parentId: string;
 
-            // 2. Set the grouping items (children)
-            await api.saveGroupingItems(parentItem.id, children.map((c, idx) => ({
+            if (isEditing) {
+                // Atualizar o item existente
+                await api.updateCatalogItem(initialItem.id, {
+                    name: kitName,
+                    unitPrice: totalPrice,
+                    costPrice: totalPrice,
+                    categoryIds: kitCategoryIds.length > 0 ? kitCategoryIds : undefined,
+                    categoryId: kitCategoryIds[0] || undefined,
+                });
+                parentId = initialItem.id;
+            } else {
+                // Criar novo item pai (o kit)
+                const parentItem = await api.createCatalogItem({
+                    name: kitName,
+                    type: activeTab,
+                    categoryIds: kitCategoryIds,
+                    categoryId: kitCategoryIds[0],
+                    isGrouping: true,
+                    unitPrice: totalPrice,
+                    costPrice: totalPrice,
+                    unit: 'KIT',
+                    isActive: true,
+                    isSoldSeparately: true,
+                });
+                parentId = parentItem.id;
+            }
+
+            // Salvar os itens filhos (substitui todos)
+            await api.saveGroupingItems(parentId, children.map((c, idx) => ({
                 childItemId: c.childItemId,
                 quantity: c.quantity,
                 unit: c.unit,
                 sortOrder: idx,
             })));
 
-            toast.success(`Agrupamento "${kitName}" criado com sucesso!`);
+            toast.success(`Agrupamento "${kitName}" ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
             onSuccess();
             onOpenChange(false);
         } catch (err: any) {
             console.error(err);
-            toast.error(err?.response?.data?.message || 'Erro ao criar agrupamento');
+            toast.error(err?.response?.data?.message || `Erro ao ${isEditing ? 'atualizar' : 'criar'} agrupamento`);
         } finally {
             setSaving(false);
         }
@@ -180,7 +215,7 @@ export default function NewGroupingDialog({
                             <Layers className="w-7 h-7" />
                         </div>
                         <div>
-                            <DialogTitle className="text-xl font-bold">Novo Agrupamento (Kit)</DialogTitle>
+                            <DialogTitle className="text-xl font-bold">{isEditing ? 'Editar Agrupamento (Kit)' : 'Novo Agrupamento (Kit)'}</DialogTitle>
                             <DialogDescription className="text-blue-200">
                                 Crie um kit composto por produtos já cadastrados com quantidades pré-definidas.
                             </DialogDescription>
@@ -403,10 +438,10 @@ export default function NewGroupingDialog({
                             className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 shadow-lg"
                             disabled={saving}
                         >
-                            {saving ? (
+                        {saving ? (
                                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</>
                             ) : (
-                                <><Layers className="w-4 h-4 mr-2" /> Criar Agrupamento</>
+                                <><Layers className="w-4 h-4 mr-2" /> {isEditing ? 'Salvar Alterações' : 'Criar Agrupamento'}</>
                             )}
                         </Button>
                     </div>

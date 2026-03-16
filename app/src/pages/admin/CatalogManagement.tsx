@@ -210,6 +210,15 @@ export default function AdminCatalogManagement() {
     const [groupingSearchResults, setGroupingSearchResults] = useState<CatalogItem[]>([]);
     const groupingTimeout = useRef<any>(null);
 
+    // Edit grouping
+    const [editingGroupingItem, setEditingGroupingItem] = useState<CatalogItem | null>(null);
+    const [groupingEditDialogOpen, setGroupingEditDialogOpen] = useState(false);
+
+    const handleOpenGroupingEdit = (item: CatalogItem) => {
+        setEditingGroupingItem(item);
+        setGroupingEditDialogOpen(true);
+    };
+
     // ═══════════ DATA LOADING ═══════════
 
     const loadData = useCallback(async () => {
@@ -650,6 +659,11 @@ export default function AdminCatalogManagement() {
                                                         <DropdownMenuItem onClick={() => handleOpenItemDialog(item)}>
                                                             <Pencil className="h-4 w-4 mr-2" /> Editar
                                                         </DropdownMenuItem>
+                                                        {item.isGrouping && (
+                                                            <DropdownMenuItem onClick={() => handleOpenGroupingEdit(item)}>
+                                                                <Package className="h-4 w-4 mr-2" /> Editar Agrupamento
+                                                            </DropdownMenuItem>
+                                                        )}
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteItem(item.id)}>
                                                             <Trash2 className="h-4 w-4 mr-2" /> Excluir
@@ -1393,6 +1407,14 @@ export default function AdminCatalogManagement() {
                 onSuccess={loadData}
                 categories={categories}
                 activeTab={activeTab}
+            />
+            <NewGroupingDialog
+                open={groupingEditDialogOpen}
+                onOpenChange={(o) => { setGroupingEditDialogOpen(o); if (!o) setEditingGroupingItem(null); }}
+                onSuccess={loadData}
+                categories={categories}
+                activeTab={activeTab}
+                initialItem={editingGroupingItem}
             />
         </div>
     );
