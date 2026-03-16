@@ -1183,6 +1183,26 @@ export default function NewProposalDialog({
                                                                             <EyeOff className="w-4 h-4 text-slate-400" />
                                                                         )}
                                                                     </Button>
+                                     {item.catalogItemId && (
+                                         <Button
+                                             type="button"
+                                             variant="ghost"
+                                             size="sm"
+                                             title="Editar Agrupamento"
+                                             className="h-6 w-8 p-0 hover:bg-blue-100"
+                                             onClick={async () => {
+                                                 try {
+                                                     const catalogItem = await api.getCatalogItem(item.catalogItemId!);
+                                                     setEditingKitInProposal({ catalogItem, parentTempId: item.id || '' });
+                                                 } catch {
+                                                     toast.error('Erro ao carregar agrupamento');
+                                                 }
+                                             }}
+                                         >
+                                             <Pencil className="w-3.5 h-3.5 text-blue-600" />
+                                         </Button>
+                                     )}
+
                                                                 </div>
                                                             )}
                                                         </div>
