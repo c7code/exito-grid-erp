@@ -640,11 +640,20 @@ export default function AdminCatalogManagement() {
                                             </TableCell>
                                         </TableRow>
                                     ) : filteredItems.map(item => (
-                                        <TableRow key={item.id} className="cursor-pointer hover:bg-gray-50" onClick={() => handleOpenItemDialog(item)}>
+                                        <TableRow
+                                            key={item.id}
+                                            className="cursor-pointer hover:bg-gray-50"
+                                            onClick={() => item.isGrouping ? handleOpenGroupingEdit(item) : handleOpenItemDialog(item)}
+                                        >
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     <div>
-                                                        <p className="font-medium text-sm">{item.name}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-medium text-sm">{item.name}</p>
+                                                            {item.isGrouping && (
+                                                                <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">KIT</span>
+                                                            )}
+                                                        </div>
                                                         {item.brand && <p className="text-xs text-gray-400">{item.brand} {item.model && `- ${item.model}`}</p>}
                                                     </div>
                                                     {!item.isActive && <Badge variant="outline" className="text-xs text-gray-400">Inativo</Badge>}
@@ -668,12 +677,18 @@ export default function AdminCatalogManagement() {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => handleOpenItemDialog(item)}>
-                                                            <Pencil className="h-4 w-4 mr-2" /> Editar
-                                                        </DropdownMenuItem>
-                                                        {item.isGrouping && (
-                                                            <DropdownMenuItem onClick={() => handleOpenGroupingEdit(item)}>
-                                                                <Package className="h-4 w-4 mr-2" /> Editar Agrupamento
+                                                        {item.isGrouping ? (
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => handleOpenGroupingEdit(item)}>
+                                                                    <Package className="h-4 w-4 mr-2 text-blue-600" /> Editar Agrupamento
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleOpenItemDialog(item)}>
+                                                                    <Pencil className="h-4 w-4 mr-2" /> Editar Dados / Fiscal
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        ) : (
+                                                            <DropdownMenuItem onClick={() => handleOpenItemDialog(item)}>
+                                                                <Pencil className="h-4 w-4 mr-2" /> Editar
                                                             </DropdownMenuItem>
                                                         )}
                                                         <DropdownMenuSeparator />

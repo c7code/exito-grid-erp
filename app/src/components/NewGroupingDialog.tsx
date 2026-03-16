@@ -148,6 +148,10 @@ export default function NewGroupingDialog({
         setChildren(prev => prev.map((c, i) => i === idx ? { ...c, unit } : c));
     };
 
+    const updateUnitPrice = (idx: number, price: number) => {
+        setChildren(prev => prev.map((c, i) => i === idx ? { ...c, unitPrice: Math.max(0, price) } : c));
+    };
+
     const totalPrice = children.reduce((sum, c) => sum + (c.unitPrice * c.quantity), 0);
 
     const handleSave = async () => {
@@ -193,6 +197,15 @@ export default function NewGroupingDialog({
                 unit: c.unit,
                 sortOrder: idx,
             })));
+
+            // Sincronizar preços dos filhos no catálogo (se foram alterados)
+            const priceUpdates = children.map(c =>
+                api.updateCatalogItem(c.childItemId, {
+                    unitPrice: c.unitPrice,
+                    costPrice: c.unitPrice,
+                }).catch(() => null) // silently ignore individual failures
+            );
+            await Promise.all(priceUpdates);
 
             toast.success(`Agrupamento "${kitName}" ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
             onSuccess();
@@ -385,8 +398,19 @@ export default function NewGroupingDialog({
                                                     </SelectContent>
                                                 </Select>
                                             </td>
-                                            <td className="px-2 py-2.5 text-right text-slate-600">
-                                                R$ {child.unitPrice.toFixed(2)}
+                                            <td className="px-2 py-2.5">
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-slate-400 text-sm">R$</span>
+                                                    <Input
+                                                        type="number"
+                                                        min={0}
+                                                        step="0.01"
+                                                        value={child.unitPrice}
+                                                        onChange={e => updateUnitPrice(idx, parseFloat(e.target.value) || 0)}
+                                                        className="h-8 w-24 text-sm text-right"
+                                                        title="Editar preço unitário do material"
+                                                    />
+                                                </div>
                                             </td>
                                             <td className="px-4 py-2.5 text-right font-semibold text-slate-800">
                                                 R$ {(child.unitPrice * child.quantity).toFixed(2)}
