@@ -2047,6 +2047,22 @@ class ApiService {
     const response = await this.client.put('/ai/config', { key, value, isSecret });
     return response.data;
   }
+
+  // ── AI Action Tokens ──
+  async getAiActionTokens() {
+    const response = await this.client.get('/ai/action-tokens');
+    return response.data;
+  }
+
+  async createAiActionToken(data: { targetUserId?: string; durationMinutes: number; description?: string }) {
+    const response = await this.client.post('/ai/action-tokens', data);
+    return response.data;
+  }
+
+  async revokeAiActionToken(id: string) {
+    const response = await this.client.delete(`/ai/action-tokens/${id}`);
+    return response.data;
+  }
 }
 
 export const api = new ApiService();

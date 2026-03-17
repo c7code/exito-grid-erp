@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SystemConfig } from './system-config.entity';
+import { AiActionToken } from './ai-action-token.entity';
 import { AiService } from './ai.service';
 import { AiController } from './ai.controller';
 import { CatalogItem } from '../catalog/catalog.entity';
@@ -12,6 +13,7 @@ import { MarkupConfig } from '../markup/markup.entity';
     imports: [
         TypeOrmModule.forFeature([
             SystemConfig,
+            AiActionToken,
             CatalogItem,
             Supplier,
             StructureTemplate,

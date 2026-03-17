@@ -5,10 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { api } from '@/api';
 import {
     Zap, X, Send, Loader2, Bot, User, Sparkles, Trash2,
-    FileText, Package, AlertTriangle,
+    FileText, Package, AlertTriangle, Shield, Clock, Users, XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ChatMessage {
     role: 'user' | 'assistant';
@@ -25,6 +26,8 @@ const quickSuggestions = [
 ];
 
 export default function AiChatPanel() {
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'admin';
     const [open, setOpen] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
@@ -34,6 +37,57 @@ export default function AiChatPanel() {
     const [analyzeResults, setAnalyzeResults] = useState<any[]>([]);
     const [analyzing, setAnalyzing] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Token management (admin only)
+    const [showTokens, setShowTokens] = useState(false);
+    const [tokens, setTokens] = useState<any[]>([]);
+    const [allUsers, setAllUsers] = useState<any[]>([]);
+    const [tokenTargetUser, setTokenTargetUser] = useState<string>('');
+    const [tokenDuration, setTokenDuration] = useState(60);
+    const [creatingToken, setCreatingToken] = useState(false);
+
+    const loadTokens = async () => {
+        try {
+            const t = await api.getAiActionTokens();
+            setTokens(t);
+        } catch { setTokens([]); }
+    };
+
+    const loadUsers = async () => {
+        try {
+            const u = await api.getUsers();
+            setAllUsers(u.filter((u: any) => u.role !== 'admin'));
+        } catch { setAllUsers([]); }
+    };
+
+    const handleCreateToken = async () => {
+        setCreatingToken(true);
+        try {
+            await api.createAiActionToken({
+                targetUserId: tokenTargetUser || undefined,
+                durationMinutes: tokenDuration,
+                description: tokenTargetUser ? `Para usuário específico` : 'Para todos os usuários',
+            });
+            toast.success('Ações da IA liberadas!');
+            setTokenTargetUser('');
+            loadTokens();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || 'Erro ao criar token');
+        }
+        setCreatingToken(false);
+    };
+
+    const handleRevokeToken = async (id: string) => {
+        try {
+            await api.revokeAiActionToken(id);
+            toast.success('Token revogado');
+            loadTokens();
+        } catch { toast.error('Erro ao revogar'); }
+    };
+
+    useEffect(() => {
+        if (showTokens && isAdmin) { loadTokens(); loadUsers(); }
+    }, [showTokens]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -113,11 +167,22 @@ export default function AiChatPanel() {
                         </div>
                     </div>
                     <div className="flex items-center gap-1">
+                        {isAdmin && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn('h-8 w-8 hover:bg-slate-700', showTokens ? 'text-amber-400' : 'text-slate-400 hover:text-white')}
+                                onClick={() => { setShowTokens(!showTokens); setShowAnalyze(false); }}
+                                title="Gerenciar ações da IA"
+                            >
+                                <Shield className="w-4 h-4" />
+                            </Button>
+                        )}
                         <Button
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-700"
-                            onClick={() => setShowAnalyze(!showAnalyze)}
+                            onClick={() => { setShowAnalyze(!showAnalyze); setShowTokens(false); }}
                             title="Analisar lista de materiais"
                         >
                             <FileText className="w-4 h-4" />
@@ -141,6 +206,81 @@ export default function AiChatPanel() {
                         </Button>
                     </div>
                 </div>
+
+                {/* Token Management Panel (Admin) */}
+                {showTokens && isAdmin && (
+                    <div className="p-3 border-b bg-blue-50 space-y-3 max-h-64 overflow-y-auto">
+                        <p className="text-xs font-bold text-blue-800 flex items-center gap-1">
+                            <Shield className="w-3 h-3" /> Liberar Ações da IA
+                        </p>
+
+                        {/* Create Token */}
+                        <div className="space-y-2 bg-white p-2 rounded-lg border">
+                            <div className="flex gap-2">
+                                <select
+                                    value={tokenTargetUser}
+                                    onChange={e => setTokenTargetUser(e.target.value)}
+                                    className="flex-1 text-xs border rounded px-2 py-1 bg-white"
+                                >
+                                    <option value="">🌐 Todos os usuários</option>
+                                    {allUsers.map((u: any) => (
+                                        <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={tokenDuration}
+                                    onChange={e => setTokenDuration(Number(e.target.value))}
+                                    className="text-xs border rounded px-2 py-1 bg-white w-24"
+                                >
+                                    <option value={15}>15 min</option>
+                                    <option value={30}>30 min</option>
+                                    <option value={60}>1 hora</option>
+                                    <option value={120}>2 horas</option>
+                                    <option value={480}>8 horas</option>
+                                    <option value={1440}>24 horas</option>
+                                </select>
+                            </div>
+                            <Button
+                                onClick={handleCreateToken}
+                                disabled={creatingToken}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs h-7"
+                                size="sm"
+                            >
+                                {creatingToken ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Shield className="w-3 h-3 mr-1" />}
+                                Liberar Ações
+                            </Button>
+                        </div>
+
+                        {/* Active Tokens */}
+                        {tokens.length > 0 && (
+                            <div className="space-y-1">
+                                <p className="text-[10px] text-blue-600 font-medium">Tokens ativos:</p>
+                                {tokens.map((t: any) => (
+                                    <div key={t.id} className="flex items-center justify-between p-2 bg-white rounded border text-xs">
+                                        <div className="flex items-center gap-2">
+                                            <Users className="w-3 h-3 text-blue-500" />
+                                            <span>{t.targetUser?.name || 'Todos'}</span>
+                                            <span className="text-slate-400 flex items-center gap-0.5">
+                                                <Clock className="w-2.5 h-2.5" />
+                                                {new Date(t.expiresAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={() => handleRevokeToken(t.id)}
+                                            className="text-red-400 hover:text-red-600"
+                                            title="Revogar"
+                                        >
+                                            <XCircle className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {tokens.length === 0 && (
+                            <p className="text-[10px] text-blue-400 text-center">Nenhum token ativo. As ações estão bloqueadas para não-admins.</p>
+                        )}
+                    </div>
+                )}
 
                 {/* Analyze Panel */}
                 {showAnalyze && (

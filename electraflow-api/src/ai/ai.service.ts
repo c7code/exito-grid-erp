@@ -1,7 +1,8 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, MoreThan } from 'typeorm';
 import { SystemConfig } from './system-config.entity';
+import { AiActionToken } from './ai-action-token.entity';
 import OpenAI from 'openai';
 
 import { CatalogItem } from '../catalog/catalog.entity';
@@ -10,20 +11,20 @@ import { StructureTemplate } from '../structure-templates/structure-template.ent
 import { MarkupConfig } from '../markup/markup.entity';
 
 // ═══════════════════════════════════════════════════════════════
-// DEFINIÇÃO DAS TOOLS PARA FUNCTION CALLING
+// TOOLS DE CONSULTA (liberadas para todos)
 // ═══════════════════════════════════════════════════════════════
 
-const AI_TOOLS: any[] = [
+const READ_TOOLS: any[] = [
     {
         type: 'function',
         function: {
             name: 'buscar_contratos',
-            description: 'Busca contratos no sistema pelo título, nome do cliente, número ou status. Retorna título, valor, status, cliente e datas.',
+            description: 'Busca contratos no sistema pelo título, nome do cliente, número ou status.',
             parameters: {
                 type: 'object',
                 properties: {
-                    busca: { type: 'string', description: 'Texto para buscar no título, número do contrato ou nome do cliente' },
-                    status: { type: 'string', description: 'Filtrar por status: draft, active, completed, cancelled, suspended, expired', enum: ['draft', 'active', 'completed', 'cancelled', 'suspended', 'expired'] },
+                    busca: { type: 'string', description: 'Texto para buscar no título, número ou cliente' },
+                    status: { type: 'string', enum: ['draft', 'active', 'completed', 'cancelled', 'suspended', 'expired'] },
                 },
             },
         },
@@ -32,12 +33,12 @@ const AI_TOOLS: any[] = [
         type: 'function',
         function: {
             name: 'buscar_propostas',
-            description: 'Busca propostas comerciais no sistema pelo título, número ou cliente. Retorna valores, status, itens e condições.',
+            description: 'Busca propostas comerciais no sistema. Retorna valores, status, itens e condições.',
             parameters: {
                 type: 'object',
                 properties: {
-                    busca: { type: 'string', description: 'Texto para buscar no título, número da proposta ou nome do cliente' },
-                    status: { type: 'string', description: 'Filtrar por status: draft, sent, viewed, accepted, rejected, expired', enum: ['draft', 'sent', 'viewed', 'accepted', 'rejected', 'expired'] },
+                    busca: { type: 'string', description: 'Texto para buscar no título, número ou cliente' },
+                    status: { type: 'string', enum: ['draft', 'sent', 'viewed', 'accepted', 'rejected', 'expired'] },
                 },
             },
         },
@@ -46,12 +47,10 @@ const AI_TOOLS: any[] = [
         type: 'function',
         function: {
             name: 'buscar_obras',
-            description: 'Busca obras/projetos no sistema pelo título ou cliente.',
+            description: 'Busca obras/projetos no sistema.',
             parameters: {
                 type: 'object',
-                properties: {
-                    busca: { type: 'string', description: 'Texto para buscar no título, número da obra ou nome do cliente' },
-                },
+                properties: { busca: { type: 'string', description: 'Título ou cliente' } },
                 required: ['busca'],
             },
         },
@@ -60,12 +59,10 @@ const AI_TOOLS: any[] = [
         type: 'function',
         function: {
             name: 'buscar_clientes',
-            description: 'Busca clientes cadastrados no sistema por nome, CNPJ/CPF ou email.',
+            description: 'Busca clientes cadastrados por nome, CNPJ/CPF ou email.',
             parameters: {
                 type: 'object',
-                properties: {
-                    busca: { type: 'string', description: 'Nome, CNPJ, CPF ou email do cliente' },
-                },
+                properties: { busca: { type: 'string', description: 'Nome, CNPJ, CPF ou email' } },
                 required: ['busca'],
             },
         },
@@ -74,12 +71,12 @@ const AI_TOOLS: any[] = [
         type: 'function',
         function: {
             name: 'buscar_produtos',
-            description: 'Busca produtos/materiais/serviços no catálogo por nome, SKU ou código externo.',
+            description: 'Busca produtos/materiais/serviços no catálogo.',
             parameters: {
                 type: 'object',
                 properties: {
-                    busca: { type: 'string', description: 'Nome, SKU ou código do produto' },
-                    tipo: { type: 'string', description: 'Tipo: material ou service', enum: ['material', 'service'] },
+                    busca: { type: 'string', description: 'Nome, SKU ou código' },
+                    tipo: { type: 'string', enum: ['material', 'service'] },
                 },
                 required: ['busca'],
             },
@@ -89,17 +86,137 @@ const AI_TOOLS: any[] = [
         type: 'function',
         function: {
             name: 'resumo_financeiro',
-            description: 'Retorna resumo financeiro do sistema: total de contratos ativos, propostas aceitas, valores totais, quantidade de obras.',
+            description: 'Retorna resumo financeiro geral do sistema.',
             parameters: { type: 'object', properties: {} },
         },
     },
 ];
+
+// ═══════════════════════════════════════════════════════════════
+// TOOLS DE AÇÃO (requerem autorização)
+// ═══════════════════════════════════════════════════════════════
+
+const ACTION_TOOLS: any[] = [
+    {
+        type: 'function',
+        function: {
+            name: 'criar_proposta',
+            description: 'Cria uma proposta comercial rascunho no sistema. Necessita do nome do cliente e título. Os itens podem ser adicionados opcionalmente.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    clienteNome: { type: 'string', description: 'Nome do cliente (será buscado no sistema)' },
+                    titulo: { type: 'string', description: 'Título da proposta' },
+                    escopo: { type: 'string', description: 'Escopo do serviço' },
+                    prazo: { type: 'string', description: 'Prazo de execução' },
+                    condicoesPagamento: { type: 'string', description: 'Condições de pagamento' },
+                    itens: {
+                        type: 'array',
+                        description: 'Itens da proposta',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                descricao: { type: 'string' },
+                                quantidade: { type: 'number' },
+                                unidade: { type: 'string' },
+                                precoUnitario: { type: 'number' },
+                            },
+                            required: ['descricao', 'quantidade', 'precoUnitario'],
+                        },
+                    },
+                },
+                required: ['clienteNome', 'titulo'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'criar_cliente',
+            description: 'Cadastra um novo cliente no sistema.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    nome: { type: 'string', description: 'Nome ou razão social' },
+                    documento: { type: 'string', description: 'CPF ou CNPJ' },
+                    tipo: { type: 'string', enum: ['pf', 'pj'], description: 'Tipo: pf (pessoa física) ou pj (pessoa jurídica)' },
+                    email: { type: 'string' },
+                    telefone: { type: 'string' },
+                    endereco: { type: 'string' },
+                    cidade: { type: 'string' },
+                    estado: { type: 'string' },
+                },
+                required: ['nome'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'criar_obra',
+            description: 'Cria uma nova obra/projeto no sistema.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    titulo: { type: 'string', description: 'Título da obra' },
+                    clienteNome: { type: 'string', description: 'Nome do cliente' },
+                    tipo: { type: 'string', enum: ['installation', 'maintenance', 'expansion', 'consulting'], description: 'Tipo da obra' },
+                    endereco: { type: 'string' },
+                    cidade: { type: 'string' },
+                    estado: { type: 'string' },
+                    valorEstimado: { type: 'number' },
+                },
+                required: ['titulo'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'atualizar_status_contrato',
+            description: 'Atualiza o status de um contrato existente.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    busca: { type: 'string', description: 'Título ou número do contrato para identificá-lo' },
+                    novoStatus: { type: 'string', enum: ['draft', 'active', 'completed', 'cancelled', 'suspended'], description: 'Novo status' },
+                },
+                required: ['busca', 'novoStatus'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'cadastrar_produto',
+            description: 'Cadastra um novo produto/material/serviço no catálogo.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    nome: { type: 'string', description: 'Nome do produto' },
+                    tipo: { type: 'string', enum: ['material', 'service'], description: 'material ou service' },
+                    unidade: { type: 'string', description: 'Unidade: UN, M, KG, KIT, etc.' },
+                    precoVenda: { type: 'number', description: 'Preço de venda' },
+                    precoCusto: { type: 'number', description: 'Preço de custo' },
+                    sku: { type: 'string', description: 'SKU do produto' },
+                    codigoExterno: { type: 'string', description: 'Código externo' },
+                },
+                required: ['nome', 'tipo', 'unidade'],
+            },
+        },
+    },
+];
+
+// Nomes das tools de ação para verificação rápida
+const ACTION_TOOL_NAMES = new Set(ACTION_TOOLS.map((t: any) => t.function.name));
 
 @Injectable()
 export class AiService {
     constructor(
         @InjectRepository(SystemConfig)
         private configRepo: Repository<SystemConfig>,
+        @InjectRepository(AiActionToken)
+        private actionTokenRepo: Repository<AiActionToken>,
         @InjectRepository(CatalogItem)
         private catalogRepo: Repository<CatalogItem>,
         @InjectRepository(Supplier)
@@ -140,10 +257,54 @@ export class AiService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // CHAT — Assistente com Function Calling
+    // TOKENS DE AÇÃO
     // ═══════════════════════════════════════════════════════════════
 
-    async chat(message: string, history: { role: string; content: string }[] = []) {
+    async getActiveActionTokens() {
+        return this.actionTokenRepo.find({
+            where: { isActive: true, expiresAt: MoreThan(new Date()) },
+            relations: ['createdBy', 'targetUser'],
+            order: { createdAt: 'DESC' },
+        });
+    }
+
+    async createActionToken(createdById: string, targetUserId: string | null, durationMinutes: number, description?: string) {
+        const expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000);
+        const token = this.actionTokenRepo.create({
+            createdById,
+            targetUserId,
+            expiresAt,
+            isActive: true,
+            description: description || (targetUserId ? 'Liberação individual' : 'Liberação para todos'),
+        });
+        return this.actionTokenRepo.save(token);
+    }
+
+    async revokeActionToken(id: string) {
+        await this.actionTokenRepo.update(id, { isActive: false });
+        return { success: true };
+    }
+
+    private async hasActionPermission(userId: string, userRole: string): Promise<boolean> {
+        // Admin sempre tem acesso
+        if (userRole === 'admin') return true;
+
+        // Verificar se existe token válido (para o user específico OU para todos)
+        const token = await this.actionTokenRepo.findOne({
+            where: [
+                { targetUserId: userId, isActive: true, expiresAt: MoreThan(new Date()) },
+                { targetUserId: null as any, isActive: true, expiresAt: MoreThan(new Date()) },
+            ],
+        });
+
+        return !!token;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CHAT — Assistente com Function Calling + Autorização
+    // ═══════════════════════════════════════════════════════════════
+
+    async chat(message: string, history: { role: string; content: string }[] = [], userId?: string, userRole?: string) {
         const apiKey = await this.getConfig('ai_api_key');
         if (!apiKey) throw new BadRequestException('Chave de API não configurada. Vá em Configurações → IA.');
 
@@ -152,15 +313,25 @@ export class AiService {
         if (enabled === 'false') throw new BadRequestException('IA está desabilitada nas configurações.');
 
         try {
+            // Verificar se o user tem permissão para ações
+            const canPerformActions = userId && userRole
+                ? await this.hasActionPermission(userId, userRole)
+                : false;
+
             let systemContext: string;
             try {
-                systemContext = await this.buildSystemContext();
+                systemContext = await this.buildSystemContext(canPerformActions);
             } catch (ctxErr: any) {
-                console.warn('⚠️ Erro ao construir contexto da IA (usando fallback):', ctxErr?.message);
-                systemContext = 'Você é o assistente de IA do sistema ERP Exito System, especializado em engenharia elétrica. Responda em português brasileiro. Você tem acesso a ferramentas para consultar dados do sistema.';
+                console.warn('⚠️ Erro ao construir contexto da IA:', ctxErr?.message);
+                systemContext = 'Você é o assistente de IA do sistema ERP Exito System. Responda em português brasileiro.';
             }
 
             const openai = new OpenAI({ apiKey });
+
+            // Montar tools disponíveis baseado na permissão
+            const availableTools = canPerformActions
+                ? [...READ_TOOLS, ...ACTION_TOOLS]
+                : [...READ_TOOLS];
 
             const messages: any[] = [
                 { role: 'system', content: systemContext },
@@ -168,13 +339,13 @@ export class AiService {
                 { role: 'user', content: message },
             ];
 
-            // Loop de function calling (máx 5 iterações para evitar loop infinito)
+            // Loop de function calling (máx 8 iterações)
             let totalUsage: any = null;
-            for (let iteration = 0; iteration < 5; iteration++) {
+            for (let iteration = 0; iteration < 8; iteration++) {
                 const response = await openai.chat.completions.create({
                     model,
                     messages,
-                    tools: AI_TOOLS,
+                    tools: availableTools,
                     tool_choice: 'auto',
                     temperature: 0.7,
                     max_tokens: 3000,
@@ -184,55 +355,58 @@ export class AiService {
                 const choice = response.choices[0];
                 const msg = choice.message as any;
 
-                // Se a IA quer chamar ferramentas
                 if (choice.finish_reason === 'tool_calls' && msg.tool_calls) {
-                    // Adicionar a mensagem do assistente com as tool_calls
                     messages.push(msg);
 
-                    // Executar cada tool call
                     for (const toolCall of msg.tool_calls) {
                         const fnName = toolCall.function?.name || toolCall.name;
                         const fnArgs = toolCall.function?.arguments || '{}';
-                        console.log(`🔧 AI calling tool: ${fnName}(${fnArgs})`);
+                        console.log(`🔧 AI tool: ${fnName}(${fnArgs.substring(0, 100)})`);
+
                         let result: string;
-                        try {
-                            const args = JSON.parse(fnArgs);
-                            result = await this.executeTool(fnName, args);
-                        } catch (err: any) {
-                            result = JSON.stringify({ error: err?.message || 'Erro ao executar ferramenta' });
+
+                        // Verificar autorização para tools de ação
+                        if (ACTION_TOOL_NAMES.has(fnName) && !canPerformActions) {
+                            result = JSON.stringify({
+                                erro: 'Ações da IA não estão liberadas. O administrador precisa liberar as ações na configuração da IA.',
+                                solucao: 'Peça ao administrador para criar um token de liberação em Configurações → IA → Liberar Ações.',
+                            });
+                        } else {
+                            try {
+                                const args = JSON.parse(fnArgs);
+                                result = await this.executeTool(fnName, args, userId);
+                            } catch (err: any) {
+                                result = JSON.stringify({ error: err?.message || 'Erro ao executar' });
+                            }
                         }
 
-                        // Devolver resultado da tool para a conversa
                         messages.push({
                             role: 'tool',
                             tool_call_id: toolCall.id,
                             content: result,
                         });
                     }
-                    // Continua o loop para que a IA processe os resultados
                     continue;
                 }
 
-                // Resposta final (sem mais tool calls)
                 return {
                     message: msg?.content || 'Sem resposta.',
                     usage: totalUsage,
                 };
             }
 
-            // Se saiu do loop sem resposta final
-            return { message: 'Desculpe, não consegui processar sua solicitação. Tente reformular a pergunta.', usage: totalUsage };
+            return { message: 'Não consegui processar. Tente reformular.', usage: totalUsage };
 
         } catch (error: any) {
-            console.error('❌ Erro no AI chat:', error?.message, error?.status, error?.code);
+            console.error('❌ AI chat error:', error?.message, error?.status, error?.code);
             if (error?.status === 401 || error?.code === 'invalid_api_key') {
-                throw new BadRequestException('Chave de API inválida. Verifique nas configurações.');
+                throw new BadRequestException('Chave de API inválida.');
             }
             if (error?.status === 429) {
-                throw new BadRequestException('Limite de requisições da API atingido. Aguarde alguns minutos.');
+                throw new BadRequestException('Limite de requisições atingido. Aguarde.');
             }
             if (error?.code === 'insufficient_quota') {
-                throw new BadRequestException('Sem créditos na conta OpenAI. Recarregue em platform.openai.com.');
+                throw new BadRequestException('Sem créditos na conta OpenAI.');
             }
             throw new BadRequestException(`Erro na IA: ${error?.message || 'Erro desconhecido'}`);
         }
@@ -242,17 +416,28 @@ export class AiService {
     // EXECUTOR DE FERRAMENTAS
     // ═══════════════════════════════════════════════════════════════
 
-    private async executeTool(name: string, args: any): Promise<string> {
+    private async executeTool(name: string, args: any, userId?: string): Promise<string> {
         switch (name) {
+            // Consultas
             case 'buscar_contratos': return this.toolBuscarContratos(args);
             case 'buscar_propostas': return this.toolBuscarPropostas(args);
             case 'buscar_obras': return this.toolBuscarObras(args);
             case 'buscar_clientes': return this.toolBuscarClientes(args);
             case 'buscar_produtos': return this.toolBuscarProdutos(args);
             case 'resumo_financeiro': return this.toolResumoFinanceiro();
+            // Ações
+            case 'criar_proposta': return this.toolCriarProposta(args, userId);
+            case 'criar_cliente': return this.toolCriarCliente(args);
+            case 'criar_obra': return this.toolCriarObra(args, userId);
+            case 'atualizar_status_contrato': return this.toolAtualizarStatusContrato(args);
+            case 'cadastrar_produto': return this.toolCadastrarProduto(args);
             default: return JSON.stringify({ error: `Ferramenta "${name}" não encontrada` });
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // TOOLS DE CONSULTA
+    // ═══════════════════════════════════════════════════════════════
 
     private async toolBuscarContratos(args: { busca?: string; status?: string }): Promise<string> {
         let query = this.dataSource.createQueryBuilder()
@@ -277,22 +462,15 @@ export class AiService {
         }
 
         const rows = await query.orderBy('c."createdAt"', 'DESC').limit(10).getRawMany();
-        if (rows.length === 0) return JSON.stringify({ mensagem: 'Nenhum contrato encontrado', resultados: [] });
+        if (rows.length === 0) return JSON.stringify({ mensagem: 'Nenhum contrato encontrado' });
 
         return JSON.stringify({
             total: rows.length,
             contratos: rows.map(r => ({
-                numero: r.contractNumber,
-                titulo: r.title,
-                status: r.status,
-                tipo: r.type,
-                valorOriginal: Number(r.originalValue),
-                valorAditivos: Number(r.addendumValue),
-                valorFinal: Number(r.finalValue),
-                inicio: r.startDate,
-                fim: r.endDate,
-                cliente: r.clientName,
-                documentoCliente: r.clientDocument,
+                numero: r.contractNumber, titulo: r.title, status: r.status, tipo: r.type,
+                valorOriginal: Number(r.originalValue), valorAditivos: Number(r.addendumValue),
+                valorFinal: Number(r.finalValue), inicio: r.startDate, fim: r.endDate,
+                cliente: r.clientName, documentoCliente: r.clientDocument,
             })),
         });
     }
@@ -320,48 +498,38 @@ export class AiService {
         }
 
         const rows = await query.orderBy('p."createdAt"', 'DESC').limit(10).getRawMany();
-        if (rows.length === 0) return JSON.stringify({ mensagem: 'Nenhuma proposta encontrada', resultados: [] });
+        if (rows.length === 0) return JSON.stringify({ mensagem: 'Nenhuma proposta encontrada' });
 
-        // Buscar itens das propostas encontradas
-        const proposalIds = rows.map(r => r.id);
+        // Buscar itens
+        const ids = rows.map(r => r.id);
         let items: any[] = [];
-        if (proposalIds.length > 0) {
+        if (ids.length > 0) {
             try {
                 items = await this.dataSource.query(
                     `SELECT pi."proposalId", pi.description, pi.quantity, pi.unit, pi."unitPrice", pi."totalPrice"
                      FROM proposal_items pi WHERE pi."proposalId" = ANY($1) ORDER BY pi."sortOrder"`,
-                    [proposalIds],
+                    [ids],
                 );
             } catch { items = []; }
         }
 
-        const itemsByProposal: Record<string, any[]> = {};
+        const byProp: Record<string, any[]> = {};
         items.forEach(i => {
-            if (!itemsByProposal[i.proposalId]) itemsByProposal[i.proposalId] = [];
-            itemsByProposal[i.proposalId].push({
-                descricao: i.description,
-                quantidade: Number(i.quantity),
-                unidade: i.unit,
-                precoUnitario: Number(i.unitPrice),
-                precoTotal: Number(i.totalPrice),
+            if (!byProp[i.proposalId]) byProp[i.proposalId] = [];
+            byProp[i.proposalId].push({
+                descricao: i.description, quantidade: Number(i.quantity),
+                unidade: i.unit, precoUnitario: Number(i.unitPrice), precoTotal: Number(i.totalPrice),
             });
         });
 
         return JSON.stringify({
             total: rows.length,
             propostas: rows.map(r => ({
-                numero: r.proposalNumber,
-                titulo: r.title,
-                status: r.status,
-                subtotal: Number(r.subtotal),
-                desconto: Number(r.discount),
-                total: Number(r.total),
-                validadeAte: r.validUntil,
-                escopo: r.scope,
-                prazo: r.deadline,
-                condicoesPagamento: r.paymentConditions,
-                cliente: r.clientName,
-                itens: itemsByProposal[r.id] || [],
+                numero: r.proposalNumber, titulo: r.title, status: r.status,
+                subtotal: Number(r.subtotal), desconto: Number(r.discount), total: Number(r.total),
+                validadeAte: r.validUntil, escopo: r.scope, prazo: r.deadline,
+                condicoesPagamento: r.paymentConditions, cliente: r.clientName,
+                itens: byProp[r.id] || [],
             })),
         });
     }
@@ -371,160 +539,222 @@ export class AiService {
             `SELECT w.id, w.title, w.status, w."workType", w."estimatedValue",
                     w."startDate", w."endDate", w.address, w.city, w.state,
                     cl.name AS "clientName"
-             FROM works w
-             LEFT JOIN clients cl ON cl.id = w."clientId"
-             WHERE w."deletedAt" IS NULL
-               AND (w.title ILIKE $1 OR cl.name ILIKE $1)
+             FROM works w LEFT JOIN clients cl ON cl.id = w."clientId"
+             WHERE w."deletedAt" IS NULL AND (w.title ILIKE $1 OR cl.name ILIKE $1)
              ORDER BY w."createdAt" DESC LIMIT 10`,
             [`%${args.busca}%`],
         );
-
-        if (rows.length === 0) return JSON.stringify({ mensagem: 'Nenhuma obra encontrada', resultados: [] });
-
+        if (rows.length === 0) return JSON.stringify({ mensagem: 'Nenhuma obra encontrada' });
         return JSON.stringify({
             total: rows.length,
             obras: rows.map((r: any) => ({
-                titulo: r.title,
-                status: r.status,
-                tipo: r.workType,
-                valorEstimado: Number(r.estimatedValue || 0),
-                inicio: r.startDate,
-                fim: r.endDate,
-                endereco: [r.address, r.city, r.state].filter(Boolean).join(', '),
-                cliente: r.clientName,
+                titulo: r.title, status: r.status, tipo: r.workType,
+                valorEstimado: Number(r.estimatedValue || 0), inicio: r.startDate, fim: r.endDate,
+                endereco: [r.address, r.city, r.state].filter(Boolean).join(', '), cliente: r.clientName,
             })),
         });
     }
 
     private async toolBuscarClientes(args: { busca: string }): Promise<string> {
         const rows = await this.dataSource.query(
-            `SELECT c.id, c.name, c.document, c.email, c.phone, c.type,
-                    c.address, c.city, c.state
-             FROM clients c
-             WHERE c."deletedAt" IS NULL
+            `SELECT c.id, c.name, c.document, c.email, c.phone, c.type, c.address, c.city, c.state
+             FROM clients c WHERE c."deletedAt" IS NULL
                AND (c.name ILIKE $1 OR c.document ILIKE $1 OR c.email ILIKE $1)
              ORDER BY c.name ASC LIMIT 10`,
             [`%${args.busca}%`],
         );
-
-        if (rows.length === 0) return JSON.stringify({ mensagem: 'Nenhum cliente encontrado', resultados: [] });
-
+        if (rows.length === 0) return JSON.stringify({ mensagem: 'Nenhum cliente encontrado' });
         return JSON.stringify({
             total: rows.length,
             clientes: rows.map((r: any) => ({
-                nome: r.name,
-                documento: r.document,
-                email: r.email,
-                telefone: r.phone,
-                tipo: r.type,
+                nome: r.name, documento: r.document, email: r.email,
+                telefone: r.phone, tipo: r.type,
                 endereco: [r.address, r.city, r.state].filter(Boolean).join(', '),
             })),
         });
     }
 
     private async toolBuscarProdutos(args: { busca: string; tipo?: string }): Promise<string> {
-        let query = `
-            SELECT ci.id, ci.name, ci.sku, ci."externalCode", ci.unit, ci.type,
-                   ci."unitPrice", ci."costPrice", ci."currentStock",
-                   cc.name AS "categoryName"
-            FROM catalog_items ci
-            LEFT JOIN catalog_categories cc ON cc.id = ci."categoryId"
-            WHERE ci."deletedAt" IS NULL
-              AND (ci.name ILIKE $1 OR ci.sku ILIKE $1 OR ci."externalCode" ILIKE $1)`;
+        let q = `SELECT ci.id, ci.name, ci.sku, ci."externalCode", ci.unit, ci.type,
+                        ci."unitPrice", ci."costPrice", ci."currentStock", cc.name AS "categoryName"
+                 FROM catalog_items ci LEFT JOIN catalog_categories cc ON cc.id = ci."categoryId"
+                 WHERE ci."deletedAt" IS NULL AND (ci.name ILIKE $1 OR ci.sku ILIKE $1 OR ci."externalCode" ILIKE $1)`;
         const params: any[] = [`%${args.busca}%`];
-
-        if (args.tipo) {
-            query += ` AND ci.type = $2`;
-            params.push(args.tipo);
-        }
-
-        query += ` ORDER BY ci.name ASC LIMIT 15`;
-        const rows = await this.dataSource.query(query, params);
-
-        if (rows.length === 0) return JSON.stringify({ mensagem: 'Nenhum produto encontrado', resultados: [] });
-
+        if (args.tipo) { q += ` AND ci.type = $2`; params.push(args.tipo); }
+        q += ` ORDER BY ci.name ASC LIMIT 15`;
+        const rows = await this.dataSource.query(q, params);
+        if (rows.length === 0) return JSON.stringify({ mensagem: 'Nenhum produto encontrado' });
         return JSON.stringify({
             total: rows.length,
             produtos: rows.map((r: any) => ({
-                nome: r.name,
-                sku: r.sku,
-                codigoExterno: r.externalCode,
-                unidade: r.unit,
-                tipo: r.type,
-                precoVenda: Number(r.unitPrice || 0),
-                precoCusto: Number(r.costPrice || 0),
-                estoque: Number(r.currentStock || 0),
-                categoria: r.categoryName,
+                nome: r.name, sku: r.sku, codigoExterno: r.externalCode, unidade: r.unit, tipo: r.type,
+                precoVenda: Number(r.unitPrice || 0), precoCusto: Number(r.costPrice || 0),
+                estoque: Number(r.currentStock || 0), categoria: r.categoryName,
             })),
         });
     }
 
     private async toolResumoFinanceiro(): Promise<string> {
-        const [contractStats] = await this.dataSource.query(
-            `SELECT COUNT(*) as total,
-                    COUNT(*) FILTER (WHERE status = 'active') as ativos,
-                    COALESCE(SUM("finalValue") FILTER (WHERE status = 'active'), 0) as "valorAtivos",
-                    COALESCE(SUM("finalValue"), 0) as "valorTotal"
+        const [cs] = await this.dataSource.query(
+            `SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status='active') as ativos,
+                    COALESCE(SUM("finalValue") FILTER (WHERE status='active'),0) as "vAtivos",
+                    COALESCE(SUM("finalValue"),0) as "vTotal"
              FROM contracts WHERE "deletedAt" IS NULL`,
         );
-
-        const [proposalStats] = await this.dataSource.query(
-            `SELECT COUNT(*) as total,
-                    COUNT(*) FILTER (WHERE status = 'accepted') as aceitas,
-                    COUNT(*) FILTER (WHERE status = 'draft') as rascunhos,
-                    COUNT(*) FILTER (WHERE status = 'sent') as enviadas,
-                    COALESCE(SUM(total) FILTER (WHERE status = 'accepted'), 0) as "valorAceitas",
-                    COALESCE(SUM(total), 0) as "valorTotal"
+        const [ps] = await this.dataSource.query(
+            `SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status='accepted') as aceitas,
+                    COUNT(*) FILTER (WHERE status='draft') as rascunhos, COUNT(*) FILTER (WHERE status='sent') as enviadas,
+                    COALESCE(SUM(total) FILTER (WHERE status='accepted'),0) as "vAceitas",
+                    COALESCE(SUM(total),0) as "vTotal"
              FROM proposals WHERE "deletedAt" IS NULL`,
         );
-
-        const [workStats] = await this.dataSource.query(
-            `SELECT COUNT(*) as total,
-                    COUNT(*) FILTER (WHERE status = 'in_progress') as "emAndamento",
-                    COUNT(*) FILTER (WHERE status = 'completed') as concluidas,
-                    COALESCE(SUM("estimatedValue"), 0) as "valorEstimado"
+        const [ws] = await this.dataSource.query(
+            `SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status='in_progress') as andamento,
+                    COUNT(*) FILTER (WHERE status='completed') as concluidas,
+                    COALESCE(SUM("estimatedValue"),0) as "vEstimado"
              FROM works WHERE "deletedAt" IS NULL`,
         );
+        const [cls] = await this.dataSource.query(`SELECT COUNT(*) as total FROM clients WHERE "deletedAt" IS NULL`);
+        const [cat] = await this.dataSource.query(
+            `SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE type='material') as mat, COUNT(*) FILTER (WHERE type='service') as svc
+             FROM catalog_items WHERE "deletedAt" IS NULL`,
+        );
+        return JSON.stringify({
+            contratos: { total: +cs.total, ativos: +cs.ativos, valorAtivos: +cs.vAtivos, valorTotal: +cs.vTotal },
+            propostas: { total: +ps.total, aceitas: +ps.aceitas, rascunhos: +ps.rascunhos, enviadas: +ps.enviadas, valorAceitas: +ps.vAceitas, valorTotal: +ps.vTotal },
+            obras: { total: +ws.total, emAndamento: +ws.andamento, concluidas: +ws.concluidas, valorEstimado: +ws.vEstimado },
+            clientes: { total: +cls.total },
+            catalogo: { total: +cat.total, materiais: +cat.mat, servicos: +cat.svc },
+        });
+    }
 
-        const [clientStats] = await this.dataSource.query(
-            `SELECT COUNT(*) as total FROM clients WHERE "deletedAt" IS NULL`,
+    // ═══════════════════════════════════════════════════════════════
+    // TOOLS DE AÇÃO
+    // ═══════════════════════════════════════════════════════════════
+
+    private async toolCriarProposta(args: any, userId?: string): Promise<string> {
+        // Buscar cliente
+        const clients = await this.dataSource.query(
+            `SELECT id, name FROM clients WHERE "deletedAt" IS NULL AND name ILIKE $1 LIMIT 1`,
+            [`%${args.clienteNome}%`],
+        );
+        if (clients.length === 0) {
+            return JSON.stringify({ erro: `Cliente "${args.clienteNome}" não encontrado. Cadastre primeiro.` });
+        }
+        const clientId = clients[0].id;
+
+        // Gerar número da proposta
+        const [{ max }] = await this.dataSource.query(
+            `SELECT COALESCE(MAX(CAST(REGEXP_REPLACE("proposalNumber", '[^0-9]', '', 'g') AS INTEGER)), 0) as max FROM proposals`,
+        );
+        const proposalNumber = `PROP-${String(max + 1).padStart(4, '0')}`;
+
+        // Calcular totais
+        const itens = args.itens || [];
+        const subtotal = itens.reduce((s: number, i: any) => s + (i.quantidade * i.precoUnitario), 0);
+
+        // Inserir proposta
+        const [proposal] = await this.dataSource.query(
+            `INSERT INTO proposals ("proposalNumber", title, "clientId", status, subtotal, discount, total, scope, deadline, "paymentConditions", "createdById")
+             VALUES ($1, $2, $3, 'draft', $4, 0, $4, $5, $6, $7, $8) RETURNING id, "proposalNumber"`,
+            [proposalNumber, args.titulo, clientId, subtotal, args.escopo || null, args.prazo || null, args.condicoesPagamento || null, userId || null],
         );
 
-        const [catalogStats] = await this.dataSource.query(
-            `SELECT COUNT(*) as total,
-                    COUNT(*) FILTER (WHERE type = 'material') as materiais,
-                    COUNT(*) FILTER (WHERE type = 'service') as servicos
-             FROM catalog_items WHERE "deletedAt" IS NULL`,
+        // Inserir itens
+        for (let idx = 0; idx < itens.length; idx++) {
+            const item = itens[idx];
+            await this.dataSource.query(
+                `INSERT INTO proposal_items ("proposalId", description, quantity, unit, "unitPrice", "totalPrice", "sortOrder")
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [proposal.id, item.descricao, item.quantidade, item.unidade || 'UN', item.precoUnitario, item.quantidade * item.precoUnitario, idx],
+            );
+        }
+
+        return JSON.stringify({
+            sucesso: true,
+            mensagem: `Proposta ${proposalNumber} criada com sucesso!`,
+            numero: proposalNumber,
+            cliente: clients[0].name,
+            total: subtotal,
+            itensAdicionados: itens.length,
+            status: 'rascunho',
+        });
+    }
+
+    private async toolCriarCliente(args: any): Promise<string> {
+        // Verificar duplicata
+        if (args.documento) {
+            const existing = await this.dataSource.query(
+                `SELECT id, name FROM clients WHERE document = $1 AND "deletedAt" IS NULL LIMIT 1`,
+                [args.documento],
+            );
+            if (existing.length > 0) {
+                return JSON.stringify({ erro: `Já existe um cliente com este documento: ${existing[0].name}` });
+            }
+        }
+
+        const [client] = await this.dataSource.query(
+            `INSERT INTO clients (name, document, type, email, phone, address, city, state)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, name`,
+            [args.nome, args.documento || null, args.tipo || 'pj', args.email || null, args.telefone || null, args.endereco || null, args.cidade || null, args.estado || null],
+        );
+
+        return JSON.stringify({ sucesso: true, mensagem: `Cliente "${client.name}" cadastrado com sucesso!`, id: client.id });
+    }
+
+    private async toolCriarObra(args: any, userId?: string): Promise<string> {
+        let clientId = null;
+        if (args.clienteNome) {
+            const clients = await this.dataSource.query(
+                `SELECT id FROM clients WHERE "deletedAt" IS NULL AND name ILIKE $1 LIMIT 1`,
+                [`%${args.clienteNome}%`],
+            );
+            if (clients.length > 0) clientId = clients[0].id;
+        }
+
+        // Gerar título de obra com número
+        const [{ cnt }] = await this.dataSource.query(`SELECT COUNT(*) as cnt FROM works`);
+        const workNumber = `OBR-${String(Number(cnt) + 1).padStart(4, '0')}`;
+
+        const [work] = await this.dataSource.query(
+            `INSERT INTO works (title, "workNumber", "clientId", "workType", status, address, city, state, "estimatedValue", "createdById")
+             VALUES ($1, $2, $3, $4, 'planning', $5, $6, $7, $8, $9) RETURNING id, title`,
+            [args.titulo, workNumber, clientId, args.tipo || 'installation', args.endereco || null, args.cidade || null, args.estado || null, args.valorEstimado || 0, userId || null],
+        );
+
+        return JSON.stringify({ sucesso: true, mensagem: `Obra "${work.title}" criada! Número: ${workNumber}`, id: work.id });
+    }
+
+    private async toolAtualizarStatusContrato(args: { busca: string; novoStatus: string }): Promise<string> {
+        const contracts = await this.dataSource.query(
+            `SELECT id, title, status, "contractNumber" FROM contracts
+             WHERE "deletedAt" IS NULL AND (title ILIKE $1 OR "contractNumber" ILIKE $1) LIMIT 1`,
+            [`%${args.busca}%`],
+        );
+        if (contracts.length === 0) {
+            return JSON.stringify({ erro: `Contrato "${args.busca}" não encontrado.` });
+        }
+
+        const contract = contracts[0];
+        await this.dataSource.query(
+            `UPDATE contracts SET status = $1, "updatedAt" = NOW() WHERE id = $2`,
+            [args.novoStatus, contract.id],
         );
 
         return JSON.stringify({
-            contratos: {
-                total: Number(contractStats.total),
-                ativos: Number(contractStats.ativos),
-                valorAtivos: Number(contractStats.valorAtivos),
-                valorTotal: Number(contractStats.valorTotal),
-            },
-            propostas: {
-                total: Number(proposalStats.total),
-                aceitas: Number(proposalStats.aceitas),
-                rascunhos: Number(proposalStats.rascunhos),
-                enviadas: Number(proposalStats.enviadas),
-                valorAceitas: Number(proposalStats.valorAceitas),
-                valorTotal: Number(proposalStats.valorTotal),
-            },
-            obras: {
-                total: Number(workStats.total),
-                emAndamento: Number(workStats.emAndamento),
-                concluidas: Number(workStats.concluidas),
-                valorEstimado: Number(workStats.valorEstimado),
-            },
-            clientes: { total: Number(clientStats.total) },
-            catalogo: {
-                total: Number(catalogStats.total),
-                materiais: Number(catalogStats.materiais),
-                servicos: Number(catalogStats.servicos),
-            },
+            sucesso: true,
+            mensagem: `Contrato "${contract.title}" (${contract.contractNumber}) atualizado de "${contract.status}" para "${args.novoStatus}".`,
         });
+    }
+
+    private async toolCadastrarProduto(args: any): Promise<string> {
+        const [item] = await this.dataSource.query(
+            `INSERT INTO catalog_items (name, type, unit, "unitPrice", "costPrice", sku, "externalCode", "isActive")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, true) RETURNING id, name`,
+            [args.nome, args.tipo, args.unidade, args.precoVenda || 0, args.precoCusto || 0, args.sku || null, args.codigoExterno || null],
+        );
+
+        return JSON.stringify({ sucesso: true, mensagem: `Produto "${item.name}" cadastrado no catálogo!`, id: item.id });
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -553,26 +783,15 @@ export class AiService {
             messages: [
                 {
                     role: 'system',
-                    content: `Você é um assistente de engenharia elétrica especializado em identificar materiais.
-Analise a lista de materiais fornecida pelo usuário e faça matching com o catálogo existente.
+                    content: `Você é um assistente especializado em identificar materiais elétricos.
+Analise a lista e faça matching com o catálogo.
 
-CATÁLOGO DISPONÍVEL:
+CATÁLOGO:
 ${catalogList}
 
-Para cada item da lista do usuário, retorne um JSON array com:
-[
-  {
-    "originalDescription": "descrição original do fornecedor",
-    "matchedCatalogId": "UUID se encontrou match ou null",
-    "matchedName": "nome do item no catálogo ou null",
-    "confidence": "alta|media|baixa",
-    "quantity": número,
-    "unit": "UN|M|KG|etc",
-    "suggestedAction": "vincular|cadastrar_novo|revisar"
-  }
-]
+Retorne JSON array: [{"originalDescription":"...","matchedCatalogId":"UUID|null","matchedName":"...|null","confidence":"alta|media|baixa","quantity":N,"unit":"UN","suggestedAction":"vincular|cadastrar_novo|revisar"}]
 
-Retorne APENAS o JSON, sem texto adicional.`
+Retorne APENAS o JSON.`
                 },
                 { role: 'user', content: text },
             ],
@@ -581,11 +800,9 @@ Retorne APENAS o JSON, sem texto adicional.`
         });
 
         const content = response.choices[0]?.message?.content || '[]';
-
         try {
             const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-            const results = JSON.parse(cleaned);
-            return { results, usage: response.usage };
+            return { results: JSON.parse(cleaned), usage: response.usage };
         } catch {
             return { results: [], rawResponse: content, usage: response.usage };
         }
@@ -595,7 +812,7 @@ Retorne APENAS o JSON, sem texto adicional.`
     // CONTEXTO DO SISTEMA
     // ═══════════════════════════════════════════════════════════════
 
-    private async buildSystemContext(): Promise<string> {
+    private async buildSystemContext(canPerformActions: boolean): Promise<string> {
         const [catalogCount, supplierCount, structureCount, markupCount] = await Promise.all([
             this.catalogRepo.count(),
             this.supplierRepo.count(),
@@ -603,36 +820,36 @@ Retorne APENAS o JSON, sem texto adicional.`
             this.markupRepo.count(),
         ]);
 
+        const actionSection = canPerformActions
+            ? `
+AÇÕES DISPONÍVEIS (liberadas para você):
+Você pode EXECUTAR ações no sistema:
+- criar_proposta → Cria propostas comerciais
+- criar_cliente → Cadastra novos clientes
+- criar_obra → Cria obras/projetos
+- atualizar_status_contrato → Altera status de contratos
+- cadastrar_produto → Cadastra produtos no catálogo
+
+Quando o usuário pedir para criar/cadastrar algo, USE as ferramentas de ação. Confirme os dados antes de executar.`
+            : `
+AÇÕES: As ações de criação/edição NÃO estão liberadas para este usuário. Se pedirem para criar algo, informe que o administrador precisa liberar as ações na configuração da IA.`;
+
         return `Você é o assistente de IA do sistema ERP Exito System, especializado em engenharia elétrica.
 
-SOBRE O SISTEMA:
-- ERP para empresa de engenharia elétrica
-- Gerencia: obras, clientes, propostas, contratos, ordens de serviço, fornecedores, catálogo de materiais, estruturas elétricas, documentos, financeiro
-- Segue normas ABNT NBR e normas operacionais de concessionárias (Neoenergia, CEMIG, ENEL, etc.)
+SISTEMA:
+- ERP para engenharia elétrica (obras, propostas, contratos, catálogo, fornecedores, financeiro)
+- ${catalogCount} itens no catálogo | ${supplierCount} fornecedores | ${structureCount} estruturas | ${markupCount} markups
 
-DADOS ATUAIS:
-- ${catalogCount} itens no catálogo
-- ${supplierCount} fornecedores
-- ${structureCount} templates de estrutura
-- ${markupCount} regras de markup
+FERRAMENTAS DE CONSULTA (sempre disponíveis):
+- buscar_contratos, buscar_propostas, buscar_obras, buscar_clientes, buscar_produtos, resumo_financeiro
+${actionSection}
 
-FERRAMENTAS DISPONÍVEIS:
-Você possui ferramentas para consultar dados REAIS do sistema. USE-AS sempre que o usuário perguntar sobre:
-- Contratos (valores, status, datas) → use buscar_contratos
-- Propostas (valores, itens, condições) → use buscar_propostas
-- Obras (status, endereço, cliente) → use buscar_obras
-- Clientes (dados, contato) → use buscar_clientes
-- Produtos/Materiais (preços, estoque) → use buscar_produtos
-- Resumo financeiro geral → use resumo_financeiro
-
-INSTRUÇÕES:
+REGRAS:
 1. Responda SEMPRE em português brasileiro
-2. SEMPRE use as ferramentas para buscar dados quando perguntarem sobre registros específicos
-3. Nunca invente dados — se não encontrar, diga que não foi encontrado
-4. Formate valores monetários como R$ X.XXX,XX
-5. Para materiais, sempre mencione preços e unidades
-6. Sugira otimizações de custo e processos quando pertinente
-7. Forneça respostas práticas e acionáveis, como um engenheiro consultor
-8. Quando fizer cálculos de custo, mostre o detalhamento`;
+2. SEMPRE use as ferramentas para buscar dados reais
+3. Nunca invente dados
+4. Formate valores como R$ X.XXX,XX
+5. Para ações, confirme com o usuário o que será feito antes de executar
+6. Seja prático e acionável como um engenheiro consultor`;
     }
 }
