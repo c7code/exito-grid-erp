@@ -250,7 +250,8 @@ export default function NewProposalDialog({
     }, []);
 
     // Salvar novas quantidades/precos do kit de volta no agrupamento original
-    const confirmSaveToGrouping = useCallback(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _confirmSaveToGrouping = useCallback(async () => {
         if (!kitUpdateConfirm) return;
         setKitUpdateConfirm(prev => prev ? { ...prev, saving: true } : null);
         try {
