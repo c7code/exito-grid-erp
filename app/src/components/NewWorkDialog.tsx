@@ -21,6 +21,7 @@ import {
 import { Building2, Loader2, Search, UserPlus, X, User, Check, Upload, FileText, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
+import { parsePrice } from '@/lib/parsePrice';
 import type { Client } from '@/types';
 import { ClientDialog } from '@/components/ClientDialog';
 
@@ -197,12 +198,7 @@ export default function NewWorkDialog({
         c.email?.toLowerCase().includes(clientSearch.toLowerCase())
     );
 
-    const parsePrice = (value: string): number => {
-        const s = String(value || '').trim();
-        const normalized = s.replace(/\.(\d{3})/g, '$1').replace(',', '.');
-        const n = parseFloat(normalized);
-        return isNaN(n) ? 0 : n;
-    };
+    // parsePrice importado de @/lib/parsePrice (via import no topo)
 
     const validate = () => {
         const newErrors: Record<string, string> = {};

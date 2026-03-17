@@ -884,19 +884,19 @@ export default function AdminCatalogManagement() {
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     <div>
                                         <Label className="text-xs">Peso (kg)</Label>
-                                        <Input type="text" inputMode="decimal" step="0.001" value={editingItem.weight || 0} onChange={e => setEditingItem(p => ({ ...p, weight: Number(e.target.value) }))} className="mt-1" />
+                                        <Input type="text" inputMode="decimal" value={editingItem.weight ?? 0} onChange={e => setEditingItem(p => ({ ...p, weight: e.target.value as any }))} onBlur={e => { const v = e.target.value.toString().replace(',', '.'); setEditingItem(p => ({ ...p, weight: v === '' ? 0 : parseFloat(v) || 0 })); }} className="mt-1" />
                                     </div>
                                     <div>
                                         <Label className="text-xs">Largura (m)</Label>
-                                        <Input type="text" inputMode="decimal" step="0.001" value={editingItem.width || 0} onChange={e => setEditingItem(p => ({ ...p, width: Number(e.target.value) }))} className="mt-1" />
+                                        <Input type="text" inputMode="decimal" value={editingItem.width ?? 0} onChange={e => setEditingItem(p => ({ ...p, width: e.target.value as any }))} onBlur={e => { const v = e.target.value.toString().replace(',', '.'); setEditingItem(p => ({ ...p, width: v === '' ? 0 : parseFloat(v) || 0 })); }} className="mt-1" />
                                     </div>
                                     <div>
                                         <Label className="text-xs">Altura (m)</Label>
-                                        <Input type="text" inputMode="decimal" step="0.001" value={editingItem.height || 0} onChange={e => setEditingItem(p => ({ ...p, height: Number(e.target.value) }))} className="mt-1" />
+                                        <Input type="text" inputMode="decimal" value={editingItem.height ?? 0} onChange={e => setEditingItem(p => ({ ...p, height: e.target.value as any }))} onBlur={e => { const v = e.target.value.toString().replace(',', '.'); setEditingItem(p => ({ ...p, height: v === '' ? 0 : parseFloat(v) || 0 })); }} className="mt-1" />
                                     </div>
                                     <div>
                                         <Label className="text-xs">Comprimento (m)</Label>
-                                        <Input type="text" inputMode="decimal" step="0.001" value={editingItem.length || 0} onChange={e => setEditingItem(p => ({ ...p, length: Number(e.target.value) }))} className="mt-1" />
+                                        <Input type="text" inputMode="decimal" value={editingItem.length ?? 0} onChange={e => setEditingItem(p => ({ ...p, length: e.target.value as any }))} onBlur={e => { const v = e.target.value.toString().replace(',', '.'); setEditingItem(p => ({ ...p, length: v === '' ? 0 : parseFloat(v) || 0 })); }} className="mt-1" />
                                     </div>
                                 </div>
                             </div>
@@ -1065,11 +1065,11 @@ export default function AdminCatalogManagement() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <Label>Preço de Venda (R$)</Label>
-                                    <Input type="text" inputMode="decimal" step="0.01" value={editingItem.unitPrice || 0} onChange={e => setEditingItem(p => ({ ...p, unitPrice: Number(e.target.value) }))} className="mt-1" />
+                                    <Input type="text" inputMode="decimal" value={editingItem.unitPrice ?? 0} onChange={e => setEditingItem(p => ({ ...p, unitPrice: e.target.value as any }))} onBlur={e => { const v = e.target.value.toString().replace(',', '.'); setEditingItem(p => ({ ...p, unitPrice: v === '' ? 0 : parseFloat(v) || 0 })); }} className="mt-1" />
                                 </div>
                                 <div>
                                     <Label>Preço de Custo (R$)</Label>
-                                    <Input type="text" inputMode="decimal" step="0.01" value={editingItem.costPrice || 0} onChange={e => setEditingItem(p => ({ ...p, costPrice: Number(e.target.value) }))} className="mt-1" />
+                                    <Input type="text" inputMode="decimal" value={editingItem.costPrice ?? 0} onChange={e => setEditingItem(p => ({ ...p, costPrice: e.target.value as any }))} onBlur={e => { const v = e.target.value.toString().replace(',', '.'); setEditingItem(p => ({ ...p, costPrice: v === '' ? 0 : parseFloat(v) || 0 })); }} className="mt-1" />
                                 </div>
                             </div>
                             {Number(editingItem.costPrice) > 0 && Number(editingItem.unitPrice) > 0 && (
@@ -1097,11 +1097,11 @@ export default function AdminCatalogManagement() {
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         <div>
                                             <Label className="text-xs">Estoque atual</Label>
-                                            <Input type="text" inputMode="decimal" step="0.001" value={editingItem.currentStock || 0} onChange={e => setEditingItem(p => ({ ...p, currentStock: Number(e.target.value) }))} className="mt-1" disabled={isEditing} />
+                                            <Input type="text" inputMode="decimal" value={editingItem.currentStock ?? 0} onChange={e => setEditingItem(p => ({ ...p, currentStock: e.target.value as any }))} onBlur={e => { const v = e.target.value.toString().replace(',', '.'); setEditingItem(p => ({ ...p, currentStock: v === '' ? 0 : parseFloat(v) || 0 })); }} className="mt-1" disabled={isEditing} />
                                         </div>
                                         <div>
                                             <Label className="text-xs">Estoque mínimo</Label>
-                                            <Input type="text" inputMode="decimal" step="0.001" value={editingItem.minStock || 0} onChange={e => setEditingItem(p => ({ ...p, minStock: Number(e.target.value) }))} className="mt-1" />
+                                            <Input type="text" inputMode="decimal" value={editingItem.minStock ?? 0} onChange={e => setEditingItem(p => ({ ...p, minStock: e.target.value as any }))} onBlur={e => { const v = e.target.value.toString().replace(',', '.'); setEditingItem(p => ({ ...p, minStock: v === '' ? 0 : parseFloat(v) || 0 })); }} className="mt-1" />
                                         </div>
                                         <div>
                                             <Label className="text-xs">Estoque máximo</Label>
@@ -1422,11 +1422,11 @@ export default function AdminCatalogManagement() {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label>Último preço (R$)</Label>
-                                <Input type="text" inputMode="decimal" step="0.01" value={supplierForm.lastPrice} onChange={e => setSupplierForm(p => ({ ...p, lastPrice: Number(e.target.value) }))} className="mt-1" />
+                                <Input type="text" inputMode="decimal" value={supplierForm.lastPrice} onChange={e => setSupplierForm(p => ({ ...p, lastPrice: e.target.value as any }))} onBlur={e => { const v = e.target.value.toString().replace(',', '.'); setSupplierForm(p => ({ ...p, lastPrice: v === '' ? 0 : parseFloat(v) || 0 })); }} className="mt-1" />
                             </div>
                             <div>
                                 <Label>Prazo (dias)</Label>
-                                <Input type="text" inputMode="decimal" value={supplierForm.leadTimeDays} onChange={e => setSupplierForm(p => ({ ...p, leadTimeDays: Number(e.target.value) }))} className="mt-1" />
+                                <Input type="text" inputMode="numeric" value={supplierForm.leadTimeDays} onChange={e => setSupplierForm(p => ({ ...p, leadTimeDays: e.target.value as any }))} onBlur={e => { const v = e.target.value.toString().replace(',', '.'); setSupplierForm(p => ({ ...p, leadTimeDays: v === '' ? 0 : parseInt(v) || 0 })); }} className="mt-1" />
                             </div>
                         </div>
                     </div>
