@@ -35,8 +35,16 @@ export class AiController {
 
     @Post('chat')
     @ApiOperation({ summary: 'Enviar mensagem ao assistente IA' })
-    chat(@Body() body: { message: string; history?: { role: string; content: string }[] }) {
-        return this.service.chat(body.message, body.history || []);
+    async chat(@Body() body: { message: string; history?: { role: string; content: string }[] }) {
+        console.log('🤖 AI chat request received:', body?.message?.substring(0, 50));
+        try {
+            const result = await this.service.chat(body.message, body.history || []);
+            console.log('✅ AI chat response OK');
+            return result;
+        } catch (error: any) {
+            console.error('❌ AI chat error:', error?.message, error?.status, error?.stack?.substring(0, 300));
+            throw error;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
