@@ -97,13 +97,7 @@ export default function NewProposalDialog({
     const [showClientDialog, setShowClientDialog] = useState(false);
     const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
-    // Kit grouping update confirmation
-    const [kitUpdateConfirm, setKitUpdateConfirm] = useState<{
-        kitName: string;
-        kitCatalogId: string;
-        parentTempId: string;
-        saving: boolean;
-    } | null>(null);
+
     // Editar agrupamento de dentro da proposta
     const [editingKitInProposal, setEditingKitInProposal] = useState<{
         catalogItem: any;
@@ -249,35 +243,7 @@ export default function NewProposalDialog({
         }, 1500);
     }, []);
 
-    // Salvar novas quantidades/precos do kit de volta no agrupamento original
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _confirmSaveToGrouping = useCallback(async () => {
-        if (!kitUpdateConfirm) return;
-        setKitUpdateConfirm(prev => prev ? { ...prev, saving: true } : null);
-        try {
-            const currentItems = itemsRef.current;
-            const children = currentItems.filter(it =>
-                it.parentId === kitUpdateConfirm.parentTempId && it.catalogItemId
-            );
-            await api.saveGroupingItems(kitUpdateConfirm.kitCatalogId, children.map((c, idx) => ({
-                childItemId: c.catalogItemId!,
-                quantity: parseFloat(c.quantity) || 1,
-                unit: c.unit || 'UN',
-                sortOrder: idx,
-            })));
-            await Promise.all(children.map(c =>
-                api.updateCatalogItem(c.catalogItemId!, {
-                    unitPrice: parseFloat(c.unitPrice) || 0,
-                    costPrice: parseFloat(c.unitPrice) || 0,
-                }).catch(() => null)
-            ));
-            toast.success(`Agrupamento "${kitUpdateConfirm.kitName}" atualizado!`, { duration: 3000 });
-        } catch {
-            toast.error('Erro ao atualizar o agrupamento');
-        } finally {
-            setKitUpdateConfirm(null);
-        }
-    }, [kitUpdateConfirm]);
+
 
     // Recarregar filhos do kit na proposta apos editar no NewGroupingDialog
     const reloadKitChildren = useCallback(async (catalogId: string, parentTempId: string) => {
