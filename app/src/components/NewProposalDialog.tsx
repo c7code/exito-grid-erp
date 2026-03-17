@@ -471,7 +471,7 @@ export default function NewProposalDialog({
         return parsePrice(item.unitPrice) * Math.max(parsePrice(item.quantity) || 1, 0);
     };
 
-    const subtotal = items.reduce((sum, item) => sum + getItemTotal(item), 0);
+    const subtotal = items.filter(i => !i.parentId).reduce((sum, item) => sum + getItemTotal(item), 0);
     const discount = parsePrice(formData.discount);
     const total = subtotal - discount;
 
