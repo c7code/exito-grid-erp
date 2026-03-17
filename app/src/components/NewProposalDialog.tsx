@@ -66,6 +66,7 @@ interface ActivityItem {
     parentId?: string;
     showDetailedPrices?: boolean;
     catalogItemId?: string;
+    overridePrice?: string;
 }
 
 const serviceTypes: Record<string, string> = {
@@ -383,6 +384,7 @@ export default function NewProposalDialog({
                         isBundleParent: it.isBundleParent || false,
                         parentId: it.parentId || undefined,
                         showDetailedPrices: it.showDetailedPrices !== undefined ? it.showDetailedPrices : true,
+                        overridePrice: it.overridePrice != null ? String(it.overridePrice) : '',
                     })));
                 }
             } else if (prefillData) {
@@ -452,11 +454,19 @@ export default function NewProposalDialog({
         return isNaN(n) ? 0 : n;
     };
 
+    const getChildrenTotal = (item: ActivityItem): number => {
+        return items
+            .filter(i => i.parentId === item.id)
+            .reduce((sum, i) => sum + parsePrice(i.unitPrice) * Math.max(parsePrice(i.quantity) || 1, 0), 0);
+    };
+
     const getItemTotal = (item: ActivityItem): number => {
         if (item.isBundleParent) {
-            return items
-                .filter(i => i.parentId === item.id)
-                .reduce((sum, i) => sum + parsePrice(i.unitPrice) * Math.max(parsePrice(i.quantity) || 1, 0), 0);
+            // Se tem overridePrice, usar ele; senão, soma dos filhos
+            if (item.overridePrice && item.overridePrice.trim() !== '') {
+                return parsePrice(item.overridePrice);
+            }
+            return getChildrenTotal(item);
         }
         return parsePrice(item.unitPrice) * Math.max(parsePrice(item.quantity) || 1, 0);
     };
@@ -572,6 +582,7 @@ export default function NewProposalDialog({
                     parentId: item.parentId,
                     isBundleParent: item.isBundleParent,
                     showDetailedPrices: item.showDetailedPrices,
+                    overridePrice: item.isBundleParent && item.overridePrice && item.overridePrice.trim() !== '' ? parsePrice(item.overridePrice) : null,
                     unitPrice: parsePrice(item.unitPrice),
                     quantity: parsePrice(item.quantity) || 1,
                     unit: item.unit || 'UN',
@@ -1168,21 +1179,37 @@ export default function NewProposalDialog({
                                                                 R$ {getItemTotal(item).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                             </span>
                                                             {item.isBundleParent && (
-                                                                <div className="flex items-center gap-2 mt-1 whitespace-nowrap">
-                                                                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Exibir Detalhes:</span>
-                                                                    <Button
-                                                                        type="button"
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-6 w-8 p-0 hover:bg-amber-100"
-                                                                        onClick={() => updateItem(index, 'showDetailedPrices', !item.showDetailedPrices)}
-                                                                    >
-                                                                        {item.showDetailedPrices ? (
-                                                                            <Eye className="w-4 h-4 text-amber-600" />
-                                                                        ) : (
-                                                                            <EyeOff className="w-4 h-4 text-slate-400" />
-                                                                        )}
-                                                                    </Button>
+                                                                <>
+                                                                    {/* Preço calculado dos filhos como referência */}
+                                                                    <span className="text-[10px] text-slate-400 mt-0.5">
+                                                                        Calculado: R$ {getChildrenTotal(item).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                    </span>
+                                                                    {/* Input de override */}
+                                                                    <div className="flex items-center gap-1 mt-1">
+                                                                        <span className="text-[10px] text-amber-600 font-semibold whitespace-nowrap">Cobrar:</span>
+                                                                        <Input
+                                                                            type="text" inputMode="decimal"
+                                                                            placeholder="auto"
+                                                                            value={item.overridePrice || ''}
+                                                                            onChange={(e) => updateItem(index, 'overridePrice', e.target.value)}
+                                                                            className="h-6 text-xs w-20 text-right"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 mt-1 whitespace-nowrap">
+                                                                        <span className="text-[10px] text-slate-400 uppercase font-semibold">Exibir Detalhes:</span>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="h-6 w-8 p-0 hover:bg-amber-100"
+                                                                            onClick={() => updateItem(index, 'showDetailedPrices', !item.showDetailedPrices)}
+                                                                        >
+                                                                            {item.showDetailedPrices ? (
+                                                                                <Eye className="w-4 h-4 text-amber-600" />
+                                                                            ) : (
+                                                                                <EyeOff className="w-4 h-4 text-slate-400" />
+                                                                            )}
+                                                                        </Button>
                                      {item.catalogItemId && (
                                          <Button
                                              type="button"
@@ -1203,7 +1230,8 @@ export default function NewProposalDialog({
                                          </Button>
                                      )}
 
-                                                                </div>
+                                                                    </div>
+                                                                </>
                                                             )}
                                                         </div>
                                                     </TableCell>

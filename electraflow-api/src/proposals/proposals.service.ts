@@ -141,6 +141,7 @@ export class ProposalsService {
         isBundleParent: item.isBundleParent,
         parentId: item.parentId,
         showDetailedPrices: item.showDetailedPrices,
+        overridePrice: item.overridePrice,
         notes: item.notes,
       })),
     };
@@ -381,6 +382,7 @@ export class ProposalsService {
         isBundleParent: item.isBundleParent,
         parentId: item.parentId,
         showDetailedPrices: item.showDetailedPrices,
+        overridePrice: item.overridePrice,
         notes: item.notes,
       })));
     }

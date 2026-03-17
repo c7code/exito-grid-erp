@@ -778,23 +778,36 @@ export default function AdminCatalogManagement() {
                                             {flatCats.map(c => {
                                                 const isChecked = (editingItem.categoryIds || []).includes(c.id);
                                                 return (
-                                                    <label key={c.id} data-cat-item className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 px-2.5 py-1">
-                                                        <input
-                                                            type="checkbox"
-                                                            className="rounded border-gray-300"
-                                                            checked={isChecked}
-                                                            onChange={(e) => {
-                                                                setEditingItem(p => {
-                                                                    const current = p.categoryIds || [];
-                                                                    const next = e.target.checked
-                                                                        ? [...current, c.id]
-                                                                        : current.filter(id => id !== c.id);
-                                                                    return { ...p, categoryIds: next, categoryId: next[0] || '' };
-                                                                });
+                                                    <div key={c.id} data-cat-item className="flex items-center gap-2 text-sm hover:bg-gray-50 px-2.5 py-1 group">
+                                                        <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                                                            <input
+                                                                type="checkbox"
+                                                                className="rounded border-gray-300"
+                                                                checked={isChecked}
+                                                                onChange={(e) => {
+                                                                    setEditingItem(p => {
+                                                                        const current = p.categoryIds || [];
+                                                                        const next = e.target.checked
+                                                                            ? [...current, c.id]
+                                                                            : current.filter(id => id !== c.id);
+                                                                        return { ...p, categoryIds: next, categoryId: next[0] || '' };
+                                                                    });
+                                                                }}
+                                                            />
+                                                            <span className="truncate">{c.name}</span>
+                                                        </label>
+                                                        <button
+                                                            type="button"
+                                                            title="Excluir categoria"
+                                                            className="opacity-0 group-hover:opacity-100 h-5 w-5 flex items-center justify-center text-red-400 hover:text-red-600 transition-opacity shrink-0"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteCategory(c.id);
                                                             }}
-                                                        />
-                                                        <span>{c.name}</span>
-                                                    </label>
+                                                        >
+                                                            <Trash2 className="h-3 w-3" />
+                                                        </button>
+                                                    </div>
                                                 );
                                             })}
                                             {flatCats.length === 0 && <p className="text-xs text-gray-400 px-3 py-2">Nenhuma categoria</p>}
