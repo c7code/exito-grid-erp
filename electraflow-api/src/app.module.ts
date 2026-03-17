@@ -45,7 +45,7 @@ import { AiModule } from './ai/ai.module';
         type: 'postgres',
         url: configService.get('DATABASE_URL'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // Temporariamente habilitado para sync da coluna overridePrice
+        synchronize: false, // Schema gerenciado manualmente
         logging: configService.get('NODE_ENV') === 'development' ? ['error', 'warn', 'schema'] : false,
         ssl: { rejectUnauthorized: false },
       }),

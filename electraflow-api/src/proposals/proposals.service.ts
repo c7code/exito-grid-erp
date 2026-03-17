@@ -1,13 +1,15 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, Not } from 'typeorm';
+import { Repository, IsNull, Not, DataSource } from 'typeorm';
 import { Proposal, ProposalItem, ProposalStatus } from './proposal.entity';
 import { ProposalRevision } from './proposal-revision.entity';
 import { Work } from '../works/work.entity';
 import { Notification } from '../notifications/notification.entity';
 
 @Injectable()
-export class ProposalsService {
+export class ProposalsService implements OnModuleInit {
+  private readonly logger = new Logger(ProposalsService.name);
+
   constructor(
     @InjectRepository(Proposal)
     private proposalRepository: Repository<Proposal>,
@@ -19,7 +21,21 @@ export class ProposalsService {
     private workRepository: Repository<Work>,
     @InjectRepository(Notification)
     private notificationRepository: Repository<Notification>,
+    private dataSource: DataSource,
   ) { }
+
+  async onModuleInit() {
+    // Safe migration: add overridePrice column if it doesn't exist
+    try {
+      await this.dataSource.query(`
+        ALTER TABLE proposal_items
+        ADD COLUMN IF NOT EXISTS "overridePrice" numeric(15,2) DEFAULT NULL
+      `);
+      this.logger.log('Column overridePrice ensured on proposal_items');
+    } catch (err) {
+      this.logger.warn('Could not add overridePrice column (may already exist): ' + err?.message);
+    }
+  }
 
   async findAll(status?: ProposalStatus): Promise<Proposal[]> {
     const where: any = {};
