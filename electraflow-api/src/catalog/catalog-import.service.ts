@@ -314,7 +314,8 @@ export class CatalogImportService implements OnModuleInit {
                             await this.groupingRepo.delete({ parentItemId: parentItem.id });
 
                             // Link children
-                            let kitTotal = 0;
+                            let kitUnitTotal = 0;
+                            let kitCostTotal = 0;
                             for (let idx = 0; idx < children.length; idx++) {
                                 const child = children[idx];
                                 const childItem = await this.itemRepo.findOne({ where: { name: child.childName } });
@@ -331,13 +332,14 @@ export class CatalogImportService implements OnModuleInit {
                                     sortOrder: idx,
                                 }));
 
-                                kitTotal += Number(childItem.unitPrice || 0) * child.quantity;
+                                kitUnitTotal += Number(childItem.unitPrice || 0) * child.quantity;
+                                kitCostTotal += Number(childItem.costPrice || 0) * child.quantity;
                             }
 
                             // Update kit price
                             await this.itemRepo.update(parentItem.id, {
-                                unitPrice: kitTotal,
-                                costPrice: kitTotal,
+                                unitPrice: kitUnitTotal,
+                                costPrice: kitCostTotal,
                             });
 
                             result.groupingsCreated++;

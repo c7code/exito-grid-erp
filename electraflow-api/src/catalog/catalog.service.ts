@@ -166,9 +166,16 @@ export class CatalogService {
                 relations: ['childItem'],
             });
 
-            // Calcular novo total: soma (unitPrice_filho × quantidade)
-            const newTotal = children.reduce((sum, gi) => {
+            // Calcular novo total de venda: soma (unitPrice_filho × quantidade)
+            const newUnitTotal = children.reduce((sum, gi) => {
                 const price = Number(gi.childItem?.unitPrice || 0);
+                const qty = Number(gi.quantity || 1);
+                return sum + (price * qty);
+            }, 0);
+
+            // Calcular novo total de custo: soma (costPrice_filho × quantidade)
+            const newCostTotal = children.reduce((sum, gi) => {
+                const price = Number(gi.childItem?.costPrice || 0);
                 const qty = Number(gi.quantity || 1);
                 return sum + (price * qty);
             }, 0);
@@ -177,10 +184,10 @@ export class CatalogService {
             const parentItem = await this.itemRepository.findOne({ where: { id: parentId } });
             if (parentItem) {
                 await this.itemRepository.update(parentId, {
-                    unitPrice: newTotal,
-                    costPrice: newTotal,
+                    unitPrice: newUnitTotal,
+                    costPrice: newCostTotal,
                 });
-                updatedKits.push({ id: parentId, name: parentItem.name, newPrice: newTotal });
+                updatedKits.push({ id: parentId, name: parentItem.name, newPrice: newUnitTotal });
             }
         }
 

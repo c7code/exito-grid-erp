@@ -33,6 +33,7 @@ interface GroupingChild {
     name: string;
     unit: string;
     unitPrice: number;
+    costPrice: number;
     quantity: number;
     categoryName?: string;
 }
@@ -87,6 +88,7 @@ export default function NewGroupingDialog({
                         name: gi.childItem?.name || gi.description || '',
                         unit: gi.unit || gi.childItem?.unit || 'UN',
                         unitPrice: Number(gi.childItem?.unitPrice || 0),
+                        costPrice: Number(gi.childItem?.costPrice || 0),
                         quantity: Number(gi.quantity || 1),
                         categoryName: gi.childItem?.category?.name || '',
                     })));
@@ -123,6 +125,7 @@ export default function NewGroupingDialog({
             name: item.name,
             unit: item.unit || 'UN',
             unitPrice: Number(item.unitPrice) || 0,
+            costPrice: Number(item.costPrice) || 0,
             quantity: 1,
             categoryName: item.category?.name || item.categories?.map((c: any) => c.name).join(', ') || '',
         }]);
@@ -147,6 +150,7 @@ export default function NewGroupingDialog({
     };
 
     const totalPrice = children.reduce((sum, c) => sum + (c.unitPrice * c.quantity), 0);
+    const totalCost = children.reduce((sum, c) => sum + (c.costPrice * c.quantity), 0);
 
     const handleSave = async () => {
         if (!kitName.trim()) { toast.error('Informe o nome do agrupamento'); return; }
@@ -160,7 +164,7 @@ export default function NewGroupingDialog({
                 await api.updateCatalogItem(initialItem.id, {
                     name: kitName,
                     unitPrice: totalPrice,
-                    costPrice: totalPrice,
+                    costPrice: totalCost,
                     ...(categoryId ? { categoryId } : {}),
                 });
                 parentId = initialItem.id;
@@ -170,7 +174,7 @@ export default function NewGroupingDialog({
                     type: activeTab,
                     isGrouping: true,
                     unitPrice: totalPrice,
-                    costPrice: totalPrice,
+                    costPrice: totalCost,
                     unit: 'KIT',
                     isActive: true,
                     isSoldSeparately: true,
@@ -191,7 +195,7 @@ export default function NewGroupingDialog({
             const priceUpdates = children.map(c =>
                 api.updateCatalogItem(c.childItemId, {
                     unitPrice: c.unitPrice,
-                    costPrice: c.unitPrice,
+                    costPrice: c.costPrice,
                 }).catch(() => null) // silently ignore individual failures
             );
             await Promise.all(priceUpdates);
