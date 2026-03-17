@@ -55,6 +55,8 @@ export default function NewGroupingDialog({
     const isEditing = !!initialItem;
     const [saving, setSaving] = useState(false);
     const [kitName, setKitName] = useState('');
+    const [categoryId, setCategoryId] = useState<string>('');
+    const [categories, setCategories] = useState<any[]>([]);
     const [children, setChildren] = useState<GroupingChild[]>([]);
 
     // Product search
@@ -65,25 +67,33 @@ export default function NewGroupingDialog({
     useEffect(() => {
         if (!open) {
             setKitName('');
+            setCategoryId('');
             setChildren([]);
             setSearchTerm('');
             setSearchResults([]);
-        } else if (open && initialItem) {
-            // Modo edição: pré-preencher dados
-            setKitName(initialItem.name || '');
-            // Carregar os itens filhos do agrupamento
-            api.getGroupingItems(initialItem.id).then((data: any[]) => {
-                setChildren(data.map((gi: any) => ({
-                    childItemId: gi.childItemId,
-                    name: gi.childItem?.name || gi.description || '',
-                    unit: gi.unit || gi.childItem?.unit || 'UN',
-                    unitPrice: Number(gi.childItem?.unitPrice || 0),
-                    quantity: Number(gi.quantity || 1),
-                    categoryName: gi.childItem?.category?.name || '',
-                })));
-            }).catch(() => setChildren([]));
+        } else if (open) {
+            // Load categories
+            api.getCatalogCategories(activeTab).then((cats: any[]) => {
+                setCategories(cats);
+            }).catch(() => setCategories([]));
+
+            if (initialItem) {
+                // Edit mode: prefill
+                setKitName(initialItem.name || '');
+                setCategoryId(initialItem.categoryId || '');
+                api.getGroupingItems(initialItem.id).then((data: any[]) => {
+                    setChildren(data.map((gi: any) => ({
+                        childItemId: gi.childItemId,
+                        name: gi.childItem?.name || gi.description || '',
+                        unit: gi.unit || gi.childItem?.unit || 'UN',
+                        unitPrice: Number(gi.childItem?.unitPrice || 0),
+                        quantity: Number(gi.quantity || 1),
+                        categoryName: gi.childItem?.category?.name || '',
+                    })));
+                }).catch(() => setChildren([]));
+            }
         }
-    }, [open, initialItem]);
+    }, [open, initialItem, activeTab]);
 
     const handleSearch = useCallback(async (term: string) => {
         if (term.length < 2) { setSearchResults([]); return; }
@@ -151,6 +161,7 @@ export default function NewGroupingDialog({
                     name: kitName,
                     unitPrice: totalPrice,
                     costPrice: totalPrice,
+                    ...(categoryId ? { categoryId } : {}),
                 });
                 parentId = initialItem.id;
             } else {
@@ -163,6 +174,7 @@ export default function NewGroupingDialog({
                     unit: 'KIT',
                     isActive: true,
                     isSoldSeparately: true,
+                    ...(categoryId ? { categoryId } : {}),
                 });
                 parentId = parentItem.id;
             }
@@ -224,6 +236,20 @@ export default function NewGroupingDialog({
                                 placeholder="Ex: CE1, Kit Padrão MT, etc."
                                 className="bg-white h-10"
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs font-bold text-slate-500 uppercase">Categoria</Label>
+                            <Select value={categoryId} onValueChange={setCategoryId}>
+                                <SelectTrigger className="bg-white h-10">
+                                    <SelectValue placeholder="Selecione uma categoria (opcional)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">Sem categoria</SelectItem>
+                                    {categories.map((cat: any) => (
+                                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 
