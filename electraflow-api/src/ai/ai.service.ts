@@ -65,18 +65,24 @@ export class AiService {
         const enabled = await this.getConfig('ai_enabled');
         if (enabled === 'false') throw new BadRequestException('IA está desabilitada nas configurações.');
 
-        // Buscar contexto do sistema
-        const systemContext = await this.buildSystemContext();
-
-        const openai = new OpenAI({ apiKey });
-
-        const messages: any[] = [
-            { role: 'system', content: systemContext },
-            ...history.map(h => ({ role: h.role, content: h.content })),
-            { role: 'user', content: message },
-        ];
-
         try {
+            // Buscar contexto do sistema
+            let systemContext: string;
+            try {
+                systemContext = await this.buildSystemContext();
+            } catch (ctxErr: any) {
+                console.warn('⚠️ Erro ao construir contexto da IA (usando fallback):', ctxErr?.message);
+                systemContext = 'Você é o assistente de IA do sistema ERP Exito System, especializado em engenharia elétrica. Responda em português brasileiro.';
+            }
+
+            const openai = new OpenAI({ apiKey });
+
+            const messages: any[] = [
+                { role: 'system', content: systemContext },
+                ...history.map(h => ({ role: h.role, content: h.content })),
+                { role: 'user', content: message },
+            ];
+
             const response = await openai.chat.completions.create({
                 model,
                 messages,
@@ -89,7 +95,16 @@ export class AiService {
                 usage: response.usage,
             };
         } catch (error: any) {
-            if (error?.status === 401) throw new BadRequestException('Chave de API inválida. Verifique nas configurações.');
+            console.error('❌ Erro no AI chat:', error?.message, error?.status, error?.code);
+            if (error?.status === 401 || error?.code === 'invalid_api_key') {
+                throw new BadRequestException('Chave de API inválida. Verifique nas configurações.');
+            }
+            if (error?.status === 429) {
+                throw new BadRequestException('Limite de requisições da API atingido. Aguarde alguns minutos.');
+            }
+            if (error?.code === 'insufficient_quota') {
+                throw new BadRequestException('Sem créditos na conta OpenAI. Recarregue em platform.openai.com.');
+            }
             throw new BadRequestException(`Erro na IA: ${error?.message || 'Erro desconhecido'}`);
         }
     }
