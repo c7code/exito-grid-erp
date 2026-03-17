@@ -414,9 +414,17 @@ export default function NewProposalDialog({
     const parsePrice = (value: string | number): number => {
         if (typeof value === 'number') return isNaN(value) ? 0 : value;
         const s = String(value).trim();
-        // Remove todos os pontos de milhar e troca vírgula decimal por ponto
-        // Ex: "3.900,50" → "3900.50" | "3900,50" → "3900.50" | "3900.50" → "3900.50"
-        const normalized = s.replace(/\.(\d{3})/g, '$1').replace(',', '.');
+        if (!s) return 0;
+        let normalized: string;
+        if (s.includes(',')) {
+            // Formato BR: pontos são milhares, vírgula é decimal
+            // Ex: "3.900,50" → "3900.50" | "1,7" → "1.7" | "1.000,00" → "1000.00"
+            normalized = s.replace(/\./g, '').replace(',', '.');
+        } else {
+            // Sem vírgula: o ponto é decimal (padrão JS/API)
+            // Ex: "1.000" → 1.0 | "3900.50" → 3900.5 | "50" → 50
+            normalized = s;
+        }
         const n = parseFloat(normalized);
         return isNaN(n) ? 0 : n;
     };
