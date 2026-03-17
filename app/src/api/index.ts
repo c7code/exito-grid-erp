@@ -788,6 +788,23 @@ class ApiService {
     return response.data;
   }
 
+  // Import — Importação via Planilha
+  async importCatalog(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await this.client.post('/catalog/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  async downloadImportTemplate(): Promise<Blob> {
+    const response = await this.client.get('/catalog/import/template', {
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
   // Protocols
   async getProtocols(status?: string) {
     const params = status ? { status } : {};

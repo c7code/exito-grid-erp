@@ -1,11 +1,17 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Request, UseInterceptors, UploadedFile, Res } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import { CatalogService } from './catalog.service';
+import { CatalogImportService } from './catalog-import.service';
 import { CatalogCategory, CatalogItem, CatalogType } from './catalog.entity';
 import { StockMovementType } from './stock-movement.entity';
 
 @Controller('catalog')
 export class CatalogController {
-    constructor(private readonly catalogService: CatalogService) { }
+    constructor(
+        private readonly catalogService: CatalogService,
+        private readonly importService: CatalogImportService,
+    ) { }
 
     // ═══════════════════════════════════════════════════════════════
     // CATEGORIAS
@@ -213,5 +219,26 @@ export class CatalogController {
     @Delete('fiscal-rules/:id')
     removeFiscalRule(@Param('id') id: string) {
         return this.catalogService.removeFiscalRule(id);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // IMPORTAÇÃO VIA PLANILHA
+    // ═══════════════════════════════════════════════════════════════
+
+    @Post('import')
+    @UseInterceptors(FileInterceptor('file'))
+    async importFromXlsx(@UploadedFile() file: Express.Multer.File) {
+        if (!file) throw new Error('Nenhum arquivo enviado');
+        return this.importService.importFromXlsx(file.buffer);
+    }
+
+    @Get('import/template')
+    downloadTemplate(@Res() res: Response) {
+        const buffer = this.importService.generateTemplate();
+        res.set({
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': 'attachment; filename="modelo_importacao_produtos.xlsx"',
+        });
+        res.send(buffer);
     }
 }

@@ -8,6 +8,7 @@ import { ProductSupplier } from './product-supplier.entity';
 import { StockMovement } from './stock-movement.entity';
 import { FiscalRule } from './fiscal-rule.entity';
 import { CatalogService } from './catalog.service';
+import { CatalogImportService } from './catalog-import.service';
 import { CatalogController } from './catalog.controller';
 import { seedNcm } from './seed-ncm';
 
@@ -24,8 +25,8 @@ import { seedNcm } from './seed-ncm';
         ]),
     ],
     controllers: [CatalogController],
-    providers: [CatalogService],
-    exports: [CatalogService],
+    providers: [CatalogService, CatalogImportService],
+    exports: [CatalogService, CatalogImportService],
 })
 export class CatalogModule implements OnModuleInit {
     constructor(private dataSource: DataSource) { }

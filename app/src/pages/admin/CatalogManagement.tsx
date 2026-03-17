@@ -39,7 +39,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
     Plus, Pencil, Trash2, Loader2, Package, Search, MoreVertical,
     FolderPlus, ArrowUpDown, AlertTriangle, ArrowDown, ArrowUp,
-    FileText, Truck, X, Check,
+    FileText, Truck, X, Check, Upload, Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -474,6 +474,44 @@ export default function AdminCatalogManagement() {
 
     // ═══════════ PRODUCT SUPPLIERS ═══════════
 
+    // ═══════════ IMPORT ═══════════
+    const [importDialog, setImportDialog] = useState(false);
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [importing, setImporting] = useState(false);
+    const [importResult, setImportResult] = useState<any>(null);
+
+    const handleImport = async () => {
+        if (!importFile) return;
+        setImporting(true);
+        setImportResult(null);
+        try {
+            const result = await api.importCatalog(importFile);
+            setImportResult(result);
+            toast.success(`Importação concluída: ${result.created} criados, ${result.updated} atualizados`);
+            loadData();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || 'Erro ao importar planilha');
+            setImportResult({ errors: [err?.response?.data?.message || 'Erro desconhecido'] });
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    const handleDownloadTemplate = async () => {
+        try {
+            const blob = await api.downloadImportTemplate();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'modelo_importacao_produtos.xlsx';
+            a.click();
+            window.URL.revokeObjectURL(url);
+            toast.success('Modelo baixado!');
+        } catch {
+            toast.error('Erro ao baixar modelo');
+        }
+    };
+
     const loadProductSuppliers = async (itemId: string) => {
         try {
             const [sups, allSups] = await Promise.all([
@@ -554,7 +592,10 @@ export default function AdminCatalogManagement() {
                     <h1 className="text-2xl font-bold text-gray-900">Produtos & Estoque</h1>
                     <p className="text-sm text-gray-500 mt-1">Cadastro de materiais e serviços com dados fiscais e controle de estoque</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                    <Button variant="outline" size="sm" onClick={() => { setImportFile(null); setImportResult(null); setImportDialog(true); }} className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+                        <Upload className="h-4 w-4 mr-1" /> Importar Planilha
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => handleOpenCatDialog()}>
                         <FolderPlus className="h-4 w-4 mr-1" /> Nova Categoria
                     </Button>
@@ -1454,6 +1495,106 @@ export default function AdminCatalogManagement() {
                 activeTab={activeTab}
                 initialItem={editingGroupingItem}
             />
+            {/* ── Dialog Importar Planilha ── */}
+            <Dialog open={importDialog} onOpenChange={setImportDialog}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>📥 Importar Produtos via Planilha</DialogTitle>
+                        <DialogDescription>
+                            Envie um arquivo <strong>.xlsx</strong> com os produtos. Colunas em branco serão ignoradas.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        {/* Template download */}
+                        <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <Download className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                            <div className="flex-1">
+                                <p className="text-sm font-medium text-blue-900">Modelo de planilha</p>
+                                <p className="text-xs text-blue-600">Baixe para ver o formato correto com exemplos</p>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="border-blue-300 text-blue-700">
+                                Baixar
+                            </Button>
+                        </div>
+
+                        {/* File upload */}
+                        <div
+                            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${importFile ? 'border-emerald-400 bg-emerald-50' : 'border-gray-300 hover:border-gray-400'}`}
+                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                            onDrop={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const file = e.dataTransfer.files?.[0];
+                                if (file?.name.endsWith('.xlsx')) {
+                                    setImportFile(file);
+                                    setImportResult(null);
+                                } else {
+                                    toast.error('Apenas arquivos .xlsx são aceitos');
+                                }
+                            }}
+                        >
+                            {importFile ? (
+                                <div className="flex items-center justify-center gap-2">
+                                    <Check className="h-5 w-5 text-emerald-600" />
+                                    <span className="font-medium text-emerald-700">{importFile.name}</span>
+                                    <Button variant="ghost" size="sm" onClick={() => { setImportFile(null); setImportResult(null); }}>
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ) : (
+                                <>
+                                    <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                                    <p className="text-sm text-gray-600">Arraste o arquivo .xlsx aqui ou</p>
+                                    <label className="cursor-pointer">
+                                        <span className="text-sm text-blue-600 hover:underline font-medium">clique para selecionar</span>
+                                        <input type="file" accept=".xlsx" className="hidden" onChange={e => {
+                                            const file = e.target.files?.[0];
+                                            if (file) { setImportFile(file); setImportResult(null); }
+                                        }} />
+                                    </label>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Results */}
+                        {importResult && (
+                            <div className="space-y-2">
+                                <div className="flex gap-3 text-sm">
+                                    {importResult.created > 0 && (
+                                        <span className="text-emerald-700 font-medium">✅ {importResult.created} criados</span>
+                                    )}
+                                    {importResult.updated > 0 && (
+                                        <span className="text-blue-700 font-medium">🔄 {importResult.updated} atualizados</span>
+                                    )}
+                                    {importResult.groupingsCreated > 0 && (
+                                        <span className="text-purple-700 font-medium">📦 {importResult.groupingsCreated} agrupamentos</span>
+                                    )}
+                                    {importResult.skipped > 0 && (
+                                        <span className="text-orange-700 font-medium">⚠️ {importResult.skipped} ignorados</span>
+                                    )}
+                                </div>
+                                {importResult.errors?.length > 0 && (
+                                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-h-32 overflow-y-auto">
+                                        <p className="text-xs font-medium text-red-800 mb-1">Erros:</p>
+                                        {importResult.errors.map((err: string, i: number) => (
+                                            <p key={i} className="text-xs text-red-600">{err}</p>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setImportDialog(false)}>Fechar</Button>
+                        <Button onClick={handleImport} disabled={!importFile || importing}>
+                            {importing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                            {importing ? 'Importando...' : 'Importar'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

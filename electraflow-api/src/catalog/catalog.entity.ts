@@ -86,6 +86,9 @@ export class CatalogItem {
     @Column({ nullable: true })
     barcode: string;                       // Código de barras / EAN
 
+    @Column({ nullable: true })
+    externalCode: string;                  // Código externo (concessionária/Tabela)
+
     @Column({ default: true })
     isActive: boolean;                     // Produto ativo
 
