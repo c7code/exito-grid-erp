@@ -25,32 +25,100 @@ export class ProposalsService implements OnModuleInit {
   ) { }
 
   async onModuleInit() {
-    // Safe migration: add columns if they don't exist
+    // ═══ Ensure proposal_revisions table exists ═══
+    try {
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS proposal_revisions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "proposalId" UUID NOT NULL,
+          "revisionNumber" INT DEFAULT 1,
+          "snapshotData" TEXT,
+          "changeDescription" VARCHAR,
+          "createdAt" TIMESTAMP DEFAULT NOW(),
+          "updatedAt" TIMESTAMP DEFAULT NOW(),
+          "deletedAt" TIMESTAMP
+        )
+      `);
+      this.logger.log('Table proposal_revisions ensured');
+    } catch (err) {
+      this.logger.warn('Could not create proposal_revisions: ' + err?.message);
+    }
+
+    // ═══ Safe column migration ═══
     const columnsToEnsure = [
-      { col: 'overridePrice', type: 'numeric(15,2) DEFAULT NULL', table: 'proposal_items' },
+      // proposals: signature
+      { col: 'signatureToken', type: 'VARCHAR DEFAULT NULL', table: 'proposals' },
+      { col: 'signatureTokenExpiresAt', type: 'TIMESTAMP DEFAULT NULL', table: 'proposals' },
+      { col: 'signedAt', type: 'TIMESTAMP DEFAULT NULL', table: 'proposals' },
+      { col: 'signedByName', type: 'VARCHAR DEFAULT NULL', table: 'proposals' },
+      { col: 'signedByDocument', type: 'VARCHAR DEFAULT NULL', table: 'proposals' },
+      { col: 'signedByIP', type: 'VARCHAR DEFAULT NULL', table: 'proposals' },
+      { col: 'signedByUserAgent', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'signatureVerificationCode', type: 'VARCHAR DEFAULT NULL', table: 'proposals' },
+      // proposals: revision & audit
+      { col: 'revisionNumber', type: 'INT DEFAULT 1', table: 'proposals' },
+      { col: 'createdById', type: 'UUID DEFAULT NULL', table: 'proposals' },
+      { col: 'updatedById', type: 'UUID DEFAULT NULL', table: 'proposals' },
+      // proposals: item visibility
+      { col: 'itemVisibilityMode', type: "VARCHAR DEFAULT 'detailed'", table: 'proposals' },
+      { col: 'materialSummaryText', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'serviceSummaryText', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'summaryTotalLabel', type: 'VARCHAR DEFAULT NULL', table: 'proposals' },
+      // proposals: contract
+      { col: 'workDescription', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'workAddress', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'materialFornecimento', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'materialFaturamento', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'serviceDescription', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'paymentBank', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'paymentDueCondition', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'workDeadlineDays', type: 'INT DEFAULT NULL', table: 'proposals' },
+      { col: 'contractorObligations', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'clientObligations', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'generalProvisions', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'activityType', type: 'VARCHAR DEFAULT NULL', table: 'proposals' },
+      { col: 'simulationData', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      // proposals: costs
+      { col: 'logisticsCostValue', type: 'numeric(15,2) DEFAULT NULL', table: 'proposals' },
+      { col: 'logisticsCostMode', type: "VARCHAR DEFAULT 'visible'", table: 'proposals' },
       { col: 'logisticsCostPercent', type: 'numeric(5,2) DEFAULT NULL', table: 'proposals' },
-      { col: 'logisticsCostApplyTo', type: "varchar DEFAULT 'material'", table: 'proposals' },
+      { col: 'logisticsCostApplyTo', type: "VARCHAR DEFAULT 'material'", table: 'proposals' },
       { col: 'logisticsCostEmbedMaterialPct', type: 'numeric(5,2) DEFAULT 100', table: 'proposals' },
       { col: 'logisticsCostEmbedServicePct', type: 'numeric(5,2) DEFAULT 0', table: 'proposals' },
-      { col: 'logisticsCostDescription', type: 'text DEFAULT NULL', table: 'proposals' },
+      { col: 'logisticsCostDescription', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'adminCostValue', type: 'numeric(15,2) DEFAULT NULL', table: 'proposals' },
+      { col: 'adminCostMode', type: "VARCHAR DEFAULT 'visible'", table: 'proposals' },
       { col: 'adminCostPercent', type: 'numeric(5,2) DEFAULT NULL', table: 'proposals' },
-      { col: 'adminCostApplyTo', type: "varchar DEFAULT 'material'", table: 'proposals' },
+      { col: 'adminCostApplyTo', type: "VARCHAR DEFAULT 'material'", table: 'proposals' },
       { col: 'adminCostEmbedMaterialPct', type: 'numeric(5,2) DEFAULT 100', table: 'proposals' },
       { col: 'adminCostEmbedServicePct', type: 'numeric(5,2) DEFAULT 0', table: 'proposals' },
-      { col: 'adminCostDescription', type: 'text DEFAULT NULL', table: 'proposals' },
+      { col: 'adminCostDescription', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'brokerageCostValue', type: 'numeric(15,2) DEFAULT NULL', table: 'proposals' },
+      { col: 'brokerageCostMode', type: "VARCHAR DEFAULT 'visible'", table: 'proposals' },
       { col: 'brokerageCostPercent', type: 'numeric(5,2) DEFAULT NULL', table: 'proposals' },
-      { col: 'brokerageCostApplyTo', type: "varchar DEFAULT 'material'", table: 'proposals' },
+      { col: 'brokerageCostApplyTo', type: "VARCHAR DEFAULT 'material'", table: 'proposals' },
       { col: 'brokerageCostEmbedMaterialPct', type: 'numeric(5,2) DEFAULT 100', table: 'proposals' },
       { col: 'brokerageCostEmbedServicePct', type: 'numeric(5,2) DEFAULT 0', table: 'proposals' },
-      { col: 'brokerageCostDescription', type: 'text DEFAULT NULL', table: 'proposals' },
+      { col: 'brokerageCostDescription', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'insuranceCostValue', type: 'numeric(15,2) DEFAULT NULL', table: 'proposals' },
+      { col: 'insuranceCostMode', type: "VARCHAR DEFAULT 'visible'", table: 'proposals' },
       { col: 'insuranceCostPercent', type: 'numeric(5,2) DEFAULT NULL', table: 'proposals' },
-      { col: 'insuranceCostApplyTo', type: "varchar DEFAULT 'material'", table: 'proposals' },
+      { col: 'insuranceCostApplyTo', type: "VARCHAR DEFAULT 'material'", table: 'proposals' },
       { col: 'insuranceCostEmbedMaterialPct', type: 'numeric(5,2) DEFAULT 100', table: 'proposals' },
       { col: 'insuranceCostEmbedServicePct', type: 'numeric(5,2) DEFAULT 0', table: 'proposals' },
-      { col: 'insuranceCostDescription', type: 'text DEFAULT NULL', table: 'proposals' },
-      { col: 'complianceText', type: 'text DEFAULT NULL', table: 'proposals' },
-      { col: 'sortOrder', type: 'int DEFAULT 0', table: 'proposal_items' },
-      { col: 'notes', type: 'text DEFAULT NULL', table: 'proposal_items' },
+      { col: 'insuranceCostDescription', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'complianceText', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      // proposal_items
+      { col: 'overridePrice', type: 'numeric(15,2) DEFAULT NULL', table: 'proposal_items' },
+      { col: 'isBundleParent', type: 'BOOLEAN DEFAULT false', table: 'proposal_items' },
+      { col: 'parentId', type: 'UUID DEFAULT NULL', table: 'proposal_items' },
+      { col: 'showDetailedPrices', type: 'BOOLEAN DEFAULT true', table: 'proposal_items' },
+      { col: 'isSuggested', type: 'BOOLEAN DEFAULT false', table: 'proposal_items' },
+      { col: 'suggestedByRule', type: 'VARCHAR DEFAULT NULL', table: 'proposal_items' },
+      { col: 'sortOrder', type: 'INT DEFAULT 0', table: 'proposal_items' },
+      { col: 'notes', type: 'TEXT DEFAULT NULL', table: 'proposal_items' },
+      { col: 'unit', type: 'VARCHAR DEFAULT NULL', table: 'proposal_items' },
+      { col: 'deletedAt', type: 'TIMESTAMP DEFAULT NULL', table: 'proposal_items' },
     ];
     for (const { col, type, table } of columnsToEnsure) {
       try {

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, MoreThan } from 'typeorm';
 import { SystemConfig } from './system-config.entity';
@@ -241,7 +241,9 @@ const ACTION_TOOLS: any[] = [
 const ACTION_TOOL_NAMES = new Set(ACTION_TOOLS.map((t: any) => t.function.name));
 
 @Injectable()
-export class AiService {
+export class AiService implements OnModuleInit {
+    private readonly logger = new Logger(AiService.name);
+
     constructor(
         @InjectRepository(SystemConfig)
         private configRepo: Repository<SystemConfig>,
@@ -259,6 +261,59 @@ export class AiService {
         private documentRepo: Repository<Document>,
         private dataSource: DataSource,
     ) { }
+
+    async onModuleInit() {
+        // ═══ Create tables if they don't exist (synchronize: false) ═══
+        try {
+            await this.dataSource.query(`
+                CREATE TABLE IF NOT EXISTS system_configs (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    key VARCHAR UNIQUE NOT NULL,
+                    value TEXT NOT NULL,
+                    "isSecret" BOOLEAN DEFAULT false,
+                    "createdAt" TIMESTAMP DEFAULT NOW(),
+                    "updatedAt" TIMESTAMP DEFAULT NOW()
+                )
+            `);
+            this.logger.log('Table system_configs ensured');
+        } catch (err) {
+            this.logger.warn('Could not create system_configs: ' + err?.message);
+        }
+
+        try {
+            await this.dataSource.query(`
+                CREATE TABLE IF NOT EXISTS ai_action_tokens (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    "createdById" UUID NOT NULL,
+                    "targetUserId" UUID,
+                    "expiresAt" TIMESTAMP NOT NULL,
+                    "isActive" BOOLEAN DEFAULT true,
+                    description VARCHAR,
+                    "createdAt" TIMESTAMP DEFAULT NOW()
+                )
+            `);
+            this.logger.log('Table ai_action_tokens ensured');
+        } catch (err) {
+            this.logger.warn('Could not create ai_action_tokens: ' + err?.message);
+        }
+
+        // ═══ Ensure document AI columns exist ═══
+        const docColumns = [
+            { col: 'purpose', type: 'VARCHAR DEFAULT NULL' },
+            { col: 'tags', type: 'TEXT DEFAULT NULL' },
+            { col: 'extractedText', type: 'TEXT DEFAULT NULL' },
+            { col: 'textExtracted', type: 'BOOLEAN DEFAULT false' },
+            { col: 'sourceOrganization', type: 'VARCHAR DEFAULT NULL' },
+        ];
+        for (const { col, type } of docColumns) {
+            try {
+                await this.dataSource.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS "${col}" ${type}`);
+            } catch (err) {
+                this.logger.warn(`Could not add ${col} on documents: ${err?.message}`);
+            }
+        }
+        this.logger.log('AI module migration completed');
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // CONFIG
