@@ -1,7 +1,13 @@
 import axios, { type AxiosInstance, type AxiosError } from 'axios';
 import { toast } from 'sonner';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const RAW_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/+$/, '');
+// Normalise: ensure URL ends with exactly one /api (avoids /api/api duplication)
+const API_URL = RAW_URL.endsWith('/api/api')
+  ? RAW_URL.slice(0, -4)        // strip extra /api
+  : RAW_URL.endsWith('/api')
+    ? RAW_URL                    // already correct
+    : RAW_URL + '/api';          // add /api
 
 class ApiService {
   private client: AxiosInstance;

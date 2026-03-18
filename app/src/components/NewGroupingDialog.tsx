@@ -31,6 +31,8 @@ import { toast } from 'sonner';
 interface GroupingChild {
     childItemId: string;
     name: string;
+    sku: string;
+    externalCode: string;
     unit: string;
     unitPrice: number;
     costPrice: number;
@@ -86,6 +88,8 @@ export default function NewGroupingDialog({
                     setChildren(data.map((gi: any) => ({
                         childItemId: gi.childItemId,
                         name: gi.childItem?.name || gi.description || '',
+                        sku: gi.childItem?.sku || '',
+                        externalCode: gi.childItem?.externalCode || '',
                         unit: gi.unit || gi.childItem?.unit || 'UN',
                         unitPrice: Number(gi.childItem?.unitPrice || 0),
                         costPrice: Number(gi.childItem?.costPrice || 0),
@@ -123,6 +127,8 @@ export default function NewGroupingDialog({
         setChildren(prev => [...prev, {
             childItemId: item.id,
             name: item.name,
+            sku: item.sku || '',
+            externalCode: item.externalCode || '',
             unit: item.unit || 'UN',
             unitPrice: Number(item.unitPrice) || 0,
             costPrice: Number(item.costPrice) || 0,
@@ -290,7 +296,8 @@ export default function NewGroupingDialog({
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-slate-700 truncate">{item.name}</p>
                                                 <p className="text-xs text-slate-400">
-                                                    {item.sku && `${item.sku} • `}
+                                                    {item.sku && `SKU: ${item.sku} • `}
+                                                    {item.externalCode && `Cód: ${item.externalCode} • `}
                                                     {item.unit || 'UN'} • R$ {Number(item.unitPrice || 0).toFixed(2)}
                                                     {item.category?.name && ` • ${item.category.name}`}
                                                 </p>
@@ -310,6 +317,7 @@ export default function NewGroupingDialog({
                                 <thead className="bg-slate-50 border-b">
                                     <tr>
                                         <th className="text-left px-4 py-2 font-semibold text-slate-600">Produto</th>
+                                        <th className="text-left px-2 py-2 font-semibold text-slate-600 w-28">Cód. Ext.</th>
                                         <th className="text-left px-2 py-2 font-semibold text-slate-600 w-24">Qtd</th>
                                         <th className="text-left px-2 py-2 font-semibold text-slate-600 w-24">Unidade</th>
                                         <th className="text-right px-2 py-2 font-semibold text-slate-600 w-28">Preço Unit.</th>
@@ -322,9 +330,14 @@ export default function NewGroupingDialog({
                                         <tr key={child.childItemId} className="border-b last:border-0 hover:bg-blue-50/30">
                                             <td className="px-4 py-2.5">
                                                 <p className="font-medium text-slate-700">{child.name}</p>
-                                                {child.categoryName && (
-                                                    <p className="text-[10px] text-slate-400">{child.categoryName}</p>
-                                                )}
+                                                <p className="text-[10px] text-slate-400">
+                                                    {child.sku && `SKU: ${child.sku}`}
+                                                    {child.sku && child.categoryName && ' • '}
+                                                    {child.categoryName}
+                                                </p>
+                                            </td>
+                                            <td className="px-2 py-2.5 text-sm text-slate-600 font-mono">
+                                                {child.externalCode || '—'}
                                             </td>
                                             <td className="px-2 py-2.5">
                                                 <Input
@@ -388,7 +401,7 @@ export default function NewGroupingDialog({
                                 </tbody>
                                 <tfoot className="bg-blue-50 border-t-2 border-blue-200">
                                     <tr>
-                                        <td colSpan={4} className="px-4 py-3 text-right font-bold text-blue-800 text-sm uppercase">
+                                        <td colSpan={5} className="px-4 py-3 text-right font-bold text-blue-800 text-sm uppercase">
                                             Total do Kit:
                                         </td>
                                         <td className="px-4 py-3 text-right font-bold text-blue-800 text-lg">

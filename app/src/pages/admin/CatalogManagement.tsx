@@ -68,6 +68,7 @@ interface CatalogItem {
     type: 'material' | 'service';
     category?: Category;
     sku: string;
+    externalCode: string;
     barcode: string;
     isActive: boolean;
     isSoldSeparately: boolean;
@@ -563,6 +564,7 @@ export default function AdminCatalogManagement() {
         .filter(i => !selectedCatFilter || i.categoryId === selectedCatFilter || (i.categories && i.categories.some((c: any) => c.id === selectedCatFilter)))
         .filter(i => !search || i.name.toLowerCase().includes(search.toLowerCase()) ||
             i.sku?.toLowerCase().includes(search.toLowerCase()) ||
+            i.externalCode?.toLowerCase().includes(search.toLowerCase()) ||
             i.ncm?.includes(search) ||
             i.barcode?.includes(search) ||
             i.category?.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -664,6 +666,7 @@ export default function AdminCatalogManagement() {
                                     <TableRow>
                                         <TableHead>Produto</TableHead>
                                         <TableHead className="hidden md:table-cell">SKU</TableHead>
+                                        <TableHead className="hidden md:table-cell">Cód. Externo</TableHead>
                                         <TableHead className="hidden lg:table-cell">NCM</TableHead>
                                         <TableHead className="text-right">Preço Venda</TableHead>
                                         <TableHead className="hidden md:table-cell text-right">Custo</TableHead>
@@ -675,7 +678,7 @@ export default function AdminCatalogManagement() {
                                 <TableBody>
                                     {filteredItems.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} className="text-center py-12 text-gray-400">
+                                            <TableCell colSpan={9} className="text-center py-12 text-gray-400">
                                                 <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
                                                 Nenhum {activeTab === 'material' ? 'material' : 'serviço'} cadastrado
                                             </TableCell>
@@ -701,6 +704,7 @@ export default function AdminCatalogManagement() {
                                                 </div>
                                             </TableCell>
                                             <TableCell className="hidden md:table-cell text-sm text-gray-500">{item.sku || '—'}</TableCell>
+                                            <TableCell className="hidden md:table-cell text-sm text-gray-500">{item.externalCode || '—'}</TableCell>
                                             <TableCell className="hidden lg:table-cell text-sm text-gray-500 font-mono">{item.ncm || '—'}</TableCell>
                                             <TableCell className="text-right text-sm font-medium">R$ {Number(item.unitPrice).toFixed(2)}</TableCell>
                                             <TableCell className="hidden md:table-cell text-right text-sm text-gray-500">R$ {Number(item.costPrice || 0).toFixed(2)}</TableCell>
