@@ -13,23 +13,26 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, etc.)
+      // Allow requests with no origin (mobile apps, curl, Postman, etc.)
       if (!origin) return callback(null, true);
+      // Allow any Railway subdomain
+      if (origin.endsWith('.up.railway.app')) return callback(null, true);
+      // Allow localhost dev
       const allowedOrigins = [
         process.env.FRONTEND_URL || 'http://localhost:5173',
         'http://localhost:5173',
         'http://localhost:5174',
+        'http://localhost:3000',
       ];
-      // Allow any Railway subdomain
-      if (
-        allowedOrigins.includes(origin) ||
-        origin.endsWith('.up.railway.app')
-      ) {
-        return callback(null, true);
-      }
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      console.warn(`⚠️ CORS blocked origin: ${origin}`);
       return callback(null, false);
     },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+    exposedHeaders: ['Content-Disposition'],
     credentials: true,
+    maxAge: 86400, // Cache preflight for 24h
   });
 
   app.setGlobalPrefix('api', {
