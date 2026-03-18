@@ -12,8 +12,6 @@ import { Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
 import { v4 as uuid } from 'uuid';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const pdfParse = require('pdf-parse');
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'documents');
 
@@ -115,6 +113,9 @@ export class DocumentsController {
 
   private async extractPdfText(docId: string, filePath: string): Promise<void> {
     try {
+      // Lazy import to prevent crash if pdf-parse is not available
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const pdfParse = require('pdf-parse');
       const dataBuffer = fs.readFileSync(filePath);
       const data = await pdfParse(dataBuffer);
       const text = data.text?.trim();
