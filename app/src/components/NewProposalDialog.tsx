@@ -437,11 +437,12 @@ export default function NewProposalDialog({
 
     const getItemTotal = (item: ActivityItem): number => {
         if (item.isBundleParent) {
-            // Se tem overridePrice, usar ele; senão, soma dos filhos
+            const parentQty = Math.max(parsePrice(item.quantity) || 1, 1);
+            // Se tem overridePrice, usar ele × qty; senão, soma dos filhos × qty
             if (item.overridePrice && item.overridePrice.trim() !== '') {
-                return parsePrice(item.overridePrice);
+                return parsePrice(item.overridePrice) * parentQty;
             }
-            return getChildrenTotal(item);
+            return getChildrenTotal(item) * parentQty;
         }
         return parsePrice(item.unitPrice) * Math.max(parsePrice(item.quantity) || 1, 0);
     };

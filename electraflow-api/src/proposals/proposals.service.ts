@@ -25,16 +25,41 @@ export class ProposalsService implements OnModuleInit {
   ) { }
 
   async onModuleInit() {
-    // Safe migration: add overridePrice column if it doesn't exist
-    try {
-      await this.dataSource.query(`
-        ALTER TABLE proposal_items
-        ADD COLUMN IF NOT EXISTS "overridePrice" numeric(15,2) DEFAULT NULL
-      `);
-      this.logger.log('Column overridePrice ensured on proposal_items');
-    } catch (err) {
-      this.logger.warn('Could not add overridePrice column (may already exist): ' + err?.message);
+    // Safe migration: add columns if they don't exist
+    const columnsToEnsure = [
+      { col: 'overridePrice', type: 'numeric(15,2) DEFAULT NULL', table: 'proposal_items' },
+      { col: 'logisticsCostPercent', type: 'numeric(5,2) DEFAULT NULL', table: 'proposals' },
+      { col: 'logisticsCostApplyTo', type: "varchar DEFAULT 'material'", table: 'proposals' },
+      { col: 'logisticsCostEmbedMaterialPct', type: 'numeric(5,2) DEFAULT 100', table: 'proposals' },
+      { col: 'logisticsCostEmbedServicePct', type: 'numeric(5,2) DEFAULT 0', table: 'proposals' },
+      { col: 'logisticsCostDescription', type: 'text DEFAULT NULL', table: 'proposals' },
+      { col: 'adminCostPercent', type: 'numeric(5,2) DEFAULT NULL', table: 'proposals' },
+      { col: 'adminCostApplyTo', type: "varchar DEFAULT 'material'", table: 'proposals' },
+      { col: 'adminCostEmbedMaterialPct', type: 'numeric(5,2) DEFAULT 100', table: 'proposals' },
+      { col: 'adminCostEmbedServicePct', type: 'numeric(5,2) DEFAULT 0', table: 'proposals' },
+      { col: 'adminCostDescription', type: 'text DEFAULT NULL', table: 'proposals' },
+      { col: 'brokerageCostPercent', type: 'numeric(5,2) DEFAULT NULL', table: 'proposals' },
+      { col: 'brokerageCostApplyTo', type: "varchar DEFAULT 'material'", table: 'proposals' },
+      { col: 'brokerageCostEmbedMaterialPct', type: 'numeric(5,2) DEFAULT 100', table: 'proposals' },
+      { col: 'brokerageCostEmbedServicePct', type: 'numeric(5,2) DEFAULT 0', table: 'proposals' },
+      { col: 'brokerageCostDescription', type: 'text DEFAULT NULL', table: 'proposals' },
+      { col: 'insuranceCostPercent', type: 'numeric(5,2) DEFAULT NULL', table: 'proposals' },
+      { col: 'insuranceCostApplyTo', type: "varchar DEFAULT 'material'", table: 'proposals' },
+      { col: 'insuranceCostEmbedMaterialPct', type: 'numeric(5,2) DEFAULT 100', table: 'proposals' },
+      { col: 'insuranceCostEmbedServicePct', type: 'numeric(5,2) DEFAULT 0', table: 'proposals' },
+      { col: 'insuranceCostDescription', type: 'text DEFAULT NULL', table: 'proposals' },
+      { col: 'complianceText', type: 'text DEFAULT NULL', table: 'proposals' },
+      { col: 'sortOrder', type: 'int DEFAULT 0', table: 'proposal_items' },
+      { col: 'notes', type: 'text DEFAULT NULL', table: 'proposal_items' },
+    ];
+    for (const { col, type, table } of columnsToEnsure) {
+      try {
+        await this.dataSource.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS "${col}" ${type}`);
+      } catch (err) {
+        this.logger.warn(`Could not add column ${col} on ${table}: ${err?.message}`);
+      }
     }
+    this.logger.log('Proposal columns migration completed');
   }
 
   async findAll(status?: ProposalStatus): Promise<Proposal[]> {
@@ -168,12 +193,16 @@ export class ProposalsService implements OnModuleInit {
     const proposal = await this.findOne(id);
 
     // ── Salvar snapshot da versão atual como revisão ──
-    const revision = this.revisionRepository.create({
-      proposalId: id,
-      revisionNumber: proposal.revisionNumber || 1,
-      snapshotData: this.createSnapshot(proposal),
-    });
-    await this.revisionRepository.save(revision);
+    try {
+      const revision = this.revisionRepository.create({
+        proposalId: id,
+        revisionNumber: proposal.revisionNumber || 1,
+        snapshotData: this.createSnapshot(proposal),
+      });
+      await this.revisionRepository.save(revision);
+    } catch (revErr) {
+      this.logger.warn('Could not save revision snapshot: ' + revErr?.message);
+    }
 
     // ── Incrementar número de revisão ──
     const newRevisionNumber = (proposal.revisionNumber || 1) + 1;
@@ -185,7 +214,13 @@ export class ProposalsService implements OnModuleInit {
     Object.assign(proposal, safeData);
     proposal.revisionNumber = newRevisionNumber;
 
-    return this.proposalRepository.save(proposal);
+    try {
+      return await this.proposalRepository.save(proposal);
+    } catch (saveErr: any) {
+      // If save fails due to unknown column, log and retry with safe fields only
+      this.logger.error('Error saving proposal: ' + saveErr?.message);
+      throw saveErr;
+    }
   }
 
   async updateItems(id: string, items: Partial<ProposalItem>[]): Promise<Proposal> {
@@ -425,14 +460,26 @@ export class ProposalsService implements OnModuleInit {
       await this.itemRepository.save(pItems);
     }
 
-    // 2. Parents — sempre gerar novo UUID
+    // 2. Parents — calcular total como soma dos filhos × quantidade do pai
     for (const parent of parents) {
       const frontendId = parent.id;
+      const parentQty = Math.max(Number(parent.quantity) || 1, 1);
+      // Calcular soma dos filhos para este pai
+      const childrenOfParent = children.filter(c => c.parentId === frontendId);
+      const childrenSum = childrenOfParent.reduce((sum, c) => {
+        return sum + Number(c.unitPrice || 0) * Number(c.quantity || 1);
+      }, 0);
+      // Total do pai = soma dos filhos × quantidade do pai
+      // Se overridePrice existe, usar ele × qty
+      const parentTotal = parent.overridePrice != null && Number(parent.overridePrice) > 0
+        ? Number(parent.overridePrice) * parentQty
+        : childrenSum * parentQty;
+
       const p = this.itemRepository.create({
         ...parent,
         id: undefined,
         proposalId,
-        total: Number(parent.unitPrice || 0) * Number(parent.quantity || 1),
+        total: parentTotal,
       });
       const savedParent = await this.itemRepository.save(p);
       if (frontendId) idMapping.set(frontendId, savedParent.id);
