@@ -444,7 +444,22 @@ export default function NewProposalDialog({
             }
             return getChildrenTotal(item) * parentQty;
         }
+        // Para filhos de kit, multiplicar pelo qty do pai
+        if (item.parentId) {
+            const parent = items.find(i => i.id === item.parentId || (i.isBundleParent && 'temp-' + items.indexOf(i) === item.parentId));
+            const parentQty = parent ? Math.max(parsePrice(parent.quantity) || 1, 1) : 1;
+            return parsePrice(item.unitPrice) * Math.max(parsePrice(item.quantity) || 1, 0) * parentQty;
+        }
         return parsePrice(item.unitPrice) * Math.max(parsePrice(item.quantity) || 1, 0);
+    };
+
+    // Helper: retorna qty efetiva do filho (qty do filho × qty do pai)
+    const getEffectiveQty = (item: ActivityItem): number => {
+        const qty = Math.max(parsePrice(item.quantity) || 1, 0);
+        if (!item.parentId) return qty;
+        const parent = items.find(i => i.id === item.parentId || (i.isBundleParent && 'temp-' + items.indexOf(i) === item.parentId));
+        const parentQty = parent ? Math.max(parsePrice(parent.quantity) || 1, 1) : 1;
+        return qty * parentQty;
     };
 
     const subtotal = items.filter(i => !i.parentId).reduce((sum, item) => sum + getItemTotal(item), 0);
@@ -1120,15 +1135,26 @@ export default function NewProposalDialog({
                                                         />
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Input
-                                                            type="text" inputMode="decimal"
-                                                            min="1"
-                                                            value={item.quantity}
-                                                            onChange={(e) =>
-                                                                updateItem(index, 'quantity', e.target.value)
-                                                            }
-                                                            className="h-8 text-sm w-16"
-                                                        />
+                                                        <div className="flex flex-col">
+                                                            <Input
+                                                                type="text" inputMode="decimal"
+                                                                min="1"
+                                                                value={item.quantity}
+                                                                onChange={(e) =>
+                                                                    updateItem(index, 'quantity', e.target.value)
+                                                                }
+                                                                className="h-8 text-sm w-16"
+                                                            />
+                                                            {item.parentId && (() => {
+                                                                const effQty = getEffectiveQty(item);
+                                                                const rawQty = parsePrice(item.quantity) || 1;
+                                                                return effQty !== rawQty ? (
+                                                                    <span className="text-[10px] text-blue-500 mt-0.5 whitespace-nowrap">
+                                                                        Total: {effQty.toLocaleString('pt-BR', { minimumFractionDigits: 3 })}
+                                                                    </span>
+                                                                ) : null;
+                                                            })()}
+                                                        </div>
                                                     </TableCell>
                                                     <TableCell>
                                                         <Select

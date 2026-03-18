@@ -138,36 +138,56 @@ export class DocumentsController {
   @Get(':fileNameOrId/file')
   @ApiOperation({ summary: 'Download de arquivo' })
   async downloadFile(@Param('fileNameOrId') fileNameOrId: string, @Res() res: Response) {
-    // Try to find by stored filename first
-    let filePath = path.join(UPLOAD_DIR, fileNameOrId);
+    // Always try to find the document in DB first for correct metadata
+    let doc: Document | null = null;
+    let filePath: string | null = null;
 
-    if (!fs.existsSync(filePath)) {
-      // If not found by filename, look up the document by ID
-      const doc = await this.documentsService.findOne(fileNameOrId);
-      if (doc.filePath && fs.existsSync(doc.filePath)) {
+    try {
+      doc = await this.documentsService.findOne(fileNameOrId);
+      if (doc?.filePath && fs.existsSync(doc.filePath)) {
         filePath = doc.filePath;
-      } else {
-        throw new NotFoundException('Arquivo não encontrado no servidor');
+      }
+    } catch {
+      // Not found by ID — try as filename
+    }
+
+    // Fallback: try as direct filename in upload dir
+    if (!filePath) {
+      const directPath = path.join(UPLOAD_DIR, fileNameOrId);
+      if (fs.existsSync(directPath)) {
+        filePath = directPath;
       }
     }
 
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes: Record<string, string> = {
-      '.pdf': 'application/pdf',
-      '.png': 'image/png',
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.gif': 'image/gif',
-      '.doc': 'application/msword',
-      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      '.xls': 'application/vnd.ms-excel',
-      '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      '.dwg': 'application/acad',
-      '.zip': 'application/zip',
-    };
+    if (!filePath) {
+      throw new NotFoundException('Arquivo não encontrado no servidor');
+    }
 
-    res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${path.basename(filePath)}"`);
+    // Use stored mimeType from DB, fallback to extension detection
+    let contentType = doc?.mimeType || null;
+    if (!contentType) {
+      const ext = path.extname(filePath).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        '.pdf': 'application/pdf',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.doc': 'application/msword',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.xls': 'application/vnd.ms-excel',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.dwg': 'application/acad',
+        '.zip': 'application/zip',
+      };
+      contentType = mimeTypes[ext] || 'application/octet-stream';
+    }
+
+    // Use original filename from DB for download, fallback to stored filename
+    const downloadName = doc?.originalName || doc?.fileName || path.basename(filePath);
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(downloadName)}"`);
 
     const stream = fs.createReadStream(filePath);
     stream.pipe(res);
