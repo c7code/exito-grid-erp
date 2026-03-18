@@ -12,6 +12,8 @@ import { Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
 import { v4 as uuid } from 'uuid';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pdfParse = require('pdf-parse');
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'documents');
 
@@ -100,7 +102,34 @@ export class DocumentsController {
       sourceOrganization: body.sourceOrganization || null,
       createdById: req.user?.userId || req.user?.id,
     };
-    return this.documentsService.create(docData);
+    return this.documentsService.create(docData).then(async (savedDoc) => {
+      // Async PDF text extraction (fire-and-forget)
+      if (file.mimetype === 'application/pdf' && file.path) {
+        this.extractPdfText(savedDoc.id, file.path).catch(err => {
+          console.warn('PDF text extraction failed:', err?.message);
+        });
+      }
+      return savedDoc;
+    });
+  }
+
+  private async extractPdfText(docId: string, filePath: string): Promise<void> {
+    try {
+      const dataBuffer = fs.readFileSync(filePath);
+      const data = await pdfParse(dataBuffer);
+      const text = data.text?.trim();
+      if (text && text.length > 0) {
+        // Limit to 100KB of text to avoid DB bloat
+        const truncatedText = text.length > 100000 ? text.substring(0, 100000) + '\n... [texto truncado]' : text;
+        await this.documentsService.update(docId, {
+          extractedText: truncatedText,
+          textExtracted: true,
+        } as any);
+        console.log(`✅ PDF text extracted for doc ${docId}: ${truncatedText.length} chars`);
+      }
+    } catch (err: any) {
+      console.warn(`⚠️ PDF extraction error for doc ${docId}:`, err?.message);
+    }
   }
 
   // ========== DOWNLOAD ==========

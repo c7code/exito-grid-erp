@@ -9,6 +9,7 @@ import { CatalogItem } from '../catalog/catalog.entity';
 import { Supplier } from '../supply/supply.entity';
 import { StructureTemplate } from '../structure-templates/structure-template.entity';
 import { MarkupConfig } from '../markup/markup.entity';
+import { Document } from '../documents/document.entity';
 
 // ═══════════════════════════════════════════════════════════════
 // TOOLS DE CONSULTA (liberadas para todos)
@@ -88,6 +89,35 @@ const READ_TOOLS: any[] = [
             name: 'resumo_financeiro',
             description: 'Retorna resumo financeiro geral do sistema.',
             parameters: { type: 'object', properties: {} },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'buscar_documentos',
+            description: 'Busca documentos/arquivos enviados ao sistema por nome, tipo, pasta, tags ou finalidade. Retorna metadados dos documentos encontrados.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    busca: { type: 'string', description: 'Texto para buscar no nome, descrição, tags ou organização origem' },
+                    tipo: { type: 'string', enum: ['project', 'report', 'art', 'memorial', 'photo', 'contract', 'invoice', 'certificate', 'protocol', 'norm', 'pop', 'supplier_catalog', 'other'], description: 'Tipo de documento' },
+                    finalidade: { type: 'string', enum: ['norma_tecnica', 'pop', 'catalogo_fornecedor', 'manual', 'projeto_tipo', 'tabela_preco', 'book_estruturas', 'documentacao_obra', 'other'], description: 'Finalidade do documento' },
+                },
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'ler_documento',
+            description: 'Lê o conteúdo textual extraído de um documento específico. Use buscar_documentos primeiro para encontrar o documento, depois use esta ferramenta com o nome exato para ler o conteúdo.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    busca: { type: 'string', description: 'Nome exato ou parte do nome do documento para ler' },
+                },
+                required: ['busca'],
+            },
         },
     },
 ];
@@ -225,6 +255,8 @@ export class AiService {
         private structureRepo: Repository<StructureTemplate>,
         @InjectRepository(MarkupConfig)
         private markupRepo: Repository<MarkupConfig>,
+        @InjectRepository(Document)
+        private documentRepo: Repository<Document>,
         private dataSource: DataSource,
     ) { }
 
@@ -425,6 +457,8 @@ export class AiService {
             case 'buscar_clientes': return this.toolBuscarClientes(args);
             case 'buscar_produtos': return this.toolBuscarProdutos(args);
             case 'resumo_financeiro': return this.toolResumoFinanceiro();
+            case 'buscar_documentos': return this.toolBuscarDocumentos(args);
+            case 'ler_documento': return this.toolLerDocumento(args);
             // Ações
             case 'criar_proposta': return this.toolCriarProposta(args, userId);
             case 'criar_cliente': return this.toolCriarCliente(args);
@@ -758,6 +792,97 @@ export class AiService {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // TOOLS DE DOCUMENTOS
+    // ═══════════════════════════════════════════════════════════════
+
+    private async toolBuscarDocumentos(args: { busca?: string; tipo?: string; finalidade?: string }): Promise<string> {
+        let q = `SELECT d.id, d.name, d."fileName", d.type, d.purpose, d.size, d."mimeType",
+                        d."textExtracted", d.tags, d."sourceOrganization", d.description,
+                        d."createdAt", df.name AS "folderName"
+                 FROM documents d LEFT JOIN document_folders df ON df.id = d."folderId"
+                 WHERE d."deletedAt" IS NULL`;
+        const params: any[] = [];
+        let paramIdx = 1;
+
+        if (args.busca) {
+            q += ` AND (d.name ILIKE $${paramIdx} OR d."fileName" ILIKE $${paramIdx} OR d.description ILIKE $${paramIdx}
+                   OR d."sourceOrganization" ILIKE $${paramIdx} OR CAST(d.tags AS TEXT) ILIKE $${paramIdx})`;
+            params.push(`%${args.busca}%`);
+            paramIdx++;
+        }
+        if (args.tipo) {
+            q += ` AND d.type = $${paramIdx}`;
+            params.push(args.tipo);
+            paramIdx++;
+        }
+        if (args.finalidade) {
+            q += ` AND d.purpose = $${paramIdx}`;
+            params.push(args.finalidade);
+            paramIdx++;
+        }
+        q += ` ORDER BY d."createdAt" DESC LIMIT 20`;
+
+        const rows = await this.dataSource.query(q, params);
+        if (rows.length === 0) return JSON.stringify({ mensagem: 'Nenhum documento encontrado' });
+
+        return JSON.stringify({
+            total: rows.length,
+            documentos: rows.map((r: any) => ({
+                nome: r.name,
+                arquivo: r.fileName,
+                tipo: r.type,
+                finalidade: r.purpose,
+                tamanho: r.size ? `${(r.size / 1024).toFixed(1)} KB` : null,
+                pasta: r.folderName,
+                tags: r.tags,
+                origem: r.sourceOrganization,
+                descricao: r.description,
+                textoExtraido: r.textExtracted ? 'sim' : 'não',
+                data: r.createdAt,
+            })),
+        });
+    }
+
+    private async toolLerDocumento(args: { busca: string }): Promise<string> {
+        const rows = await this.dataSource.query(
+            `SELECT d.id, d.name, d."fileName", d."extractedText", d."textExtracted", d.type,
+                    d.purpose, d.description, d.size
+             FROM documents d
+             WHERE d."deletedAt" IS NULL AND (d.name ILIKE $1 OR d."fileName" ILIKE $1)
+             ORDER BY d."createdAt" DESC LIMIT 1`,
+            [`%${args.busca}%`],
+        );
+
+        if (rows.length === 0) {
+            return JSON.stringify({ erro: `Documento "${args.busca}" não encontrado. Use buscar_documentos para listar os disponíveis.` });
+        }
+
+        const doc = rows[0];
+        if (!doc.textExtracted || !doc.extractedText) {
+            return JSON.stringify({
+                documento: doc.name,
+                arquivo: doc.fileName,
+                tipo: doc.type,
+                mensagem: 'O texto deste documento ainda não foi extraído. O documento pode não ser um PDF ou o texto não pôde ser lido.',
+            });
+        }
+
+        // Limit text to 8000 chars to fit within token limits
+        const text = doc.extractedText.length > 8000
+            ? doc.extractedText.substring(0, 8000) + '\n... [texto truncado — documento muito longo]'
+            : doc.extractedText;
+
+        return JSON.stringify({
+            documento: doc.name,
+            arquivo: doc.fileName,
+            tipo: doc.type,
+            finalidade: doc.purpose,
+            tamanho: doc.size ? `${(doc.size / 1024).toFixed(1)} KB` : null,
+            conteudo: text,
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // ANÁLISE DE LISTA DE MATERIAIS
     // ═══════════════════════════════════════════════════════════════
 
@@ -842,6 +967,8 @@ SISTEMA:
 
 FERRAMENTAS DE CONSULTA (sempre disponíveis):
 - buscar_contratos, buscar_propostas, buscar_obras, buscar_clientes, buscar_produtos, resumo_financeiro
+- buscar_documentos → Pesquisar documentos/arquivos enviados ao sistema
+- ler_documento → Ler o conteúdo textual de um documento PDF enviado
 ${actionSection}
 
 REGRAS:
@@ -850,6 +977,7 @@ REGRAS:
 3. Nunca invente dados
 4. Formate valores como R$ X.XXX,XX
 5. Para ações, confirme com o usuário o que será feito antes de executar
-6. Seja prático e acionável como um engenheiro consultor`;
+6. Seja prático e acionável como um engenheiro consultor
+7. Quando perguntarem sobre documentos, USE buscar_documentos e ler_documento para acessar o conteúdo real`;
     }
 }

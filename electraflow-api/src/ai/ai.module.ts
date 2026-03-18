@@ -8,6 +8,7 @@ import { CatalogItem } from '../catalog/catalog.entity';
 import { Supplier } from '../supply/supply.entity';
 import { StructureTemplate } from '../structure-templates/structure-template.entity';
 import { MarkupConfig } from '../markup/markup.entity';
+import { Document } from '../documents/document.entity';
 
 @Module({
     imports: [
@@ -18,6 +19,7 @@ import { MarkupConfig } from '../markup/markup.entity';
             Supplier,
             StructureTemplate,
             MarkupConfig,
+            Document,
         ]),
     ],
     controllers: [AiController],
