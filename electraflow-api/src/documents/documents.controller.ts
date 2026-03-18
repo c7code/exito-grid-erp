@@ -3,29 +3,26 @@ import {
   UseGuards, UseInterceptors, UploadedFile, Res, NotFoundException, Request,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DocumentsService } from './documents.service';
+import { SupabaseStorageService } from './supabase-storage.service';
 import { Document, DocumentFolder, DocumentType } from './document.entity';
 import { Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
 import { v4 as uuid } from 'uuid';
 
-const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'documents');
-
-// Ensure upload dir exists
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
-
 @ApiTags('Documentos')
 @Controller('documents')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class DocumentsController {
-  constructor(private documentsService: DocumentsService) { }
+  constructor(
+    private documentsService: DocumentsService,
+    private supabaseStorage: SupabaseStorageService,
+  ) { }
 
   // ========== DOCUMENTOS ==========
 
@@ -59,13 +56,7 @@ export class DocumentsController {
   @ApiOperation({ summary: 'Upload de arquivo' })
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: UPLOAD_DIR,
-        filename: (_req, file, cb) => {
-          const ext = path.extname(file.originalname);
-          cb(null, `${uuid()}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
     }),
   )
@@ -80,12 +71,24 @@ export class DocumentsController {
       try { parsedTags = JSON.parse(body.tags); } catch { parsedTags = null; }
     }
 
+    // Gerar path no storage: {uuid}/{originalFilename}
+    const fileId = uuid();
+    const ext = path.extname(file.originalname);
+    const storagePath = `${fileId}/${file.originalname}`;
+
+    // Upload para o Supabase Storage
+    const publicUrl = await this.supabaseStorage.upload(
+      storagePath,
+      file.buffer,
+      file.mimetype,
+    );
+
     const docData: Partial<Document> = {
       name: body.name || file.originalname,
       fileName: file.originalname,
       originalName: file.originalname,
-      url: `/api/documents/${file.filename}/file`,
-      filePath: file.path,
+      url: publicUrl,
+      filePath: storagePath, // caminho no Supabase Storage (para delete futuro)
       mimeType: file.mimetype,
       size: file.size,
       type: (body.type as DocumentType) || DocumentType.OTHER,
@@ -100,37 +103,7 @@ export class DocumentsController {
       sourceOrganization: body.sourceOrganization || null,
       createdById: req.user?.userId || req.user?.id,
     };
-    return this.documentsService.create(docData).then(async (savedDoc) => {
-      // Async PDF text extraction (fire-and-forget)
-      if (file.mimetype === 'application/pdf' && file.path) {
-        this.extractPdfText(savedDoc.id, file.path).catch(err => {
-          console.warn('PDF text extraction failed:', err?.message);
-        });
-      }
-      return savedDoc;
-    });
-  }
-
-  private async extractPdfText(docId: string, filePath: string): Promise<void> {
-    try {
-      // Lazy import to prevent crash if pdf-parse is not available
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const pdfParse = require('pdf-parse');
-      const dataBuffer = fs.readFileSync(filePath);
-      const data = await pdfParse(dataBuffer);
-      const text = data.text?.trim();
-      if (text && text.length > 0) {
-        // Limit to 100KB of text to avoid DB bloat
-        const truncatedText = text.length > 100000 ? text.substring(0, 100000) + '\n... [texto truncado]' : text;
-        await this.documentsService.update(docId, {
-          extractedText: truncatedText,
-          textExtracted: true,
-        } as any);
-        console.log(`✅ PDF text extracted for doc ${docId}: ${truncatedText.length} chars`);
-      }
-    } catch (err: any) {
-      console.warn(`⚠️ PDF extraction error for doc ${docId}:`, err?.message);
-    }
+    return this.documentsService.create(docData);
   }
 
   // ========== DOWNLOAD ==========
@@ -138,59 +111,38 @@ export class DocumentsController {
   @Get(':fileNameOrId/file')
   @ApiOperation({ summary: 'Download de arquivo' })
   async downloadFile(@Param('fileNameOrId') fileNameOrId: string, @Res() res: Response) {
-    // Always try to find the document in DB first for correct metadata
     let doc: Document | null = null;
-    let filePath: string | null = null;
 
     try {
       doc = await this.documentsService.findOne(fileNameOrId);
-      if (doc?.filePath && fs.existsSync(doc.filePath)) {
-        filePath = doc.filePath;
-      }
     } catch {
-      // Not found by ID — try as filename
+      // Not found by ID
     }
 
-    // Fallback: try as direct filename in upload dir
-    if (!filePath) {
-      const directPath = path.join(UPLOAD_DIR, fileNameOrId);
-      if (fs.existsSync(directPath)) {
-        filePath = directPath;
-      }
+    if (!doc) {
+      throw new NotFoundException('Arquivo não encontrado');
     }
 
-    if (!filePath) {
-      throw new NotFoundException('Arquivo não encontrado no servidor');
+    // Se a URL é do Supabase (https://...), redireciona
+    if (doc.url && doc.url.startsWith('http')) {
+      return res.redirect(doc.url);
     }
 
-    // Use stored mimeType from DB, fallback to extension detection
-    let contentType = doc?.mimeType || null;
-    if (!contentType) {
-      const ext = path.extname(filePath).toLowerCase();
-      const mimeTypes: Record<string, string> = {
-        '.pdf': 'application/pdf',
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.gif': 'image/gif',
-        '.doc': 'application/msword',
-        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        '.xls': 'application/vnd.ms-excel',
-        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        '.dwg': 'application/acad',
-        '.zip': 'application/zip',
-      };
-      contentType = mimeTypes[ext] || 'application/octet-stream';
+    // Fallback: tentar ler do disco local (compatibilidade com arquivos antigos)
+    const filePath = doc.filePath;
+    if (filePath && fs.existsSync(filePath)) {
+      let contentType = doc.mimeType || 'application/octet-stream';
+      const downloadName = doc.originalName || doc.fileName || path.basename(filePath);
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(downloadName)}"`);
+
+      const stream = fs.createReadStream(filePath);
+      stream.pipe(res);
+      return;
     }
 
-    // Use original filename from DB for download, fallback to stored filename
-    const downloadName = doc?.originalName || doc?.fileName || path.basename(filePath);
-
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(downloadName)}"`);
-
-    const stream = fs.createReadStream(filePath);
-    stream.pipe(res);
+    throw new NotFoundException('Arquivo não encontrado no servidor');
   }
 
   @Post()
@@ -209,10 +161,16 @@ export class DocumentsController {
   @ApiOperation({ summary: 'Remover documento' })
   async remove(@Param('id') id: string) {
     const doc = await this.documentsService.findOne(id);
-    // Clean up file from disk if it exists
-    if (doc.filePath && fs.existsSync(doc.filePath)) {
+
+    // Limpar do Supabase Storage se o filePath parece ser um path de storage (não absoluto)
+    if (doc.filePath && !path.isAbsolute(doc.filePath)) {
+      await this.supabaseStorage.delete(doc.filePath);
+    }
+    // Limpar do disco local se for path absoluto (compat com arquivos antigos)
+    else if (doc.filePath && fs.existsSync(doc.filePath)) {
       fs.unlinkSync(doc.filePath);
     }
+
     await this.documentsService.remove(id);
     return { message: 'Documento removido com sucesso' };
   }
