@@ -1269,6 +1269,16 @@ class ApiService {
     return response.data;
   }
 
+  async deleteRequirement(requirementId: string) {
+    const response = await this.client.delete(`/compliance/requirements/${requirementId}`);
+    return response.data;
+  }
+
+  async updateDocumentTypeName(docTypeId: string, name: string) {
+    const response = await this.client.put(`/compliance/document-types/${docTypeId}/name`, { name });
+    return response.data;
+  }
+
   // Compliance Documents
   async getComplianceDocuments(employeeId: string) {
     const response = await this.client.get(`/compliance/employees/${employeeId}/documents`);

@@ -52,7 +52,17 @@ export class ProposalsController {
   @Post()
   @ApiOperation({ summary: 'Criar proposta' })
   async create(@Body() data: { proposal: Partial<Proposal>; items: any[] }, @Req() req: any) {
-    return this.proposalsService.create({ ...data.proposal, createdById: req.user?.userId || req.user?.id }, data.items);
+    try {
+      return await this.proposalsService.create({ ...data.proposal, createdById: req.user?.userId || req.user?.id }, data.items);
+    } catch (err: any) {
+      console.error('PROPOSAL CREATE ERROR:', err?.message, err?.stack);
+      console.error('PROPOSAL DATA:', JSON.stringify({
+        proposalKeys: Object.keys(data.proposal || {}),
+        itemsCount: data.items?.length,
+        firstItem: data.items?.[0],
+      }, null, 2));
+      throw err;
+    }
   }
 
   @Put(':id')

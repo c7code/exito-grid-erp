@@ -206,6 +206,24 @@ export class ComplianceService {
         });
     }
 
+    async deleteRequirement(requirementId: string): Promise<void> {
+        const req = await this.requirementRepo.findOne({ where: { id: requirementId } });
+        if (!req) throw new NotFoundException('Requisito não encontrado');
+        // Soft-delete associated compliance docs
+        const docs = await this.compDocRepo.find({ where: { requirementId } });
+        if (docs.length > 0) {
+            await this.compDocRepo.softRemove(docs);
+        }
+        await this.requirementRepo.remove(req);
+    }
+
+    async updateDocumentTypeName(docTypeId: string, name: string): Promise<DocumentType> {
+        const dt = await this.docTypeRepo.findOne({ where: { id: docTypeId } });
+        if (!dt) throw new NotFoundException('Tipo de documento não encontrado');
+        dt.name = name;
+        return this.docTypeRepo.save(dt);
+    }
+
     /**
      * Adicionar manualmente um documento que não está no checklist automático.
      * Útil para obras complexas que exigem docs extras.

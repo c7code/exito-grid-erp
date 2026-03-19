@@ -159,6 +159,8 @@ export default function EmployeeCompliance() {
     const [uploading, setUploading] = useState(false);
     const [approvalComments, setApprovalComments] = useState('');
     const [naJustification, setNaJustification] = useState('');
+    const [renamingDocType, setRenamingDocType] = useState<{open: boolean; docTypeId?: string; currentName?: string}>({open: false});
+    const [renameValue, setRenameValue] = useState('');
 
     useEffect(() => {
         if (employeeId) loadAll();
@@ -346,6 +348,29 @@ export default function EmployeeCompliance() {
             loadAll();
         } catch {
             toast.error('Erro ao excluir documento');
+        }
+    }
+
+    async function handleDeleteRequirement(req: Requirement) {
+        if (!confirm(`Excluir "${req.documentType?.name}" do checklist?\nEsta ação não pode ser desfeita.`)) return;
+        try {
+            await api.deleteRequirement(req.id);
+            toast.success('Requisito excluído');
+            loadAll();
+        } catch {
+            toast.error('Erro ao excluir requisito');
+        }
+    }
+
+    async function handleRenameDocType() {
+        if (!renamingDocType.docTypeId || !renameValue.trim()) return;
+        try {
+            await api.updateDocumentTypeName(renamingDocType.docTypeId, renameValue.trim());
+            toast.success('Nome atualizado');
+            setRenamingDocType({open: false});
+            loadAll();
+        } catch {
+            toast.error('Erro ao renomear');
         }
     }
 
@@ -632,6 +657,24 @@ export default function EmployeeCompliance() {
 
                                             {/* Actions */}
                                             <div className="flex items-center gap-1 shrink-0">
+                                                {/* Edit Name + Delete Requirement (always visible) */}
+                                                <Button
+                                                    variant="ghost" size="icon" className="h-8 w-8"
+                                                    title="Editar nome"
+                                                    onClick={() => {
+                                                        setRenamingDocType({open: true, docTypeId: req.documentTypeId, currentName: req.documentType?.name});
+                                                        setRenameValue(req.documentType?.name || '');
+                                                    }}
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700"
+                                                    title="Excluir do checklist"
+                                                    onClick={() => handleDeleteRequirement(req)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
                                                 <Button
                                                     variant="ghost" size="icon" className="h-8 w-8"
                                                     title="Enviar documento"
@@ -1088,6 +1131,28 @@ export default function EmployeeCompliance() {
                         <Button onClick={handleAddDocument}>
                             Adicionar ao Checklist
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ═══ Rename Dialog ═══ */}
+            <Dialog open={renamingDocType.open} onOpenChange={v => !v && setRenamingDocType({open: false})}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Renomear Documento</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        <Label>Nome atual: <span className="font-normal text-muted-foreground">{renamingDocType.currentName}</span></Label>
+                        <Input
+                            value={renameValue}
+                            onChange={e => setRenameValue(e.target.value)}
+                            placeholder="Novo nome"
+                            onKeyDown={e => e.key === 'Enter' && handleRenameDocType()}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setRenamingDocType({open: false})}>Cancelar</Button>
+                        <Button onClick={handleRenameDocType}>Salvar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

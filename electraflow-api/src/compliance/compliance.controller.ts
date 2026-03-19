@@ -158,6 +158,22 @@ export class ComplianceController {
         );
     }
 
+    @Delete('requirements/:id')
+    @ApiOperation({ summary: 'Excluir requisito do checklist' })
+    async deleteRequirement(@Param('id') id: string) {
+        await this.complianceService.deleteRequirement(id);
+        return { message: 'Requisito excluído' };
+    }
+
+    @Put('document-types/:id/name')
+    @ApiOperation({ summary: 'Atualizar nome do tipo de documento' })
+    async updateDocTypeName(
+        @Param('id') id: string,
+        @Body() body: { name: string },
+    ) {
+        return this.complianceService.updateDocumentTypeName(id, body.name);
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // COMPLIANCE DOCUMENTS
     // ═══════════════════════════════════════════════════════════════
