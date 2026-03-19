@@ -588,7 +588,7 @@ export default function NewProposalDialog({
         setLoading(true);
         try {
             const validItems = items
-                .filter((item) => item.description.trim() && (getItemTotal(item) > 0 || item.isBundleParent))
+                .filter((item) => item.description.trim() && (getItemTotal(item) > 0 || item.isBundleParent || item.parentId))
                 .map((item) => ({
                     id: item.id,
                     description: item.description,
