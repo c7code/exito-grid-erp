@@ -108,7 +108,7 @@ const navSections: NavSection[] = [
   {
     section: 'SISTEMA',
     items: [
-      { path: '/admin/employees', label: 'Funcionários', icon: Users, module: 'employees', roles: ['admin'] },
+      { path: '/admin/employees', label: 'Funcionários', icon: Users, module: 'employees', roles: ['admin', 'employee'] },
       { path: '/admin/users', label: 'Usuários', icon: Users, module: 'users', roles: ['admin'] },
       { path: '/admin/companies', label: 'Empresas', icon: Building2, module: 'companies', roles: ['admin'] },
       { path: '/admin/activity-report', label: 'Atividades', icon: ClipboardList, module: 'activity-report', roles: ['admin'] },
