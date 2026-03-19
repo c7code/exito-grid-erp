@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ProposalsService } from './proposals.service';
@@ -51,17 +51,17 @@ export class ProposalsController {
 
   @Post()
   @ApiOperation({ summary: 'Criar proposta' })
-  async create(@Body() data: { proposal: Partial<Proposal>; items: any[] }, @Req() req: any) {
+  async create(@Body() data: { proposal: Partial<Proposal>; items: any[] }, @Req() req: any, @Res() res: any) {
     try {
-      return await this.proposalsService.create({ ...data.proposal, createdById: req.user?.userId || req.user?.id }, data.items);
+      const result = await this.proposalsService.create({ ...data.proposal, createdById: req.user?.userId || req.user?.id }, data.items);
+      return res.json(result);
     } catch (err: any) {
       console.error('PROPOSAL CREATE ERROR:', err?.message, err?.stack);
-      console.error('PROPOSAL DATA:', JSON.stringify({
-        proposalKeys: Object.keys(data.proposal || {}),
-        itemsCount: data.items?.length,
-        firstItem: data.items?.[0],
-      }, null, 2));
-      throw err;
+      return res.status(500).json({
+        message: 'Erro ao criar proposta: ' + (err?.message || 'Erro desconhecido'),
+        detail: err?.detail || err?.driverError?.detail || null,
+        query: err?.query || null,
+      });
     }
   }
 
