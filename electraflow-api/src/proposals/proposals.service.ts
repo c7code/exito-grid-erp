@@ -178,8 +178,10 @@ export class ProposalsService implements OnModuleInit {
     const year = new Date().getFullYear();
     const prefix = `PROP-${year}-`;
 
+    // MUST include soft-deleted proposals to avoid duplicate key on unique proposalNumber
     const lastProposal = await this.proposalRepository
       .createQueryBuilder('p')
+      .withDeleted()
       .where('p.proposalNumber LIKE :prefix', { prefix: `${prefix}%` })
       .orderBy('p.proposalNumber', 'DESC')
       .getOne();
