@@ -1,16 +1,67 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, Like, DataSource } from 'typeorm';
 import { StructureTemplate, StructureTemplateItem } from './structure-template.entity';
 
 @Injectable()
-export class StructureTemplatesService {
+export class StructureTemplatesService implements OnModuleInit {
+    private readonly logger = new Logger(StructureTemplatesService.name);
+
     constructor(
         @InjectRepository(StructureTemplate)
         private templateRepo: Repository<StructureTemplate>,
         @InjectRepository(StructureTemplateItem)
         private itemRepo: Repository<StructureTemplateItem>,
+        private dataSource: DataSource,
     ) { }
+
+    async onModuleInit() {
+        try {
+            await this.dataSource.query(`
+                CREATE TABLE IF NOT EXISTS structure_templates (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    code VARCHAR NOT NULL,
+                    name VARCHAR NOT NULL,
+                    concessionaria VARCHAR,
+                    "normCode" VARCHAR,
+                    "tensionLevel" VARCHAR,
+                    category VARCHAR,
+                    description TEXT,
+                    "diagramUrl" VARCHAR,
+                    tags TEXT,
+                    "isActive" BOOLEAN DEFAULT true,
+                    "markupPercent" NUMERIC(5,2) DEFAULT 0,
+                    "createdAt" TIMESTAMP DEFAULT NOW(),
+                    "updatedAt" TIMESTAMP DEFAULT NOW(),
+                    "deletedAt" TIMESTAMP
+                )
+            `);
+            this.logger.log('Table structure_templates ensured');
+        } catch (err) {
+            this.logger.warn('Could not create structure_templates: ' + err?.message);
+        }
+
+        try {
+            await this.dataSource.query(`
+                CREATE TABLE IF NOT EXISTS structure_template_items (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    "templateId" UUID NOT NULL,
+                    "catalogItemId" UUID,
+                    description VARCHAR NOT NULL,
+                    quantity NUMERIC(10,3) DEFAULT 1,
+                    unit VARCHAR DEFAULT 'UN',
+                    "isOptional" BOOLEAN DEFAULT false,
+                    "unitPrice" NUMERIC(15,2) DEFAULT 0,
+                    "sortOrder" INT DEFAULT 0,
+                    "createdAt" TIMESTAMP DEFAULT NOW(),
+                    "updatedAt" TIMESTAMP DEFAULT NOW()
+                )
+            `);
+            this.logger.log('Table structure_template_items ensured');
+        } catch (err) {
+            this.logger.warn('Could not create structure_template_items: ' + err?.message);
+        }
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // TEMPLATES
