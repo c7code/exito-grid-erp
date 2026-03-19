@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { api } from '@/api';
 import {
     Zap, X, Send, Loader2, Bot, User, Sparkles, Trash2,
-    FileText, Package, AlertTriangle, Shield, Clock, Users, XCircle,
+    FileText, Package, AlertTriangle, Shield, Clock, Users, XCircle, Minus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -199,10 +199,11 @@ export default function AiChatPanel() {
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-700 md:hidden"
+                            className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-700"
                             onClick={() => setOpen(false)}
+                            title="Minimizar"
                         >
-                            <X className="w-4 h-4" />
+                            <Minus className="w-4 h-4" />
                         </Button>
                     </div>
                 </div>
