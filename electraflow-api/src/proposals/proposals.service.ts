@@ -159,6 +159,21 @@ export class ProposalsService implements OnModuleInit {
     return proposal;
   }
 
+  async diagnoseSchema() {
+    const proposalCols = await this.dataSource.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'proposals' ORDER BY ordinal_position
+    `);
+    const itemCols = await this.dataSource.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'proposal_items' ORDER BY ordinal_position
+    `);
+    return {
+      proposals_columns: proposalCols.map((c: any) => c.column_name),
+      proposal_items_columns: itemCols.map((c: any) => c.column_name),
+    };
+  }
+
   private async generateProposalNumber(): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `PROP-${year}-`;
@@ -179,7 +194,35 @@ export class ProposalsService implements OnModuleInit {
   }
 
   async create(proposalData: Partial<Proposal>, items: Partial<ProposalItem>[]): Promise<Proposal> {
-    const proposal = this.proposalRepository.create(proposalData);
+    // Step 1: Strip only known safe fields to avoid unknown column errors
+    const safeFields: Record<string, any> = {};
+    const knownFields = [
+      'title', 'clientId', 'opportunityId', 'status', 'subtotal', 'discount', 'total',
+      'validUntil', 'scope', 'deadline', 'paymentConditions', 'obligations', 'notes',
+      'rejectionReason', 'workDescription', 'workAddress', 'materialFornecimento',
+      'materialFaturamento', 'serviceDescription', 'paymentBank', 'paymentDueCondition',
+      'workDeadlineDays', 'contractorObligations', 'clientObligations', 'generalProvisions',
+      'activityType', 'itemVisibilityMode', 'materialSummaryText', 'serviceSummaryText',
+      'summaryTotalLabel', 'logisticsCostValue', 'logisticsCostMode', 'logisticsCostPercent',
+      'logisticsCostApplyTo', 'logisticsCostEmbedMaterialPct', 'logisticsCostEmbedServicePct',
+      'logisticsCostDescription', 'adminCostValue', 'adminCostMode', 'adminCostPercent',
+      'adminCostApplyTo', 'adminCostEmbedMaterialPct', 'adminCostEmbedServicePct',
+      'adminCostDescription', 'brokerageCostValue', 'brokerageCostMode', 'brokerageCostPercent',
+      'brokerageCostApplyTo', 'brokerageCostEmbedMaterialPct', 'brokerageCostEmbedServicePct',
+      'brokerageCostDescription', 'insuranceCostValue', 'insuranceCostMode', 'insuranceCostPercent',
+      'insuranceCostApplyTo', 'insuranceCostEmbedMaterialPct', 'insuranceCostEmbedServicePct',
+      'insuranceCostDescription', 'complianceText', 'simulationData', 'createdById', 'updatedById',
+      'revisionNumber',
+    ];
+    for (const key of knownFields) {
+      if (key in proposalData) {
+        safeFields[key] = (proposalData as any)[key];
+      }
+    }
+
+    this.logger.log(`CREATE PROPOSAL — Step 1: Safe fields extracted: ${Object.keys(safeFields).join(', ')}`);
+
+    const proposal = this.proposalRepository.create(safeFields as Partial<Proposal>);
     proposal.proposalNumber = await this.generateProposalNumber();
     proposal.revisionNumber = 1;
 
@@ -193,8 +236,28 @@ export class ProposalsService implements OnModuleInit {
       proposal.total = subtotal - Number(proposal.discount || 0);
     }
 
-    const saved = await this.proposalRepository.save(proposal);
-    await this.saveProposalItems(saved.id, items);
+    this.logger.log(`CREATE PROPOSAL — Step 2: Saving proposal (number: ${proposal.proposalNumber})`);
+
+    let saved: Proposal;
+    try {
+      saved = await this.proposalRepository.save(proposal);
+    } catch (saveErr: any) {
+      this.logger.error(`CREATE PROPOSAL SAVE FAILED: ${saveErr?.message}`);
+      this.logger.error(`CREATE PROPOSAL DETAIL: ${saveErr?.detail || saveErr?.driverError?.detail}`);
+      throw new BadRequestException('Erro ao salvar proposta: ' + (saveErr?.message || 'DB error'));
+    }
+
+    this.logger.log(`CREATE PROPOSAL — Step 3: Saving ${items?.length || 0} items for proposal ${saved.id}`);
+
+    try {
+      await this.saveProposalItems(saved.id, items);
+    } catch (itemErr: any) {
+      this.logger.error(`CREATE PROPOSAL ITEMS FAILED: ${itemErr?.message}`);
+      this.logger.error(`CREATE PROPOSAL ITEMS DETAIL: ${itemErr?.detail || itemErr?.driverError?.detail}`);
+      throw new BadRequestException('Erro ao salvar itens: ' + (itemErr?.message || 'DB error'));
+    }
+
+    this.logger.log(`CREATE PROPOSAL — Step 4: Done! Returning proposal ${saved.id}`);
     return this.findOne(saved.id);
   }
 

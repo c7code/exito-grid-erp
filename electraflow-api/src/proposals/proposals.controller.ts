@@ -24,6 +24,12 @@ export class ProposalsController {
     return this.proposalsService.findAllWithDeleted();
   }
 
+  @Get('diagnose-schema')
+  @ApiOperation({ summary: 'Diagnóstico do schema de propostas' })
+  async diagnoseSchema() {
+    return this.proposalsService.diagnoseSchema();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Buscar proposta por ID' })
   async findOne(@Param('id') id: string) {
