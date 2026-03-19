@@ -1,12 +1,45 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Catch, ArgumentsHost, HttpException, HttpStatus, ExceptionFilter } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { join } from 'path';
+import * as bodyParser from 'body-parser';
+
+@Catch()
+class AllExceptionsFilter implements ExceptionFilter {
+  catch(exception: any, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse();
+    const status = exception instanceof HttpException
+      ? exception.getStatus()
+      : HttpStatus.INTERNAL_SERVER_ERROR;
+    const message = exception?.message || 'Internal server error';
+    const detail = exception?.detail || exception?.driverError?.detail || null;
+    console.error('GLOBAL EXCEPTION:', message, exception?.stack);
+    try {
+      if (response && !response.headersSent) {
+        response.status(status).json({
+          statusCode: status,
+          message,
+          detail,
+        });
+      }
+    } catch (e) {
+      console.error('Exception filter error:', e);
+    }
+  }
+}
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Increase body parser limits (default is 100KB, proposals can be much larger)
+  app.use(bodyParser.json({ limit: '50mb' }));
+  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+
+  // Global exception filter — catches ALL errors and returns JSON
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // Serve uploaded files statically
   app.useStaticAssets(join(__dirname, '..', 'uploads'), { prefix: '/uploads' });
