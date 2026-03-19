@@ -32,7 +32,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileText, Loader2, Plus, Trash2, Search, ChevronDown, Box, Layers, Eye, EyeOff, Building2, DollarSign, Shield, UserPlus, Upload, X, Pencil } from 'lucide-react';
+import { FileText, Loader2, Plus, Trash2, Search, ChevronDown, Box, Layers, Eye, EyeOff, Building2, DollarSign, Shield, UserPlus, Upload, X, Pencil, Calculator } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { ClientDialog } from '@/components/ClientDialog';
@@ -461,6 +461,28 @@ export default function NewProposalDialog({
         const parentQty = parent ? Math.max(parsePrice(parent.quantity) || 1, 1) : 1;
         return qty * parentQty;
     };
+
+    // Aplicar qty do pai nos filhos permanentemente (multiplicar e resetar pai para 1)
+    const applyParentQtyToChildren = (parentIndex: number) => {
+        const parent = items[parentIndex];
+        if (!parent?.isBundleParent) return;
+        const parentQty = Math.max(parsePrice(parent.quantity) || 1, 1);
+        if (parentQty <= 1) { toast.info('Quantidade do kit já é 1'); return; }
+
+        const newItems = [...items];
+        for (let i = 0; i < newItems.length; i++) {
+            if (newItems[i].parentId === parent.id) {
+                const childQty = parsePrice(newItems[i].quantity) || 1;
+                newItems[i] = { ...newItems[i], quantity: String(parseFloat((childQty * parentQty).toFixed(3))) };
+            }
+        }
+        newItems[parentIndex] = { ...newItems[parentIndex], quantity: '1' };
+        setItems(newItems);
+        toast.success(`Quantidades dos ${newItems.filter(i => i.parentId === parent.id).length} itens multiplicadas por ${parentQty}`);
+    };
+
+    // Formatar valor em R$ com max 2 casas decimais
+    const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     const subtotal = items.filter(i => !i.parentId).reduce((sum, item) => sum + getItemTotal(item), 0);
     const discount = parsePrice(formData.discount);
@@ -1006,15 +1028,32 @@ export default function NewProposalDialog({
 
                                                                                         try {
                                                                                             const catItems = await api.getCatalogCategoryItems(suggestion.id);
-                                                                                            const childItems = catItems.map((ci: any) => ({
-                                                                                                description: ci.name,
-                                                                                                unitPrice: String(ci.unitPrice),
-                                                                                                quantity: '1',
-                                                                                                unit: ci.unit || 'UN',
-                                                                                                serviceType: ci.type === 'service' ? 'service' : 'material',
-                                                                                                parentId: parentTempId,
-                                                                                                catalogItemId: ci.id,
-                                                                                            }));
+                                                                                            const childItems: any[] = [];
+                                                                                            for (const ci of catItems) {
+                                                                                                // Mesclar materiais iguais existentes de outros kits
+                                                                                                const existingIdx = newItems.findIndex(ei =>
+                                                                                                    ei.parentId && !ei.isBundleParent &&
+                                                                                                    ((ci.id && ei.catalogItemId === ci.id) ||
+                                                                                                     (!ci.id && ei.description === ci.name))
+                                                                                                );
+                                                                                                if (existingIdx >= 0) {
+                                                                                                    const existingQty = parsePrice(newItems[existingIdx].quantity) || 1;
+                                                                                                    newItems[existingIdx] = {
+                                                                                                        ...newItems[existingIdx],
+                                                                                                        quantity: String(existingQty + 1),
+                                                                                                    };
+                                                                                                } else {
+                                                                                                    childItems.push({
+                                                                                                        description: ci.name,
+                                                                                                        unitPrice: String(ci.unitPrice),
+                                                                                                        quantity: '1',
+                                                                                                        unit: ci.unit || 'UN',
+                                                                                                        serviceType: ci.type === 'service' ? 'service' : 'material',
+                                                                                                        parentId: parentTempId,
+                                                                                                        catalogItemId: ci.id,
+                                                                                                    });
+                                                                                                }
+                                                                                            }
                                                                                             newItems.splice(index + 1, 0, ...childItems);
                                                                                         } catch (err) {
                                                                                             console.error('Erro ao buscar itens da categoria:', err);
@@ -1037,18 +1076,41 @@ export default function NewProposalDialog({
                                                                                         try {
                                                                                             const groupingData = await api.getGroupingItems(suggestion.id);
                                                                                             if (groupingData && groupingData.length > 0) {
-                                                                                                const childItems = groupingData.map((gi: any) => ({
-                                                                                                    description: gi.childItem?.name || gi.description || '',
-                                                                                                    unitPrice: String(gi.childItem?.unitPrice || gi.unitPrice || 0),
-                                                                                                    quantity: String(gi.quantity || 1),
-                                                                                                    unit: gi.unit || gi.childItem?.unit || 'UN',
-                                                                                                    serviceType: gi.childItem?.type === 'service' ? 'service' : 'material',
-                                                                                                    parentId: parentTempId,
-                                                                                                    catalogItemId: gi.childItemId,
-                                                                                                    showDetailedPrices: true,
-                                                                                                }));
+                                                                                                const childItems: any[] = [];
+                                                                                                let mergedCount = 0;
+                                                                                                for (const gi of groupingData) {
+                                                                                                    const childDesc = gi.childItem?.name || gi.description || '';
+                                                                                                    const childCatalogId = gi.childItemId;
+                                                                                                    const childQty = Number(gi.quantity) || 1;
+                                                                                                    // Mesclar materiais iguais existentes de outros kits
+                                                                                                    const existingIdx = newItems.findIndex(ei =>
+                                                                                                        ei.parentId && !ei.isBundleParent &&
+                                                                                                        ((childCatalogId && ei.catalogItemId === childCatalogId) ||
+                                                                                                         (!childCatalogId && ei.description === childDesc))
+                                                                                                    );
+                                                                                                    if (existingIdx >= 0) {
+                                                                                                        const existingQty = parsePrice(newItems[existingIdx].quantity) || 1;
+                                                                                                        newItems[existingIdx] = {
+                                                                                                            ...newItems[existingIdx],
+                                                                                                            quantity: String(parseFloat((existingQty + childQty).toFixed(3))),
+                                                                                                        };
+                                                                                                        mergedCount++;
+                                                                                                    } else {
+                                                                                                        childItems.push({
+                                                                                                            description: childDesc,
+                                                                                                            unitPrice: String(gi.childItem?.unitPrice || gi.unitPrice || 0),
+                                                                                                            quantity: String(childQty),
+                                                                                                            unit: gi.unit || gi.childItem?.unit || 'UN',
+                                                                                                            serviceType: gi.childItem?.type === 'service' ? 'service' : 'material',
+                                                                                                            parentId: parentTempId,
+                                                                                                            catalogItemId: childCatalogId,
+                                                                                                            showDetailedPrices: true,
+                                                                                                        });
+                                                                                                    }
+                                                                                                }
                                                                                                 newItems.splice(index + 1, 0, ...childItems);
-                                                                                                toast.success(`Kit "${suggestion.name}" expandido com ${childItems.length} item(s)`);
+                                                                                                const mergeMsg = mergedCount > 0 ? ` (${mergedCount} mesclado(s))` : '';
+                                                                                                toast.success(`Kit "${suggestion.name}" expandido com ${childItems.length} item(s)${mergeMsg}`);
                                                                                             } else {
                                                                                                 toast.warning('Agrupamento sem itens cadastrados');
                                                                                             }
@@ -1178,13 +1240,13 @@ export default function NewProposalDialog({
                                                     <TableCell>
                                                         <div className="flex flex-col items-end">
                                                             <span className={`text-sm font-medium ${item.isBundleParent ? 'text-amber-700 font-bold' : ''}`}>
-                                                                R$ {getItemTotal(item).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                R$ {fmtBRL(getItemTotal(item))}
                                                             </span>
                                                             {item.isBundleParent && (
                                                                 <>
                                                                     {/* Preço calculado dos filhos como referência */}
                                                                     <span className="text-[10px] text-slate-400 mt-0.5">
-                                                                        Calculado: R$ {getChildrenTotal(item).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                        Calculado: R$ {fmtBRL(getChildrenTotal(item))}
                                                                     </span>
                                                                     {/* Input de override */}
                                                                     <div className="flex items-center gap-1 mt-1">
@@ -1211,6 +1273,17 @@ export default function NewProposalDialog({
                                                                             ) : (
                                                                                 <EyeOff className="w-4 h-4 text-slate-400" />
                                                                             )}
+                                                                        </Button>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            title="Aplicar quantidade do kit nos itens filhos (multiplicar permanentemente)"
+                                                                            className="h-6 px-1.5 p-0 hover:bg-green-100 text-[10px] gap-0.5"
+                                                                            onClick={() => applyParentQtyToChildren(index)}
+                                                                        >
+                                                                            <Calculator className="w-3.5 h-3.5 text-green-600" />
+                                                                            <span className="text-green-700 font-semibold">Aplicar Qtd</span>
                                                                         </Button>
                                      {item.catalogItemId && (
                                          <Button
@@ -1260,7 +1333,7 @@ export default function NewProposalDialog({
                                 <div className="flex gap-4">
                                     <span className="text-slate-500">Subtotal:</span>
                                     <span className="font-medium w-28 text-right">
-                                        R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        R$ {fmtBRL(subtotal)}
                                     </span>
                                 </div>
                                 <div className="flex gap-4 items-center">
@@ -1280,7 +1353,7 @@ export default function NewProposalDialog({
                                 <div className="flex gap-4 pt-1 border-t">
                                     <span className="text-slate-700 font-semibold">Total:</span>
                                     <span className="font-bold text-amber-600 w-28 text-right">
-                                        R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        R$ {fmtBRL(total)}
                                     </span>
                                 </div>
                             </div>
