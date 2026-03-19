@@ -182,6 +182,38 @@ export class ComplianceController {
         return this.complianceService.createComplianceDocument(data);
     }
 
+    @Put('documents/:id')
+    @ApiOperation({ summary: 'Atualizar documento de conformidade (datas, observações)' })
+    async updateDocument(
+        @Param('id') id: string,
+        @Body() data: { issueDate?: string; expiryDate?: string; observations?: string },
+    ) {
+        return this.complianceService.updateComplianceDocument(id, {
+            issueDate: data.issueDate ? new Date(data.issueDate) : undefined,
+            expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined,
+            observations: data.observations,
+        });
+    }
+
+    @Delete('documents/:id')
+    @ApiOperation({ summary: 'Excluir documento de conformidade e seus arquivos' })
+    async deleteDocument(@Param('id') id: string) {
+        // Remove files from disk before deleting
+        try {
+            const versions = await this.complianceService.getVersions(id);
+            for (const v of versions) {
+                const filename = v.fileUrl?.split('/').pop();
+                if (filename) {
+                    const filePath = path.join(UPLOAD_DIR, filename);
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                    }
+                }
+            }
+        } catch { /* ignore cleanup errors */ }
+        return this.complianceService.deleteComplianceDocument(id);
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // FILE UPLOAD — aceita arquivo real da máquina (single)
     // ═══════════════════════════════════════════════════════════════

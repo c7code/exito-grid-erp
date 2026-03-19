@@ -17,7 +17,7 @@ import {
     ArrowLeft, ShieldCheck, ShieldAlert, Clock, AlertTriangle,
     CheckCircle2, XCircle, Upload, Download, History, Eye,
     FileText, Search, RefreshCw, ChevronDown, ChevronRight,
-    ThumbsUp, ThumbsDown, HelpCircle, Loader2, Plus,
+    ThumbsUp, ThumbsDown, HelpCircle, Loader2, Plus, Pencil, Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -338,6 +338,17 @@ export default function EmployeeCompliance() {
         api.downloadComplianceFile(filename);
     }
 
+    async function handleDeleteDocument(doc: ComplianceDoc) {
+        if (!confirm(`Tem certeza que deseja excluir este documento?\nTodas as versões e arquivos serão removidos.`)) return;
+        try {
+            await api.deleteComplianceDocument(doc.id);
+            toast.success('Documento excluído com sucesso');
+            loadAll();
+        } catch {
+            toast.error('Erro ao excluir documento');
+        }
+    }
+
     // ═══ Approval ═══
     async function handleApproval() {
         if (!approvalDialog.document) return;
@@ -648,13 +659,36 @@ export default function EmployeeCompliance() {
                                                 )}
 
                                                 {doc && (
-                                                    <Button
-                                                        variant="ghost" size="icon" className="h-8 w-8"
-                                                        title="Histórico"
-                                                        onClick={() => setHistoryDialog({ open: true, document: doc })}
-                                                    >
-                                                        <History className="h-4 w-4" />
-                                                    </Button>
+                                                    <>
+                                                        <Button
+                                                            variant="ghost" size="icon" className="h-8 w-8"
+                                                            title="Editar datas"
+                                                            onClick={() => {
+                                                                setUploadDialog({ open: true, requirement: req, document: doc });
+                                                                setUploadFiles([]);
+                                                                setUploadDates({
+                                                                    issueDate: doc?.issueDate?.split('T')[0] || '',
+                                                                    expiryDate: doc?.expiryDate?.split('T')[0] || '',
+                                                                });
+                                                            }}
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost" size="icon" className="h-8 w-8"
+                                                            title="Histórico"
+                                                            onClick={() => setHistoryDialog({ open: true, document: doc })}
+                                                        >
+                                                            <History className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700"
+                                                            title="Excluir documento"
+                                                            onClick={() => handleDeleteDocument(doc)}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </>
                                                 )}
 
                                                 {doc && req.documentType?.requiresApproval && doc.status === 'under_review' && (

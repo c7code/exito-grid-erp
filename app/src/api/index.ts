@@ -1354,6 +1354,16 @@ class ApiService {
     return response.data;
   }
 
+  async updateComplianceDocument(complianceDocId: string, data: { issueDate?: string; expiryDate?: string; observations?: string }) {
+    const response = await this.client.put(`/compliance/documents/${complianceDocId}`, data);
+    return response.data;
+  }
+
+  async deleteComplianceDocument(complianceDocId: string) {
+    const response = await this.client.delete(`/compliance/documents/${complianceDocId}`);
+    return response.data;
+  }
+
   // Approval
   async approveComplianceDocument(complianceDocId: string, comments?: string) {
     const response = await this.client.post(`/compliance/documents/${complianceDocId}/approve`, { comments });

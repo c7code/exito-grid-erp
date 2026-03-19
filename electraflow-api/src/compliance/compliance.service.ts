@@ -368,6 +368,33 @@ export class ComplianceService {
         return Array.isArray(saved) ? saved[0] : saved;
     }
 
+    async updateComplianceDocument(
+        id: string,
+        data: { issueDate?: Date; expiryDate?: Date; observations?: string },
+    ): Promise<ComplianceDocument> {
+        const doc = await this.compDocRepo.findOneBy({ id });
+        if (!doc) throw new NotFoundException('Documento não encontrado');
+
+        if (data.issueDate !== undefined) doc.issueDate = data.issueDate;
+        if (data.expiryDate !== undefined) doc.expiryDate = data.expiryDate;
+        if (data.observations !== undefined) doc.observations = data.observations;
+
+        const saved = await this.compDocRepo.save(doc);
+        return Array.isArray(saved) ? saved[0] : saved;
+    }
+
+    async deleteComplianceDocument(id: string): Promise<{ message: string }> {
+        const doc = await this.compDocRepo.findOneBy({ id });
+        if (!doc) throw new NotFoundException('Documento não encontrado');
+
+        // Delete versions and approvals first (cascade should handle, but be safe)
+        await this.versionRepo.delete({ complianceDocumentId: id });
+        await this.approvalRepo.delete({ complianceDocumentId: id });
+        await this.compDocRepo.remove(doc);
+
+        return { message: 'Documento excluído com sucesso' };
+    }
+
     async findDocByRequirement(
         requirementId?: string,
         documentTypeId?: string,
