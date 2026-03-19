@@ -577,60 +577,94 @@ export class ProposalsService implements OnModuleInit {
   private async saveProposalItems(proposalId: string, items: Partial<ProposalItem>[]) {
     if (!items || items.length === 0) return;
 
+    this.logger.log(`saveProposalItems: ${items.length} items for proposal ${proposalId}`);
+
+    // Strip to known DB columns only (prevents unknown field errors)
+    const stripItem = (item: any) => ({
+      description: item.description || '',
+      serviceType: item.serviceType || null,
+      unitPrice: Number(item.unitPrice || 0),
+      quantity: Number(item.quantity || 1),
+      unit: item.unit || 'UN',
+      isBundleParent: item.isBundleParent || false,
+      showDetailedPrices: item.showDetailedPrices !== undefined ? item.showDetailedPrices : true,
+      overridePrice: item.overridePrice != null && Number(item.overridePrice) > 0 ? Number(item.overridePrice) : null,
+      isSuggested: item.isSuggested || false,
+      suggestedByRule: item.suggestedByRule || null,
+      notes: item.notes || null,
+    });
+
     const idMapping = new Map<string, string>();
     const parents = items.filter(it => it.isBundleParent);
     const children = items.filter(it => it.parentId && !it.isBundleParent);
     const regularItems = items.filter(it => !it.isBundleParent && !it.parentId);
 
-    // 1. Regular items — sempre gerar novo UUID
+    this.logger.log(`saveProposalItems: ${parents.length} parents, ${children.length} children, ${regularItems.length} regular`);
+
+    // 1. Regular items
     if (regularItems.length > 0) {
-      const pItems = regularItems.map(item => this.itemRepository.create({
-        ...item,
-        id: undefined, // Forçar novo UUID
-        proposalId,
-        total: Number(item.unitPrice || 0) * Number(item.quantity || 1),
-      }));
-      await this.itemRepository.save(pItems);
-    }
-
-    // 2. Parents — calcular total como soma dos filhos × quantidade do pai
-    for (const parent of parents) {
-      const frontendId = parent.id;
-      const parentQty = Math.max(Number(parent.quantity) || 1, 1);
-      // Calcular soma dos filhos para este pai
-      const childrenOfParent = children.filter(c => c.parentId === frontendId);
-      const childrenSum = childrenOfParent.reduce((sum, c) => {
-        return sum + Number(c.unitPrice || 0) * Number(c.quantity || 1);
-      }, 0);
-      // Total do pai = soma dos filhos × quantidade do pai
-      // Se overridePrice existe, usar ele × qty
-      const parentTotal = parent.overridePrice != null && Number(parent.overridePrice) > 0
-        ? Number(parent.overridePrice) * parentQty
-        : childrenSum * parentQty;
-
-      const p = this.itemRepository.create({
-        ...parent,
-        id: undefined,
-        proposalId,
-        total: parentTotal,
-      });
-      const savedParent = await this.itemRepository.save(p);
-      if (frontendId) idMapping.set(frontendId, savedParent.id);
-    }
-
-    // 3. Children — sempre gerar novo UUID
-    if (children.length > 0) {
-      const cItems = children.map(item => {
-        const realParentId = idMapping.get(item.parentId);
-        return this.itemRepository.create({
-          ...item,
-          id: undefined,
+      try {
+        const pItems = regularItems.map(item => this.itemRepository.create({
+          ...stripItem(item),
           proposalId,
-          parentId: realParentId || (item.parentId && item.parentId.startsWith('temp-') ? null : item.parentId),
           total: Number(item.unitPrice || 0) * Number(item.quantity || 1),
+        }));
+        await this.itemRepository.save(pItems);
+        this.logger.log(`saveProposalItems: ${regularItems.length} regular items saved`);
+      } catch (err: any) {
+        this.logger.error(`saveProposalItems REGULAR ITEMS ERROR: ${err?.message}`);
+        throw err;
+      }
+    }
+
+    // 2. Parents — save one by one to get new UUIDs for mapping
+    for (const parent of parents) {
+      try {
+        const frontendId = (parent as any).id;
+        const parentQty = Math.max(Number(parent.quantity) || 1, 1);
+        const childrenOfParent = children.filter(c => c.parentId === frontendId);
+        const childrenSum = childrenOfParent.reduce((sum, c) => {
+          return sum + Number(c.unitPrice || 0) * Number(c.quantity || 1);
+        }, 0);
+        const parentTotal = parent.overridePrice != null && Number(parent.overridePrice) > 0
+          ? Number(parent.overridePrice) * parentQty
+          : childrenSum * parentQty;
+
+        const p = this.itemRepository.create({
+          ...stripItem(parent),
+          proposalId,
+          total: parentTotal,
         });
-      });
-      await this.itemRepository.save(cItems);
+        const savedParent = await this.itemRepository.save(p);
+        if (frontendId) idMapping.set(frontendId, savedParent.id);
+        this.logger.log(`saveProposalItems: parent "${parent.description}" saved (${frontendId} → ${savedParent.id})`);
+      } catch (err: any) {
+        this.logger.error(`saveProposalItems PARENT ERROR "${parent.description}": ${err?.message}`);
+        throw err;
+      }
+    }
+
+    // 3. Children — map parentId to new DB UUID
+    if (children.length > 0) {
+      try {
+        const cItems = children.map(item => {
+          const realParentId = idMapping.get(item.parentId);
+          if (!realParentId) {
+            this.logger.warn(`saveProposalItems: child "${item.description}" has unmapped parentId "${item.parentId}" — setting to null`);
+          }
+          return this.itemRepository.create({
+            ...stripItem(item),
+            proposalId,
+            parentId: realParentId || null, // ALWAYS use mapped ID, never the old one (FK would fail)
+            total: Number(item.unitPrice || 0) * Number(item.quantity || 1),
+          });
+        });
+        await this.itemRepository.save(cItems);
+        this.logger.log(`saveProposalItems: ${children.length} children saved`);
+      } catch (err: any) {
+        this.logger.error(`saveProposalItems CHILDREN ERROR: ${err?.message}`);
+        throw err;
+      }
     }
   }
 
