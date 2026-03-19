@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, LessThanOrEqual, MoreThanOrEqual, IsNull } from 'typeorm';
 import { DocumentType, DocumentCategory } from './document-type.entity';
 import { DocumentTypeRule, ConditionOperator, RuleResult } from './document-type-rule.entity';
 import { EmployeeDocRequirement, Applicability } from './employee-doc-requirement.entity';
@@ -350,6 +350,15 @@ export class ComplianceService {
         });
     }
 
+    async getEmployeeDocumentsIncludingDeleted(employeeId: string): Promise<ComplianceDocument[]> {
+        return this.compDocRepo.find({
+            where: { ownerType: 'employee', ownerId: employeeId },
+            relations: ['documentType', 'versions', 'approvals', 'requirement'],
+            order: { createdAt: 'ASC' },
+            withDeleted: true,
+        });
+    }
+
     async createComplianceDocument(data: {
         requirementId?: string;
         documentTypeId: string;
@@ -387,12 +396,157 @@ export class ComplianceService {
         const doc = await this.compDocRepo.findOneBy({ id });
         if (!doc) throw new NotFoundException('Documento não encontrado');
 
-        // Delete versions and approvals first (cascade should handle, but be safe)
-        await this.versionRepo.delete({ complianceDocumentId: id });
-        await this.approvalRepo.delete({ complianceDocumentId: id });
-        await this.compDocRepo.remove(doc);
+        // Soft delete — mantém no banco, seta deletedAt
+        await this.compDocRepo.softRemove(doc);
 
-        return { message: 'Documento excluído com sucesso' };
+        return { message: 'Documento excluído (soft-delete)' };
+    }
+
+    async restoreComplianceDocument(id: string): Promise<ComplianceDocument> {
+        const doc = await this.compDocRepo.findOne({ where: { id }, withDeleted: true });
+        if (!doc) throw new NotFoundException('Documento não encontrado');
+        if (!doc.deletedAt) throw new BadRequestException('Documento não está excluído');
+        await this.compDocRepo.recover(doc);
+        return this.compDocRepo.findOne({ where: { id }, relations: ['documentType', 'versions'] });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // EXPIRING DOCUMENTS (15 days)
+    // ═══════════════════════════════════════════════════════════════
+
+    async getExpiringDocuments(daysAhead = 15): Promise<any[]> {
+        const today = new Date();
+        const futureDate = new Date();
+        futureDate.setDate(today.getDate() + daysAhead);
+
+        const docs = await this.compDocRepo.find({
+            where: {
+                expiryDate: LessThanOrEqual(futureDate),
+                status: In([ComplianceStatus.APPROVED, ComplianceStatus.EXPIRING]),
+            },
+            relations: ['documentType'],
+        });
+
+        // Enrich with employee name
+        const results: any[] = [];
+        for (const doc of docs) {
+            const daysLeft = Math.ceil((new Date(doc.expiryDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            if (daysLeft > daysAhead) continue; // skip if beyond range
+
+            let ownerName = doc.ownerId;
+            if (doc.ownerType === 'employee') {
+                const emp = await this.employeeRepo.findOneBy({ id: doc.ownerId });
+                if (emp) ownerName = emp.name;
+            }
+
+            results.push({
+                id: doc.id,
+                documentType: doc.documentType?.name || 'N/A',
+                documentTypeCode: doc.documentType?.code || '',
+                category: doc.documentType?.category || '',
+                ownerType: doc.ownerType,
+                ownerId: doc.ownerId,
+                ownerName,
+                expiryDate: doc.expiryDate,
+                daysLeft,
+                isExpired: daysLeft <= 0,
+                status: doc.status,
+            });
+        }
+
+        return results.sort((a, b) => a.daysLeft - b.daysLeft);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // EMPLOYEE DOCS FOR WORK (client portal)
+    // ═══════════════════════════════════════════════════════════════
+
+    async getEmployeesComplianceForWork(workId: string): Promise<any[]> {
+        const employees = await this.employeeRepo.find({
+            where: { workId, status: 'active' as any },
+        });
+
+        const results: any[] = [];
+        for (const emp of employees) {
+            const docs = await this.compDocRepo.find({
+                where: {
+                    ownerType: 'employee',
+                    ownerId: emp.id,
+                    status: In([ComplianceStatus.APPROVED, ComplianceStatus.EXPIRING]),
+                },
+                relations: ['documentType', 'versions'],
+                order: { createdAt: 'ASC' },
+            });
+            results.push({
+                employee: { id: emp.id, name: emp.name, role: emp.role, specialty: emp.specialty },
+                documents: docs,
+            });
+        }
+        return results;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ZIP DOWNLOAD
+    // ═══════════════════════════════════════════════════════════════
+
+    async buildDownloadZip(
+        employeeIds: string[],
+        categories?: string[],
+        documentTypeIds?: string[],
+    ): Promise<{ files: Array<{ path: string; diskPath: string }>; employees: string[] }> {
+        const files: Array<{ path: string; diskPath: string }> = [];
+        const employeeNames: string[] = [];
+
+        for (const empId of employeeIds) {
+            const emp = await this.employeeRepo.findOneBy({ id: empId });
+            if (!emp) continue;
+
+            const empFolder = emp.name.replace(/[^a-zA-Z0-9À-ÿ\s]/g, '').trim();
+            employeeNames.push(emp.name);
+
+            const qb: any = {
+                ownerType: 'employee',
+                ownerId: empId,
+            };
+
+            if (documentTypeIds?.length) {
+                qb.documentTypeId = In(documentTypeIds);
+            }
+
+            let docs = await this.compDocRepo.find({
+                where: qb,
+                relations: ['documentType', 'versions'],
+            });
+
+            // Filter by category if given
+            if (categories?.length) {
+                docs = docs.filter(d => d.documentType && categories.includes(d.documentType.category));
+            }
+
+            for (const doc of docs) {
+                const catFolder = doc.documentType?.category || 'outros';
+                const typeName = doc.documentType?.code || 'DOC';
+
+                // Get latest version
+                const latestVersion = (doc.versions || [])
+                    .sort((a, b) => b.versionNumber - a.versionNumber)[0];
+
+                if (latestVersion?.fileUrl) {
+                    const diskPath = latestVersion.fileUrl.startsWith('/')
+                        ? latestVersion.fileUrl
+                        : require('path').join(process.cwd(), 'uploads', 'compliance', latestVersion.fileUrl);
+
+                    const ext = require('path').extname(latestVersion.fileName || latestVersion.fileUrl);
+                    const zipPath = `${empFolder}/${catFolder}/${typeName}_v${latestVersion.versionNumber}${ext}`;
+
+                    if (require('fs').existsSync(diskPath)) {
+                        files.push({ path: zipPath, diskPath });
+                    }
+                }
+            }
+        }
+
+        return { files, employees: employeeNames };
     }
 
     async findDocByRequirement(

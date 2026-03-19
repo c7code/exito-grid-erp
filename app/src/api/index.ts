@@ -1404,6 +1404,38 @@ class ApiService {
     return response.data;
   }
 
+  // ZIP Download
+  async downloadComplianceZip(employeeIds: string[], categories?: string[], documentTypeIds?: string[]) {
+    const response = await this.client.post('/compliance/download-zip', {
+      employeeIds, categories, documentTypeIds,
+    }, { responseType: 'blob' });
+    return response.data;
+  }
+
+  // Restore soft-deleted document
+  async restoreComplianceDocument(complianceDocId: string) {
+    const response = await this.client.post(`/compliance/documents/${complianceDocId}/restore`);
+    return response.data;
+  }
+
+  // Expiring documents
+  async getExpiringDocuments(days = 15) {
+    const response = await this.client.get('/compliance/expiring', { params: { days } });
+    return response.data;
+  }
+
+  // Work employee documents (client portal)
+  async getWorkEmployeeDocuments(workId: string) {
+    const response = await this.client.get(`/compliance/works/${workId}/employee-documents`);
+    return response.data;
+  }
+
+  // All documents (including deleted) for admin
+  async getComplianceDocumentsAll(employeeId: string) {
+    const response = await this.client.get(`/compliance/employees/${employeeId}/documents-all`);
+    return response.data;
+  }
+
   // ═══════════════════════════════════════════════════════════════
   // FISCAL — Faturamento NF-e / NFS-e
   // ═══════════════════════════════════════════════════════════════

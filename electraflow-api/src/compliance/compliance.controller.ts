@@ -478,4 +478,78 @@ export class ComplianceController {
     async createRetentionPolicy(@Body() data: Partial<RetentionPolicy>) {
         return this.complianceService.createRetentionPolicy(data);
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ZIP DOWNLOAD
+    // ═══════════════════════════════════════════════════════════════
+
+    @Post('download-zip')
+    @ApiOperation({ summary: 'Download ZIP de documentos de funcionários' })
+    async downloadZip(
+        @Body() body: { employeeIds: string[]; categories?: string[]; documentTypeIds?: string[] },
+        @Res() res: Response,
+    ) {
+        const archiver = require('archiver');
+        const { files, employees } = await this.complianceService.buildDownloadZip(
+            body.employeeIds, body.categories, body.documentTypeIds,
+        );
+
+        if (files.length === 0) {
+            return res.status(404).json({ message: 'Nenhum arquivo encontrado para os filtros selecionados' });
+        }
+
+        res.set({
+            'Content-Type': 'application/zip',
+            'Content-Disposition': `attachment; filename="documentos_funcionarios.zip"`,
+        });
+
+        const archive = archiver('zip', { zlib: { level: 6 } });
+        archive.pipe(res);
+
+        for (const file of files) {
+            archive.file(file.diskPath, { name: file.path });
+        }
+
+        archive.finalize();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RESTORE DOCUMENT
+    // ═══════════════════════════════════════════════════════════════
+
+    @Post('documents/:id/restore')
+    @ApiOperation({ summary: 'Restaurar documento excluído (soft-delete)' })
+    async restoreDocument(@Param('id') id: string) {
+        return this.complianceService.restoreComplianceDocument(id);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // EXPIRING DOCUMENTS
+    // ═══════════════════════════════════════════════════════════════
+
+    @Get('expiring')
+    @ApiOperation({ summary: 'Documentos vencendo nos próximos N dias' })
+    async getExpiring(@Query('days') days?: string) {
+        return this.complianceService.getExpiringDocuments(days ? parseInt(days) : 15);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // WORK EMPLOYEE DOCS (client portal)
+    // ═══════════════════════════════════════════════════════════════
+
+    @Get('works/:workId/employee-documents')
+    @ApiOperation({ summary: 'Documentos dos funcionários alocados em uma obra' })
+    async getWorkEmployeeDocs(@Param('workId') workId: string) {
+        return this.complianceService.getEmployeesComplianceForWork(workId);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // DOCUMENTS WITH DELETED (admin)
+    // ═══════════════════════════════════════════════════════════════
+
+    @Get('employees/:id/documents-all')
+    @ApiOperation({ summary: 'Todos os documentos (incluindo excluídos) de um funcionário' })
+    async getEmployeeDocsAll(@Param('id') id: string) {
+        return this.complianceService.getEmployeeDocumentsIncludingDeleted(id);
+    }
 }

@@ -14,6 +14,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Plus,
   Search,
   Phone,
@@ -30,6 +36,8 @@ import {
   Shield,
   Eye,
   ShieldCheck,
+  Download,
+  AlertTriangle,
 } from 'lucide-react';
 import { api } from '@/api';
 import type { Employee } from '@/types';
@@ -44,6 +52,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+const CATEGORY_LABELS: Record<string, string> = {
+  identification: 'Identificação',
+  health: 'Saúde Ocupacional',
+  safety_nr: 'Segurança / NRs',
+  epi_epc: 'EPI / EPC',
+  qualification: 'Qualificação',
+  other: 'Outros',
+};
+
 export default function AdminEmployees() {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -54,8 +71,23 @@ export default function AdminEmployees() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | undefined>();
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
 
+  // Multi-select
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Download dialog
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
+  const [docTypes, setDocTypes] = useState<any[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [selectedDocTypeIds, setSelectedDocTypeIds] = useState<Set<string>>(new Set());
+  const [downloading, setDownloading] = useState(false);
+
+  // Expiry notifications
+  const [expiringDocs, setExpiringDocs] = useState<any[]>([]);
+  const [showExpiringDialog, setShowExpiringDialog] = useState(false);
+
   useEffect(() => {
     loadEmployees();
+    loadExpiringDocs();
   }, []);
 
   async function loadEmployees() {
@@ -69,6 +101,20 @@ export default function AdminEmployees() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadExpiringDocs() {
+    try {
+      const data = await api.getExpiringDocuments(15);
+      setExpiringDocs(data);
+    } catch { /* ignore */ }
+  }
+
+  async function loadDocTypes() {
+    try {
+      const data = await api.getDocumentTypes();
+      setDocTypes(data);
+    } catch { /* ignore */ }
   }
 
   const handleDelete = async (id: string) => {
@@ -89,6 +135,73 @@ export default function AdminEmployees() {
 
   const activeCount = employees.filter(e => e.status === 'active').length;
 
+  // Multi-select handlers
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleAll = () => {
+    if (selectedIds.size === filteredEmployees.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredEmployees.map(e => e.id)));
+    }
+  };
+
+  // Download ZIP
+  const handleOpenDownload = async () => {
+    if (selectedIds.size === 0) { toast.error('Selecione funcionários'); return; }
+    await loadDocTypes();
+    setSelectedCategories(new Set());
+    setSelectedDocTypeIds(new Set());
+    setShowDownloadDialog(true);
+  };
+
+  const handleDownloadZip = async () => {
+    setDownloading(true);
+    try {
+      const blob = await api.downloadComplianceZip(
+        Array.from(selectedIds),
+        selectedCategories.size > 0 ? Array.from(selectedCategories) : undefined,
+        selectedDocTypeIds.size > 0 ? Array.from(selectedDocTypeIds) : undefined,
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'documentos_funcionarios.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('ZIP baixado com sucesso!');
+      setShowDownloadDialog(false);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Erro ao baixar ZIP');
+    }
+    setDownloading(false);
+  };
+
+  const toggleCategory = (cat: string) => {
+    setSelectedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+  };
+
+  const toggleDocType = (id: string) => {
+    setSelectedDocTypeIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const filteredDocTypes = docTypes.filter(dt =>
+    selectedCategories.size === 0 || selectedCategories.has(dt.category)
+  );
+
   if (loading && employees.length === 0) {
     return (
       <div className="h-[400px] flex items-center justify-center">
@@ -104,16 +217,28 @@ export default function AdminEmployees() {
           <h1 className="text-xl md:text-2xl font-bold text-slate-900">Funcionários</h1>
           <p className="text-slate-500">Gerencie os colaboradores e documentações técnicas</p>
         </div>
-        <Button
-          className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold"
-          onClick={() => {
-            setSelectedEmployee(undefined);
-            setIsDialogOpen(true);
-          }}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Funcionário
-        </Button>
+        <div className="flex items-center gap-2">
+          {expiringDocs.length > 0 && (
+            <Button
+              variant="outline"
+              className="border-red-200 text-red-700 hover:bg-red-50 gap-2"
+              onClick={() => setShowExpiringDialog(true)}
+            >
+              <AlertTriangle className="w-4 h-4" />
+              {expiringDocs.length} vencendo
+            </Button>
+          )}
+          <Button
+            className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold"
+            onClick={() => {
+              setSelectedEmployee(undefined);
+              setIsDialogOpen(true);
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Funcionário
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -178,6 +303,14 @@ export default function AdminEmployees() {
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
+                <TableHead className="w-[40px]">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size === filteredEmployees.length && filteredEmployees.length > 0}
+                    onChange={toggleAll}
+                    className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                  />
+                </TableHead>
                 <TableHead className="font-bold text-slate-500 uppercase text-[11px]">Funcionário</TableHead>
                 <TableHead className="font-bold text-slate-500 uppercase text-[11px]">Cargo / Função</TableHead>
                 <TableHead className="font-bold text-slate-500 uppercase text-[11px]">Contato</TableHead>
@@ -188,7 +321,15 @@ export default function AdminEmployees() {
             </TableHeader>
             <TableBody>
               {filteredEmployees.map((employee) => (
-                <TableRow key={employee.id} className="hover:bg-slate-50/50">
+                <TableRow key={employee.id} className={cn('hover:bg-slate-50/50', selectedIds.has(employee.id) && 'bg-amber-50/50')}>
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(employee.id)}
+                      onChange={() => toggleSelect(employee.id)}
+                      className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="w-10 h-10 ring-2 ring-white shadow-sm">
@@ -295,7 +436,7 @@ export default function AdminEmployees() {
               ))}
               {filteredEmployees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-slate-400">
+                  <TableCell colSpan={7} className="text-center py-12 text-slate-400">
                     Nenhum funcionário encontrado.
                   </TableCell>
                 </TableRow>
@@ -304,6 +445,142 @@ export default function AdminEmployees() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Floating Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-4">
+          <span className="text-sm font-medium">{selectedIds.size} selecionado{selectedIds.size > 1 ? 's' : ''}</span>
+          <Button
+            size="sm"
+            className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold gap-2"
+            onClick={handleOpenDownload}
+          >
+            <Download className="w-4 h-4" />
+            Baixar Documentos
+          </Button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="text-slate-400 hover:text-white text-sm"
+          >
+            Limpar
+          </button>
+        </div>
+      )}
+
+      {/* Download Dialog */}
+      <Dialog open={showDownloadDialog} onOpenChange={setShowDownloadDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5 text-amber-500" />
+              Baixar Documentos ({selectedIds.size} funcionários)
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Categories */}
+            <div>
+              <p className="text-sm font-medium text-slate-700 mb-2">Filtrar por categoria (opcional):</p>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                  <label
+                    key={key}
+                    className={cn(
+                      'flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all text-sm',
+                      selectedCategories.has(key)
+                        ? 'border-amber-400 bg-amber-50 text-amber-800'
+                        : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedCategories.has(key)}
+                      onChange={() => toggleCategory(key)}
+                      className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Document types */}
+            {filteredDocTypes.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-slate-700 mb-2">Filtrar por tipo (opcional):</p>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                  {filteredDocTypes.map((dt: any) => (
+                    <label
+                      key={dt.id}
+                      className={cn(
+                        'flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all text-xs',
+                        selectedDocTypeIds.has(dt.id)
+                          ? 'border-blue-400 bg-blue-50 text-blue-800'
+                          : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedDocTypeIds.has(dt.id)}
+                        onChange={() => toggleDocType(dt.id)}
+                        className="rounded border-slate-300 text-blue-500 focus:ring-blue-500"
+                      />
+                      {dt.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-500">
+              📁 O ZIP será organizado: <code>Nome_Funcionario/Categoria/Tipo_v1.pdf</code>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowDownloadDialog(false)}>Cancelar</Button>
+              <Button
+                onClick={handleDownloadZip}
+                disabled={downloading}
+                className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold gap-2"
+              >
+                {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                {downloading ? 'Gerando ZIP...' : 'Baixar ZIP'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Expiring Documents Dialog */}
+      <Dialog open={showExpiringDialog} onOpenChange={setShowExpiringDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              Documentos Vencendo ({expiringDocs.length})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {expiringDocs.map((doc: any) => (
+              <div key={doc.id} className={cn(
+                'flex items-center justify-between p-3 rounded-lg border text-sm',
+                doc.isExpired ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
+              )}>
+                <div>
+                  <p className="font-medium text-slate-800">{doc.ownerName}</p>
+                  <p className="text-xs text-slate-500">{doc.documentType} ({doc.documentTypeCode})</p>
+                </div>
+                <Badge className={cn(
+                  'text-xs',
+                  doc.isExpired ? 'bg-red-500 text-white' : doc.daysLeft <= 5 ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-800'
+                )}>
+                  {doc.isExpired ? 'VENCIDO' : `${doc.daysLeft} dias`}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <EmployeeDialog
         open={isDialogOpen}
