@@ -697,8 +697,12 @@ export default function NewProposalDialog({
             onProposalCreated();
         } catch (error: any) {
             console.error('Erro ao salvar proposta:', error);
+            console.error('Response status:', error?.response?.status);
+            console.error('Response data:', JSON.stringify(error?.response?.data));
+            console.error('Payload items count:', items.length, '(parents:', items.filter(i => i.isBundleParent).length, ', children:', items.filter(i => i.parentId).length, ')');
+            const serverMsg = error?.response?.data?.message || error?.response?.data?.detail || '';
             toast.error(
-                error?.response?.data?.message || 'Erro ao salvar proposta. Tente novamente.'
+                serverMsg ? `Erro: ${serverMsg}` : 'Erro ao salvar proposta. Tente novamente.'
             );
         } finally {
             setLoading(false);

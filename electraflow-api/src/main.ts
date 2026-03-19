@@ -56,6 +56,29 @@ async function bootstrap() {
   app.use(bodyParser.json({ limit: '50mb' }));
   app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
+  // Express-level error handler — catches body parser errors BEFORE NestJS
+  app.use((err: any, req: any, res: any, next: any) => {
+    if (err) {
+      console.error('EXPRESS ERROR:', err.type, err.message);
+      const status = err.status || err.statusCode || 500;
+      if (!res.headersSent) {
+        res.status(status).json({
+          statusCode: status,
+          message: err.message || 'Express error',
+          detail: err.type || null,
+        });
+      }
+      return;
+    }
+    next();
+  });
+
+  // Version/health endpoint (no auth required)
+  const DEPLOY_TS = new Date().toISOString();
+  app.use('/api/health', (req: any, res: any) => {
+    res.json({ status: 'ok', deployedAt: DEPLOY_TS, version: '2026-03-19-v5' });
+  });
+
   // Global exception filter — catches ALL errors and returns JSON
   app.useGlobalFilters(new AllExceptionsFilter());
 
