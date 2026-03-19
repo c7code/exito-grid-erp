@@ -131,10 +131,11 @@ function App() {
               <Route path="/admin/solar" element={<AdminSolarProjects />} />
               <Route path="/admin/structures" element={<AdminStructureTemplates />} />
 
+              <Route path="/admin/employees" element={<AdminEmployees />} />
+              <Route path="/admin/employees/:id/compliance" element={<AdminEmployeeCompliance />} />
+
               {/* Restricted Admin-only routes */}
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                <Route path="/admin/employees" element={<AdminEmployees />} />
-                <Route path="/admin/employees/:id/compliance" element={<AdminEmployeeCompliance />} />
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/admin/settings" element={<AdminSettings />} />
                 <Route path="/admin/companies" element={<AdminCompanies />} />
