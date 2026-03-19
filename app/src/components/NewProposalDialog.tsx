@@ -713,7 +713,7 @@ export default function NewProposalDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={handleOpenChange}>
-                <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
@@ -958,7 +958,7 @@ export default function NewProposalDialog({
                                 <p className="text-red-500 text-xs">{errors.items}</p>
                             )}
 
-                            <div className="border rounded-lg overflow-hidden">
+                            <div className="border rounded-lg overflow-x-auto">
                                 {/* Toggle Consolidated View */}
                                 <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b">
                                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Atividades / Serviços</span>
@@ -974,15 +974,15 @@ export default function NewProposalDialog({
                                     </Button>
                                 </div>
                                 {!consolidatedView && (
-                                <Table>
+                                <Table className="min-w-[900px]">
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="w-[30%]">Descrição</TableHead>
-                                            <TableHead>Tipo</TableHead>
-                                            <TableHead>Preço Unit.</TableHead>
-                                            <TableHead>Qtd</TableHead>
-                                            <TableHead>UN</TableHead>
-                                            <TableHead>Total</TableHead>
+                                            <TableHead className="min-w-[220px]">Descrição</TableHead>
+                                            <TableHead className="w-[110px]">Tipo</TableHead>
+                                            <TableHead className="w-[120px]">Preço Unit.</TableHead>
+                                            <TableHead className="w-[90px]">Qtd</TableHead>
+                                            <TableHead className="w-[80px]">UN</TableHead>
+                                            <TableHead className="w-[130px]">Total</TableHead>
                                             <TableHead className="w-[40px]"></TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -1016,7 +1016,7 @@ export default function NewProposalDialog({
                                                                             setSearchResults(prev => ({ ...prev, [index]: [] }));
                                                                         }, 200);
                                                                     }}
-                                                                    className="h-8 text-sm"
+                                                                    className="h-8 text-sm min-w-[180px]"
                                                                 />
                                                                 {(searchResults[index]?.length ?? 0) > 0 && (
                                                                     <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
@@ -1169,7 +1169,7 @@ export default function NewProposalDialog({
                                                             onChange={(e) =>
                                                                 updateItem(index, 'unitPrice', e.target.value)
                                                             }
-                                                            className="h-8 text-sm w-24"
+                                                            className="h-8 text-sm w-28"
                                                         />
                                                     </TableCell>
                                                     <TableCell>
@@ -1181,7 +1181,7 @@ export default function NewProposalDialog({
                                                                 onChange={(e) =>
                                                                     updateItem(index, 'quantity', e.target.value)
                                                                 }
-                                                                className="h-8 text-sm w-16"
+                                                                className="h-8 text-sm w-20"
                                                             />
                                                             {item.parentId && (() => {
                                                                 const effQty = getEffectiveQty(item);
