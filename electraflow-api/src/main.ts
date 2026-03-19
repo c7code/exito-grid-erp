@@ -32,9 +32,12 @@ class AllExceptionsFilter implements ExceptionFilter {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Disable NestJS's built-in body parser (100KB limit) so we can use our own
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
 
-  // Increase body parser limits (default is 100KB, proposals can be much larger)
+  // Use custom body parsers with generous limits (proposals can be large)
   app.use(bodyParser.json({ limit: '50mb' }));
   app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
