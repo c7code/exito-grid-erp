@@ -178,14 +178,130 @@ export function ProposalPDFTemplate({ proposal }: ProposalPDFTemplateProps) {
                     {proposal.workAddress ? `, localizada em ${proposal.workAddress}` : ''}.
                 </p>
 
-                {/* ═══ MATERIAIS & SERVIÇOS (Visibility Mode Aware) ═══ */}
+                {/* ═══ MATERIAIS & SERVIÇOS (4 Modos de Exibição) ═══ */}
                 {(() => {
                     const mode = proposal.itemVisibilityMode || 'detailed';
                     const totalLabel = proposal.summaryTotalLabel || 'Valor Global';
                     let clauseNum = 3;
 
-                    if (mode === 'detailed') {
-                        // ═══ MODO DETALHADO — tabelas completas ═══
+                    // ── Data helpers ──
+                    const allItems = items;
+                    const getChildren = (parentId: string) => allItems.filter((i: any) => i.parentId === parentId);
+
+                    // Calculate real unit price for bundles (total / qty, never 0)
+                    const getUnitPrice = (item: any) => {
+                        const total = Number(item.total || item.unitPrice * item.quantity || 0);
+                        const qty = Number(item.quantity || 1);
+                        return item.isBundleParent && Number(item.unitPrice || 0) === 0
+                            ? total / qty
+                            : Number(item.unitPrice || 0);
+                    };
+
+                    // Render cost composition box (shared by all modes)
+                    const renderCostComposition = (cn: number) => (
+                        <>
+                            <div style={s.sectionTitle}>{cn}. Composição do Preço</div>
+                            <div style={{ background: '#fafafa', borderRadius: '6px', padding: '16px 20px', border: '1px solid #e5e7eb' }}>
+                                <div style={s.summaryRow}>
+                                    <span>Materiais</span>
+                                    <span style={{ fontWeight: 600 }}>R$ {fmt(materialSubtotal)}</span>
+                                </div>
+                                <div style={s.summaryRow}>
+                                    <span>Serviços</span>
+                                    <span style={{ fontWeight: 600 }}>R$ {fmt(serviceSubtotal)}</span>
+                                </div>
+                                {showLogistics && (
+                                    <div style={s.summaryRow}>
+                                        <span>Custo Logístico{proposal.logisticsCostPercent && Number(proposal.logisticsCostPercent) > 0 && <span style={s.costBadge}>{proposal.logisticsCostPercent}%</span>}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmt(logisticsCost)}</span>
+                                    </div>
+                                )}
+                                {showAdmin && (
+                                    <div style={s.summaryRow}>
+                                        <span>Custo Administrativo{proposal.adminCostPercent && Number(proposal.adminCostPercent) > 0 && <span style={s.costBadge}>{proposal.adminCostPercent}%</span>}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmt(adminCost)}</span>
+                                    </div>
+                                )}
+                                {showBrokerage && (
+                                    <div style={s.summaryRow}>
+                                        <span>Corretagem{proposal.brokerageCostPercent && Number(proposal.brokerageCostPercent) > 0 && <span style={s.costBadge}>{proposal.brokerageCostPercent}%</span>}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmt(brokerageCost)}</span>
+                                    </div>
+                                )}
+                                {showInsurance && (
+                                    <div style={s.summaryRow}>
+                                        <span>Seguro{proposal.insuranceCostPercent && Number(proposal.insuranceCostPercent) > 0 && <span style={s.costBadge}>{proposal.insuranceCostPercent}%</span>}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmt(insuranceCost)}</span>
+                                    </div>
+                                )}
+                                {discount > 0 && (
+                                    <div style={{ ...s.summaryRow, color: '#16a34a' }}>
+                                        <span>Desconto</span>
+                                        <span style={{ fontWeight: 600 }}>- R$ {fmt(discount)}</span>
+                                    </div>
+                                )}
+                                <div style={s.totalRow}>
+                                    <span>VALOR TOTAL DA PROPOSTA</span>
+                                    <span>R$ {fmt(grandTotal)}</span>
+                                </div>
+                            </div>
+                        </>
+                    );
+
+                    // Render evidenciado costs (shared by all modes)
+                    const renderEvidenciadoCosts = () => hasEvidenciadoCosts ? (
+                        <div style={{ marginTop: '20px' }}>
+                            {isLogisticsEvidenciado && (
+                                <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Custo Logístico</span>
+                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(logisticsCost)}</span>
+                                    </div>
+                                    <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
+                                        {proposal.logisticsCostDescription || 'Custo referente à mobilização e desmobilização de equipes, transporte de equipamentos especializados, veículos operacionais, combustível, pedágios e logística de campo necessários para a execução dos serviços no local da obra.'}
+                                    </p>
+                                </div>
+                            )}
+                            {isAdminEvidenciado && (
+                                <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Custo Administrativo</span>
+                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(adminCost)}</span>
+                                    </div>
+                                    <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
+                                        {proposal.adminCostDescription || 'Custo referente à gestão administrativa do contrato, incluindo coordenação técnica, controle de qualidade, gestão documental e suporte operacional.'}
+                                    </p>
+                                </div>
+                            )}
+                            {isBrokerageEvidenciado && (
+                                <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Corretagem</span>
+                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(brokerageCost)}</span>
+                                    </div>
+                                    <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
+                                        {proposal.brokerageCostDescription || 'Custo referente a honorários de intermediação comercial e assessoria técnico-comercial.'}
+                                    </p>
+                                </div>
+                            )}
+                            {isInsuranceEvidenciado && (
+                                <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Seguro</span>
+                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(insuranceCost)}</span>
+                                    </div>
+                                    <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
+                                        {proposal.insuranceCostDescription || 'Custo referente à contratação de seguro de responsabilidade civil e cobertura de riscos operacionais.'}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    ) : null;
+
+                    // ═══════════════════════════════════════════
+                    // MODO 1: AGRUPAMENTO — Apenas bundles
+                    // ═══════════════════════════════════════════
+                    if (mode === 'grouping') {
                         return (
                             <>
                                 {materialItems.length > 0 && (
@@ -196,24 +312,27 @@ export function ProposalPDFTemplate({ proposal }: ProposalPDFTemplateProps) {
                                             <thead>
                                                 <tr>
                                                     <th style={{ ...s.th, width: '5%' }}>Item</th>
-                                                    <th style={{ ...s.th, width: '45%' }}>Descrição</th>
+                                                    <th style={{ ...s.th, width: '50%' }}>Descrição</th>
                                                     <th style={{ ...s.th, width: '10%' }}>Un</th>
                                                     <th style={{ ...s.thRight, width: '10%' }}>Qtd</th>
-                                                    <th style={{ ...s.thRight, width: '15%' }}>Vlr. Unit.</th>
-                                                    <th style={{ ...s.thRight, width: '15%' }}>Total</th>
+                                                    <th style={{ ...s.thRight, width: '12%' }}>Vlr. Unit.</th>
+                                                    <th style={{ ...s.thRight, width: '13%' }}>Total</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {materialItems.map((item: any, idx: number) => (
-                                                    <tr key={idx}>
-                                                        <td style={s.td}>{String(idx + 1).padStart(2, '0')}</td>
-                                                        <td style={s.td}>{item.description}</td>
-                                                        <td style={s.td}>{item.unit || 'un'}</td>
-                                                        <td style={s.tdRight}>{Number(item.quantity || 1)}</td>
-                                                        <td style={s.tdRight}>R$ {fmt(item.unitPrice)}</td>
-                                                        <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmt(item.total || item.unitPrice * item.quantity)}</td>
-                                                    </tr>
-                                                ))}
+                                                {materialItems.filter((i: any) => !i.parentId).map((item: any, idx: number) => {
+                                                    const up = getUnitPrice(item);
+                                                    return (
+                                                        <tr key={idx}>
+                                                            <td style={s.td}>{String(idx + 1).padStart(2, '0')}</td>
+                                                            <td style={s.td}>{item.description}</td>
+                                                            <td style={s.td}>{item.unit || 'un'}</td>
+                                                            <td style={s.tdRight}>{Number(item.quantity || 1)}</td>
+                                                            <td style={s.tdRight}>R$ {fmt(up)}</td>
+                                                            <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmt(item.total || up * Number(item.quantity || 1))}</td>
+                                                        </tr>
+                                                    );
+                                                })}
                                                 <tr>
                                                     <td colSpan={5} style={{ ...s.td, textAlign: 'right', fontWeight: 700, background: '#fafafa' }}>Subtotal Materiais</td>
                                                     <td style={{ ...s.tdRight, fontWeight: 700, background: '#fafafa', color: '#E8620A' }}>R$ {fmt(materialSubtotal)}</td>
@@ -230,24 +349,27 @@ export function ProposalPDFTemplate({ proposal }: ProposalPDFTemplateProps) {
                                             <thead>
                                                 <tr>
                                                     <th style={{ ...s.th, width: '5%' }}>Item</th>
-                                                    <th style={{ ...s.th, width: '45%' }}>Descrição do Serviço</th>
+                                                    <th style={{ ...s.th, width: '50%' }}>Descrição</th>
                                                     <th style={{ ...s.th, width: '10%' }}>Un</th>
                                                     <th style={{ ...s.thRight, width: '10%' }}>Qtd</th>
-                                                    <th style={{ ...s.thRight, width: '15%' }}>Vlr. Unit.</th>
-                                                    <th style={{ ...s.thRight, width: '15%' }}>Total</th>
+                                                    <th style={{ ...s.thRight, width: '12%' }}>Vlr. Unit.</th>
+                                                    <th style={{ ...s.thRight, width: '13%' }}>Total</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {serviceItems.map((item: any, idx: number) => (
-                                                    <tr key={idx}>
-                                                        <td style={s.td}>{String(idx + 1).padStart(2, '0')}</td>
-                                                        <td style={s.td}>{item.description}</td>
-                                                        <td style={s.td}>{item.unit || 'sv'}</td>
-                                                        <td style={s.tdRight}>{Number(item.quantity || 1)}</td>
-                                                        <td style={s.tdRight}>R$ {fmt(item.unitPrice)}</td>
-                                                        <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmt(item.total || item.unitPrice * item.quantity)}</td>
-                                                    </tr>
-                                                ))}
+                                                {serviceItems.filter((i: any) => !i.parentId).map((item: any, idx: number) => {
+                                                    const up = getUnitPrice(item);
+                                                    return (
+                                                        <tr key={idx}>
+                                                            <td style={s.td}>{String(idx + 1).padStart(2, '0')}</td>
+                                                            <td style={s.td}>{item.description}</td>
+                                                            <td style={s.td}>{item.unit || 'sv'}</td>
+                                                            <td style={s.tdRight}>{Number(item.quantity || 1)}</td>
+                                                            <td style={s.tdRight}>R$ {fmt(up)}</td>
+                                                            <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmt(item.total || up * Number(item.quantity || 1))}</td>
+                                                        </tr>
+                                                    );
+                                                })}
                                                 <tr>
                                                     <td colSpan={5} style={{ ...s.td, textAlign: 'right', fontWeight: 700, background: '#fafafa' }}>Subtotal Serviços</td>
                                                     <td style={{ ...s.tdRight, fontWeight: 700, background: '#fafafa', color: '#E8620A' }}>R$ {fmt(serviceSubtotal)}</td>
@@ -256,111 +378,202 @@ export function ProposalPDFTemplate({ proposal }: ProposalPDFTemplateProps) {
                                         </table>
                                     </>
                                 )}
-
-                                {/* Composição de Preço (detalhado) */}
-                                <div style={s.sectionTitle}>{clauseNum}. Composição do Preço</div>
-                                <div style={{ background: '#fafafa', borderRadius: '6px', padding: '16px 20px', border: '1px solid #e5e7eb' }}>
-                                    <div style={s.summaryRow}>
-                                        <span>Materiais</span>
-                                        <span style={{ fontWeight: 600 }}>R$ {fmt(materialSubtotal)}</span>
-                                    </div>
-                                    <div style={s.summaryRow}>
-                                        <span>Serviços</span>
-                                        <span style={{ fontWeight: 600 }}>R$ {fmt(serviceSubtotal)}</span>
-                                    </div>
-                                    {showLogistics && (
-                                        <div style={s.summaryRow}>
-                                            <span>Custo Logístico{proposal.logisticsCostPercent && Number(proposal.logisticsCostPercent) > 0 && <span style={s.costBadge}>{proposal.logisticsCostPercent}%</span>}</span>
-                                            <span style={{ fontWeight: 600 }}>R$ {fmt(logisticsCost)}</span>
-                                        </div>
-                                    )}
-                                    {showAdmin && (
-                                        <div style={s.summaryRow}>
-                                            <span>Custo Administrativo{proposal.adminCostPercent && Number(proposal.adminCostPercent) > 0 && <span style={s.costBadge}>{proposal.adminCostPercent}%</span>}</span>
-                                            <span style={{ fontWeight: 600 }}>R$ {fmt(adminCost)}</span>
-                                        </div>
-                                    )}
-                                    {showBrokerage && (
-                                        <div style={s.summaryRow}>
-                                            <span>Corretagem{proposal.brokerageCostPercent && Number(proposal.brokerageCostPercent) > 0 && <span style={s.costBadge}>{proposal.brokerageCostPercent}%</span>}</span>
-                                            <span style={{ fontWeight: 600 }}>R$ {fmt(brokerageCost)}</span>
-                                        </div>
-                                    )}
-                                    {showInsurance && (
-                                        <div style={s.summaryRow}>
-                                            <span>Seguro{proposal.insuranceCostPercent && Number(proposal.insuranceCostPercent) > 0 && <span style={s.costBadge}>{proposal.insuranceCostPercent}%</span>}</span>
-                                            <span style={{ fontWeight: 600 }}>R$ {fmt(insuranceCost)}</span>
-                                        </div>
-                                    )}
-                                    {discount > 0 && (
-                                        <div style={{ ...s.summaryRow, color: '#16a34a' }}>
-                                            <span>Desconto</span>
-                                            <span style={{ fontWeight: 600 }}>- R$ {fmt(discount)}</span>
-                                        </div>
-                                    )}
-                                    <div style={s.totalRow}>
-                                        <span>VALOR TOTAL DA PROPOSTA</span>
-                                        <span>R$ {fmt(grandTotal)}</span>
-                                    </div>
-                                </div>
-
-                                {/* Custos Evidenciados — Descrição Técnica */}
-                                {hasEvidenciadoCosts && (
-                                    <div style={{ marginTop: '20px' }}>
-                                        {isLogisticsEvidenciado && (
-                                            <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                    <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Custo Logístico</span>
-                                                    <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(logisticsCost)}</span>
-                                                </div>
-                                                <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
-                                                    {proposal.logisticsCostDescription || 'Custo referente à mobilização e desmobilização de equipes, transporte de equipamentos especializados, veículos operacionais, combustível, pedágios e logística de campo necessários para a execução dos serviços no local da obra.'}
-                                                </p>
-                                            </div>
-                                        )}
-                                        {isAdminEvidenciado && (
-                                            <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                    <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Custo Administrativo</span>
-                                                    <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(adminCost)}</span>
-                                                </div>
-                                                <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
-                                                    {proposal.adminCostDescription || 'Custo referente à gestão administrativa do contrato, incluindo coordenação técnica do projeto, acompanhamento e fiscalização de fornecedores, controle de qualidade, gestão documental, elaboração de relatórios técnicos e suporte operacional durante toda a vigência contratual.'}
-                                                </p>
-                                            </div>
-                                        )}
-                                        {isBrokerageEvidenciado && (
-                                            <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                    <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Corretagem</span>
-                                                    <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(brokerageCost)}</span>
-                                                </div>
-                                                <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
-                                                    {proposal.brokerageCostDescription || 'Custo referente a honorários de intermediação comercial, prospecção de oportunidades, negociação contratual e assessoria técnico-comercial para viabilização do projeto junto ao contratante.'}
-                                                </p>
-                                            </div>
-                                        )}
-                                        {isInsuranceEvidenciado && (
-                                            <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                    <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Seguro</span>
-                                                    <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(insuranceCost)}</span>
-                                                </div>
-                                                <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
-                                                    {proposal.insuranceCostDescription || 'Custo referente à contratação de seguro de responsabilidade civil, cobertura de riscos operacionais, garantia sobre materiais e equipamentos, e proteção patrimonial durante a execução dos serviços conforme exigências normativas aplicáveis.'}
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                {renderCostComposition(clauseNum)}
+                                {renderEvidenciadoCosts()}
                             </>
                         );
                     }
 
-                    // ═══ MODO RESUMO COMERCIAL ou APENAS TEXTO ═══
+                    // ═══════════════════════════════════════════
+                    // MODO 2: ESTRUTURA DETALHADA — Bundles + filhos
+                    // ═══════════════════════════════════════════
+                    if (mode === 'detailed') {
+                        const renderDetailedTable = (tableItems: any[], type: string) => {
+                            const topItems = tableItems.filter((i: any) => !i.parentId);
+                            return (
+                                <table style={s.table}>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ ...s.th, width: '5%' }}>Item</th>
+                                            <th style={{ ...s.th, width: '45%' }}>Descrição</th>
+                                            <th style={{ ...s.th, width: '10%' }}>Un</th>
+                                            <th style={{ ...s.thRight, width: '10%' }}>Qtd</th>
+                                            <th style={{ ...s.thRight, width: '15%' }}>Vlr. Unit.</th>
+                                            <th style={{ ...s.thRight, width: '15%' }}>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {topItems.map((item: any, idx: number) => {
+                                            const children = getChildren(item.id);
+                                            const up = getUnitPrice(item);
+                                            return (
+                                                <React.Fragment key={idx}>
+                                                    <tr style={item.isBundleParent ? { background: '#f8fafc' } : {}}>
+                                                        <td style={{ ...s.td, fontWeight: item.isBundleParent ? 700 : 400 }}>{String(idx + 1).padStart(2, '0')}</td>
+                                                        <td style={{ ...s.td, fontWeight: item.isBundleParent ? 700 : 400 }}>{item.description}</td>
+                                                        <td style={s.td}>{item.unit || (type === 'material' ? 'un' : 'sv')}</td>
+                                                        <td style={s.tdRight}>{Number(item.quantity || 1)}</td>
+                                                        <td style={s.tdRight}>R$ {fmt(up)}</td>
+                                                        <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmt(item.total || up * Number(item.quantity || 1))}</td>
+                                                    </tr>
+                                                    {/* Child items (indented) */}
+                                                    {children.map((child: any, ci: number) => (
+                                                        <tr key={`c-${ci}`} style={{ background: '#fefefe' }}>
+                                                            <td style={{ ...s.td, paddingLeft: '20px', color: '#888', fontSize: '8.5px' }}>{String(idx + 1).padStart(2, '0')}.{ci + 1}</td>
+                                                            <td style={{ ...s.td, paddingLeft: '20px', color: '#555', fontSize: '9px' }}>↳ {child.description}</td>
+                                                            <td style={{ ...s.td, color: '#888', fontSize: '8.5px' }}>{child.unit || (type === 'material' ? 'un' : 'sv')}</td>
+                                                            <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>{Number(child.quantity || 1)}</td>
+                                                            <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>R$ {fmt(child.unitPrice)}</td>
+                                                            <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>R$ {fmt(child.total || child.unitPrice * child.quantity)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                        <tr>
+                                            <td colSpan={5} style={{ ...s.td, textAlign: 'right', fontWeight: 700, background: '#fafafa' }}>
+                                                Subtotal {type === 'material' ? 'Materiais' : 'Serviços'}
+                                            </td>
+                                            <td style={{ ...s.tdRight, fontWeight: 700, background: '#fafafa', color: '#E8620A' }}>
+                                                R$ {fmt(type === 'material' ? materialSubtotal : serviceSubtotal)}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            );
+                        };
+
+                        return (
+                            <>
+                                {materialItems.length > 0 && (
+                                    <>
+                                        <div style={s.sectionTitle}>{clauseNum++}. Fornecimento de Materiais</div>
+                                        {proposal.materialFornecimento && <p style={s.para}>{proposal.materialFornecimento}</p>}
+                                        {renderDetailedTable(materialItems, 'material')}
+                                    </>
+                                )}
+                                {serviceItems.length > 0 && (
+                                    <>
+                                        <div style={s.sectionTitle}>{clauseNum++}. Prestação de Serviços</div>
+                                        {proposal.serviceDescription && <p style={s.para}>{proposal.serviceDescription}</p>}
+                                        {renderDetailedTable(serviceItems, 'service')}
+                                    </>
+                                )}
+                                {renderCostComposition(clauseNum)}
+                                {renderEvidenciadoCosts()}
+                            </>
+                        );
+                    }
+
+                    // ═══════════════════════════════════════════
+                    // MODO 3: MATERIAL CONSOLIDADO — Lista plana
+                    // ═══════════════════════════════════════════
+                    if (mode === 'consolidated') {
+                        // Flatten all items (use children only, skip bundle parents)
+                        const flattenItems = (list: any[]) => {
+                            const result: any[] = [];
+                            for (const item of list) {
+                                if (item.isBundleParent) {
+                                    const children = getChildren(item.id);
+                                    if (children.length > 0) {
+                                        result.push(...children);
+                                    } else {
+                                        result.push(item); // Bundle without children — show itself
+                                    }
+                                } else if (!item.parentId) {
+                                    result.push(item); // Standalone item
+                                }
+                            }
+                            return result;
+                        };
+
+                        // Consolidate by description (merge duplicates, sum quantities)
+                        const consolidate = (list: any[]) => {
+                            const map = new Map<string, any>();
+                            for (const item of list) {
+                                const key = item.description.trim().toLowerCase();
+                                if (map.has(key)) {
+                                    const existing = map.get(key);
+                                    existing.quantity = Number(existing.quantity || 1) + Number(item.quantity || 1);
+                                    existing.total = Number(existing.total || 0) + Number(item.total || item.unitPrice * item.quantity || 0);
+                                } else {
+                                    map.set(key, {
+                                        ...item,
+                                        quantity: Number(item.quantity || 1),
+                                        total: Number(item.total || item.unitPrice * item.quantity || 0),
+                                    });
+                                }
+                            }
+                            return Array.from(map.values());
+                        };
+
+                        const consolidatedMaterials = consolidate(flattenItems(materialItems));
+                        const consolidatedServices = consolidate(flattenItems(serviceItems));
+
+                        const renderConsolidatedTable = (list: any[], type: string, subtotal: number) => (
+                            <table style={s.table}>
+                                <thead>
+                                    <tr>
+                                        <th style={{ ...s.th, width: '5%' }}>Item</th>
+                                        <th style={{ ...s.th, width: '45%' }}>Descrição</th>
+                                        <th style={{ ...s.th, width: '10%' }}>Un</th>
+                                        <th style={{ ...s.thRight, width: '10%' }}>Qtd</th>
+                                        <th style={{ ...s.thRight, width: '15%' }}>Vlr. Unit.</th>
+                                        <th style={{ ...s.thRight, width: '15%' }}>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {list.map((item: any, idx: number) => {
+                                        const up = item.total / Number(item.quantity || 1);
+                                        return (
+                                            <tr key={idx}>
+                                                <td style={s.td}>{String(idx + 1).padStart(2, '0')}</td>
+                                                <td style={s.td}>{item.description}</td>
+                                                <td style={s.td}>{item.unit || (type === 'material' ? 'un' : 'sv')}</td>
+                                                <td style={s.tdRight}>{Number(item.quantity)}</td>
+                                                <td style={s.tdRight}>R$ {fmt(up)}</td>
+                                                <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmt(item.total)}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                    <tr>
+                                        <td colSpan={5} style={{ ...s.td, textAlign: 'right', fontWeight: 700, background: '#fafafa' }}>
+                                            Subtotal {type === 'material' ? 'Materiais' : 'Serviços'}
+                                        </td>
+                                        <td style={{ ...s.tdRight, fontWeight: 700, background: '#fafafa', color: '#E8620A' }}>R$ {fmt(subtotal)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        );
+
+                        return (
+                            <>
+                                {consolidatedMaterials.length > 0 && (
+                                    <>
+                                        <div style={s.sectionTitle}>{clauseNum++}. Relação Consolidada de Materiais</div>
+                                        {proposal.materialFornecimento && <p style={s.para}>{proposal.materialFornecimento}</p>}
+                                        {renderConsolidatedTable(consolidatedMaterials, 'material', materialSubtotal)}
+                                    </>
+                                )}
+                                {consolidatedServices.length > 0 && (
+                                    <>
+                                        <div style={s.sectionTitle}>{clauseNum++}. Relação Consolidada de Serviços</div>
+                                        {proposal.serviceDescription && <p style={s.para}>{proposal.serviceDescription}</p>}
+                                        {renderConsolidatedTable(consolidatedServices, 'service', serviceSubtotal)}
+                                    </>
+                                )}
+                                {renderCostComposition(clauseNum)}
+                                {renderEvidenciadoCosts()}
+                            </>
+                        );
+                    }
+
+                    // ═══════════════════════════════════════════
+                    // MODO 4: DESCRIÇÃO COMERCIAL — Texto inteligente
+                    // ═══════════════════════════════════════════
                     const autoMatText = materialItems.length > 0
                         ? (proposal.materialSummaryText || (() => {
-                            const descs = materialItems.map((i: any) => i.description.toLowerCase());
+                            const descs = materialItems.filter((i: any) => !i.parentId).map((i: any) => i.description.toLowerCase());
                             if (descs.length === 1) return `Fornecimento de ${descs[0]}, incluindo todo o material necessário para garantir a qualidade e durabilidade da instalação, conforme especificações técnicas e normas vigentes.`;
                             const last = descs.pop();
                             return `Fornecimento completo de toda estrutura composta por ${descs.join(', ')} e ${last}, incluindo todos os insumos, acessórios e componentes necessários para a execução conforme especificações técnicas aplicáveis.`;
@@ -369,7 +582,7 @@ export function ProposalPDFTemplate({ proposal }: ProposalPDFTemplateProps) {
 
                     const autoSvcText = serviceItems.length > 0
                         ? (proposal.serviceSummaryText || (() => {
-                            const descs = serviceItems.map((i: any) => i.description.toLowerCase());
+                            const descs = serviceItems.filter((i: any) => !i.parentId).map((i: any) => i.description.toLowerCase());
                             if (descs.length === 1) return `Prestação de serviço de ${descs[0]}, executado por equipe técnica qualificada e habilitada conforme as normas regulamentadoras aplicáveis, com garantia de execução profissional.`;
                             const last = descs.pop();
                             return `Prestação de serviços especializados incluindo ${descs.join(', ')} e ${last}, executados por equipe técnica devidamente qualificada, habilitada e em conformidade com as normas regulamentadoras vigentes.`;
@@ -394,94 +607,44 @@ export function ProposalPDFTemplate({ proposal }: ProposalPDFTemplateProps) {
                                 </div>
                             )}
 
-                            {mode === 'summary' && (
-                                <div style={{ background: '#fafafa', borderRadius: '6px', padding: '16px 20px', border: '1px solid #e5e7eb', marginTop: '14px' }}>
-                                    {showLogistics && (
-                                        <div style={s.summaryRow}>
-                                            <span>Custo Logístico{proposal.logisticsCostPercent && Number(proposal.logisticsCostPercent) > 0 && <span style={s.costBadge}>{proposal.logisticsCostPercent}%</span>}</span>
-                                            <span style={{ fontWeight: 600 }}>R$ {fmt(logisticsCost)}</span>
-                                        </div>
-                                    )}
-                                    {showAdmin && (
-                                        <div style={s.summaryRow}>
-                                            <span>Custo Administrativo{proposal.adminCostPercent && Number(proposal.adminCostPercent) > 0 && <span style={s.costBadge}>{proposal.adminCostPercent}%</span>}</span>
-                                            <span style={{ fontWeight: 600 }}>R$ {fmt(adminCost)}</span>
-                                        </div>
-                                    )}
-                                    {showBrokerage && (
-                                        <div style={s.summaryRow}>
-                                            <span>Corretagem{proposal.brokerageCostPercent && Number(proposal.brokerageCostPercent) > 0 && <span style={s.costBadge}>{proposal.brokerageCostPercent}%</span>}</span>
-                                            <span style={{ fontWeight: 600 }}>R$ {fmt(brokerageCost)}</span>
-                                        </div>
-                                    )}
-                                    {showInsurance && (
-                                        <div style={s.summaryRow}>
-                                            <span>Seguro{proposal.insuranceCostPercent && Number(proposal.insuranceCostPercent) > 0 && <span style={s.costBadge}>{proposal.insuranceCostPercent}%</span>}</span>
-                                            <span style={{ fontWeight: 600 }}>R$ {fmt(insuranceCost)}</span>
-                                        </div>
-                                    )}
-                                    {discount > 0 && (
-                                        <div style={{ ...s.summaryRow, color: '#16a34a' }}>
-                                            <span>Desconto</span>
-                                            <span style={{ fontWeight: 600 }}>- R$ {fmt(discount)}</span>
-                                        </div>
-                                    )}
-                                    <div style={s.totalRow}>
-                                        <span>{totalLabel.toUpperCase()}</span>
-                                        <span>R$ {fmt(grandTotal)}</span>
+                            <div style={{ background: '#fafafa', borderRadius: '6px', padding: '16px 20px', border: '1px solid #e5e7eb', marginTop: '14px' }}>
+                                {showLogistics && (
+                                    <div style={s.summaryRow}>
+                                        <span>Custo Logístico{proposal.logisticsCostPercent && Number(proposal.logisticsCostPercent) > 0 && <span style={s.costBadge}>{proposal.logisticsCostPercent}%</span>}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmt(logisticsCost)}</span>
                                     </div>
+                                )}
+                                {showAdmin && (
+                                    <div style={s.summaryRow}>
+                                        <span>Custo Administrativo{proposal.adminCostPercent && Number(proposal.adminCostPercent) > 0 && <span style={s.costBadge}>{proposal.adminCostPercent}%</span>}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmt(adminCost)}</span>
+                                    </div>
+                                )}
+                                {showBrokerage && (
+                                    <div style={s.summaryRow}>
+                                        <span>Corretagem{proposal.brokerageCostPercent && Number(proposal.brokerageCostPercent) > 0 && <span style={s.costBadge}>{proposal.brokerageCostPercent}%</span>}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmt(brokerageCost)}</span>
+                                    </div>
+                                )}
+                                {showInsurance && (
+                                    <div style={s.summaryRow}>
+                                        <span>Seguro{proposal.insuranceCostPercent && Number(proposal.insuranceCostPercent) > 0 && <span style={s.costBadge}>{proposal.insuranceCostPercent}%</span>}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmt(insuranceCost)}</span>
+                                    </div>
+                                )}
+                                {discount > 0 && (
+                                    <div style={{ ...s.summaryRow, color: '#16a34a' }}>
+                                        <span>Desconto</span>
+                                        <span style={{ fontWeight: 600 }}>- R$ {fmt(discount)}</span>
+                                    </div>
+                                )}
+                                <div style={s.totalRow}>
+                                    <span>{totalLabel.toUpperCase()}</span>
+                                    <span>R$ {fmt(grandTotal)}</span>
                                 </div>
-                            )}
+                            </div>
 
-                            {/* Custos Evidenciados — Modo Resumo */}
-                            {hasEvidenciadoCosts && (
-                                <div style={{ marginTop: '20px' }}>
-                                    {isLogisticsEvidenciado && (
-                                        <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Custo Logístico</span>
-                                                <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(logisticsCost)}</span>
-                                            </div>
-                                            <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
-                                                {proposal.logisticsCostDescription || 'Custo referente à mobilização e desmobilização de equipes, transporte de equipamentos especializados, veículos operacionais, combustível, pedágios e logística de campo necessários para a execução dos serviços no local da obra.'}
-                                            </p>
-                                        </div>
-                                    )}
-                                    {isAdminEvidenciado && (
-                                        <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Custo Administrativo</span>
-                                                <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(adminCost)}</span>
-                                            </div>
-                                            <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
-                                                {proposal.adminCostDescription || 'Custo referente à gestão administrativa do contrato, incluindo coordenação técnica do projeto, acompanhamento e fiscalização de fornecedores, controle de qualidade, gestão documental, elaboração de relatórios técnicos e suporte operacional durante toda a vigência contratual.'}
-                                            </p>
-                                        </div>
-                                    )}
-                                    {isBrokerageEvidenciado && (
-                                        <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Corretagem</span>
-                                                <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(brokerageCost)}</span>
-                                            </div>
-                                            <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
-                                                {proposal.brokerageCostDescription || 'Custo referente a honorários de intermediação comercial, prospecção de oportunidades, negociação contratual e assessoria técnico-comercial para viabilização do projeto junto ao contratante.'}
-                                            </p>
-                                        </div>
-                                    )}
-                                    {isInsuranceEvidenciado && (
-                                        <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Seguro</span>
-                                                <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(insuranceCost)}</span>
-                                            </div>
-                                            <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
-                                                {proposal.insuranceCostDescription || 'Custo referente à contratação de seguro de responsabilidade civil, cobertura de riscos operacionais, garantia sobre materiais e equipamentos, e proteção patrimonial durante a execução dos serviços conforme exigências normativas aplicáveis.'}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                            {renderEvidenciadoCosts()}
                         </>
                     );
                 })()}

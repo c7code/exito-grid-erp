@@ -1480,19 +1480,22 @@ export default function NewProposalDialog({
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
+                                            <SelectItem value="grouping">
+                                                📦 Agrupamento — Apenas kits/agrupamentos com valor total
+                                            </SelectItem>
                                             <SelectItem value="detailed">
-                                                📋 Detalhado — Tabelas com preços unitários
+                                                📋 Estrutura Detalhada — Agrupamentos + relação de materiais
                                             </SelectItem>
-                                            <SelectItem value="summary">
-                                                📝 Resumo Comercial — Texto + valor total
+                                            <SelectItem value="consolidated">
+                                                📊 Material Consolidado — Lista única de todos os materiais
                                             </SelectItem>
-                                            <SelectItem value="text_only">
-                                                📄 Apenas Texto — Sem valores unitários
+                                            <SelectItem value="commercial">
+                                                📝 Descrição Comercial — Texto comercial inteligente
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                {formData.itemVisibilityMode !== 'detailed' && (
+                                {formData.itemVisibilityMode === 'commercial' && (
                                     <div className="space-y-2">
                                         <Label>Label do Valor Total</Label>
                                         <Input
@@ -1504,7 +1507,7 @@ export default function NewProposalDialog({
                                 )}
                             </div>
 
-                            {formData.itemVisibilityMode !== 'detailed' && (
+                            {formData.itemVisibilityMode === 'commercial' && (
                                 <div className="space-y-4 mt-3">
                                     <div className="flex items-center justify-between">
                                         <p className="text-xs text-slate-500 font-medium">
