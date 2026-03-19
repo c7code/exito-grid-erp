@@ -105,6 +105,7 @@ export default function NewProposalDialog({
     } | null>(null);
     // Structure import
     const [showStructureSearch, setShowStructureSearch] = useState(false);
+    const [consolidatedView, setConsolidatedView] = useState(false);
     const [structureSearchQuery, setStructureSearchQuery] = useState('');
     const [structureResults, setStructureResults] = useState<any[]>([]);
     const [loadingStructures, setLoadingStructures] = useState(false);
@@ -958,6 +959,21 @@ export default function NewProposalDialog({
                             )}
 
                             <div className="border rounded-lg overflow-hidden">
+                                {/* Toggle Consolidated View */}
+                                <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b">
+                                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Atividades / Serviços</span>
+                                    <Button
+                                        type="button"
+                                        variant={consolidatedView ? 'default' : 'outline'}
+                                        size="sm"
+                                        className="h-7 text-xs gap-1.5"
+                                        onClick={() => setConsolidatedView(!consolidatedView)}
+                                    >
+                                        <Layers className="w-3.5 h-3.5" />
+                                        {consolidatedView ? 'Voltar p/ Kits' : 'Ver Consolidado'}
+                                    </Button>
+                                </div>
+                                {!consolidatedView && (
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -1028,32 +1044,15 @@ export default function NewProposalDialog({
 
                                                                                         try {
                                                                                             const catItems = await api.getCatalogCategoryItems(suggestion.id);
-                                                                                            const childItems: any[] = [];
-                                                                                            for (const ci of catItems) {
-                                                                                                // Mesclar materiais iguais existentes de outros kits
-                                                                                                const existingIdx = newItems.findIndex(ei =>
-                                                                                                    ei.parentId && !ei.isBundleParent &&
-                                                                                                    ((ci.id && ei.catalogItemId === ci.id) ||
-                                                                                                     (!ci.id && ei.description === ci.name))
-                                                                                                );
-                                                                                                if (existingIdx >= 0) {
-                                                                                                    const existingQty = parsePrice(newItems[existingIdx].quantity) || 1;
-                                                                                                    newItems[existingIdx] = {
-                                                                                                        ...newItems[existingIdx],
-                                                                                                        quantity: String(existingQty + 1),
-                                                                                                    };
-                                                                                                } else {
-                                                                                                    childItems.push({
-                                                                                                        description: ci.name,
-                                                                                                        unitPrice: String(ci.unitPrice),
-                                                                                                        quantity: '1',
-                                                                                                        unit: ci.unit || 'UN',
-                                                                                                        serviceType: ci.type === 'service' ? 'service' : 'material',
-                                                                                                        parentId: parentTempId,
-                                                                                                        catalogItemId: ci.id,
-                                                                                                    });
-                                                                                                }
-                                                                                            }
+                                                                                            const childItems = catItems.map((ci: any) => ({
+                                                                                                description: ci.name,
+                                                                                                unitPrice: String(ci.unitPrice),
+                                                                                                quantity: '1',
+                                                                                                unit: ci.unit || 'UN',
+                                                                                                serviceType: ci.type === 'service' ? 'service' : 'material',
+                                                                                                parentId: parentTempId,
+                                                                                                catalogItemId: ci.id,
+                                                                                            }));
                                                                                             newItems.splice(index + 1, 0, ...childItems);
                                                                                         } catch (err) {
                                                                                             console.error('Erro ao buscar itens da categoria:', err);
@@ -1076,41 +1075,18 @@ export default function NewProposalDialog({
                                                                                         try {
                                                                                             const groupingData = await api.getGroupingItems(suggestion.id);
                                                                                             if (groupingData && groupingData.length > 0) {
-                                                                                                const childItems: any[] = [];
-                                                                                                let mergedCount = 0;
-                                                                                                for (const gi of groupingData) {
-                                                                                                    const childDesc = gi.childItem?.name || gi.description || '';
-                                                                                                    const childCatalogId = gi.childItemId;
-                                                                                                    const childQty = Number(gi.quantity) || 1;
-                                                                                                    // Mesclar materiais iguais existentes de outros kits
-                                                                                                    const existingIdx = newItems.findIndex(ei =>
-                                                                                                        ei.parentId && !ei.isBundleParent &&
-                                                                                                        ((childCatalogId && ei.catalogItemId === childCatalogId) ||
-                                                                                                         (!childCatalogId && ei.description === childDesc))
-                                                                                                    );
-                                                                                                    if (existingIdx >= 0) {
-                                                                                                        const existingQty = parsePrice(newItems[existingIdx].quantity) || 1;
-                                                                                                        newItems[existingIdx] = {
-                                                                                                            ...newItems[existingIdx],
-                                                                                                            quantity: String(parseFloat((existingQty + childQty).toFixed(3))),
-                                                                                                        };
-                                                                                                        mergedCount++;
-                                                                                                    } else {
-                                                                                                        childItems.push({
-                                                                                                            description: childDesc,
-                                                                                                            unitPrice: String(gi.childItem?.unitPrice || gi.unitPrice || 0),
-                                                                                                            quantity: String(childQty),
-                                                                                                            unit: gi.unit || gi.childItem?.unit || 'UN',
-                                                                                                            serviceType: gi.childItem?.type === 'service' ? 'service' : 'material',
-                                                                                                            parentId: parentTempId,
-                                                                                                            catalogItemId: childCatalogId,
-                                                                                                            showDetailedPrices: true,
-                                                                                                        });
-                                                                                                    }
-                                                                                                }
+                                                                                                const childItems = groupingData.map((gi: any) => ({
+                                                                                                    description: gi.childItem?.name || gi.description || '',
+                                                                                                    unitPrice: String(gi.childItem?.unitPrice || gi.unitPrice || 0),
+                                                                                                    quantity: String(gi.quantity || 1),
+                                                                                                    unit: gi.unit || gi.childItem?.unit || 'UN',
+                                                                                                    serviceType: gi.childItem?.type === 'service' ? 'service' : 'material',
+                                                                                                    parentId: parentTempId,
+                                                                                                    catalogItemId: gi.childItemId,
+                                                                                                    showDetailedPrices: true,
+                                                                                                }));
                                                                                                 newItems.splice(index + 1, 0, ...childItems);
-                                                                                                const mergeMsg = mergedCount > 0 ? ` (${mergedCount} mesclado(s))` : '';
-                                                                                                toast.success(`Kit "${suggestion.name}" expandido com ${childItems.length} item(s)${mergeMsg}`);
+                                                                                                toast.success(`Kit "${suggestion.name}" expandido com ${childItems.length} item(s)`);
                                                                                             } else {
                                                                                                 toast.warning('Agrupamento sem itens cadastrados');
                                                                                             }
@@ -1327,6 +1303,131 @@ export default function NewProposalDialog({
                                         })}
                                     </TableBody>
                                 </Table>
+                                )}
+
+                                {/* ═══ Consolidated View ═══ */}
+                                {consolidatedView && (() => {
+                                    // Agrupar filhos duplicados por catalogItemId ou description
+                                    const childItems = items.filter(i => i.parentId && !i.isBundleParent);
+                                    const parentItems = items.filter(i => !i.parentId && !i.isBundleParent);
+
+                                    interface MergedChild {
+                                        key: string;
+                                        description: string;
+                                        unitPrice: number;
+                                        totalQty: number;
+                                        unit: string;
+                                        serviceType: string;
+                                        kits: string[];
+                                        sourceIndices: number[];
+                                    }
+
+                                    const mergedMap = new Map<string, MergedChild>();
+                                    for (const child of childItems) {
+                                        const key = child.catalogItemId || child.description;
+                                        const itemIndex = items.indexOf(child);
+                                        const parent = items.find(i => i.id === child.parentId);
+                                        const parentQty = parent ? Math.max(parsePrice(parent.quantity) || 1, 1) : 1;
+                                        const effectiveQty = (parsePrice(child.quantity) || 1) * parentQty;
+
+                                        if (mergedMap.has(key)) {
+                                            const existing = mergedMap.get(key)!;
+                                            existing.totalQty += effectiveQty;
+                                            existing.sourceIndices.push(itemIndex);
+                                            if (parent && !existing.kits.includes(parent.description)) {
+                                                existing.kits.push(parent.description);
+                                            }
+                                        } else {
+                                            mergedMap.set(key, {
+                                                key,
+                                                description: child.description,
+                                                unitPrice: parsePrice(child.unitPrice),
+                                                totalQty: effectiveQty,
+                                                unit: child.unit || 'UN',
+                                                serviceType: child.serviceType || 'material',
+                                                kits: parent ? [parent.description] : [],
+                                                sourceIndices: [itemIndex],
+                                            });
+                                        }
+                                    }
+                                    const mergedItems = Array.from(mergedMap.values()).sort((a, b) => a.description.localeCompare(b.description));
+
+                                    return (
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="w-[35%]">Material</TableHead>
+                                                    <TableHead>Preço Unit.</TableHead>
+                                                    <TableHead>Qtd Total</TableHead>
+                                                    <TableHead>UN</TableHead>
+                                                    <TableHead>Total</TableHead>
+                                                    <TableHead>Kits</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {/* Itens avulsos (sem parentId, sem isBundleParent) */}
+                                                {parentItems.map((item, idx) => (
+                                                    <TableRow key={'standalone-' + idx}>
+                                                        <TableCell>
+                                                            <span className="text-sm font-medium">{item.description || '—'}</span>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <span className="text-sm">R$ {fmtBRL(parsePrice(item.unitPrice))}</span>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <span className="text-sm font-semibold">{parsePrice(item.quantity) || 1}</span>
+                                                        </TableCell>
+                                                        <TableCell><span className="text-sm">{item.unit || 'UN'}</span></TableCell>
+                                                        <TableCell>
+                                                            <span className="text-sm font-medium">R$ {fmtBRL(getItemTotal(item))}</span>
+                                                        </TableCell>
+                                                        <TableCell><span className="text-xs text-slate-400">—</span></TableCell>
+                                                    </TableRow>
+                                                ))}
+                                                {/* Materiais consolidados dos kits */}
+                                                {mergedItems.map((merged) => {
+                                                    const total = merged.unitPrice * merged.totalQty;
+                                                    return (
+                                                        <TableRow key={merged.key} className={merged.sourceIndices.length > 1 ? 'bg-blue-50/40' : ''}>
+                                                            <TableCell>
+                                                                <div className="flex items-center gap-2">
+                                                                    {merged.sourceIndices.length > 1 && (
+                                                                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">×{merged.sourceIndices.length}</span>
+                                                                    )}
+                                                                    <span className="text-sm font-medium">{merged.description}</span>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <span className="text-sm">R$ {fmtBRL(merged.unitPrice)}</span>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <span className="text-sm font-semibold text-blue-700">{parseFloat(merged.totalQty.toFixed(3))}</span>
+                                                            </TableCell>
+                                                            <TableCell><span className="text-sm">{merged.unit}</span></TableCell>
+                                                            <TableCell>
+                                                                <span className="text-sm font-medium">R$ {fmtBRL(total)}</span>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {merged.kits.map((k, i) => (
+                                                                        <span key={i} className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">{k}</span>
+                                                                    ))}
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                                {mergedItems.length === 0 && parentItems.length === 0 && (
+                                                    <TableRow>
+                                                        <TableCell colSpan={6} className="text-center text-sm text-slate-400 py-4">
+                                                            Nenhum item para consolidar
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    );
+                                })()}
                             </div>
                             {/* Totais */}
                             <div className="flex flex-col items-end gap-1 text-sm">
