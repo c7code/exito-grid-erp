@@ -330,7 +330,7 @@ export class ProposalItem {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   unitPrice: number;
 
-  @Column({ default: 1 })
+  @Column({ type: 'decimal', precision: 15, scale: 4, default: 1 })
   quantity: number;
 
   @Column({ type: 'decimal', precision: 15, scale: 2 })

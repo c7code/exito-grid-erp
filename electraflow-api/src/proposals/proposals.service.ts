@@ -128,6 +128,15 @@ export class ProposalsService implements OnModuleInit {
       }
     }
     this.logger.log('Proposal columns migration completed');
+
+    // Convert quantity from INTEGER to DECIMAL (fixes "invalid input syntax for type integer: 3.333")
+    try {
+      await this.dataSource.query(`ALTER TABLE proposal_items ALTER COLUMN quantity TYPE numeric(15,4) USING quantity::numeric`);
+      this.logger.log('proposal_items.quantity converted to decimal');
+    } catch (err) {
+      // Already converted or other non-critical error
+      this.logger.warn('quantity column conversion: ' + err?.message);
+    }
   }
 
   async findAll(status?: ProposalStatus): Promise<Proposal[]> {
