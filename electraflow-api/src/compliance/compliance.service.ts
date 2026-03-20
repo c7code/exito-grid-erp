@@ -230,6 +230,7 @@ export class ComplianceService implements OnModuleInit {
                 `ALTER TABLE exam_referral_items ADD COLUMN IF NOT EXISTS "expiryDate" DATE`,
                 `ALTER TABLE exam_referral_items ADD COLUMN IF NOT EXISTS "selected" BOOLEAN DEFAULT true`,
                 `ALTER TABLE exam_referral_items ADD COLUMN IF NOT EXISTS "sortOrder" INT DEFAULT 0`,
+                `ALTER TABLE risk_group_exams ADD COLUMN IF NOT EXISTS "customValidityMonths" INT`,
             ];
             for (const sql of patches) {
                 try { await this.dataSource.query(sql); } catch {}
