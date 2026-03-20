@@ -138,12 +138,6 @@ export default function EmployeeCompliance() {
     const [newCategoryName, setNewCategoryName] = useState('');
     const [creatingCategory, setCreatingCategory] = useState(false);
 
-    // Quick lookup: slug → label
-    const categoryMap = useMemo(() => {
-        const map: Record<string, string> = {};
-        categories.forEach(c => map[c.slug] = c.label);
-        return map;
-    }, [categories]);
 
     // Dialog states
     const [uploadDialog, setUploadDialog] = useState<{ open: boolean; requirement?: Requirement; document?: ComplianceDoc }>({ open: false });
