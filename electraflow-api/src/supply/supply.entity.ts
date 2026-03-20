@@ -85,6 +85,10 @@ export class Supplier {
     @Column({ type: 'text', nullable: true })
     notes: string;
 
+    // Modalidade do fornecedor: general, clinica_saude, laboratorio, epi_fornecedor
+    @Column({ type: 'varchar', default: 'general' })
+    modality: string;
+
     @Column({ nullable: true })
     paymentTerms: string;
 

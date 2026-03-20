@@ -584,4 +584,170 @@ export class ComplianceController {
     async getEmployeeDocsAll(@Param('id') id: string) {
         return this.complianceService.getEmployeeDocumentsIncludingDeleted(id);
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SAFETY PROGRAMS (PGR, PCMSO, LTCAT, etc.)
+    // ═══════════════════════════════════════════════════════════════
+
+    @Get('safety-programs')
+    @ApiOperation({ summary: 'Listar programas de segurança' })
+    async getPrograms() {
+        return this.complianceService.findAllPrograms();
+    }
+
+    @Get('safety-programs/:id')
+    @ApiOperation({ summary: 'Detalhar programa de segurança' })
+    async getProgram(@Param('id') id: string) {
+        return this.complianceService.findProgram(id);
+    }
+
+    @Post('safety-programs')
+    @ApiOperation({ summary: 'Criar programa de segurança' })
+    async createProgram(@Body() data: any) {
+        return this.complianceService.createProgram(data);
+    }
+
+    @Put('safety-programs/:id')
+    @ApiOperation({ summary: 'Atualizar programa de segurança' })
+    async updateProgram(@Param('id') id: string, @Body() data: any) {
+        return this.complianceService.updateProgram(id, data);
+    }
+
+    @Delete('safety-programs/:id')
+    @ApiOperation({ summary: 'Excluir programa de segurança' })
+    async removeProgram(@Param('id') id: string) {
+        return this.complianceService.removeProgram(id);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RISK GROUPS — GHE
+    // ═══════════════════════════════════════════════════════════════
+
+    @Get('risk-groups')
+    @ApiOperation({ summary: 'Listar GHEs (Grupos Homogêneos de Exposição)' })
+    async getRiskGroups(@Query('programId') programId?: string) {
+        return this.complianceService.findAllRiskGroups(programId);
+    }
+
+    @Get('risk-groups/:id')
+    @ApiOperation({ summary: 'Detalhar GHE' })
+    async getRiskGroup(@Param('id') id: string) {
+        return this.complianceService.findRiskGroup(id);
+    }
+
+    @Post('risk-groups')
+    @ApiOperation({ summary: 'Criar GHE' })
+    async createRiskGroup(@Body() data: any) {
+        return this.complianceService.createRiskGroup(data);
+    }
+
+    @Put('risk-groups/:id')
+    @ApiOperation({ summary: 'Atualizar GHE' })
+    async updateRiskGroup(@Param('id') id: string, @Body() data: any) {
+        return this.complianceService.updateRiskGroup(id, data);
+    }
+
+    @Delete('risk-groups/:id')
+    @ApiOperation({ summary: 'Excluir GHE' })
+    async removeRiskGroup(@Param('id') id: string) {
+        return this.complianceService.removeRiskGroup(id);
+    }
+
+    @Post('risk-groups/:riskGroupId/exams')
+    @ApiOperation({ summary: 'Vincular exame a GHE' })
+    async addExamToRiskGroup(@Param('riskGroupId') riskGroupId: string, @Body() data: any) {
+        return this.complianceService.addExamToRiskGroup({ ...data, riskGroupId });
+    }
+
+    @Put('risk-group-exams/:id')
+    @ApiOperation({ summary: 'Atualizar vínculo exame-GHE' })
+    async updateRiskGroupExam(@Param('id') id: string, @Body() data: any) {
+        return this.complianceService.updateRiskGroupExam(id, data);
+    }
+
+    @Delete('risk-group-exams/:id')
+    @ApiOperation({ summary: 'Remover exame do GHE' })
+    async removeExamFromRiskGroup(@Param('id') id: string) {
+        return this.complianceService.removeExamFromRiskGroup(id);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // OCCUPATIONAL EXAMS — Catálogo
+    // ═══════════════════════════════════════════════════════════════
+
+    @Get('occupational-exams')
+    @ApiOperation({ summary: 'Listar catálogo de exames ocupacionais' })
+    async getOccExams() {
+        return this.complianceService.findAllOccExams();
+    }
+
+    @Post('occupational-exams')
+    @ApiOperation({ summary: 'Criar exame ocupacional' })
+    async createOccExam(@Body() data: any) {
+        return this.complianceService.createOccExam(data);
+    }
+
+    @Put('occupational-exams/:id')
+    @ApiOperation({ summary: 'Atualizar exame ocupacional' })
+    async updateOccExam(@Param('id') id: string, @Body() data: any) {
+        return this.complianceService.updateOccExam(id, data);
+    }
+
+    @Delete('occupational-exams/:id')
+    @ApiOperation({ summary: 'Excluir exame ocupacional' })
+    async removeOccExam(@Param('id') id: string) {
+        return this.complianceService.removeOccExam(id);
+    }
+
+    @Post('occupational-exams/seed')
+    @ApiOperation({ summary: 'Popular catálogo de exames com dados padrão' })
+    async seedOccExams() {
+        return this.complianceService.seedOccupationalExams();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // EXAM REFERRALS — Guias de Encaminhamento
+    // ═══════════════════════════════════════════════════════════════
+
+    @Get('exam-referrals')
+    @ApiOperation({ summary: 'Listar guias de encaminhamento' })
+    async getReferrals() {
+        return this.complianceService.findAllReferrals();
+    }
+
+    @Get('exam-referrals/:id')
+    @ApiOperation({ summary: 'Detalhar guia de encaminhamento' })
+    async getReferral(@Param('id') id: string) {
+        return this.complianceService.findReferral(id);
+    }
+
+    @Post('exam-referrals')
+    @ApiOperation({ summary: 'Criar guia de encaminhamento' })
+    async createReferral(@Body() data: any) {
+        return this.complianceService.createReferral(data);
+    }
+
+    @Put('exam-referrals/:id')
+    @ApiOperation({ summary: 'Atualizar guia (status, orçamento, etc.)' })
+    async updateReferral(@Param('id') id: string, @Body() data: any) {
+        return this.complianceService.updateReferral(id, data);
+    }
+
+    @Put('exam-referrals/:id/items')
+    @ApiOperation({ summary: 'Atualizar itens da guia' })
+    async updateReferralItems(@Param('id') id: string, @Body() data: { items: any[] }) {
+        return this.complianceService.updateReferralItems(id, data.items);
+    }
+
+    @Delete('exam-referrals/:id')
+    @ApiOperation({ summary: 'Excluir guia de encaminhamento' })
+    async removeReferral(@Param('id') id: string) {
+        return this.complianceService.removeReferral(id);
+    }
+
+    @Get('clinic-suppliers')
+    @ApiOperation({ summary: 'Listar clínicas (fornecedores com modality=clinica_saude)' })
+    async getClinicSuppliers() {
+        return this.complianceService.findClinicSuppliers();
+    }
 }

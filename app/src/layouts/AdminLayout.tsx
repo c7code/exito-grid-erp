@@ -42,6 +42,8 @@ import {
   FileSignature,
   Sun,
   Layers,
+  Shield,
+  Stethoscope,
 } from 'lucide-react';
 
 type NavItem = { path: string; label: string; icon: any; module: string; roles: string[] };
@@ -103,6 +105,14 @@ const navSections: NavSection[] = [
     items: [
       { path: '/admin/finance', label: 'Financeiro', icon: DollarSign, module: 'finance', roles: ['admin', 'finance', 'employee'] },
       { path: '/admin/fiscal', label: 'Fiscal', icon: Receipt, module: 'fiscal', roles: ['admin', 'finance', 'employee'] },
+    ],
+  },
+  {
+    section: 'SEGURANÇA DO TRABALHO',
+    items: [
+      { path: '/admin/company-documents', label: 'Docs da Empresa', icon: FileText, module: 'company-documents', roles: ['admin', 'employee'] },
+      { path: '/admin/safety-programs', label: 'Programas / GHE', icon: Shield, module: 'safety-programs', roles: ['admin', 'employee'] },
+      { path: '/admin/exam-referrals', label: 'Guias de Exames', icon: Stethoscope, module: 'exam-referrals', roles: ['admin', 'employee'] },
     ],
   },
   {

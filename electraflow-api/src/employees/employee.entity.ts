@@ -70,6 +70,14 @@ export class Employee {
     @Column({ nullable: true })
     cpf: string;
 
+    // Função ocupacional (ex: Eletricista, Técnico de Segurança)
+    @Column({ nullable: true })
+    jobFunction: string;
+
+    // Vínculo ao Grupo Homogêneo de Exposição (GHE) do PCMSO
+    @Column({ nullable: true })
+    riskGroupId: string;
+
     @Column({ nullable: true })
     state: string;
 

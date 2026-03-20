@@ -2132,6 +2132,172 @@ class ApiService {
     const response = await this.client.delete(`/ai/action-tokens/${id}`);
     return response.data;
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // COMPANY DOCUMENTS
+  // ═══════════════════════════════════════════════════════════════
+
+  async getCompanyDocuments(companyId: string) {
+    const response = await this.client.get(`/companies/${companyId}/documents`);
+    return response.data;
+  }
+
+  async createCompanyDocument(companyId: string, data: any) {
+    const response = await this.client.post(`/companies/${companyId}/documents`, data);
+    return response.data;
+  }
+
+  async updateCompanyDocument(docId: string, data: any) {
+    const response = await this.client.patch(`/companies/documents/${docId}`, data);
+    return response.data;
+  }
+
+  async deleteCompanyDocument(docId: string) {
+    const response = await this.client.delete(`/companies/documents/${docId}`);
+    return response.data;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // SAFETY PROGRAMS
+  // ═══════════════════════════════════════════════════════════════
+
+  async getSafetyPrograms() {
+    const response = await this.client.get('/compliance/safety-programs');
+    return response.data;
+  }
+
+  async getSafetyProgram(id: string) {
+    const response = await this.client.get(`/compliance/safety-programs/${id}`);
+    return response.data;
+  }
+
+  async createSafetyProgram(data: any) {
+    const response = await this.client.post('/compliance/safety-programs', data);
+    return response.data;
+  }
+
+  async updateSafetyProgram(id: string, data: any) {
+    const response = await this.client.put(`/compliance/safety-programs/${id}`, data);
+    return response.data;
+  }
+
+  async deleteSafetyProgram(id: string) {
+    const response = await this.client.delete(`/compliance/safety-programs/${id}`);
+    return response.data;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // RISK GROUPS — GHE
+  // ═══════════════════════════════════════════════════════════════
+
+  async getRiskGroups(programId?: string) {
+    const params = programId ? `?programId=${programId}` : '';
+    const response = await this.client.get(`/compliance/risk-groups${params}`);
+    return response.data;
+  }
+
+  async getRiskGroup(id: string) {
+    const response = await this.client.get(`/compliance/risk-groups/${id}`);
+    return response.data;
+  }
+
+  async createRiskGroup(data: any) {
+    const response = await this.client.post('/compliance/risk-groups', data);
+    return response.data;
+  }
+
+  async updateRiskGroup(id: string, data: any) {
+    const response = await this.client.put(`/compliance/risk-groups/${id}`, data);
+    return response.data;
+  }
+
+  async deleteRiskGroup(id: string) {
+    const response = await this.client.delete(`/compliance/risk-groups/${id}`);
+    return response.data;
+  }
+
+  async addExamToRiskGroup(riskGroupId: string, data: any) {
+    const response = await this.client.post(`/compliance/risk-groups/${riskGroupId}/exams`, data);
+    return response.data;
+  }
+
+  async updateRiskGroupExam(id: string, data: any) {
+    const response = await this.client.put(`/compliance/risk-group-exams/${id}`, data);
+    return response.data;
+  }
+
+  async removeExamFromRiskGroup(id: string) {
+    const response = await this.client.delete(`/compliance/risk-group-exams/${id}`);
+    return response.data;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // OCCUPATIONAL EXAMS
+  // ═══════════════════════════════════════════════════════════════
+
+  async getOccupationalExams() {
+    const response = await this.client.get('/compliance/occupational-exams');
+    return response.data;
+  }
+
+  async createOccupationalExam(data: any) {
+    const response = await this.client.post('/compliance/occupational-exams', data);
+    return response.data;
+  }
+
+  async updateOccupationalExam(id: string, data: any) {
+    const response = await this.client.put(`/compliance/occupational-exams/${id}`, data);
+    return response.data;
+  }
+
+  async deleteOccupationalExam(id: string) {
+    const response = await this.client.delete(`/compliance/occupational-exams/${id}`);
+    return response.data;
+  }
+
+  async seedOccupationalExams() {
+    const response = await this.client.post('/compliance/occupational-exams/seed');
+    return response.data;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // EXAM REFERRALS
+  // ═══════════════════════════════════════════════════════════════
+
+  async getExamReferrals() {
+    const response = await this.client.get('/compliance/exam-referrals');
+    return response.data;
+  }
+
+  async getExamReferral(id: string) {
+    const response = await this.client.get(`/compliance/exam-referrals/${id}`);
+    return response.data;
+  }
+
+  async createExamReferral(data: any) {
+    const response = await this.client.post('/compliance/exam-referrals', data);
+    return response.data;
+  }
+
+  async updateExamReferral(id: string, data: any) {
+    const response = await this.client.put(`/compliance/exam-referrals/${id}`, data);
+    return response.data;
+  }
+
+  async updateExamReferralItems(id: string, items: any[]) {
+    const response = await this.client.put(`/compliance/exam-referrals/${id}/items`, { items });
+    return response.data;
+  }
+
+  async deleteExamReferral(id: string) {
+    const response = await this.client.delete(`/compliance/exam-referrals/${id}`);
+    return response.data;
+  }
+
+  async getClinicSuppliers() {
+    const response = await this.client.get('/compliance/clinic-suppliers');
+    return response.data;
+  }
 }
 
 export const api = new ApiService();

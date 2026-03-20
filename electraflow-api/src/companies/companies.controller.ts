@@ -1,10 +1,11 @@
 import {
-    Controller, Get, Post, Patch, Delete, Param, Body, UseGuards,
+    Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Query,
     UseInterceptors, UploadedFile,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CompaniesService } from './companies.service';
 import { Company } from './company.entity';
+import { CompanyDocument } from './company-document.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -59,7 +60,7 @@ export class CompaniesController {
             }
             cb(null, true);
         },
-        limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+        limits: { fileSize: 5 * 1024 * 1024 },
     }))
     async uploadLogo(
         @Param('id') id: string,
@@ -67,5 +68,35 @@ export class CompaniesController {
     ): Promise<Company> {
         const logoUrl = `/uploads/logos/${file.filename}`;
         return this.companiesService.updateLogo(id, logoUrl);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // COMPANY DOCUMENTS
+    // ═══════════════════════════════════════════════════════════════
+
+    @Get(':companyId/documents')
+    findAllDocuments(@Param('companyId') companyId: string): Promise<CompanyDocument[]> {
+        return this.companiesService.findAllDocuments(companyId);
+    }
+
+    @Post(':companyId/documents')
+    createDocument(
+        @Param('companyId') companyId: string,
+        @Body() data: Partial<CompanyDocument>,
+    ): Promise<CompanyDocument> {
+        return this.companiesService.createDocument({ ...data, companyId });
+    }
+
+    @Patch('documents/:docId')
+    updateDocument(
+        @Param('docId') docId: string,
+        @Body() data: Partial<CompanyDocument>,
+    ): Promise<CompanyDocument> {
+        return this.companiesService.updateDocument(docId, data);
+    }
+
+    @Delete('documents/:docId')
+    removeDocument(@Param('docId') docId: string): Promise<void> {
+        return this.companiesService.removeDocument(docId);
     }
 }

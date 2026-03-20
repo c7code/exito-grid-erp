@@ -9,7 +9,13 @@ import { DocumentVersion } from './document-version.entity';
 import { DocumentApproval, ApprovalAction } from './document-approval.entity';
 import { AuditLog } from './audit-log.entity';
 import { RetentionPolicy } from './retention-policy.entity';
+import { SafetyProgram } from './safety-program.entity';
+import { RiskGroup } from './risk-group.entity';
+import { OccupationalExam } from './occupational-exam.entity';
+import { RiskGroupExam } from './risk-group-exam.entity';
+import { ExamReferral, ExamReferralItem } from './exam-referral.entity';
 import { Employee } from '../employees/employee.entity';
+import { Supplier } from '../supply/supply.entity';
 
 @Injectable()
 export class ComplianceService implements OnModuleInit {
@@ -33,6 +39,20 @@ export class ComplianceService implements OnModuleInit {
         private retentionRepo: Repository<RetentionPolicy>,
         @InjectRepository(Employee)
         private employeeRepo: Repository<Employee>,
+        @InjectRepository(SafetyProgram)
+        private programRepo: Repository<SafetyProgram>,
+        @InjectRepository(RiskGroup)
+        private riskGroupRepo: Repository<RiskGroup>,
+        @InjectRepository(OccupationalExam)
+        private occExamRepo: Repository<OccupationalExam>,
+        @InjectRepository(RiskGroupExam)
+        private rgExamRepo: Repository<RiskGroupExam>,
+        @InjectRepository(ExamReferral)
+        private referralRepo: Repository<ExamReferral>,
+        @InjectRepository(ExamReferralItem)
+        private referralItemRepo: Repository<ExamReferralItem>,
+        @InjectRepository(Supplier)
+        private supplierRepo: Repository<Supplier>,
         private dataSource: DataSource,
     ) { }
 
@@ -975,5 +995,274 @@ export class ComplianceService implements OnModuleInit {
         }
 
         return { created, skipped };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SAFETY PROGRAMS (CRUD)
+    // ═══════════════════════════════════════════════════════════════
+
+    async findAllPrograms(): Promise<SafetyProgram[]> {
+        return this.programRepo.find({
+            relations: ['company', 'riskGroups'],
+            order: { programType: 'ASC', validFrom: 'DESC' },
+        });
+    }
+
+    async findProgram(id: string): Promise<SafetyProgram> {
+        const p = await this.programRepo.findOne({
+            where: { id },
+            relations: ['company', 'riskGroups'],
+        });
+        if (!p) throw new NotFoundException('Programa não encontrado');
+        return p;
+    }
+
+    async createProgram(data: Partial<SafetyProgram>): Promise<SafetyProgram> {
+        const program = this.programRepo.create(data);
+        const saved = await this.programRepo.save(program);
+        return Array.isArray(saved) ? saved[0] : saved;
+    }
+
+    async updateProgram(id: string, data: Partial<SafetyProgram>): Promise<SafetyProgram> {
+        const program = await this.findProgram(id);
+        Object.assign(program, data);
+        return this.programRepo.save(program);
+    }
+
+    async removeProgram(id: string): Promise<void> {
+        await this.programRepo.softDelete(id);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RISK GROUPS — GHE (CRUD)
+    // ═══════════════════════════════════════════════════════════════
+
+    async findAllRiskGroups(programId?: string): Promise<RiskGroup[]> {
+        const where: any = { isActive: true };
+        if (programId) where.programId = programId;
+        return this.riskGroupRepo.find({
+            where,
+            relations: ['exams', 'exams.exam'],
+            order: { name: 'ASC' },
+        });
+    }
+
+    async findRiskGroup(id: string): Promise<RiskGroup> {
+        const rg = await this.riskGroupRepo.findOne({
+            where: { id },
+            relations: ['exams', 'exams.exam', 'safetyProgram'],
+        });
+        if (!rg) throw new NotFoundException('GHE não encontrado');
+        return rg;
+    }
+
+    async createRiskGroup(data: Partial<RiskGroup>): Promise<RiskGroup> {
+        const rg = this.riskGroupRepo.create(data);
+        const saved = await this.riskGroupRepo.save(rg);
+        return Array.isArray(saved) ? saved[0] : saved;
+    }
+
+    async updateRiskGroup(id: string, data: Partial<RiskGroup>): Promise<RiskGroup> {
+        const rg = await this.findRiskGroup(id);
+        Object.assign(rg, data);
+        return this.riskGroupRepo.save(rg);
+    }
+
+    async removeRiskGroup(id: string): Promise<void> {
+        await this.riskGroupRepo.softDelete(id);
+    }
+
+    // Add/remove exams to risk group
+    async addExamToRiskGroup(data: Partial<RiskGroupExam>): Promise<RiskGroupExam> {
+        const rge = this.rgExamRepo.create(data);
+        const saved = await this.rgExamRepo.save(rge);
+        return Array.isArray(saved) ? saved[0] : saved;
+    }
+
+    async removeExamFromRiskGroup(id: string): Promise<void> {
+        await this.rgExamRepo.delete(id);
+    }
+
+    async updateRiskGroupExam(id: string, data: Partial<RiskGroupExam>): Promise<RiskGroupExam> {
+        const rge = await this.rgExamRepo.findOneBy({ id });
+        if (!rge) throw new NotFoundException('Vínculo não encontrado');
+        Object.assign(rge, data);
+        return this.rgExamRepo.save(rge);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // OCCUPATIONAL EXAMS — Catálogo (CRUD)
+    // ═══════════════════════════════════════════════════════════════
+
+    async findAllOccExams(): Promise<OccupationalExam[]> {
+        return this.occExamRepo.find({
+            where: { isActive: true },
+            order: { group: 'ASC', sortOrder: 'ASC', name: 'ASC' },
+        });
+    }
+
+    async createOccExam(data: Partial<OccupationalExam>): Promise<OccupationalExam> {
+        const exam = this.occExamRepo.create(data);
+        const saved = await this.occExamRepo.save(exam);
+        return Array.isArray(saved) ? saved[0] : saved;
+    }
+
+    async updateOccExam(id: string, data: Partial<OccupationalExam>): Promise<OccupationalExam> {
+        const exam = await this.occExamRepo.findOneBy({ id });
+        if (!exam) throw new NotFoundException('Exame não encontrado');
+        Object.assign(exam, data);
+        return this.occExamRepo.save(exam);
+    }
+
+    async removeOccExam(id: string): Promise<void> {
+        await this.occExamRepo.softDelete(id);
+    }
+
+    async seedOccupationalExams(): Promise<{ created: number; skipped: number }> {
+        const defaults = [
+            // Laboratoriais
+            { code: 'HEMOGRAMA', name: 'Hemograma Completo com Plaquetas', group: 'laboratorial', validityMonths: 12 },
+            { code: 'SUMARIO_URINA', name: 'Sumário de Urina', group: 'laboratorial', validityMonths: 12 },
+            { code: 'ACIDO_METIL', name: 'Ácido Metil Hipúrico', group: 'laboratorial', validityMonths: 12 },
+            { code: 'GLICEMIA', name: 'Glicemia em Jejum', group: 'laboratorial', validityMonths: 12 },
+            { code: 'VDRL', name: 'VDRL', group: 'laboratorial', validityMonths: 12 },
+            { code: 'COPROCULTURA', name: 'Coprocultura', group: 'laboratorial', validityMonths: 12 },
+            { code: 'CULTURA_FEZES', name: 'Cultura de Fezes', group: 'laboratorial', validityMonths: 12 },
+            { code: 'PARASIT_FEZES', name: 'Parasitológico de Fezes', group: 'laboratorial', validityMonths: 12 },
+            { code: 'SWAB_ORO', name: 'Swab de Orofaringe', group: 'laboratorial', validityMonths: 12 },
+            { code: 'TRANSAMINASES', name: 'Transaminases (TGO/TGP)', group: 'laboratorial', validityMonths: 12 },
+            { code: 'RASPAGEM_UNHAS', name: 'Raspagem das Unhas', group: 'laboratorial', validityMonths: 12 },
+            { code: 'ACIDO_HIPURICO', name: 'Ácido Hipúrico', group: 'laboratorial', validityMonths: 12 },
+            // Complementares
+            { code: 'EEG', name: 'Eletroencefalograma (EEG)', group: 'complementar', validityMonths: 24 },
+            { code: 'ECG', name: 'Eletrocardiograma (ECG)', group: 'complementar', validityMonths: 24 },
+            { code: 'TESTE_ERGO', name: 'Teste Ergométrico', group: 'complementar', validityMonths: 24 },
+            { code: 'RX_TORAX', name: 'Raio X de Tórax em PA', group: 'complementar', validityMonths: 24 },
+            { code: 'PARECER_CARDIO', name: 'Parecer Cardiológico', group: 'complementar', validityMonths: 24 },
+            { code: 'LAUDO_RX_TORAX', name: 'Laudo do Raio X de Tórax', group: 'complementar', validityMonths: 24 },
+            { code: 'TESTE_PSICO', name: 'Teste Psicológico', group: 'complementar', validityMonths: 24 },
+            { code: 'ESPIROMETRIA', name: 'Espirometria', group: 'complementar', validityMonths: 24 },
+            { code: 'AUDIOMETRIA', name: 'Audiometria', group: 'complementar', validityMonths: 12 },
+            { code: 'PARECER_PNEUMO', name: 'Parecer do Pneumologista', group: 'complementar', validityMonths: 24 },
+            { code: 'OSTEO_MUSCULAR', name: 'Osteo Muscular', group: 'complementar', validityMonths: 24 },
+            { code: 'ORTHO_OFTALMO', name: 'Orthorater - Oftalmológico', group: 'complementar', validityMonths: 24 },
+            { code: 'ACUIDADE', name: 'Acuidade Visual', group: 'complementar', validityMonths: 12 },
+            { code: 'RX_COLUNA', name: 'Raio X de Coluna em PA e Perfil', group: 'complementar', validityMonths: 24 },
+            { code: 'LAUDO_RX_COLUNA', name: 'Laudo do Raio X de Coluna', group: 'complementar', validityMonths: 24 },
+            // Clínicos
+            { code: 'ASO_ADM', name: 'ASO Admissional', group: 'clinico', validityMonths: 12 },
+            { code: 'ASO_RET', name: 'ASO Retorno ao Trabalho', group: 'clinico', validityMonths: null },
+            { code: 'ASO_DEM', name: 'ASO Demissional', group: 'clinico', validityMonths: null },
+            { code: 'ASO_MUD', name: 'ASO Mudança de Função', group: 'clinico', validityMonths: null },
+            { code: 'ASO_PER', name: 'ASO Periódico', group: 'clinico', validityMonths: 12 },
+            { code: 'CONSULTA', name: 'Consulta Médica', group: 'clinico', validityMonths: null },
+        ];
+
+        let created = 0, skipped = 0;
+        for (const exam of defaults) {
+            const exists = await this.occExamRepo.findOneBy({ code: exam.code });
+            if (exists) { skipped++; continue; }
+            await this.occExamRepo.save(this.occExamRepo.create({ ...exam, isActive: true }));
+            created++;
+        }
+        return { created, skipped };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // EXAM REFERRALS — Guia de Encaminhamento (CRUD)
+    // ═══════════════════════════════════════════════════════════════
+
+    async findAllReferrals(): Promise<ExamReferral[]> {
+        return this.referralRepo.find({
+            relations: ['employee', 'clinicSupplier', 'items'],
+            order: { createdAt: 'DESC' },
+        });
+    }
+
+    async findReferral(id: string): Promise<ExamReferral> {
+        const r = await this.referralRepo.findOne({
+            where: { id },
+            relations: ['employee', 'clinicSupplier', 'items'],
+        });
+        if (!r) throw new NotFoundException('Guia não encontrada');
+        return r;
+    }
+
+    async createReferral(data: {
+        employeeId: string;
+        clinicSupplierId?: string;
+        examType: string;
+        observations?: string;
+        items: Partial<ExamReferralItem>[];
+    }): Promise<ExamReferral> {
+        // Auto number
+        const year = new Date().getFullYear();
+        const count = await this.referralRepo.count();
+        const referralNumber = `GE-${year}-${String(count + 1).padStart(3, '0')}`;
+
+        // Snapshot employee data
+        const employee = await this.employeeRepo.findOneBy({ id: data.employeeId });
+        let risks: any[] = [];
+        let jobFunction = employee?.jobFunction || employee?.specialty || '';
+        if (employee?.riskGroupId) {
+            const rg = await this.riskGroupRepo.findOneBy({ id: employee.riskGroupId });
+            if (rg) {
+                risks = rg.risks || [];
+                if (!jobFunction && rg.jobFunctions?.length) jobFunction = rg.jobFunctions[0];
+            }
+        }
+
+        const referral = this.referralRepo.create({
+            referralNumber,
+            employeeId: data.employeeId,
+            clinicSupplierId: data.clinicSupplierId || null,
+            examType: data.examType,
+            status: 'draft',
+            jobFunction,
+            risks,
+            observations: data.observations || null,
+        });
+
+        const saved = await this.referralRepo.save(referral);
+        const referralId = Array.isArray(saved) ? saved[0].id : saved.id;
+
+        // Save items
+        if (data.items?.length) {
+            for (const item of data.items) {
+                await this.referralItemRepo.save(this.referralItemRepo.create({
+                    ...item,
+                    referralId,
+                }));
+            }
+        }
+
+        return this.findReferral(referralId);
+    }
+
+    async updateReferral(id: string, data: Partial<ExamReferral>): Promise<ExamReferral> {
+        const r = await this.findReferral(id);
+        Object.assign(r, data);
+        return this.referralRepo.save(r);
+    }
+
+    async updateReferralItems(referralId: string, items: Partial<ExamReferralItem>[]): Promise<ExamReferral> {
+        // Delete old items and insert new ones
+        await this.referralItemRepo.delete({ referralId });
+        for (const item of items) {
+            await this.referralItemRepo.save(this.referralItemRepo.create({ ...item, referralId }));
+        }
+        return this.findReferral(referralId);
+    }
+
+    async removeReferral(id: string): Promise<void> {
+        await this.referralRepo.softDelete(id);
+    }
+
+    // Clinics (suppliers with modality = clinica_saude)
+    async findClinicSuppliers(): Promise<Supplier[]> {
+        return this.supplierRepo.find({
+            where: { modality: 'clinica_saude' },
+            order: { name: 'ASC' },
+        });
     }
 }

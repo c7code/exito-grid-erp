@@ -44,6 +44,9 @@ import AdminSolarProjects from './pages/admin/SolarProjects';
 import AdminCompanies from './pages/admin/Companies';
 import AdminStructureTemplates from './pages/admin/StructureTemplates';
 import AdminActivityReport from './pages/admin/ActivityReport';
+import AdminCompanyDocuments from './pages/admin/CompanyDocuments';
+import AdminSafetyPrograms from './pages/admin/SafetyPrograms';
+import AdminExamReferrals from './pages/admin/ExamReferrals';
 
 // Employee Pages (no longer used — employees redirect to admin layout)
 
@@ -133,6 +136,9 @@ function App() {
 
               <Route path="/admin/employees" element={<AdminEmployees />} />
               <Route path="/admin/employees/:id/compliance" element={<AdminEmployeeCompliance />} />
+              <Route path="/admin/company-documents" element={<AdminCompanyDocuments />} />
+              <Route path="/admin/safety-programs" element={<AdminSafetyPrograms />} />
+              <Route path="/admin/exam-referrals" element={<AdminExamReferrals />} />
 
               {/* Restricted Admin-only routes */}
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
