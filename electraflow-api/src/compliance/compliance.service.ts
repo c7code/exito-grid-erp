@@ -226,6 +226,7 @@ export class ComplianceService implements OnModuleInit {
                 `ALTER TABLE risk_groups ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN DEFAULT true`,
                 `ALTER TABLE safety_programs ADD COLUMN IF NOT EXISTS "fileName" VARCHAR`,
                 `ALTER TABLE safety_programs ADD COLUMN IF NOT EXISTS description TEXT`,
+                `ALTER TABLE safety_programs ADD COLUMN IF NOT EXISTS "companyId" UUID`,
                 `ALTER TABLE exam_referral_items ADD COLUMN IF NOT EXISTS "expiryDate" DATE`,
                 `ALTER TABLE exam_referral_items ADD COLUMN IF NOT EXISTS "selected" BOOLEAN DEFAULT true`,
                 `ALTER TABLE exam_referral_items ADD COLUMN IF NOT EXISTS "sortOrder" INT DEFAULT 0`,
