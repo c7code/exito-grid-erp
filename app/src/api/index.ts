@@ -1199,6 +1199,17 @@ class ApiService {
   // COMPLIANCE — Documentação Ocupacional (NR/SST)
   // ═══════════════════════════════════════════════════════════════
 
+  // Document Categories (dynamic)
+  async getDocumentCategories(): Promise<{ slug: string; label: string }[]> {
+    const response = await this.client.get('/compliance/document-categories');
+    return response.data;
+  }
+
+  async createDocumentCategory(data: { slug?: string; label: string }): Promise<{ slug: string; label: string }> {
+    const response = await this.client.post('/compliance/document-categories', data);
+    return response.data;
+  }
+
   // Document Types
   async getDocumentTypes() {
     const response = await this.client.get('/compliance/document-types');

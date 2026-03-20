@@ -52,6 +52,22 @@ export class ComplianceController {
     constructor(private complianceService: ComplianceService) { }
 
     // ═══════════════════════════════════════════════════════════════
+    // DOCUMENT CATEGORIES (dynamic)
+    // ═══════════════════════════════════════════════════════════════
+
+    @Get('document-categories')
+    @ApiOperation({ summary: 'Listar categorias de documento (padrão + personalizadas)' })
+    async getCategories() {
+        return this.complianceService.getCategories();
+    }
+
+    @Post('document-categories')
+    @ApiOperation({ summary: 'Criar nova categoria de documento' })
+    async createCategory(@Body() data: { slug?: string; label: string }) {
+        return this.complianceService.createCategory(data);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // DOCUMENT TYPES
     // ═══════════════════════════════════════════════════════════════
 

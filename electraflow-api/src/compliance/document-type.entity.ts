@@ -3,9 +3,7 @@ import {
 } from 'typeorm';
 import { DocumentTypeRule } from './document-type-rule.entity';
 
-// ═══════════════════════════════════════════════════════════════
-// Categorias de documento (agrupamento visual)
-// ═══════════════════════════════════════════════════════════════
+// Categorias padrão (referência — novas podem ser criadas dinamicamente)
 export enum DocumentCategory {
     IDENTIFICATION = 'identification',     // Identificação / Admissional
     HEALTH = 'health',                     // Saúde Ocupacional
@@ -14,6 +12,16 @@ export enum DocumentCategory {
     QUALIFICATION = 'qualification',       // Habilitações / Certificações
     OTHER = 'other',
 }
+
+// Labels padrão das categorias built-in
+export const DEFAULT_CATEGORY_LABELS: Record<string, string> = {
+    identification: 'Identificação / Admissional',
+    health: 'Saúde Ocupacional',
+    safety_nr: 'Segurança / NRs',
+    epi_epc: 'EPI / EPC',
+    qualification: 'Habilitações / Certificações',
+    other: 'Outros',
+};
 
 // ═══════════════════════════════════════════════════════════════
 // Tipo de Documento (configurável — não enum fixo)
@@ -29,12 +37,8 @@ export class DocumentType {
     @Column({ unique: true })
     code: string; // "ASO"
 
-    @Column({
-        type: 'enum',
-        enum: DocumentCategory,
-        default: DocumentCategory.OTHER,
-    })
-    category: DocumentCategory;
+    @Column({ type: 'varchar', default: 'other' })
+    category: string;
 
     // NRs relacionadas (ex: ["NR-7", "NR-9"])
     @Column('simple-json', { nullable: true, default: '[]' })

@@ -108,16 +108,15 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
     dispensed: { label: 'Dispensado', color: 'bg-gray-100 text-gray-600 border-gray-300', icon: HelpCircle },
 };
 
-const categoryLabels: Record<string, string> = {
-    identification: 'Identificação / Admissional',
-    health: 'Saúde Ocupacional',
-    safety_nr: 'Segurança / NRs',
-    epi_epc: 'EPI / EPC',
-    qualification: 'Habilitações / Certificações',
-    other: 'Outros',
-};
-
-const categoryOrder = ['identification', 'health', 'safety_nr', 'epi_epc', 'qualification', 'other'];
+// Categorias padrão (fallback caso API não responda)
+const DEFAULT_CATEGORIES: { slug: string; label: string }[] = [
+    { slug: 'identification', label: 'Identificação / Admissional' },
+    { slug: 'health', label: 'Saúde Ocupacional' },
+    { slug: 'safety_nr', label: 'Segurança / NRs' },
+    { slug: 'epi_epc', label: 'EPI / EPC' },
+    { slug: 'qualification', label: 'Habilitações / Certificações' },
+    { slug: 'other', label: 'Outros' },
+];
 
 // ═══════════════════════════════════════════════════════════════
 // Main Component
@@ -134,7 +133,17 @@ export default function EmployeeCompliance() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [categoryFilter, setCategoryFilter] = useState('all');
-    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(categoryOrder));
+    const [categories, setCategories] = useState<{ slug: string; label: string }[]>(DEFAULT_CATEGORIES);
+    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(DEFAULT_CATEGORIES.map(c => c.slug)));
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [creatingCategory, setCreatingCategory] = useState(false);
+
+    // Quick lookup: slug → label
+    const categoryMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        categories.forEach(c => map[c.slug] = c.label);
+        return map;
+    }, [categories]);
 
     // Dialog states
     const [uploadDialog, setUploadDialog] = useState<{ open: boolean; requirement?: Requirement; document?: ComplianceDoc }>({ open: false });
@@ -169,12 +178,14 @@ export default function EmployeeCompliance() {
     async function loadAll() {
         try {
             setLoading(true);
-            const [emp, reqs, docs, sum] = await Promise.all([
+            const [emp, reqs, docs, sum, cats] = await Promise.all([
                 api.getEmployee(employeeId!),
                 api.getEmployeeRequirements(employeeId!),
                 api.getComplianceDocuments(employeeId!),
                 api.getComplianceSummary(employeeId!),
+                api.getDocumentCategories().catch(() => DEFAULT_CATEGORIES),
             ]);
+            if (cats?.length) setCategories(cats);
             setEmployee(emp);
             setRequirements(reqs);
             setDocuments(docs);
@@ -397,10 +408,11 @@ export default function EmployeeCompliance() {
     }
 
     // ═══ Grouped & filtered data ═══
+    const allCategorySlugs = useMemo(() => categories.map(c => c.slug), [categories]);
     const grouped = useMemo(() => {
         const groups: Record<string, { requirement: Requirement; document?: ComplianceDoc }[]> = {};
 
-        for (const cat of categoryOrder) groups[cat] = [];
+        for (const slug of allCategorySlugs) groups[slug] = [];
 
         for (const req of requirements) {
             const cat = req.documentType?.category || 'other';
@@ -424,7 +436,7 @@ export default function EmployeeCompliance() {
         }
 
         return groups;
-    }, [requirements, documents, searchTerm, statusFilter, categoryFilter]);
+    }, [requirements, documents, searchTerm, statusFilter, categoryFilter, allCategorySlugs]);
 
     function toggleCategory(cat: string) {
         setExpandedCategories(prev => {
@@ -558,8 +570,8 @@ export default function EmployeeCompliance() {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Todas as Categorias</SelectItem>
-                        {categoryOrder.map(cat => (
-                            <SelectItem key={cat} value={cat}>{categoryLabels[cat]}</SelectItem>
+                        {categories.map(cat => (
+                            <SelectItem key={cat.slug} value={cat.slug}>{cat.label}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -577,7 +589,8 @@ export default function EmployeeCompliance() {
             </div>
 
             {/* ═══ Checklist Table by Category ═══ */}
-            {categoryOrder.map(cat => {
+            {categories.map(catObj => {
+                const cat = catObj.slug;
                 const items = grouped[cat];
                 if (!items || items.length === 0) return null;
 
@@ -592,7 +605,7 @@ export default function EmployeeCompliance() {
                             <div className="flex items-center gap-2">
                                 {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                                 <h3 className="font-semibold text-sm uppercase tracking-wide">
-                                    {categoryLabels[cat] || cat}
+                                    {catObj.label}
                                 </h3>
                                 <Badge variant="secondary" className="ml-2">{items.length}</Badge>
                             </div>
@@ -1079,19 +1092,66 @@ export default function EmployeeCompliance() {
                                 </div>
                                 <div>
                                     <Label>Categoria</Label>
-                                    <Select
-                                        value={addDocForm.customCategory}
-                                        onValueChange={v => setAddDocForm({ ...addDocForm, customCategory: v })}
-                                    >
-                                        <SelectTrigger className="mt-1">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {categoryOrder.map(cat => (
-                                                <SelectItem key={cat} value={cat}>{categoryLabels[cat]}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    {!creatingCategory ? (
+                                        <>
+                                            <Select
+                                                value={addDocForm.customCategory}
+                                                onValueChange={v => {
+                                                    if (v === '__new__') {
+                                                        setCreatingCategory(true);
+                                                        setNewCategoryName('');
+                                                    } else {
+                                                        setAddDocForm({ ...addDocForm, customCategory: v });
+                                                    }
+                                                }}
+                                            >
+                                                <SelectTrigger className="mt-1">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {categories.map(cat => (
+                                                        <SelectItem key={cat.slug} value={cat.slug}>{cat.label}</SelectItem>
+                                                    ))}
+                                                    <SelectItem value="__new__">+ Criar Categoria</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </>
+                                    ) : (
+                                        <div className="flex gap-2 mt-1">
+                                            <Input
+                                                value={newCategoryName}
+                                                onChange={e => setNewCategoryName(e.target.value)}
+                                                placeholder="Nome da categoria"
+                                                autoFocus
+                                                onKeyDown={async e => {
+                                                    if (e.key === 'Enter' && newCategoryName.trim()) {
+                                                        try {
+                                                            const cat = await api.createDocumentCategory({ label: newCategoryName.trim() });
+                                                            setCategories(prev => [...prev.filter(c => c.slug !== cat.slug), cat]);
+                                                            setAddDocForm({ ...addDocForm, customCategory: cat.slug });
+                                                            setCreatingCategory(false);
+                                                            toast.success(`Categoria "${cat.label}" criada`);
+                                                        } catch { toast.error('Erro ao criar categoria'); }
+                                                    }
+                                                    if (e.key === 'Escape') setCreatingCategory(false);
+                                                }}
+                                            />
+                                            <Button
+                                                size="sm"
+                                                onClick={async () => {
+                                                    if (!newCategoryName.trim()) return;
+                                                    try {
+                                                        const cat = await api.createDocumentCategory({ label: newCategoryName.trim() });
+                                                        setCategories(prev => [...prev.filter(c => c.slug !== cat.slug), cat]);
+                                                        setAddDocForm({ ...addDocForm, customCategory: cat.slug });
+                                                        setCreatingCategory(false);
+                                                        toast.success(`Categoria "${cat.label}" criada`);
+                                                    } catch { toast.error('Erro ao criar categoria'); }
+                                                }}
+                                            >OK</Button>
+                                            <Button size="sm" variant="ghost" onClick={() => setCreatingCategory(false)}>✕</Button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>

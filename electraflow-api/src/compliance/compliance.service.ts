@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, LessThanOrEqual, MoreThanOrEqual, IsNull } from 'typeorm';
-import { DocumentType, DocumentCategory } from './document-type.entity';
+import { Repository, In, LessThanOrEqual, MoreThanOrEqual, IsNull, DataSource } from 'typeorm';
+import { DocumentType, DocumentCategory, DEFAULT_CATEGORY_LABELS } from './document-type.entity';
 import { DocumentTypeRule, ConditionOperator, RuleResult } from './document-type-rule.entity';
 import { EmployeeDocRequirement, Applicability } from './employee-doc-requirement.entity';
 import { ComplianceDocument, ComplianceStatus } from './compliance-document.entity';
@@ -12,7 +12,8 @@ import { RetentionPolicy } from './retention-policy.entity';
 import { Employee } from '../employees/employee.entity';
 
 @Injectable()
-export class ComplianceService {
+export class ComplianceService implements OnModuleInit {
+    private readonly logger = new Logger(ComplianceService.name);
     constructor(
         @InjectRepository(DocumentType)
         private docTypeRepo: Repository<DocumentType>,
@@ -32,7 +33,22 @@ export class ComplianceService {
         private retentionRepo: Repository<RetentionPolicy>,
         @InjectRepository(Employee)
         private employeeRepo: Repository<Employee>,
+        private dataSource: DataSource,
     ) { }
+
+    async onModuleInit() {
+        // Migrate category column from ENUM to VARCHAR (allows dynamic categories)
+        try {
+            await this.dataSource.query(`ALTER TABLE document_types ALTER COLUMN category TYPE VARCHAR USING category::VARCHAR`);
+            this.logger.log('document_types.category converted to VARCHAR');
+        } catch (err) {
+            this.logger.warn('category column migration: ' + err?.message);
+        }
+        // Drop the old enum type if it exists
+        try {
+            await this.dataSource.query(`DROP TYPE IF EXISTS "document_types_category_enum"`);
+        } catch {}
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // DOCUMENT TYPES (CRUD)
@@ -44,6 +60,81 @@ export class ComplianceService {
             relations: ['rules'],
             order: { category: 'ASC', sortOrder: 'ASC', name: 'ASC' },
         });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // DOCUMENT CATEGORIES (dynamic)
+    // ═══════════════════════════════════════════════════════════════
+
+    async getCategories(): Promise<{ slug: string; label: string }[]> {
+        // Get all distinct categories from DB
+        const dbCategories: { category: string }[] = await this.docTypeRepo
+            .createQueryBuilder('dt')
+            .select('DISTINCT dt.category', 'category')
+            .where('dt.category IS NOT NULL')
+            .getRawMany();
+
+        // Merge defaults + DB custom ones
+        const result: { slug: string; label: string }[] = [];
+        const seen = new Set<string>();
+
+        // Built-in defaults first (in order)
+        for (const [slug, label] of Object.entries(DEFAULT_CATEGORY_LABELS)) {
+            result.push({ slug, label });
+            seen.add(slug);
+        }
+
+        // Custom categories from DB
+        // Also check system_configs for custom labels
+        let customLabels: Record<string, string> = {};
+        try {
+            const config = await this.docTypeRepo.manager.query(
+                `SELECT value FROM system_configs WHERE key = 'document_category_labels'`
+            );
+            if (config?.[0]?.value) customLabels = JSON.parse(config[0].value);
+        } catch {}
+
+        for (const row of dbCategories) {
+            if (!seen.has(row.category)) {
+                result.push({
+                    slug: row.category,
+                    label: customLabels[row.category] || row.category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                });
+                seen.add(row.category);
+            }
+        }
+
+        return result;
+    }
+
+    async createCategory(data: { slug?: string; label: string }): Promise<{ slug: string; label: string }> {
+        // Generate slug from label if not provided
+        const slug = data.slug || data.label
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_|_$/g, '');
+
+        if (!slug) throw new BadRequestException('Slug inválido');
+
+        // Save label to system_configs
+        let customLabels: Record<string, string> = {};
+        try {
+            const config = await this.docTypeRepo.manager.query(
+                `SELECT value FROM system_configs WHERE key = 'document_category_labels'`
+            );
+            if (config?.[0]?.value) customLabels = JSON.parse(config[0].value);
+        } catch {}
+
+        customLabels[slug] = data.label;
+
+        await this.docTypeRepo.manager.query(
+            `INSERT INTO system_configs (key, value) VALUES ('document_category_labels', $1)
+             ON CONFLICT (key) DO UPDATE SET value = $1`,
+            [JSON.stringify(customLabels)]
+        );
+
+        return { slug, label: data.label };
     }
 
     async findDocumentType(id: string): Promise<DocumentType> {
@@ -252,7 +343,7 @@ export class ComplianceService {
             const newType = this.docTypeRepo.create({
                 name: data.customName,
                 code,
-                category: (data.customCategory || 'other') as DocumentCategory,
+                category: data.customCategory || 'other',
                 nrsRelated: data.customNrs || [],
                 defaultValidityMonths: data.customValidityMonths ?? null,
                 isMandatory: false,
