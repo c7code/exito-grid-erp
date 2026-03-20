@@ -2186,6 +2186,19 @@ class ApiService {
     return response.data;
   }
 
+  async uploadSafetyProgramFile(id: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await this.client.post(`/compliance/safety-programs/${id}/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  getSafetyProgramFileUrl(id: string) {
+    return `${this.client.defaults.baseURL}/compliance/safety-programs/${id}/download`;
+  }
+
   // ═══════════════════════════════════════════════════════════════
   // RISK GROUPS — GHE
   // ═══════════════════════════════════════════════════════════════

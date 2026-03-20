@@ -619,6 +619,31 @@ export class ComplianceController {
         return this.complianceService.removeProgram(id);
     }
 
+    @Post('safety-programs/:id/upload')
+    @ApiOperation({ summary: 'Upload de arquivo do programa de segurança' })
+    @UseInterceptors(FileInterceptor('file', { storage: complianceStorage }))
+    async uploadProgramFile(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
+        if (!file) throw new NotFoundException('Nenhum arquivo enviado');
+        const fileUrl = `/uploads/compliance/${file.filename}`;
+        const fileName = file.originalname;
+        await this.complianceService.updateProgram(id, { fileUrl, fileName } as any);
+        return { fileUrl, fileName };
+    }
+
+    @Get('safety-programs/:id/download')
+    @ApiOperation({ summary: 'Download do arquivo do programa' })
+    async downloadProgramFile(@Param('id') id: string, @Res() res: Response) {
+        const program = await this.complianceService.findProgram(id);
+        if (!program?.fileUrl) throw new NotFoundException('Nenhum arquivo');
+        const filePath = path.join(process.cwd(), program.fileUrl);
+        if (!fs.existsSync(filePath)) throw new NotFoundException('Arquivo não encontrado no disco');
+        const ext = path.extname(filePath).toLowerCase();
+        const mime = MIME_MAP[ext] || 'application/octet-stream';
+        res.setHeader('Content-Type', mime);
+        res.setHeader('Content-Disposition', `inline; filename="${program.fileName || 'arquivo'}"`);
+        fs.createReadStream(filePath).pipe(res);
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // RISK GROUPS — GHE
     // ═══════════════════════════════════════════════════════════════

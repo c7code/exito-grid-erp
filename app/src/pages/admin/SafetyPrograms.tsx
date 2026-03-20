@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Plus, Pencil, Trash2, ChevronDown, ChevronRight, Loader2, FileText, Users, Stethoscope, Database } from 'lucide-react';
+import { Shield, Plus, Pencil, Trash2, ChevronDown, ChevronRight, Loader2, FileText, Users, Stethoscope, Database, Upload, Download } from 'lucide-react';
 
 const PT: Record<string, { l: string; n: string }> = {
     pgr: { l: 'PGR - Gerenciamento de Riscos', n: 'NR-1' },
@@ -21,6 +21,7 @@ const PT: Record<string, { l: string; n: string }> = {
     apr: { l: 'APR - Análise Preliminar', n: 'NR-1' },
     cipa: { l: 'CIPA', n: 'NR-5' },
     os_seg: { l: 'Ordem de Serviço Seg.', n: 'NR-1' },
+    outro: { l: 'Outro (personalizado)', n: '' },
 };
 const SC: Record<string, string> = { draft: 'bg-gray-100 text-gray-600', active: 'bg-green-100 text-green-700', expired: 'bg-red-100 text-red-700', reviewing: 'bg-yellow-100 text-yellow-700' };
 
@@ -42,14 +43,35 @@ export default function SafetyPrograms() {
     const [linkDlg, setLinkDlg] = useState<{ open: boolean; rgId?: string }>({ open: false });
     const [linkId, setLinkId] = useState('');
     const [expRg, setExpRg] = useState<Set<string>>(new Set());
+    const [fileToUpload, setFileToUpload] = useState<File | null>(null);
 
     useEffect(() => { load(); }, []);
     async function load() {
         try { setLoading(true); const [p, r, e] = await Promise.all([api.getSafetyPrograms().catch(() => []), api.getRiskGroups().catch(() => []), api.getOccupationalExams().catch(() => [])]); setPrograms(p); setRiskGroups(r); setExams(e); } finally { setLoading(false); }
     }
-    function newProg() { setEditProg(null); setPf({ programType: 'pgr', name: '', nrReference: 'NR-1', responsibleName: '', responsibleRegistration: '', validFrom: '', validUntil: '', status: 'draft', observations: '' }); setProgDlg(true); }
-    function editP(p: any) { setEditProg(p); setPf({ programType: p.programType, name: p.name, nrReference: p.nrReference || '', responsibleName: p.responsibleName || '', responsibleRegistration: p.responsibleRegistration || '', validFrom: p.validFrom?.split('T')[0] || '', validUntil: p.validUntil?.split('T')[0] || '', status: p.status, observations: p.observations || '' }); setProgDlg(true); }
-    async function saveP() { if (!pf.name.trim()) { toast.error('Nome obrigatório'); return; } try { editProg ? await api.updateSafetyProgram(editProg.id, pf) : await api.createSafetyProgram(pf); toast.success('Salvo'); setProgDlg(false); load(); } catch { toast.error('Erro'); } }
+    function newProg() { setEditProg(null); setPf({ programType: 'pgr', name: '', nrReference: 'NR-1', responsibleName: '', responsibleRegistration: '', validFrom: '', validUntil: '', status: 'draft', observations: '' }); setFileToUpload(null); setProgDlg(true); }
+    function editP(p: any) {
+        const knownType = PT[p.programType] ? p.programType : 'outro';
+        setEditProg(p);
+        setPf({ programType: knownType, name: p.name, nrReference: p.nrReference || '', responsibleName: p.responsibleName || '', responsibleRegistration: p.responsibleRegistration || '', validFrom: p.validFrom?.split('T')[0] || '', validUntil: p.validUntil?.split('T')[0] || '', status: p.status, observations: p.observations || '' });
+        setFileToUpload(null); setProgDlg(true);
+    }
+    async function saveP() {
+        if (!pf.name.trim()) { toast.error('Nome obrigatório'); return; }
+        try {
+            const payload = { ...pf };
+            // Se tipo 'outro', o programType fica como a nrReference digitada ou 'outro'
+            if (pf.programType === 'outro' && pf.nrReference) {
+                payload.programType = pf.nrReference.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+            }
+            const saved = editProg ? await api.updateSafetyProgram(editProg.id, payload) : await api.createSafetyProgram(payload);
+            // Upload do arquivo se selecionado
+            if (fileToUpload && saved?.id) {
+                await api.uploadSafetyProgramFile(saved.id, fileToUpload);
+            }
+            toast.success('Salvo'); setProgDlg(false); setFileToUpload(null); load();
+        } catch { toast.error('Erro'); }
+    }
     async function delP(id: string) { if (!confirm('Excluir?')) return; try { await api.deleteSafetyProgram(id); toast.success('Removido'); load(); } catch { toast.error('Erro'); } }
     function newRg() { setEditRg(null); setRf({ name: '', code: '', programId: programs[0]?.id || '', jobFunctions: '', risks: '[]', examFrequencyMonths: '12' }); setRgDlg(true); }
     function editR(rg: any) { setEditRg(rg); setRf({ name: rg.name, code: rg.code || '', programId: rg.programId || '', jobFunctions: (rg.jobFunctions || []).join(', '), risks: JSON.stringify(rg.risks || [], null, 2), examFrequencyMonths: String(rg.examFrequencyMonths || 12) }); setRgDlg(true); }
@@ -73,7 +95,7 @@ export default function SafetyPrograms() {
 
                 <TabsContent value="programs" className="space-y-4">
                     <div className="flex justify-end"><Button onClick={newProg}><Plus className="h-4 w-4 mr-2" />Novo</Button></div>
-                    {programs.map(p => (<Card key={p.id}><CardContent className="pt-4 pb-4 flex items-center justify-between"><div><div className="flex items-center gap-2"><h3 className="font-semibold">{p.name}</h3><Badge className={SC[p.status] || 'bg-gray-100'}>{p.status}</Badge><Badge variant="outline">{PT[p.programType]?.n || p.programType}</Badge></div><p className="text-sm text-muted-foreground mt-1">{PT[p.programType]?.l}{p.responsibleName && ` • ${p.responsibleName}`}{p.validFrom && ` • ${new Date(p.validFrom).toLocaleDateString('pt-BR')}`}{p.validUntil && ` → ${new Date(p.validUntil).toLocaleDateString('pt-BR')}`}</p></div><div className="flex gap-1"><Button size="icon" variant="ghost" onClick={() => editP(p)}><Pencil className="h-4 w-4" /></Button><Button size="icon" variant="ghost" onClick={() => delP(p.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button></div></CardContent></Card>))}
+                    {programs.map(p => (<Card key={p.id}><CardContent className="pt-4 pb-4 flex items-center justify-between"><div><div className="flex items-center gap-2"><h3 className="font-semibold">{p.name}</h3><Badge className={SC[p.status] || 'bg-gray-100'}>{p.status}</Badge><Badge variant="outline">{PT[p.programType]?.n || p.programType.toUpperCase()}</Badge>{p.fileUrl && <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => window.open(api.getSafetyProgramFileUrl(p.id), '_blank')}><Download className="h-3 w-3" />{p.fileName || 'Arquivo'}</Badge>}</div><p className="text-sm text-muted-foreground mt-1">{PT[p.programType]?.l || p.programType.toUpperCase()}{p.responsibleName && ` • ${p.responsibleName}`}{p.validFrom && ` • ${new Date(p.validFrom).toLocaleDateString('pt-BR')}`}{p.validUntil && ` → ${new Date(p.validUntil).toLocaleDateString('pt-BR')}`}</p></div><div className="flex gap-1"><Button size="icon" variant="ghost" onClick={() => editP(p)}><Pencil className="h-4 w-4" /></Button><Button size="icon" variant="ghost" onClick={() => delP(p.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button></div></CardContent></Card>))}
                     {!programs.length && <p className="text-center text-muted-foreground py-8">Nenhum programa</p>}
                 </TabsContent>
 
@@ -99,13 +121,20 @@ export default function SafetyPrograms() {
             </Tabs>
 
             {/* Dialogs */}
-            <Dialog open={progDlg} onOpenChange={setProgDlg}><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>{editProg ? 'Editar' : 'Novo'} Programa</DialogTitle></DialogHeader><div className="space-y-3">
-                <div><Label>Tipo</Label><Select value={pf.programType} onValueChange={v => setPf({ ...pf, programType: v, nrReference: PT[v]?.n||'' })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(PT).map(([k,v]) => <SelectItem key={k} value={k}>{v.l}</SelectItem>)}</SelectContent></Select></div>
+            <Dialog open={progDlg} onOpenChange={setProgDlg}><DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>{editProg ? 'Editar' : 'Novo'} Programa</DialogTitle></DialogHeader><div className="space-y-3">
+                <div><Label>Tipo</Label><Select value={pf.programType} onValueChange={v => setPf({ ...pf, programType: v, nrReference: PT[v]?.n||pf.nrReference })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(PT).map(([k,v]) => <SelectItem key={k} value={k}>{v.l}</SelectItem>)}</SelectContent></Select></div>
+                {pf.programType === 'outro' && <div><Label>Sigla / NR de Referência *</Label><Input value={pf.nrReference} onChange={e => setPf({...pf,nrReference:e.target.value})} placeholder="Ex: NR-18, PCA, PPR..." /></div>}
                 <div><Label>Nome *</Label><Input value={pf.name} onChange={e => setPf({...pf,name:e.target.value})} /></div>
                 <div className="grid grid-cols-2 gap-3"><div><Label>Responsável</Label><Input value={pf.responsibleName} onChange={e => setPf({...pf,responsibleName:e.target.value})} /></div><div><Label>Registro</Label><Input value={pf.responsibleRegistration} onChange={e => setPf({...pf,responsibleRegistration:e.target.value})} /></div></div>
                 <div className="grid grid-cols-2 gap-3"><div><Label>De</Label><Input type="date" value={pf.validFrom} onChange={e => setPf({...pf,validFrom:e.target.value})} /></div><div><Label>Até</Label><Input type="date" value={pf.validUntil} onChange={e => setPf({...pf,validUntil:e.target.value})} /></div></div>
                 <div><Label>Status</Label><Select value={pf.status} onValueChange={v => setPf({...pf,status:v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Rascunho</SelectItem><SelectItem value="active">Ativo</SelectItem><SelectItem value="reviewing">Em Revisão</SelectItem><SelectItem value="expired">Expirado</SelectItem></SelectContent></Select></div>
                 <div><Label>Obs</Label><Textarea value={pf.observations} onChange={e => setPf({...pf,observations:e.target.value})} rows={2} /></div>
+                <div className="border-t pt-3">
+                    <Label className="flex items-center gap-2"><Upload className="h-4 w-4" /> Documento (PDF, DOC, DOCX)</Label>
+                    {editProg?.fileUrl && !fileToUpload && <p className="text-sm text-green-600 mt-1 flex items-center gap-1"><Download className="h-3 w-3" /> Arquivo atual: <span className="font-medium cursor-pointer underline" onClick={() => window.open(api.getSafetyProgramFileUrl(editProg.id), '_blank')}>{editProg.fileName || 'Ver arquivo'}</span></p>}
+                    <Input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" className="mt-2" onChange={e => { const f = e.target.files?.[0]; if (f) setFileToUpload(f); }} />
+                    {fileToUpload && <p className="text-xs text-blue-600 mt-1">📎 {fileToUpload.name} ({(fileToUpload.size / 1024).toFixed(0)} KB)</p>}
+                </div>
             </div><DialogFooter><Button variant="outline" onClick={() => setProgDlg(false)}>Cancelar</Button><Button onClick={saveP}>Salvar</Button></DialogFooter></DialogContent></Dialog>
 
             <Dialog open={rgDlg} onOpenChange={setRgDlg}><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>{editRg ? 'Editar' : 'Novo'} GHE</DialogTitle></DialogHeader><div className="space-y-3">
