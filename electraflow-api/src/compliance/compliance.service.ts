@@ -68,6 +68,159 @@ export class ComplianceService implements OnModuleInit {
         try {
             await this.dataSource.query(`DROP TYPE IF EXISTS "document_types_category_enum"`);
         } catch {}
+
+        // ═══ Auto-migration: new tables + columns for safety programs & exam referrals ═══
+        try {
+            // Add columns to employees table
+            await this.dataSource.query(`
+                DO $$ BEGIN
+                    ALTER TABLE employees ADD COLUMN IF NOT EXISTS "jobFunction" VARCHAR;
+                    ALTER TABLE employees ADD COLUMN IF NOT EXISTS "riskGroupId" UUID;
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END $$;
+            `);
+
+            // Add modality column to suppliers table
+            await this.dataSource.query(`
+                DO $$ BEGIN
+                    ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS "modality" VARCHAR;
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END $$;
+            `);
+
+            // company_documents table
+            await this.dataSource.query(`
+                CREATE TABLE IF NOT EXISTS company_documents (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    "companyId" UUID,
+                    "documentGroup" VARCHAR DEFAULT 'other',
+                    name VARCHAR NOT NULL,
+                    description TEXT,
+                    "fileUrl" VARCHAR,
+                    "fileName" VARCHAR,
+                    "mimeType" VARCHAR,
+                    "issueDate" DATE,
+                    "expiryDate" DATE,
+                    status VARCHAR DEFAULT 'pending',
+                    "responsibleName" VARCHAR,
+                    "registrationNumber" VARCHAR,
+                    observations TEXT,
+                    "isActive" BOOLEAN DEFAULT true,
+                    "sortOrder" INT DEFAULT 0,
+                    "createdAt" TIMESTAMP DEFAULT now(),
+                    "updatedAt" TIMESTAMP DEFAULT now(),
+                    "deletedAt" TIMESTAMP
+                );
+            `);
+
+            // safety_programs table
+            await this.dataSource.query(`
+                CREATE TABLE IF NOT EXISTS safety_programs (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    "programType" VARCHAR NOT NULL,
+                    name VARCHAR NOT NULL,
+                    "nrReference" VARCHAR,
+                    description TEXT,
+                    "responsibleName" VARCHAR,
+                    "responsibleRegistration" VARCHAR,
+                    "validFrom" DATE,
+                    "validUntil" DATE,
+                    status VARCHAR DEFAULT 'draft',
+                    "fileUrl" VARCHAR,
+                    observations TEXT,
+                    "createdAt" TIMESTAMP DEFAULT now(),
+                    "updatedAt" TIMESTAMP DEFAULT now(),
+                    "deletedAt" TIMESTAMP
+                );
+            `);
+
+            // risk_groups table (GHE)
+            await this.dataSource.query(`
+                CREATE TABLE IF NOT EXISTS risk_groups (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    "programId" UUID,
+                    code VARCHAR,
+                    name VARCHAR NOT NULL,
+                    "jobFunctions" JSONB DEFAULT '[]',
+                    risks JSONB DEFAULT '[]',
+                    "examFrequencyMonths" INT DEFAULT 12,
+                    "createdAt" TIMESTAMP DEFAULT now(),
+                    "updatedAt" TIMESTAMP DEFAULT now(),
+                    "deletedAt" TIMESTAMP
+                );
+            `);
+
+            // occupational_exams table
+            await this.dataSource.query(`
+                CREATE TABLE IF NOT EXISTS occupational_exams (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    name VARCHAR NOT NULL,
+                    code VARCHAR NOT NULL,
+                    "group" VARCHAR DEFAULT 'laboratorial',
+                    description TEXT,
+                    "validityMonths" INT,
+                    "isActive" BOOLEAN DEFAULT true,
+                    "createdAt" TIMESTAMP DEFAULT now(),
+                    "updatedAt" TIMESTAMP DEFAULT now()
+                );
+            `);
+
+            // risk_group_exams table (matrix GHE × Exam)
+            await this.dataSource.query(`
+                CREATE TABLE IF NOT EXISTS risk_group_exams (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    "riskGroupId" UUID,
+                    "examId" UUID,
+                    "requiredOnAdmission" BOOLEAN DEFAULT true,
+                    "requiredOnPeriodic" BOOLEAN DEFAULT true,
+                    "requiredOnDismissal" BOOLEAN DEFAULT false,
+                    "requiredOnReturn" BOOLEAN DEFAULT false,
+                    "requiredOnFunctionChange" BOOLEAN DEFAULT false,
+                    "createdAt" TIMESTAMP DEFAULT now()
+                );
+            `);
+
+            // exam_referrals table
+            await this.dataSource.query(`
+                CREATE TABLE IF NOT EXISTS exam_referrals (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    "referralNumber" VARCHAR,
+                    "employeeId" UUID,
+                    "clinicSupplierId" UUID,
+                    "examType" VARCHAR DEFAULT 'periodico',
+                    "jobFunction" VARCHAR,
+                    risks JSONB DEFAULT '[]',
+                    status VARCHAR DEFAULT 'draft',
+                    "sentAt" TIMESTAMP,
+                    "budgetValue" DECIMAL(12,2),
+                    "budgetReceivedAt" TIMESTAMP,
+                    "scheduledDate" DATE,
+                    "completedAt" TIMESTAMP,
+                    observations TEXT,
+                    "createdAt" TIMESTAMP DEFAULT now(),
+                    "updatedAt" TIMESTAMP DEFAULT now(),
+                    "deletedAt" TIMESTAMP
+                );
+            `);
+
+            // exam_referral_items table
+            await this.dataSource.query(`
+                CREATE TABLE IF NOT EXISTS exam_referral_items (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    "referralId" UUID,
+                    "examId" UUID,
+                    "examName" VARCHAR,
+                    "examGroup" VARCHAR,
+                    "isRenewal" BOOLEAN DEFAULT false,
+                    "lastExamDate" DATE,
+                    "createdAt" TIMESTAMP DEFAULT now()
+                );
+            `);
+
+            this.logger.log('Safety/Exam tables migration completed');
+        } catch (err) {
+            this.logger.error('Safety/Exam migration error: ' + err?.message);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
