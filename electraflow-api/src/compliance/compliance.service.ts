@@ -218,6 +218,19 @@ export class ComplianceService implements OnModuleInit {
             `);
 
             this.logger.log('Safety/Exam tables migration completed');
+
+            // ═══ Patch missing columns (entity has them but CREATE TABLE missed them) ═══
+            const patches = [
+                `ALTER TABLE occupational_exams ADD COLUMN IF NOT EXISTS "sortOrder" INT DEFAULT 0`,
+                `ALTER TABLE occupational_exams ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP`,
+                `ALTER TABLE risk_groups ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN DEFAULT true`,
+                `ALTER TABLE safety_programs ADD COLUMN IF NOT EXISTS "fileName" VARCHAR`,
+                `ALTER TABLE safety_programs ADD COLUMN IF NOT EXISTS description TEXT`,
+            ];
+            for (const sql of patches) {
+                try { await this.dataSource.query(sql); } catch {}
+            }
+            this.logger.log('Column patches applied');
         } catch (err) {
             this.logger.error('Safety/Exam migration error: ' + err?.message);
         }
