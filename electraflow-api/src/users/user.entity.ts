@@ -38,6 +38,18 @@ export const AVAILABLE_MODULES = [
   'compliance',
   'client-requests',
   'settings',
+  'daily-logs',
+  'service-orders',
+  'contracts',
+  'solar',
+  'inventory',
+  'structures',
+  'companies',
+  'activity-report',
+  // Segurança do Trabalho
+  'company-documents',
+  'safety-programs',
+  'exam-referrals',
 ] as const;
 
 export type ModulePermission = typeof AVAILABLE_MODULES[number];

@@ -74,6 +74,7 @@ const AVAILABLE_MODULES = [
     { id: 'protocols', label: 'Protocolos' },
     { id: 'daily-logs', label: 'Diário de Obra' },
     { id: 'service-orders', label: 'Ordens de Serviço' },
+    { id: 'structures', label: 'Estruturas' },
     { id: 'catalog', label: 'Produtos & Estoque' },
     { id: 'inventory', label: 'Almoxarifado' },
     { id: 'suppliers', label: 'Fornecedores' },
@@ -83,9 +84,13 @@ const AVAILABLE_MODULES = [
     { id: 'finance', label: 'Financeiro' },
     { id: 'fiscal', label: 'Fiscal / NF-e' },
     { id: 'compliance', label: 'Compliance' },
+    { id: 'company-documents', label: 'Docs da Empresa' },
+    { id: 'safety-programs', label: 'Programas / GHE' },
+    { id: 'exam-referrals', label: 'Guias de Exames' },
     { id: 'employees', label: 'Funcionários' },
     { id: 'users', label: 'Usuários' },
     { id: 'companies', label: 'Empresas' },
+    { id: 'activity-report', label: 'Relatório Atividades' },
     { id: 'settings', label: 'Configurações' },
 ];
 
