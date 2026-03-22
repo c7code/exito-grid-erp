@@ -1123,6 +1123,65 @@ class ApiService {
     return response.data;
   }
 
+  // ═══ PAYMENT RECEIPTS (RECIBOS) ═══════════════════════════════════════
+
+  async getReceipts(proposalId?: string) {
+    const params: any = {};
+    if (proposalId) params.proposalId = proposalId;
+    const response = await this.client.get('/finance/receipts', { params });
+    return response.data;
+  }
+
+  async getReceipt(id: string) {
+    const response = await this.client.get(`/finance/receipts/${id}`);
+    return response.data;
+  }
+
+  async createReceipt(data: any) {
+    const response = await this.client.post('/finance/receipts', data);
+    return response.data;
+  }
+
+  async updateReceipt(id: string, data: any) {
+    const response = await this.client.put(`/finance/receipts/${id}`, data);
+    return response.data;
+  }
+
+  async deleteReceipt(id: string) {
+    const response = await this.client.delete(`/finance/receipts/${id}`);
+    return response.data;
+  }
+
+  // ═══ PURCHASE ORDERS (PEDIDOS DE COMPRA) ═══════════════════════════════
+
+  async getPurchaseOrders(proposalId?: string, supplierId?: string) {
+    const params: any = {};
+    if (proposalId) params.proposalId = proposalId;
+    if (supplierId) params.supplierId = supplierId;
+    const response = await this.client.get('/finance/purchase-orders', { params });
+    return response.data;
+  }
+
+  async getPurchaseOrder(id: string) {
+    const response = await this.client.get(`/finance/purchase-orders/${id}`);
+    return response.data;
+  }
+
+  async createPurchaseOrder(data: any) {
+    const response = await this.client.post('/finance/purchase-orders', data);
+    return response.data;
+  }
+
+  async updatePurchaseOrder(id: string, data: any) {
+    const response = await this.client.put(`/finance/purchase-orders/${id}`, data);
+    return response.data;
+  }
+
+  async deletePurchaseOrder(id: string) {
+    const response = await this.client.delete(`/finance/purchase-orders/${id}`);
+    return response.data;
+  }
+
   // ═══ CLIENT PORTAL ══════════════════════════════════════════════════════════
 
   async clientLogin(email: string, password: string) {

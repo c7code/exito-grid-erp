@@ -173,4 +173,68 @@ export class FinanceController {
   async removePaymentSchedule(@Param('id') id: string) {
     return this.financeService.removePaymentSchedule(id);
   }
+
+  // ═══ PAYMENT RECEIPTS (RECIBOS) ═══════════════════════════════════════
+
+  @Get('receipts')
+  @ApiOperation({ summary: 'Listar recibos de pagamento' })
+  async findAllReceipts(@Query('proposalId') proposalId?: string) {
+    return this.financeService.findAllReceipts(proposalId);
+  }
+
+  @Get('receipts/:id')
+  @ApiOperation({ summary: 'Buscar recibo por ID' })
+  async findOneReceipt(@Param('id') id: string) {
+    return this.financeService.findOneReceipt(id);
+  }
+
+  @Post('receipts')
+  @ApiOperation({ summary: 'Criar recibo de pagamento' })
+  async createReceipt(@Body() data: any) {
+    return this.financeService.createReceipt(data);
+  }
+
+  @Put('receipts/:id')
+  @ApiOperation({ summary: 'Atualizar recibo' })
+  async updateReceipt(@Param('id') id: string, @Body() data: any) {
+    return this.financeService.updateReceipt(id, data);
+  }
+
+  @Delete('receipts/:id')
+  @ApiOperation({ summary: 'Remover recibo' })
+  async removeReceipt(@Param('id') id: string) {
+    return this.financeService.removeReceipt(id);
+  }
+
+  // ═══ PURCHASE ORDERS (PEDIDOS DE COMPRA) ═══════════════════════════════
+
+  @Get('purchase-orders')
+  @ApiOperation({ summary: 'Listar pedidos de compra' })
+  async findAllPurchaseOrders(@Query('proposalId') proposalId?: string, @Query('supplierId') supplierId?: string) {
+    return this.financeService.findAllPurchaseOrders(proposalId, supplierId);
+  }
+
+  @Get('purchase-orders/:id')
+  @ApiOperation({ summary: 'Buscar pedido de compra por ID' })
+  async findOnePurchaseOrder(@Param('id') id: string) {
+    return this.financeService.findOnePurchaseOrder(id);
+  }
+
+  @Post('purchase-orders')
+  @ApiOperation({ summary: 'Criar pedido de compra' })
+  async createPurchaseOrder(@Body() data: any) {
+    return this.financeService.createPurchaseOrder(data);
+  }
+
+  @Put('purchase-orders/:id')
+  @ApiOperation({ summary: 'Atualizar pedido de compra' })
+  async updatePurchaseOrder(@Param('id') id: string, @Body() data: any) {
+    return this.financeService.updatePurchaseOrder(id, data);
+  }
+
+  @Delete('purchase-orders/:id')
+  @ApiOperation({ summary: 'Remover pedido de compra' })
+  async removePurchaseOrder(@Param('id') id: string) {
+    return this.financeService.removePurchaseOrder(id);
+  }
 }

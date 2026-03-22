@@ -9,13 +9,15 @@ import { Measurement } from './measurement.entity';
 import { MeasurementItem } from './measurement-item.entity';
 import { WorkCost } from './work-cost.entity';
 import { PaymentSchedule } from './payment-schedule.entity';
+import { PaymentReceipt } from './payment-receipt.entity';
+import { PurchaseOrder, PurchaseOrderItem } from './purchase-order.entity';
 import { MeasurementsService } from './measurements.service';
 import { MeasurementsController } from './measurements.controller';
 import { Task } from '../tasks/task.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Payment, Measurement, MeasurementItem, Task, WorkCost, PaymentSchedule]),
+    TypeOrmModule.forFeature([Payment, Measurement, MeasurementItem, Task, WorkCost, PaymentSchedule, PaymentReceipt, PurchaseOrder, PurchaseOrderItem]),
     MulterModule.register({
       storage: diskStorage({
         destination: './uploads/invoices',

@@ -15,6 +15,7 @@ import {
   Plus, Search, Filter, Loader2, Edit2, Trash2,
   CheckCircle, MoreVertical, FileText, Upload,
   Download, Building2, Banknote, X, GitBranch,
+  Receipt, Package,
 } from 'lucide-react';
 import {
   BarChart,
@@ -76,6 +77,21 @@ export default function AdminFinance() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
+  // ── Recibos ──
+  const [receipts, setReceipts] = useState<any[]>([]);
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [receiptForm, setReceiptForm] = useState<any>({ description: '', amount: '', percentage: '100', totalProposalValue: '0', paymentMethod: 'pix', paidAt: new Date().toISOString().split('T')[0], notes: '', status: 'issued', clientId: '', proposalId: '' });
+  const [editingReceiptId, setEditingReceiptId] = useState<string | null>(null);
+
+  // ── Pedidos de Compra ──
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+  const [poDialogOpen, setPODialogOpen] = useState(false);
+  const [poForm, setPOForm] = useState<any>({ type: 'company_billing', status: 'draft', totalValue: '', paymentTerms: '', notes: '', internalNotes: '', internalMargin: '0', deliveryDate: '', deliveryAddress: '', supplierId: '', clientId: '', proposalId: '' });
+  const [poItems, setPOItems] = useState<any[]>([{ description: '', quantity: '1', unit: 'un', unitPrice: '0', totalPrice: '0', internalCost: '' }]);
+  const [editingPOId, setEditingPOId] = useState<string | null>(null);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
+
   const emptyForm = {
     description: '', amount: '', type: 'income', category: 'other',
     dueDate: '', billingDate: '', scheduledPaymentDate: '',
@@ -107,6 +123,10 @@ export default function AdminFinance() {
   useEffect(() => {
     loadData();
     loadWorks();
+    loadReceipts();
+    loadPurchaseOrders();
+    loadSuppliers();
+    loadClients();
   }, []);
 
   const loadData = async () => {
@@ -131,14 +151,45 @@ export default function AdminFinance() {
     }
   };
 
-  const loadWorks = async () => {
+  const loadWorks = async () => { try { setWorks(await api.getWorks()); } catch {} };
+  const loadReceipts = async () => { try { setReceipts(await api.getReceipts()); } catch {} };
+  const loadPurchaseOrders = async () => { try { setPurchaseOrders(await api.getPurchaseOrders()); } catch {} };
+  const loadSuppliers = async () => { try { setSuppliers(await api.getSuppliers()); } catch {} };
+  const loadClients = async () => { try { setClients(await api.getClients()); } catch {} };
+
+  // ── Receipt CRUD ──
+  const handleSaveReceipt = async () => {
     try {
-      const data = await api.getWorks();
-      setWorks(data);
-    } catch (err) {
-      console.error(err);
-    }
+      const data = { ...receiptForm, amount: Number(receiptForm.amount || 0), percentage: Number(receiptForm.percentage || 100), totalProposalValue: Number(receiptForm.totalProposalValue || 0) };
+      if (editingReceiptId) { await api.updateReceipt(editingReceiptId, data); toast.success('Recibo atualizado'); }
+      else { await api.createReceipt(data); toast.success('Recibo criado'); }
+      setReceiptDialogOpen(false); setEditingReceiptId(null); loadReceipts();
+    } catch { toast.error('Erro ao salvar recibo'); }
   };
+  const handleEditReceipt = (r: any) => {
+    setEditingReceiptId(r.id);
+    setReceiptForm({ description: r.description || '', amount: String(r.amount || ''), percentage: String(r.percentage || 100), totalProposalValue: String(r.totalProposalValue || 0), paymentMethod: r.paymentMethod || 'pix', paidAt: r.paidAt?.split('T')[0] || '', notes: r.notes || '', status: r.status || 'issued', clientId: r.clientId || '', proposalId: r.proposalId || '' });
+    setReceiptDialogOpen(true);
+  };
+  const handleDeleteReceipt = async (id: string) => { if (!confirm('Excluir recibo?')) return; try { await api.deleteReceipt(id); toast.success('Recibo excluído'); loadReceipts(); } catch { toast.error('Erro'); } };
+
+  // ── Purchase Order CRUD ──
+  const handleSavePO = async () => {
+    try {
+      const items = poItems.map(i => ({ ...i, quantity: Number(i.quantity || 1), unitPrice: Number(i.unitPrice || 0), totalPrice: Number(i.quantity || 1) * Number(i.unitPrice || 0), internalCost: i.internalCost ? Number(i.internalCost) : undefined }));
+      const data = { ...poForm, totalValue: items.reduce((s: number, i: any) => s + i.totalPrice, 0), internalMargin: Number(poForm.internalMargin || 0), items };
+      if (editingPOId) { await api.updatePurchaseOrder(editingPOId, data); toast.success('Pedido atualizado'); }
+      else { await api.createPurchaseOrder(data); toast.success('Pedido criado'); }
+      setPODialogOpen(false); setEditingPOId(null); loadPurchaseOrders();
+    } catch { toast.error('Erro ao salvar pedido'); }
+  };
+  const handleEditPO = (po: any) => {
+    setEditingPOId(po.id);
+    setPOForm({ type: po.type || 'company_billing', status: po.status || 'draft', totalValue: String(po.totalValue || ''), paymentTerms: po.paymentTerms || '', notes: po.notes || '', internalNotes: po.internalNotes || '', internalMargin: String(po.internalMargin || 0), deliveryDate: po.deliveryDate?.split('T')[0] || '', deliveryAddress: po.deliveryAddress || '', supplierId: po.supplierId || '', clientId: po.clientId || '', proposalId: po.proposalId || '' });
+    setPOItems(po.items?.length ? po.items.map((i: any) => ({ description: i.description, quantity: String(i.quantity), unit: i.unit || 'un', unitPrice: String(i.unitPrice), totalPrice: String(i.totalPrice), internalCost: i.internalCost ? String(i.internalCost) : '', notes: i.notes || '' })) : [{ description: '', quantity: '1', unit: 'un', unitPrice: '0', totalPrice: '0', internalCost: '' }]);
+    setPODialogOpen(true);
+  };
+  const handleDeletePO = async (id: string) => { if (!confirm('Excluir pedido de compra?')) return; try { await api.deletePurchaseOrder(id); toast.success('Pedido excluído'); loadPurchaseOrders(); } catch { toast.error('Erro'); } };
 
   const handleEdit = (payment: any) => {
     setEditingPaymentId(payment.id);
@@ -631,10 +682,12 @@ export default function AdminFinance() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="receivable">A Receber</TabsTrigger>
           <TabsTrigger value="payable">A Pagar</TabsTrigger>
+          <TabsTrigger value="receipts" className="flex items-center gap-1"><Receipt className="w-3 h-3" /> Recibos</TabsTrigger>
+          <TabsTrigger value="purchase-orders" className="flex items-center gap-1"><Package className="w-3 h-3" /> Pedidos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-6">
@@ -1030,6 +1083,118 @@ export default function AdminFinance() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ═══ RECIBOS TAB ═══ */}
+        <TabsContent value="receipts" className="space-y-6 mt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Recibos de Pagamento</h2>
+              <p className="text-sm text-slate-500">Registre pagamentos parciais ou totais de clientes</p>
+            </div>
+            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { setEditingReceiptId(null); setReceiptForm({ description: '', amount: '', percentage: '100', totalProposalValue: '0', paymentMethod: 'pix', paidAt: new Date().toISOString().split('T')[0], notes: '', status: 'issued', clientId: '', proposalId: '' }); setReceiptDialogOpen(true); }}>
+              <Plus className="w-4 h-4 mr-2" /> Novo Recibo
+            </Button>
+          </div>
+          <Card className="border-slate-200 overflow-hidden">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50/50">
+                    <TableHead>Nº</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead className="text-center">%</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead>Pagamento</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {receipts.length === 0 ? (
+                    <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">Nenhum recibo cadastrado</TableCell></TableRow>
+                  ) : receipts.map((r: any) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-mono text-xs text-blue-600">{r.receiptNumber}</TableCell>
+                      <TableCell className="font-medium">{r.description}</TableCell>
+                      <TableCell className="text-sm text-slate-500">{r.client?.name || '—'}</TableCell>
+                      <TableCell className="text-center">{r.percentage}%</TableCell>
+                      <TableCell className="text-right font-semibold text-emerald-600">R$ {Number(r.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-xs">{r.paymentMethod === 'pix' ? 'PIX' : r.paymentMethod === 'bank_transfer' ? 'Transferência' : r.paymentMethod === 'boleto' ? 'Boleto' : r.paymentMethod || '—'}</TableCell>
+                      <TableCell className="text-sm">{r.paidAt ? new Date(r.paidAt).toLocaleDateString('pt-BR') : '—'}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEditReceipt(r)}><Edit2 className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-rose-500" onClick={() => handleDeleteReceipt(r.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ═══ PURCHASE ORDERS TAB ═══ */}
+        <TabsContent value="purchase-orders" className="space-y-6 mt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Pedidos de Compra</h2>
+              <p className="text-sm text-slate-500">Gerencie pedidos para fornecedores (faturamento empresa ou direto)</p>
+            </div>
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => { setEditingPOId(null); setPOForm({ type: 'company_billing', status: 'draft', totalValue: '', paymentTerms: '', notes: '', internalNotes: '', internalMargin: '0', deliveryDate: '', deliveryAddress: '', supplierId: '', clientId: '', proposalId: '' }); setPOItems([{ description: '', quantity: '1', unit: 'un', unitPrice: '0', totalPrice: '0', internalCost: '' }]); setPODialogOpen(true); }}>
+              <Plus className="w-4 h-4 mr-2" /> Novo Pedido
+            </Button>
+          </div>
+          <Card className="border-slate-200 overflow-hidden">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50/50">
+                    <TableHead>Nº</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Fornecedor</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Entrega</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {purchaseOrders.length === 0 ? (
+                    <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">Nenhum pedido cadastrado</TableCell></TableRow>
+                  ) : purchaseOrders.map((po: any) => (
+                    <TableRow key={po.id}>
+                      <TableCell className="font-mono text-xs text-blue-600">{po.orderNumber}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${po.type === 'company_billing' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                          {po.type === 'company_billing' ? 'Empresa' : 'Direto'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="font-medium">{po.supplier?.name || '—'}</TableCell>
+                      <TableCell className="text-sm text-slate-500">{po.client?.name || '—'}</TableCell>
+                      <TableCell className="text-right font-semibold">R$ {Number(po.totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${po.status === 'delivered' ? 'bg-emerald-100 text-emerald-700' : po.status === 'confirmed' ? 'bg-blue-100 text-blue-700' : po.status === 'cancelled' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {po.status === 'draft' ? 'Rascunho' : po.status === 'sent' ? 'Enviado' : po.status === 'confirmed' ? 'Confirmado' : po.status === 'delivered' ? 'Entregue' : 'Cancelado'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm">{po.deliveryDate ? new Date(po.deliveryDate).toLocaleDateString('pt-BR') : '—'}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEditPO(po)}><Edit2 className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-rose-500" onClick={() => handleDeletePO(po.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
       <Dialog open={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -1080,6 +1245,197 @@ export default function AdminFinance() {
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleRegisterPayment}>
               Confirmar Baixa
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ RECEIPT DIALOG ═══ */}
+      <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-emerald-600" /> {editingReceiptId ? 'Editar' : 'Novo'} Recibo de Pagamento
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <div className="space-y-2 col-span-2">
+              <Label>Descrição *</Label>
+              <Input value={receiptForm.description} onChange={e => setReceiptForm({ ...receiptForm, description: e.target.value })} placeholder="Serviço de instalação elétrica..." />
+            </div>
+            <div className="space-y-2">
+              <Label>Cliente</Label>
+              <Select value={receiptForm.clientId || 'none'} onValueChange={v => setReceiptForm({ ...receiptForm, clientId: v === 'none' ? '' : v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Valor Total da Proposta (R$)</Label>
+              <Input type="text" inputMode="decimal" value={receiptForm.totalProposalValue} onChange={e => {
+                const total = e.target.value;
+                const pct = Number(receiptForm.percentage || 100);
+                setReceiptForm({ ...receiptForm, totalProposalValue: total, amount: ((Number(total) * pct) / 100).toFixed(2) });
+              }} placeholder="0,00" />
+            </div>
+            <div className="space-y-2">
+              <Label>Percentual (%)</Label>
+              <Input type="text" inputMode="decimal" value={receiptForm.percentage} onChange={e => {
+                const pct = e.target.value;
+                const total = Number(receiptForm.totalProposalValue || 0);
+                setReceiptForm({ ...receiptForm, percentage: pct, amount: ((total * Number(pct)) / 100).toFixed(2) });
+              }} placeholder="100" />
+            </div>
+            <div className="space-y-2">
+              <Label>Valor do Recibo (R$) *</Label>
+              <Input type="text" inputMode="decimal" value={receiptForm.amount} onChange={e => setReceiptForm({ ...receiptForm, amount: e.target.value })} placeholder="0,00" className="font-bold text-lg" />
+            </div>
+            <div className="space-y-2">
+              <Label>Método de Pagamento</Label>
+              <Select value={receiptForm.paymentMethod} onValueChange={v => setReceiptForm({ ...receiptForm, paymentMethod: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="bank_transfer">Transferência</SelectItem>
+                  <SelectItem value="boleto">Boleto</SelectItem>
+                  <SelectItem value="credit_card">Cartão</SelectItem>
+                  <SelectItem value="cash">Dinheiro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Data do Pagamento</Label>
+              <Input type="date" value={receiptForm.paidAt} onChange={e => setReceiptForm({ ...receiptForm, paidAt: e.target.value })} />
+            </div>
+            <div className="space-y-2 col-span-2">
+              <Label>Observações</Label>
+              <Input value={receiptForm.notes} onChange={e => setReceiptForm({ ...receiptForm, notes: e.target.value })} placeholder="Referente a..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setReceiptDialogOpen(false); setEditingReceiptId(null); }}>Cancelar</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSaveReceipt}>Salvar Recibo</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ PURCHASE ORDER DIALOG ═══ */}
+      <Dialog open={poDialogOpen} onOpenChange={setPODialogOpen}>
+        <DialogContent className="sm:max-w-[820px] max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5 text-blue-600" /> {editingPOId ? 'Editar' : 'Novo'} Pedido de Compra
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo do Pedido *</Label>
+                <Select value={poForm.type} onValueChange={v => setPOForm({ ...poForm, type: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="company_billing">Faturamento Empresa</SelectItem>
+                    <SelectItem value="direct_billing">Faturamento Direto (Cliente)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={poForm.status} onValueChange={v => setPOForm({ ...poForm, status: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Rascunho</SelectItem>
+                    <SelectItem value="sent">Enviado</SelectItem>
+                    <SelectItem value="confirmed">Confirmado</SelectItem>
+                    <SelectItem value="delivered">Entregue</SelectItem>
+                    <SelectItem value="cancelled">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Fornecedor *</Label>
+                <Select value={poForm.supplierId || 'none'} onValueChange={v => setPOForm({ ...poForm, supplierId: v === 'none' ? '' : v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {suppliers.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Cliente</Label>
+                <Select value={poForm.clientId || 'none'} onValueChange={v => setPOForm({ ...poForm, clientId: v === 'none' ? '' : v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Condições de Pagamento</Label>
+                <Input value={poForm.paymentTerms} onChange={e => setPOForm({ ...poForm, paymentTerms: e.target.value })} placeholder="30/60/90 dias, à vista..." />
+              </div>
+              <div className="space-y-2">
+                <Label>Data de Entrega</Label>
+                <Input type="date" value={poForm.deliveryDate} onChange={e => setPOForm({ ...poForm, deliveryDate: e.target.value })} />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Endereço de Entrega</Label>
+                <Input value={poForm.deliveryAddress} onChange={e => setPOForm({ ...poForm, deliveryAddress: e.target.value })} />
+              </div>
+            </div>
+
+            {/* Internal fields */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
+              <h3 className="font-semibold text-amber-800 text-sm flex items-center gap-2">🔒 Informações Internas (não aparecem no PDF)</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-sm">Margem Interna (%)</Label>
+                  <Input type="text" inputMode="decimal" value={poForm.internalMargin} onChange={e => setPOForm({ ...poForm, internalMargin: e.target.value })} />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <Label className="text-sm">Notas Internas</Label>
+                  <Input value={poForm.internalNotes} onChange={e => setPOForm({ ...poForm, internalNotes: e.target.value })} placeholder="Negociação com fornecedor, condições especiais..." />
+                </div>
+              </div>
+            </div>
+
+            {/* Items */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="font-semibold">Itens do Pedido</Label>
+                <Button type="button" size="sm" variant="outline" onClick={() => setPOItems([...poItems, { description: '', quantity: '1', unit: 'un', unitPrice: '0', totalPrice: '0', internalCost: '' }])}>
+                  <Plus className="w-3 h-3 mr-1" /> Item
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {poItems.map((item: any, idx: number) => (
+                  <div key={idx} className="grid grid-cols-[1fr_60px_50px_80px_80px_32px] gap-2 items-end">
+                    <div><Label className="text-[10px]">Descrição</Label><Input className="h-8 text-sm" value={item.description} onChange={e => { const n = [...poItems]; n[idx].description = e.target.value; setPOItems(n); }} /></div>
+                    <div><Label className="text-[10px]">Qtd</Label><Input className="h-8 text-sm" type="text" inputMode="decimal" value={item.quantity} onChange={e => { const n = [...poItems]; n[idx].quantity = e.target.value; n[idx].totalPrice = (Number(e.target.value) * Number(n[idx].unitPrice)).toFixed(2); setPOItems(n); }} /></div>
+                    <div><Label className="text-[10px]">UN</Label><Input className="h-8 text-sm" value={item.unit} onChange={e => { const n = [...poItems]; n[idx].unit = e.target.value; setPOItems(n); }} /></div>
+                    <div><Label className="text-[10px]">Vlr Unit.</Label><Input className="h-8 text-sm" type="text" inputMode="decimal" value={item.unitPrice} onChange={e => { const n = [...poItems]; n[idx].unitPrice = e.target.value; n[idx].totalPrice = (Number(n[idx].quantity) * Number(e.target.value)).toFixed(2); setPOItems(n); }} /></div>
+                    <div><Label className="text-[10px]">Custo Int.</Label><Input className="h-8 text-sm" type="text" inputMode="decimal" value={item.internalCost} onChange={e => { const n = [...poItems]; n[idx].internalCost = e.target.value; setPOItems(n); }} placeholder="-" /></div>
+                    <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-rose-500" onClick={() => setPOItems(poItems.filter((_: any, i: number) => i !== idx))}><X className="w-3 h-3" /></Button>
+                  </div>
+                ))}
+                <div className="text-right text-sm font-semibold text-slate-700">
+                  Total: R$ {poItems.reduce((s: number, i: any) => s + (Number(i.quantity || 1) * Number(i.unitPrice || 0)), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Observações</Label>
+              <Input value={poForm.notes} onChange={e => setPOForm({ ...poForm, notes: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setPODialogOpen(false); setEditingPOId(null); }}>Cancelar</Button>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSavePO}>Salvar Pedido</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
