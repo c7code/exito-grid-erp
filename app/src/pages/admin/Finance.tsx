@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -76,6 +77,53 @@ export default function AdminFinance() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Handle URL params from Proposals/Contracts shortcuts
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const proposalId = searchParams.get('proposalId');
+    if (tab) setActiveTab(tab);
+    if (tab === 'receipts' && proposalId) {
+      setTimeout(() => {
+        setEditingReceiptId(null);
+        setReceiptForm({
+          description: searchParams.get('title') ? decodeURIComponent(searchParams.get('title')!) : '',
+          amount: '', percentage: '100',
+          totalProposalValue: searchParams.get('total') || '0',
+          paymentMethod: 'pix',
+          paidAt: new Date().toISOString().split('T')[0],
+          notes: `Ref. Proposta ${searchParams.get('proposalNumber') || ''}`,
+          status: 'issued',
+          clientId: searchParams.get('clientId') || '',
+          proposalId,
+          proposalNumber: searchParams.get('proposalNumber') || '',
+        });
+        setReceiptDialogOpen(true);
+        setSearchParams({});
+      }, 500);
+    } else if (tab === 'purchase-orders' && proposalId) {
+      setTimeout(() => {
+        setEditingPOId(null);
+        setPOForm({
+          type: 'company_billing', status: 'draft',
+          totalValue: '', paymentTerms: '',
+          notes: `Ref. Proposta ${searchParams.get('proposalNumber') || ''}`,
+          internalNotes: '', internalMargin: '0',
+          deliveryDate: '', deliveryAddress: '',
+          supplierId: '',
+          clientId: searchParams.get('clientId') || '',
+          proposalId,
+          proposalNumber: searchParams.get('proposalNumber') || '',
+        });
+        setPOItems([{ description: '', quantity: '1', unit: 'un', unitPrice: '0', totalPrice: '0', internalCost: '' }]);
+        setPODialogOpen(true);
+        setSearchParams({});
+      }, 500);
+    } else if (tab) {
+      setSearchParams({});
+    }
+  }, [searchParams]);
 
   // ── Recibos ──
   const [receipts, setReceipts] = useState<any[]>([]);

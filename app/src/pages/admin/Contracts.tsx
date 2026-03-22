@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '@/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -21,8 +22,13 @@ import {
     ArrowLeft, Save, FileText, Link2, Users, Shield, Gavel,
     Send, CheckCircle2, Copy, ExternalLink,
     Paperclip, Upload, FileType, Download, X, Zap, BookTemplate, Loader2,
+    MoreHorizontal, Receipt, Package, Wrench, ClipboardList,
 } from 'lucide-react';
 import { ContractPDFTemplate } from '@/components/ContractPDFTemplate';
+import {
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+    DropdownMenuTrigger, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
 const statusLabels: Record<string, string> = {
     draft: 'Rascunho', active: 'Ativo', suspended: 'Suspenso',
@@ -40,6 +46,7 @@ const typeLabels: Record<string, string> = {
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export default function Contracts() {
+    const navigate = useNavigate();
     const [contracts, setContracts] = useState<any[]>([]);
     const [works, setWorks] = useState<any[]>([]);
     const [clients, setClients] = useState<any[]>([]);
@@ -961,8 +968,35 @@ export default function Contracts() {
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDetail(c)}><Eye className="w-3.5 h-3.5" /></Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => handleDelete(c.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7">
+                                                    <MoreHorizontal className="w-3.5 h-3.5" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => openDetail(c)}>
+                                                    <Eye className="w-4 h-4 mr-2" /> Visualizar
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => navigate(`/admin/finance?tab=receipts&proposalId=${c.proposalId || ''}&proposalNumber=${c.contractNumber || ''}&clientId=${c.clientId || ''}&total=${c.value || 0}&title=${encodeURIComponent(c.title || '')}`)}>
+                                                    <Receipt className="w-4 h-4 mr-2 text-emerald-600" /> Gerar Recibo
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => navigate(`/admin/finance?tab=purchase-orders&proposalId=${c.proposalId || ''}&proposalNumber=${c.contractNumber || ''}&clientId=${c.clientId || ''}&total=${c.value || 0}&title=${encodeURIComponent(c.title || '')}`)}>
+                                                    <Package className="w-4 h-4 mr-2 text-blue-600" /> Pedido de Compra
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => navigate(`/admin/service-orders?contractId=${c.id}&contractNumber=${c.contractNumber || ''}&clientId=${c.clientId || ''}`)}>
+                                                    <Wrench className="w-4 h-4 mr-2 text-orange-600" /> Ordem de Serviço
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => navigate(`/admin/tasks?contractId=${c.id}&contractNumber=${c.contractNumber || ''}&title=${encodeURIComponent(c.title || '')}`)}>
+                                                    <ClipboardList className="w-4 h-4 mr-2 text-purple-600" /> Criar Tarefa
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(c.id)}>
+                                                    <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 </TableCell>
                             </TableRow>

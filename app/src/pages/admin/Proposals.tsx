@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +43,10 @@ import {
   Trash2,
   Eye,
   History,
+  Receipt,
+  Package,
+  Wrench,
+  ClipboardList,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -61,6 +66,7 @@ const statusLabels: Record<string, { label: string; variant: 'default' | 'second
 };
 
 export default function AdminProposals() {
+  const navigate = useNavigate();
   const [proposals, setProposals] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -505,6 +511,24 @@ export default function AdminProposals() {
                                 </DropdownMenuItem>
                               </>
                             )}
+                            <DropdownMenuSeparator />
+                            {/* ═══ ATALHOS FINANCEIROS ═══ */}
+                            <DropdownMenuItem onClick={() => navigate(`/admin/finance?tab=receipts&proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&clientId=${proposal.clientId || proposal.client?.id || ''}&total=${proposal.total || 0}&title=${encodeURIComponent(proposal.title || '')}`)}>
+                              <Receipt className="w-4 h-4 mr-2 text-emerald-600" />
+                              Gerar Recibo
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/admin/finance?tab=purchase-orders&proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&clientId=${proposal.clientId || proposal.client?.id || ''}&total=${proposal.total || 0}&title=${encodeURIComponent(proposal.title || '')}`)}>
+                              <Package className="w-4 h-4 mr-2 text-blue-600" />
+                              Pedido de Compra
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/admin/service-orders?proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&clientId=${proposal.clientId || proposal.client?.id || ''}`)}>
+                              <Wrench className="w-4 h-4 mr-2 text-orange-600" />
+                              Ordem de Serviço
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/admin/tasks?proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&title=${encodeURIComponent(proposal.title || '')}`)}>
+                              <ClipboardList className="w-4 h-4 mr-2 text-purple-600" />
+                              Criar Tarefa
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               variant="destructive"
