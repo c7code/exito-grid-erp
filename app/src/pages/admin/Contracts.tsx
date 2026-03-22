@@ -102,13 +102,22 @@ export default function Contracts() {
 
     const handleSave = async () => {
         try {
-            if (selectedContract?.id) {
-                await api.updateContract(selectedContract.id, form);
+            let contractId = selectedContract?.id;
+            if (contractId) {
+                await api.updateContract(contractId, form);
                 toast.success('Contrato atualizado');
             } else {
                 const created = await api.createContract(form);
+                contractId = created.id;
                 setSelectedContract(created);
                 toast.success('Contrato criado');
+            }
+            // Auto-attach proposal if set
+            if (form.proposalId && contractId) {
+                try {
+                    await api.attachProposalToContract(contractId);
+                    loadContractDocs(contractId);
+                } catch { /* proposal already attached or not available */ }
             }
             fetchAll();
         } catch { toast.error('Erro ao salvar contrato'); }

@@ -1919,6 +1919,11 @@ class ApiService {
     return response.data;
   }
 
+  async attachProposalToContract(contractId: string) {
+    const response = await this.client.post(`/contracts/${contractId}/attach-proposal`);
+    return response.data;
+  }
+
   // Contract Templates
   async getContractTemplates() {
     const response = await this.client.get('/contracts/templates');

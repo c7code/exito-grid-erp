@@ -74,6 +74,11 @@ export class ContractsController {
         return this.contractsService.removeAddendum(addendumId);
     }
 
+    @Post(':id/attach-proposal')
+    attachProposal(@Param('id') id: string) {
+        return this.contractsService.attachProposalDocument(id);
+    }
+
     // ═══ Assinatura Digital (endpoints protegidos) ═══
 
     @Post(':id/generate-signature-link')

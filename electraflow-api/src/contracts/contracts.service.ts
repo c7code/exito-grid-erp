@@ -33,6 +33,11 @@ export class ContractsService {
                 )
             `);
         } catch (e) { console.warn('Template table migration:', e?.message); }
+
+        // Ensure proposalId column exists in documents table
+        try {
+            await this.dataSource.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS "proposalId" UUID`);
+        } catch (e) { console.warn('Documents proposalId migration:', e?.message); }
     }
 
     async findAll(filters?: { status?: string; workId?: string; clientId?: string }) {
@@ -107,6 +112,42 @@ export class ContractsService {
     async remove(id: string) {
         const contract = await this.findOne(id);
         return this.contractRepo.softRemove(contract);
+    }
+
+    // ── Auto-attach proposal as document ──
+    async attachProposalDocument(contractId: string) {
+        const contract = await this.findOne(contractId);
+        if (!contract.proposalId) {
+            throw new BadRequestException('Este contrato não tem proposta vinculada');
+        }
+
+        // Check if proposal is already attached
+        const existing = await this.dataSource.query(
+            `SELECT id FROM documents WHERE "contractId" = $1 AND name LIKE '%Proposta%' AND "deletedAt" IS NULL LIMIT 1`,
+            [contractId],
+        );
+        if (existing.length > 0) {
+            return { message: 'Proposta já está em anexo', documentId: existing[0].id };
+        }
+
+        // Fetch proposal data
+        const [proposal] = await this.dataSource.query(
+            `SELECT p.*, cl.name as "clientName" FROM proposals p
+             LEFT JOIN clients cl ON cl.id = p."clientId"
+             WHERE p.id = $1`, [contract.proposalId],
+        );
+        if (!proposal) throw new BadRequestException('Proposta não encontrada');
+
+        // Create document record referencing the proposal
+        const docName = `Proposta ${proposal.proposalNumber || ''} - ${proposal.title || proposal.clientName || 'Anexo'}`.trim();
+        const [doc] = await this.dataSource.query(
+            `INSERT INTO documents (name, description, type, "contractId", "mimeType", "proposalId", "createdAt", "updatedAt")
+             VALUES ($1, $2, 'contract', $3, 'application/pdf', $4, NOW(), NOW())
+             RETURNING id, name`,
+            [docName, `Proposta comercial vinculada ao contrato - Valor: R$ ${Number(proposal.total || 0).toLocaleString('pt-BR')}`, contractId, contract.proposalId],
+        );
+
+        return { message: 'Proposta anexada ao contrato', documentId: doc.id, name: doc.name };
     }
 
     // ── Addendums ──────────────────────────────────────────────────────
