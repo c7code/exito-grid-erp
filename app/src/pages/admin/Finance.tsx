@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import html2pdf from 'html2pdf.js';
+import { ReceiptPDFTemplate } from '@/components/ReceiptPDFTemplate';
+import { PurchaseOrderPDFTemplate } from '@/components/PurchaseOrderPDFTemplate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -140,6 +143,10 @@ export default function AdminFinance() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
 
+  // ── PDF Print ──
+  const [receiptToPrint, setReceiptToPrint] = useState<any>(null);
+  const [poToPrint, setPOToPrint] = useState<any>(null);
+
   const emptyForm = {
     description: '', amount: '', type: 'income', category: 'other',
     dueDate: '', billingDate: '', scheduledPaymentDate: '',
@@ -238,6 +245,39 @@ export default function AdminFinance() {
     setPODialogOpen(true);
   };
   const handleDeletePO = async (id: string) => { if (!confirm('Excluir pedido de compra?')) return; try { await api.deletePurchaseOrder(id); toast.success('Pedido excluído'); loadPurchaseOrders(); } catch { toast.error('Erro'); } };
+
+  // ── PDF Generation ──
+  const handleDownloadReceiptPDF = (receipt: any) => {
+    toast.info('Gerando PDF do recibo...');
+    setReceiptToPrint(receipt);
+    setTimeout(() => {
+      const el = document.getElementById('receipt-pdf-content');
+      if (!el) { toast.error('Erro ao gerar PDF'); setReceiptToPrint(null); return; }
+      html2pdf().from(el).set({
+        margin: 0,
+        filename: `recibo_${receipt.receiptNumber || 'novo'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
+        jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait' as const },
+      }).save().then(() => { setReceiptToPrint(null); toast.success('PDF do recibo gerado!'); }).catch(() => { toast.error('Erro ao gerar PDF'); setReceiptToPrint(null); });
+    }, 600);
+  };
+
+  const handleDownloadPOPDF = (po: any) => {
+    toast.info('Gerando PDF do pedido...');
+    setPOToPrint(po);
+    setTimeout(() => {
+      const el = document.getElementById('po-pdf-content');
+      if (!el) { toast.error('Erro ao gerar PDF'); setPOToPrint(null); return; }
+      html2pdf().from(el).set({
+        margin: 0,
+        filename: `pedido_compra_${po.orderNumber || 'novo'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
+        jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait' as const },
+      }).save().then(() => { setPOToPrint(null); toast.success('PDF do pedido gerado!'); }).catch(() => { toast.error('Erro ao gerar PDF'); setPOToPrint(null); });
+    }, 600);
+  };
 
   const handleEdit = (payment: any) => {
     setEditingPaymentId(payment.id);
@@ -1172,6 +1212,7 @@ export default function AdminFinance() {
                       <TableCell className="text-sm">{r.paidAt ? new Date(r.paidAt).toLocaleDateString('pt-BR') : '—'}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-500" title="Baixar PDF" onClick={() => handleDownloadReceiptPDF(r)}><Download className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEditReceipt(r)}><Edit2 className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-rose-500" onClick={() => handleDeleteReceipt(r.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                         </div>
@@ -1232,6 +1273,7 @@ export default function AdminFinance() {
                       <TableCell className="text-sm">{po.deliveryDate ? new Date(po.deliveryDate).toLocaleDateString('pt-BR') : '—'}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-500" title="Baixar PDF" onClick={() => handleDownloadPOPDF(po)}><Download className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEditPO(po)}><Edit2 className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-rose-500" onClick={() => handleDeletePO(po.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                         </div>
@@ -1487,6 +1529,12 @@ export default function AdminFinance() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Hidden containers for PDF generation */}
+      <div className="fixed -left-[9999px] top-0">
+        {receiptToPrint && <ReceiptPDFTemplate receipt={receiptToPrint} />}
+        {poToPrint && <PurchaseOrderPDFTemplate order={poToPrint} />}
+      </div>
     </div>
   );
 }
