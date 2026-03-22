@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Contract, ContractAddendum, ContractStatus } from './contract.entity';
 
 @Injectable()
@@ -10,6 +10,7 @@ export class ContractsService {
         private contractRepo: Repository<Contract>,
         @InjectRepository(ContractAddendum)
         private addendumRepo: Repository<ContractAddendum>,
+        private dataSource: DataSource,
     ) { }
 
     async findAll(filters?: { status?: string; workId?: string; clientId?: string }) {
@@ -41,8 +42,21 @@ export class ContractsService {
 
     private async generateNumber(): Promise<string> {
         const year = new Date().getFullYear();
-        const count = await this.contractRepo.count();
-        return `CT-${year}-${String(count + 1).padStart(4, '0')}`;
+        // Use raw SQL to count ALL contracts including soft-deleted ones
+        const result = await this.dataSource.query('SELECT COUNT(*) as count FROM contracts');
+        const count = parseInt(result[0].count, 10);
+        let number = `CT-${year}-${String(count + 1).padStart(4, '0')}`;
+        // Ensure uniqueness — increment if number already exists
+        let attempts = 0;
+        while (attempts < 100) {
+            const exists = await this.dataSource.query(
+                'SELECT 1 FROM contracts WHERE "contractNumber" = $1 LIMIT 1', [number]
+            );
+            if (exists.length === 0) break;
+            attempts++;
+            number = `CT-${year}-${String(count + 1 + attempts).padStart(4, '0')}`;
+        }
+        return number;
     }
 
     async create(data: Partial<Contract>) {

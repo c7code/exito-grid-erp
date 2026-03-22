@@ -144,7 +144,7 @@ export class Contract {
     fileUrl: string;
 
     // ── Assinatura Digital ──
-    @Column({ nullable: true, unique: true })
+    @Column({ nullable: true })
     signatureToken: string;
 
     @Column({ nullable: true })
