@@ -22,6 +22,27 @@ export class ContractsController {
         return this.contractsService.getStats();
     }
 
+    // ── Templates (must be before :id routes) ──
+    @Get('templates')
+    findAllTemplates() {
+        return this.contractsService.findAllTemplates();
+    }
+
+    @Post('templates')
+    createTemplate(@Body() data: any) {
+        return this.contractsService.createTemplate(data);
+    }
+
+    @Put('templates/:id')
+    updateTemplate(@Param('id') id: string, @Body() data: any) {
+        return this.contractsService.updateTemplate(id, data);
+    }
+
+    @Delete('templates/:id')
+    removeTemplate(@Param('id') id: string) {
+        return this.contractsService.removeTemplate(id);
+    }
+
     @Get(':id')
     findOne(@Param('id') id: string) {
         return this.contractsService.findOne(id);

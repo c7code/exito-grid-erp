@@ -1913,6 +1913,33 @@ class ApiService {
     return response.data;
   }
 
+  // Contract AI Suggestions
+  async suggestContractClauses(data: { contractType: string; scope?: string; value?: number; proposalId?: string; fields?: string[] }) {
+    const response = await this.client.post('/ai/suggest-clauses', data);
+    return response.data;
+  }
+
+  // Contract Templates
+  async getContractTemplates() {
+    const response = await this.client.get('/contracts/templates');
+    return response.data;
+  }
+
+  async createContractTemplate(data: any) {
+    const response = await this.client.post('/contracts/templates', data);
+    return response.data;
+  }
+
+  async updateContractTemplate(id: string, data: any) {
+    const response = await this.client.put(`/contracts/templates/${id}`, data);
+    return response.data;
+  }
+
+  async deleteContractTemplate(id: string) {
+    const response = await this.client.delete(`/contracts/templates/${id}`);
+    return response.data;
+  }
+
   // ═══════════════════════════════════════════════════════════════
   // Solar Projects (Energia Solar Fotovoltaica)
   // ═══════════════════════════════════════════════════════════════

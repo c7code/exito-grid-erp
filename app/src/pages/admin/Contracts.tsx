@@ -20,7 +20,7 @@ import {
     DollarSign, Eye, Trash2, Building2, Printer,
     ArrowLeft, Save, FileText, Link2, Users, Shield, Gavel,
     Send, CheckCircle2, Copy, ExternalLink,
-    Paperclip, Upload, FileType, Download, X,
+    Paperclip, Upload, FileType, Download, X, Zap, BookTemplate, Loader2,
 } from 'lucide-react';
 import { ContractPDFTemplate } from '@/components/ContractPDFTemplate';
 
@@ -59,6 +59,10 @@ export default function Contracts() {
     const [docsLoading, setDocsLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [isDragOver, setIsDragOver] = useState(false);
+    const [aiLoading, setAiLoading] = useState<string | null>(null);
+    const [templates, setTemplates] = useState<any[]>([]);
+    const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+    const [templateName, setTemplateName] = useState('');
 
     const fetchAll = async () => {
         try {
@@ -74,6 +78,11 @@ export default function Contracts() {
     };
 
     useEffect(() => { fetchAll(); }, []);
+
+    // Load templates
+    useEffect(() => {
+        api.getContractTemplates().then(t => setTemplates(Array.isArray(t) ? t : [])).catch(() => {});
+    }, []);
 
     const filtered = contracts.filter((c: any) => {
         if (statusFilter !== 'all' && c.status !== statusFilter) return false;
@@ -235,6 +244,134 @@ export default function Contracts() {
     const handleSelectChange = (field: string, value: string) => setForm((f: any) => ({ ...f, [field]: value === '__none__' ? '' : value }));
     const handleInputChange = (field: string, value: string) => setForm((f: any) => ({ ...f, [field]: value }));
 
+    // ── Proposal auto-fill helper ──
+    const getSelectedProposal = () => proposals.find((p: any) => p.id === form.proposalId);
+
+    const applyProposalField = (field: string) => {
+        const p = getSelectedProposal();
+        if (!p) return;
+        const mapping: Record<string, any> = {
+            clientId: p.clientId,
+            originalValue: p.total || p.subtotal,
+            title: p.title || `Contrato - ${p.proposalNumber}`,
+            scope: p.scope || p.items?.map((i: any) => `• ${i.description} (${i.quantity} ${i.unit || 'UN'})`).join('\n') || '',
+        };
+        if (mapping[field] !== undefined) setForm((f: any) => ({ ...f, [field]: mapping[field] }));
+    };
+
+    const applyAllProposalFields = () => {
+        const p = getSelectedProposal();
+        if (!p) return;
+        setForm((f: any) => ({
+            ...f,
+            clientId: p.clientId || f.clientId,
+            originalValue: p.total || p.subtotal || f.originalValue,
+            title: f.title || p.title || `Contrato - ${p.proposalNumber}`,
+            scope: f.scope || p.scope || p.items?.map((i: any) => `• ${i.description} (${i.quantity} ${i.unit || 'UN'})`).join('\n') || '',
+        }));
+        toast.success('Dados da proposta aplicados como sugestão!');
+    };
+
+    // ── AI clause suggestion ──
+    const suggestClause = async (field: string) => {
+        setAiLoading(field);
+        try {
+            const result = await api.suggestContractClauses({
+                contractType: form.type || 'service',
+                scope: form.scope,
+                value: form.originalValue ? Number(form.originalValue) : undefined,
+                proposalId: form.proposalId || undefined,
+                fields: [field],
+            });
+            if (result[field]) {
+                setForm((f: any) => ({ ...f, [field]: result[field] }));
+                toast.success('Sugestão da IA aplicada!');
+            }
+        } catch { toast.error('Erro ao gerar sugestão da IA'); }
+        finally { setAiLoading(null); }
+    };
+
+    const suggestAllClauses = async () => {
+        setAiLoading('all');
+        try {
+            const result = await api.suggestContractClauses({
+                contractType: form.type || 'service',
+                scope: form.scope,
+                value: form.originalValue ? Number(form.originalValue) : undefined,
+                proposalId: form.proposalId || undefined,
+            });
+            setForm((f: any) => ({ ...f, ...result }));
+            toast.success('Todas as cláusulas preenchidas pela IA!');
+        } catch { toast.error('Erro ao gerar sugestões da IA'); }
+        finally { setAiLoading(null); }
+    };
+
+    // ── Template management ──
+    const loadTemplate = (templateId: string) => {
+        const t = templates.find((tpl: any) => tpl.id === templateId);
+        if (!t) return;
+        setForm((f: any) => ({
+            ...f,
+            type: t.type || f.type,
+            scope: t.scope || f.scope,
+            paymentTerms: t.paymentTerms || f.paymentTerms,
+            penalties: t.penalties || f.penalties,
+            warranty: t.warranty || f.warranty,
+            termination: t.termination || f.termination,
+            confidentiality: t.confidentiality || f.confidentiality,
+            forceMajeure: t.forceMajeure || f.forceMajeure,
+            jurisdiction: t.jurisdiction || f.jurisdiction,
+            contractorObligations: t.contractorObligations || f.contractorObligations,
+            clientObligations: t.clientObligations || f.clientObligations,
+            generalProvisions: t.generalProvisions || f.generalProvisions,
+        }));
+        toast.success(`Modelo "${t.name}" carregado!`);
+    };
+
+    const saveAsTemplate = async () => {
+        if (!templateName.trim()) return toast.error('Informe o nome do modelo');
+        try {
+            const data = {
+                name: templateName,
+                type: form.type,
+                scope: form.scope, paymentTerms: form.paymentTerms, penalties: form.penalties,
+                warranty: form.warranty, termination: form.termination, confidentiality: form.confidentiality,
+                forceMajeure: form.forceMajeure, jurisdiction: form.jurisdiction,
+                contractorObligations: form.contractorObligations, clientObligations: form.clientObligations,
+                generalProvisions: form.generalProvisions,
+            };
+            await api.createContractTemplate(data);
+            toast.success('Modelo salvo!');
+            setTemplateDialogOpen(false);
+            setTemplateName('');
+            const t = await api.getContractTemplates();
+            setTemplates(Array.isArray(t) ? t : []);
+        } catch { toast.error('Erro ao salvar modelo'); }
+    };
+
+    const deleteTemplate = async (id: string) => {
+        if (!confirm('Excluir este modelo?')) return;
+        try {
+            await api.deleteContractTemplate(id);
+            setTemplates(prev => prev.filter((t: any) => t.id !== id));
+            toast.success('Modelo excluído');
+        } catch { toast.error('Erro ao excluir modelo'); }
+    };
+
+    // ── Reusable AI button component ──
+    const AiButton = ({ field, label }: { field: string; label: string }) => (
+        <button
+            type="button"
+            title={`Sugestão IA: ${label}`}
+            className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full hover:bg-amber-100 transition-all disabled:opacity-50"
+            onClick={() => suggestClause(field)}
+            disabled={!!aiLoading}
+        >
+            {aiLoading === field ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+            IA
+        </button>
+    );
+
     if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" /></div>;
 
     // ═══════════ PDF VIEW ═══════════
@@ -292,6 +429,22 @@ export default function Contracts() {
                                 )}
                             </>
                         )}
+                        {/* Template Actions */}
+                        {templates.length > 0 && (
+                            <Select onValueChange={loadTemplate}>
+                                <SelectTrigger className="w-48 h-8 text-xs">
+                                    <SelectValue placeholder="📋 Carregar Modelo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {templates.map((t: any) => (
+                                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                        <Button variant="outline" size="sm" onClick={() => { setTemplateName(''); setTemplateDialogOpen(true); }} title="Salvar como modelo">
+                            <BookTemplate className="w-4 h-4" />
+                        </Button>
                         <Button className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" onClick={handleSave}>
                             <Save className="w-4 h-4 mr-1" /> Salvar
                         </Button>
@@ -399,7 +552,51 @@ export default function Contracts() {
                                 </Select>
                             </div>
                         </div>
-                        {selectedContract?.proposal && (
+                        {/* ── Proposal Suggestion Banner ── */}
+                        {form.proposalId && getSelectedProposal() && (
+                            <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                                <div className="flex items-center justify-between mb-3">
+                                    <p className="text-sm font-semibold text-blue-800 flex items-center gap-1.5">
+                                        📋 Dados da Proposta {getSelectedProposal()?.proposalNumber}
+                                    </p>
+                                    <Button size="sm" variant="outline" className="text-xs h-7 border-blue-300 text-blue-700 hover:bg-blue-100" onClick={applyAllProposalFields}>
+                                        <Zap className="w-3 h-3 mr-1" /> Aplicar Todos
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                    {getSelectedProposal()?.clientId && getSelectedProposal()?.clientId !== form.clientId && (
+                                        <button onClick={() => applyProposalField('clientId')} className="text-left p-2 bg-white rounded-lg border hover:border-blue-400 hover:bg-blue-50 transition-all">
+                                            <span className="text-slate-500">Cliente:</span>{' '}
+                                            <span className="font-medium text-blue-700">{clients.find((c: any) => c.id === getSelectedProposal()?.clientId)?.name || 'Vincular'}</span>
+                                            <span className="text-[9px] text-blue-500 ml-1">← clique para aplicar</span>
+                                        </button>
+                                    )}
+                                    {(getSelectedProposal()?.total || getSelectedProposal()?.subtotal) && (
+                                        <button onClick={() => applyProposalField('originalValue')} className="text-left p-2 bg-white rounded-lg border hover:border-blue-400 hover:bg-blue-50 transition-all">
+                                            <span className="text-slate-500">Valor:</span>{' '}
+                                            <span className="font-medium text-blue-700">{fmt(getSelectedProposal()?.total || getSelectedProposal()?.subtotal)}</span>
+                                            <span className="text-[9px] text-blue-500 ml-1">← clique para aplicar</span>
+                                        </button>
+                                    )}
+                                    {getSelectedProposal()?.title && !form.title && (
+                                        <button onClick={() => applyProposalField('title')} className="text-left p-2 bg-white rounded-lg border hover:border-blue-400 hover:bg-blue-50 transition-all">
+                                            <span className="text-slate-500">Título:</span>{' '}
+                                            <span className="font-medium text-blue-700">{getSelectedProposal()?.title}</span>
+                                            <span className="text-[9px] text-blue-500 ml-1">← clique para aplicar</span>
+                                        </button>
+                                    )}
+                                    {getSelectedProposal()?.scope && !form.scope && (
+                                        <button onClick={() => applyProposalField('scope')} className="text-left p-2 bg-white rounded-lg border hover:border-blue-400 hover:bg-blue-50 transition-all">
+                                            <span className="text-slate-500">Escopo:</span>{' '}
+                                            <span className="font-medium text-blue-700 truncate block max-w-[200px]">{getSelectedProposal()?.scope?.substring(0, 60)}...</span>
+                                            <span className="text-[9px] text-blue-500 ml-1">← clique para aplicar</span>
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="text-[10px] text-blue-500 mt-2">💡 Clique em cada campo para aplicar como sugestão. Os valores podem ser ajustados depois.</p>
+                            </div>
+                        )}
+                        {selectedContract?.proposal && !form.proposalId && (
                             <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                                 <p className="text-sm font-semibold text-blue-800">📋 Proposta Vinculada: {selectedContract.proposal.proposalNumber}</p>
                                 <p className="text-xs text-blue-600 mt-1">Valor: {fmt(selectedContract.proposal.total)} | Status: {selectedContract.proposal.status}</p>
@@ -409,36 +606,71 @@ export default function Contracts() {
 
                     {/* TAB: Cláusulas Jurídicas */}
                     <TabsContent value="clausulas" className="p-6 space-y-4">
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs text-slate-500">Use os botões ⚡ IA para gerar sugestões automáticas</p>
+                            <Button
+                                size="sm" variant="outline"
+                                className="gap-1.5 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
+                                onClick={suggestAllClauses}
+                                disabled={!!aiLoading}
+                            >
+                                {aiLoading === 'all' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                                Preencher Todas com IA
+                            </Button>
+                        </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-600">Condições de Pagamento</label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-slate-600">Condições de Pagamento</label>
+                                <AiButton field="paymentTerms" label="Condições de Pagamento" />
+                            </div>
                             <Textarea rows={3} value={form.paymentTerms} onChange={e => handleInputChange('paymentTerms', e.target.value)} placeholder="Descreva as condições de pagamento..." />
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-600">Dados Bancários</label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-slate-600">Dados Bancários</label>
+                            </div>
                             <Textarea rows={2} value={form.paymentBank} onChange={e => handleInputChange('paymentBank', e.target.value)} placeholder="Banco, Agência, Conta, PIX..." />
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-600">Penalidades</label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-slate-600">Penalidades</label>
+                                <AiButton field="penalties" label="Penalidades" />
+                            </div>
                             <Textarea rows={3} value={form.penalties} onChange={e => handleInputChange('penalties', e.target.value)} placeholder="Cláusula de multas e penalidades por descumprimento..." />
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-600">Garantia</label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-slate-600">Garantia</label>
+                                <AiButton field="warranty" label="Garantia" />
+                            </div>
                             <Textarea rows={3} value={form.warranty} onChange={e => handleInputChange('warranty', e.target.value)} placeholder="Prazo e condições de garantia dos serviços..." />
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-600">Rescisão</label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-slate-600">Rescisão</label>
+                                <AiButton field="termination" label="Rescisão" />
+                            </div>
                             <Textarea rows={3} value={form.termination} onChange={e => handleInputChange('termination', e.target.value)} placeholder="Condições de rescisão contratual..." />
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-600">Confidencialidade</label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-slate-600">Confidencialidade</label>
+                                <AiButton field="confidentiality" label="Confidencialidade" />
+                            </div>
                             <Textarea rows={2} value={form.confidentiality} onChange={e => handleInputChange('confidentiality', e.target.value)} placeholder="Cláusula de sigilo e confidencialidade (opcional)..." />
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-600">Força Maior</label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-slate-600">Força Maior</label>
+                                <AiButton field="forceMajeure" label="Força Maior" />
+                            </div>
                             <Textarea rows={2} value={form.forceMajeure} onChange={e => handleInputChange('forceMajeure', e.target.value)} placeholder="Cláusula de caso fortuito (opcional)..." />
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-600">Foro</label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-slate-600">Foro</label>
+                                <AiButton field="jurisdiction" label="Foro" />
+                            </div>
                             <Input value={form.jurisdiction} onChange={e => handleInputChange('jurisdiction', e.target.value)} placeholder="Ex: Fica eleito o foro da Comarca de Recife/PE..." />
                         </div>
                     </TabsContent>
@@ -446,12 +678,18 @@ export default function Contracts() {
                     {/* TAB: Obrigações */}
                     <TabsContent value="obrigacoes" className="p-6 space-y-4">
                         <div>
-                            <label className="text-xs font-medium text-slate-600">Obrigações da CONTRATADA (uma por linha)</label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-slate-600">Obrigações da CONTRATADA (uma por linha)</label>
+                                <AiButton field="contractorObligations" label="Obrigações Contratada" />
+                            </div>
                             <Textarea rows={6} value={form.contractorObligations} onChange={e => handleInputChange('contractorObligations', e.target.value)} placeholder={'Executar os serviços conforme especificações técnicas.\nFornecer todos os materiais necessários.\nManter equipe habilitada com EPIs.\n...'} />
                             <p className="text-[10px] text-slate-400 mt-1">Deixe em branco para usar as obrigações padrão no PDF</p>
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-600">Obrigações do CONTRATANTE (uma por linha)</label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-slate-600">Obrigações do CONTRATANTE (uma por linha)</label>
+                                <AiButton field="clientObligations" label="Obrigações Contratante" />
+                            </div>
                             <Textarea rows={5} value={form.clientObligations} onChange={e => handleInputChange('clientObligations', e.target.value)} placeholder={'Fornecer acesso ao local.\nDisponibilizar ponto de energia e água.\nEfetuar os pagamentos pontualmente.\n...'} />
                             <p className="text-[10px] text-slate-400 mt-1">Deixe em branco para usar as obrigações padrão no PDF</p>
                         </div>
@@ -803,6 +1041,54 @@ export default function Contracts() {
                         <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleCopyLink}>
                             <Copy className="w-4 h-4 mr-1" /> Copiar Link
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Template Save Dialog */}
+            <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <BookTemplate className="w-5 h-5 text-amber-600" /> Modelos de Contrato
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-xs font-medium text-slate-600">Salvar contrato atual como modelo</label>
+                            <div className="flex gap-2 mt-1">
+                                <Input
+                                    value={templateName}
+                                    onChange={e => setTemplateName(e.target.value)}
+                                    placeholder="Nome do modelo (ex: Instalação Solar)"
+                                />
+                                <Button onClick={saveAsTemplate} className="bg-amber-500 hover:bg-amber-600 text-slate-900 shrink-0">
+                                    <Save className="w-4 h-4 mr-1" /> Salvar
+                                </Button>
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1">Salva tipo, cláusulas e obrigações como modelo reutilizável</p>
+                        </div>
+                        {templates.length > 0 && (
+                            <div>
+                                <label className="text-xs font-medium text-slate-600 mb-2 block">Modelos existentes</label>
+                                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                    {templates.map((t: any) => (
+                                        <div key={t.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 border text-sm">
+                                            <div>
+                                                <span className="font-medium">{t.name}</span>
+                                                <Badge variant="outline" className="ml-2 text-[10px]">{typeLabels[t.type] || t.type}</Badge>
+                                            </div>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={() => deleteTemplate(t.id)}>
+                                                <Trash2 className="w-3 h-3" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>Fechar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

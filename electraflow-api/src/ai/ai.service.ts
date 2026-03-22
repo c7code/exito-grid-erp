@@ -1035,4 +1035,119 @@ REGRAS:
 6. Seja prático e acionável como um engenheiro consultor
 7. Quando perguntarem sobre documentos, USE buscar_documentos e ler_documento para acessar o conteúdo real`;
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SUGESTÃO DE CLÁUSULAS CONTRATUAIS VIA IA
+    // ═══════════════════════════════════════════════════════════════
+
+    async suggestContractClauses(data: {
+        contractType: string;
+        scope?: string;
+        value?: number;
+        proposalId?: string;
+        fields?: string[];
+    }) {
+        const apiKey = await this.getConfig('ai_api_key');
+        if (!apiKey) throw new BadRequestException('Chave de API não configurada. Vá em Configurações → IA.');
+
+        const model = (await this.getConfig('ai_model')) || 'gpt-4o-mini';
+
+        // Buscar dados da proposta se vinculada
+        let proposalContext = '';
+        if (data.proposalId) {
+            try {
+                const [proposal] = await this.dataSource.query(
+                    `SELECT p.*, cl.name as "clientName", cl.document as "clientDocument",
+                            cl.type as "clientType", cl.address as "clientAddress", cl.city, cl.state
+                     FROM proposals p LEFT JOIN clients cl ON cl.id = p."clientId"
+                     WHERE p.id = $1`, [data.proposalId]
+                );
+                if (proposal) {
+                    const items = await this.dataSource.query(
+                        `SELECT description, quantity, unit, "unitPrice", "totalPrice"
+                         FROM proposal_items WHERE "proposalId" = $1 ORDER BY "sortOrder"`, [data.proposalId]
+                    );
+                    proposalContext = `
+PROPOSTA VINCULADA:
+- Número: ${proposal.proposalNumber}
+- Cliente: ${proposal.clientName || 'N/A'} (${proposal.clientDocument || 'N/A'})
+- Tipo Cliente: ${proposal.clientType === 'pj' ? 'Pessoa Jurídica' : 'Pessoa Física'}
+- Endereço: ${[proposal.clientAddress, proposal.city, proposal.state].filter(Boolean).join(', ')}
+- Valor Total: R$ ${Number(proposal.total || 0).toLocaleString('pt-BR')}
+- Escopo: ${proposal.scope || 'N/A'}
+- Prazo: ${proposal.deadline || 'N/A'}
+- Condições Pagamento: ${proposal.paymentConditions || 'N/A'}
+- Itens: ${items.map((i: any) => `${i.description} (${i.quantity} ${i.unit} x R$${i.unitPrice})`).join('; ')}`;
+                }
+            } catch (e) {
+                console.warn('Erro ao buscar proposta para contexto:', e);
+            }
+        }
+
+        const typeLabels: Record<string, string> = {
+            service: 'Prestação de Serviço', supply: 'Fornecimento', subcontract: 'Subcontratação',
+            maintenance: 'Manutenção', consulting: 'Consultoria', other: 'Outro',
+        };
+
+        const fieldsToGenerate = data.fields || [
+            'paymentTerms', 'penalties', 'warranty', 'termination',
+            'confidentiality', 'forceMajeure', 'jurisdiction',
+            'contractorObligations', 'clientObligations',
+        ];
+
+        const fieldLabels: Record<string, string> = {
+            paymentTerms: 'Condições de Pagamento',
+            penalties: 'Penalidades e Multas',
+            warranty: 'Garantia',
+            termination: 'Rescisão Contratual',
+            confidentiality: 'Confidencialidade',
+            forceMajeure: 'Força Maior / Caso Fortuito',
+            jurisdiction: 'Foro Competente',
+            contractorObligations: 'Obrigações da CONTRATADA (cada obrigação em uma linha)',
+            clientObligations: 'Obrigações do CONTRATANTE (cada obrigação em uma linha)',
+        };
+
+        const prompt = `Você é um advogado especialista em contratos de engenharia elétrica e energia solar.
+Gere cláusulas contratuais profissionais e juridicamente válidas para o seguinte contrato:
+
+TIPO: ${typeLabels[data.contractType] || data.contractType}
+ESCOPO: ${data.scope || 'Não informado'}
+VALOR: R$ ${data.value ? Number(data.value).toLocaleString('pt-BR') : 'Não informado'}
+${proposalContext}
+
+Gere sugestões para os seguintes campos, retornando um JSON válido com as chaves correspondentes:
+${fieldsToGenerate.map(f => `- "${f}": ${fieldLabels[f] || f}`).join('\n')}
+
+REGRAS:
+- Use linguagem jurídica formal em português brasileiro
+- Para obrigações, coloque cada item em uma linha separada
+- Para foro, sugira comarca baseada no endereço do cliente (se disponível)
+- Para pagamento, considere parcelamento se valor alto
+- Para garantia de serviços elétricos/solar, sugira 5 anos para serviço e 12 meses para materiais
+- Para penalidades, use multa de 10% + juros 1% ao mês
+- Adapte ao tipo de contrato (serviço vs fornecimento vs manutenção)
+
+Retorne APENAS o JSON, sem markdown, sem explicações.`;
+
+        try {
+            const openai = new OpenAI({ apiKey });
+            const response = await openai.chat.completions.create({
+                model,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.5,
+                max_tokens: 3000,
+                response_format: { type: 'json_object' },
+            });
+
+            const content = response.choices[0]?.message?.content || '{}';
+            try {
+                return JSON.parse(content);
+            } catch {
+                return { error: 'Resposta inválida da IA', raw: content };
+            }
+        } catch (error: any) {
+            console.error('❌ AI suggest-clauses error:', error?.message);
+            throw new BadRequestException(`Erro na IA: ${error?.message || 'Erro desconhecido'}`);
+        }
+    }
 }

@@ -234,3 +234,57 @@ export class ContractAddendum {
     @DeleteDateColumn()
     deletedAt: Date;
 }
+
+@Entity('contract_templates')
+export class ContractTemplate {
+    @PrimaryGeneratedColumn('uuid')
+    id: string;
+
+    @Column()
+    name: string;
+
+    @Column({ type: 'varchar', default: 'service' })
+    type: string;
+
+    @Column({ type: 'text', nullable: true })
+    scope: string;
+
+    @Column({ type: 'text', nullable: true })
+    paymentTerms: string;
+
+    @Column({ type: 'text', nullable: true })
+    penalties: string;
+
+    @Column({ type: 'text', nullable: true })
+    warranty: string;
+
+    @Column({ type: 'text', nullable: true })
+    termination: string;
+
+    @Column({ type: 'text', nullable: true })
+    confidentiality: string;
+
+    @Column({ type: 'text', nullable: true })
+    forceMajeure: string;
+
+    @Column({ type: 'text', nullable: true })
+    jurisdiction: string;
+
+    @Column({ type: 'text', nullable: true })
+    contractorObligations: string;
+
+    @Column({ type: 'text', nullable: true })
+    clientObligations: string;
+
+    @Column({ type: 'text', nullable: true })
+    generalProvisions: string;
+
+    @CreateDateColumn()
+    createdAt: Date;
+
+    @UpdateDateColumn()
+    updatedAt: Date;
+
+    @DeleteDateColumn()
+    deletedAt: Date;
+}

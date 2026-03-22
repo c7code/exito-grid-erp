@@ -96,4 +96,16 @@ export class AiController {
         if (userRole !== 'admin') throw new ForbiddenException('Apenas administradores podem revogar tokens.');
         return this.service.revokeActionToken(id);
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SUGESTÃO DE CLÁUSULAS VIA IA
+    // ═══════════════════════════════════════════════════════════════
+
+    @Post('suggest-clauses')
+    @ApiOperation({ summary: 'Gerar sugestões de cláusulas contratuais via IA' })
+    async suggestClauses(
+        @Body() body: { contractType: string; scope?: string; value?: number; proposalId?: string; fields?: string[] },
+    ) {
+        return this.service.suggestContractClauses(body);
+    }
 }
