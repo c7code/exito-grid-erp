@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Plus, Pencil, Trash2, ChevronDown, ChevronRight, Loader2, FileText, Users, Stethoscope, Database, Upload, Download } from 'lucide-react';
+import { Shield, Plus, Pencil, Trash2, ChevronDown, ChevronRight, Loader2, FileText, Users, Stethoscope, Database, Upload, Download, Building2, Phone, Mail, MapPin, Star, ExternalLink } from 'lucide-react';
 
 const PT: Record<string, { l: string; n: string }> = {
     pgr: { l: 'PGR - Gerenciamento de Riscos', n: 'NR-1' },
@@ -30,6 +30,7 @@ export default function SafetyPrograms() {
     const [programs, setPrograms] = useState<any[]>([]);
     const [riskGroups, setRiskGroups] = useState<any[]>([]);
     const [exams, setExams] = useState<any[]>([]);
+    const [clinics, setClinics] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [progDlg, setProgDlg] = useState(false);
     const [editProg, setEditProg] = useState<any>(null);
@@ -47,7 +48,7 @@ export default function SafetyPrograms() {
 
     useEffect(() => { load(); }, []);
     async function load() {
-        try { setLoading(true); const [p, r, e] = await Promise.all([api.getSafetyPrograms().catch(() => []), api.getRiskGroups().catch(() => []), api.getOccupationalExams().catch(() => [])]); setPrograms(p); setRiskGroups(r); setExams(e); } finally { setLoading(false); }
+        try { setLoading(true); const [p, r, e, s] = await Promise.all([api.getSafetyPrograms().catch(() => []), api.getRiskGroups().catch(() => []), api.getOccupationalExams().catch(() => []), api.getSuppliers().catch(() => [])]); setPrograms(p); setRiskGroups(r); setExams(e); setClinics((Array.isArray(s) ? s : s?.data || []).filter((sup: any) => sup.supplierType === 'clinic')); } finally { setLoading(false); }
     }
     function newProg() { setEditProg(null); setPf({ programType: 'pgr', name: '', nrReference: 'NR-1', responsibleName: '', responsibleRegistration: '', validFrom: '', validUntil: '', status: 'draft', observations: '' }); setFileToUpload(null); setProgDlg(true); }
     function editP(p: any) {
@@ -91,7 +92,7 @@ export default function SafetyPrograms() {
         <div className="space-y-6">
             <div><h1 className="text-2xl font-bold flex items-center gap-2"><Shield className="h-6 w-6" /> Programas de Segurança</h1><p className="text-muted-foreground">PGR, PCMSO, LTCAT e Grupos de Risco (GHE)</p></div>
             <Tabs value={tab} onValueChange={setTab}>
-                <TabsList><TabsTrigger value="programs"><FileText className="h-4 w-4 mr-1" />Programas</TabsTrigger><TabsTrigger value="riskGroups"><Users className="h-4 w-4 mr-1" />GHE</TabsTrigger><TabsTrigger value="exams"><Stethoscope className="h-4 w-4 mr-1" />Exames</TabsTrigger></TabsList>
+                <TabsList><TabsTrigger value="programs"><FileText className="h-4 w-4 mr-1" />Programas</TabsTrigger><TabsTrigger value="riskGroups"><Users className="h-4 w-4 mr-1" />GHE</TabsTrigger><TabsTrigger value="exams"><Stethoscope className="h-4 w-4 mr-1" />Exames</TabsTrigger><TabsTrigger value="clinics"><Building2 className="h-4 w-4 mr-1" />Clínicas <span className="ml-1 text-xs bg-emerald-100 text-emerald-700 rounded-full px-1.5">{clinics.length}</span></TabsTrigger></TabsList>
 
                 <TabsContent value="programs" className="space-y-4">
                     <div className="flex justify-end"><Button onClick={newProg}><Plus className="h-4 w-4 mr-2" />Novo</Button></div>
@@ -117,6 +118,52 @@ export default function SafetyPrograms() {
                     {['laboratorial','complementar','clinico'].map(g => { const ge = exams.filter(e => e.group === g); if (!ge.length) return null; return (
                         <Card key={g}><CardHeader className="pb-2"><CardTitle className="text-sm uppercase">{g==='laboratorial'?'Laboratoriais':g==='complementar'?'Complementares':'Clínicos'} <Badge variant="secondary">{ge.length}</Badge></CardTitle></CardHeader><CardContent className="divide-y">{ge.map(e => <div key={e.id} className="flex items-center justify-between py-2"><div><p className="text-sm font-medium">{e.name}</p><p className="text-xs text-muted-foreground">{e.code} • {e.validityMonths ? `${e.validityMonths}m` : '∞'}</p></div><div className="flex gap-1"><Button size="icon" variant="ghost" onClick={() => editE(e)}><Pencil className="h-3 w-3" /></Button><Button size="icon" variant="ghost" onClick={() => delE(e.id)}><Trash2 className="h-3 w-3 text-red-400" /></Button></div></div>)}</CardContent></Card>); })}
                     {!exams.length && <p className="text-center text-muted-foreground py-8">Catálogo vazio. Use "Popular Padrão".</p>}
+                </TabsContent>
+
+                <TabsContent value="clinics" className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm text-muted-foreground">Fornecedores cadastrados com tipo <strong>Clínica</strong> aparecem automaticamente aqui.</p>
+                        <Button variant="outline" size="sm" onClick={() => window.location.href = '/admin/suppliers'}>
+                            <ExternalLink className="h-3 w-3 mr-1" /> Ir para Fornecedores
+                        </Button>
+                    </div>
+                    {clinics.length === 0 ? (
+                        <div className="text-center py-12">
+                            <Building2 className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+                            <p className="text-muted-foreground">Nenhuma clínica cadastrada.</p>
+                            <p className="text-xs text-muted-foreground mt-1">Cadastre um fornecedor com o tipo "Clínica" no módulo de Fornecedores.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {clinics.map((c: any) => (
+                                <Card key={c.id} className="hover:shadow-md transition-shadow">
+                                    <CardContent className="p-4">
+                                        <div className="flex items-start gap-3 mb-3">
+                                            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                                                <Building2 className="w-5 h-5 text-emerald-600" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h3 className="font-semibold text-sm truncate">{c.tradeName || c.name}</h3>
+                                                {c.tradeName && c.name !== c.tradeName && <p className="text-xs text-muted-foreground truncate">{c.name}</p>}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1 text-xs text-slate-600">
+                                            {c.cnpj && <p className="font-mono">{c.cnpj}</p>}
+                                            {c.phone && <p className="flex items-center gap-1"><Phone className="w-3 h-3" />{c.phone}</p>}
+                                            {c.email && <p className="flex items-center gap-1"><Mail className="w-3 h-3" />{c.email}</p>}
+                                            {c.city && <p className="flex items-center gap-1"><MapPin className="w-3 h-3" />{c.city}/{c.state}</p>}
+                                        </div>
+                                        {c.rating > 0 && (
+                                            <div className="flex items-center gap-0.5 mt-2">
+                                                {[1,2,3,4,5].map(i => <Star key={i} className={`w-3 h-3 ${i <= c.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-300'}`} />)}
+                                            </div>
+                                        )}
+                                        <Badge className="mt-2 bg-emerald-100 text-emerald-700 text-xs">{c.status === 'active' ? 'Ativa' : c.status === 'inactive' ? 'Inativa' : 'Bloqueada'}</Badge>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
                 </TabsContent>
             </Tabs>
 

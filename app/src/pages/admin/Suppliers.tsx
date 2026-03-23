@@ -22,6 +22,7 @@ const supplierTypeConfig: Record<string, { label: string; color: string }> = {
     distributor: { label: 'Distribuidor', color: 'bg-indigo-100 text-indigo-700' },
     retailer: { label: 'Varejista', color: 'bg-purple-100 text-purple-700' },
     representative: { label: 'Representante', color: 'bg-cyan-100 text-cyan-700' },
+    clinic: { label: 'Clínica', color: 'bg-emerald-100 text-emerald-700' },
     other: { label: 'Outro', color: 'bg-slate-100 text-slate-600' },
 };
 
@@ -201,6 +202,7 @@ export default function Suppliers() {
                         <SelectItem value="distributor">Distribuidor</SelectItem>
                         <SelectItem value="retailer">Varejista</SelectItem>
                         <SelectItem value="representative">Representante</SelectItem>
+                        <SelectItem value="clinic">Clínica</SelectItem>
                         <SelectItem value="other">Outro</SelectItem>
                     </SelectContent>
                 </Select>
@@ -326,6 +328,7 @@ export default function Suppliers() {
                                         <SelectItem value="distributor">Distribuidor</SelectItem>
                                         <SelectItem value="retailer">Varejista</SelectItem>
                                         <SelectItem value="representative">Representante</SelectItem>
+                                        <SelectItem value="clinic">Clínica</SelectItem>
                                         <SelectItem value="other">Outro</SelectItem>
                                     </SelectContent>
                                 </Select>
