@@ -126,6 +126,7 @@ export default function NewProposalDialog({
         workAddress: '',
         workDeadlineDays: '',
         workDeadlineType: 'calendar_days',
+        workDeadlineText: '',
         objectiveType: '',
         objectiveText: '',
         thirdPartyDeadlines: '[]',
@@ -304,6 +305,7 @@ export default function NewProposalDialog({
                     workAddress: initialData.workAddress || '',
                     workDeadlineDays: String(initialData.workDeadlineDays || ''),
                     workDeadlineType: initialData.workDeadlineType || 'calendar_days',
+                    workDeadlineText: initialData.workDeadlineText || '',
                     objectiveType: initialData.objectiveType || '',
                     objectiveText: initialData.objectiveText || '',
                     thirdPartyDeadlines: initialData.thirdPartyDeadlines || '[]',
@@ -527,6 +529,7 @@ export default function NewProposalDialog({
             workAddress: '',
             workDeadlineDays: '',
             workDeadlineType: 'calendar_days',
+            workDeadlineText: '',
             objectiveType: '',
             objectiveText: '',
             thirdPartyDeadlines: '[]',
@@ -633,6 +636,7 @@ export default function NewProposalDialog({
                     workAddress: formData.workAddress || null,
                     workDeadlineDays: formData.workDeadlineDays ? Number(formData.workDeadlineDays) : null,
                     workDeadlineType: formData.workDeadlineType || 'calendar_days',
+                    workDeadlineText: formData.workDeadlineText || null,
                     objectiveType: formData.objectiveType || null,
                     objectiveText: formData.objectiveText || null,
                     thirdPartyDeadlines: formData.thirdPartyDeadlines && formData.thirdPartyDeadlines !== '[]' ? formData.thirdPartyDeadlines : null,
@@ -1701,6 +1705,16 @@ export default function NewProposalDialog({
                                             <SelectItem value="business_days">Dias Úteis</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                </div>
+                                <div className="space-y-2 md:col-span-3">
+                                    <Label>Texto do Prazo (editável — deixe em branco para usar o padrão)</Label>
+                                    <Textarea
+                                        rows={2}
+                                        placeholder="Ex: contados a partir da data de aprovação desta proposta e efetiva liberação do local."
+                                        value={formData.workDeadlineText}
+                                        onChange={(e) => setFormData({ ...formData, workDeadlineText: e.target.value })}
+                                        className="text-sm"
+                                    />
                                 </div>
                             </div>
 

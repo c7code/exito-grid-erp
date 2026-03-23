@@ -738,7 +738,7 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                             <div style={s.sectionTitle}>{n}. Prazo de Execução</div>
                             <p style={s.para}>
                                 {proposal.workDeadlineDays
-                                    ? `O prazo estimado para execução completa dos serviços é de ${proposal.workDeadlineDays} (${numberToWords(proposal.workDeadlineDays)}) ${deadlineTypeLabel}, contados a partir da data de aprovação desta proposta e efetiva liberação do local.`
+                                    ? `O prazo estimado para execução completa dos serviços é de ${proposal.workDeadlineDays} (${numberToWords(proposal.workDeadlineDays)}) ${deadlineTypeLabel}, ${proposal.workDeadlineText || 'contados a partir da data de aprovação desta proposta e efetiva liberação do local.'}`
                                     : (proposal.deadline || 'A definir em comum acordo entre as partes.')}
                             </p>
                             {thirdPartyDeadlines.length > 0 && (

@@ -115,6 +115,9 @@ export class Proposal {
   @Column({ nullable: true, default: 'calendar_days' })
   workDeadlineType: string;            // 'business_days' | 'calendar_days'
 
+  @Column({ type: 'text', nullable: true })
+  workDeadlineText: string;            // Texto editável do prazo (ex: "contados a partir da aprovação...")
+
   @Column({ nullable: true })
   objectiveType: string;               // 'service_only' | 'supply_only' | 'supply_and_service'
 
