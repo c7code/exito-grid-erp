@@ -165,6 +165,7 @@ export default function AdminFinance() {
   // ── PDF Print ──
   const [receiptToPrint, setReceiptToPrint] = useState<any>(null);
   const [poToPrint, setPOToPrint] = useState<any>(null);
+  const [companyData, setCompanyData] = useState<any>(null);
 
   const emptyForm = {
     description: '', amount: '', type: 'income', category: 'other',
@@ -217,6 +218,8 @@ export default function AdminFinance() {
       setSummary(sum);
       setDre(dreData);
       setPayments(paymentsData);
+      // Load company data for PDF templates
+      try { const cos = await api.getCompanies(); if (cos?.length) setCompanyData(cos[0]); } catch {}
     } catch (err) {
       console.error(err);
       toast.error('Erro ao carregar dados financeiros.');
@@ -1578,8 +1581,8 @@ export default function AdminFinance() {
 
       {/* Hidden containers for PDF generation */}
       <div className="fixed -left-[9999px] top-0">
-        {receiptToPrint && <ReceiptPDFTemplate receipt={receiptToPrint} />}
-        {poToPrint && <PurchaseOrderPDFTemplate order={poToPrint} />}
+        {receiptToPrint && <ReceiptPDFTemplate receipt={receiptToPrint} company={companyData} />}
+        {poToPrint && <PurchaseOrderPDFTemplate order={poToPrint} company={companyData} />}
       </div>
     </div>
   );

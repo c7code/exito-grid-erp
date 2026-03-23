@@ -70,6 +70,7 @@ export default function Contracts() {
     const [templates, setTemplates] = useState<any[]>([]);
     const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
     const [templateName, setTemplateName] = useState('');
+    const [companyData, setCompanyData] = useState<any>(null);
 
     const fetchAll = async () => {
         try {
@@ -80,6 +81,8 @@ export default function Contracts() {
             setWorks(w.status === 'fulfilled' ? (Array.isArray(w.value) ? w.value : w.value?.data ?? []) : []);
             setClients(cl.status === 'fulfilled' ? (Array.isArray(cl.value) ? cl.value : cl.value?.data ?? []) : []);
             setProposals(p.status === 'fulfilled' ? (Array.isArray(p.value) ? p.value : p.value?.data ?? []) : []);
+            // Load company data for PDF templates
+            try { const cos = await api.getCompanies(); if (cos?.length) setCompanyData(cos[0]); } catch {}
         } catch { toast.error('Erro ao carregar contratos'); }
         finally { setLoading(false); }
     };
@@ -399,7 +402,7 @@ export default function Contracts() {
                     <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900" onClick={handlePrint}><Printer className="w-4 h-4 mr-1" /> Imprimir / PDF</Button>
                 </div>
                 <div className="bg-white rounded-xl border shadow-lg overflow-auto">
-                    <ContractPDFTemplate contract={selectedContract} />
+                    <ContractPDFTemplate contract={selectedContract} company={companyData} />
                 </div>
             </div>
         );

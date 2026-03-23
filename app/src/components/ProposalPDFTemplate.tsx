@@ -3,11 +3,12 @@ import React from 'react';
 interface ProposalPDFTemplateProps {
     proposal: any;
     client?: any;
+    company?: any;
 }
 
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export function ProposalPDFTemplate({ proposal }: ProposalPDFTemplateProps) {
+export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplateProps) {
     const items = proposal.items || [];
     const materialItems = items.filter((i: any) => i.serviceType === 'material');
     const serviceItems = items.filter((i: any) => i.serviceType !== 'material');
@@ -43,13 +44,14 @@ export function ProposalPDFTemplate({ proposal }: ProposalPDFTemplateProps) {
     const discount = Number(proposal.discount || 0);
     const grandTotal = materialSubtotal + serviceSubtotal + visibleCosts - discount;
 
+    const co = company || {};
     const empresa = {
-        nome: 'ÊXITO GRID SOLUÇÕES EM ENERGIA LTDA',
-        cnpj: '00.000.000/0001-00',
-        endereco: 'Recife — PE',
-        telefone: '(81) 9 0000-0000',
-        email: 'contato@exitogrid.com.br',
-        site: 'www.exitogrid.com.br',
+        nome: co.razaoSocial || co.name || co.tradeName || 'EXITO GRID COMERCIO E SERVICOS ELETRICOS LTDA',
+        cnpj: co.cnpj || '55.303.935/0001-39',
+        endereco: co.address ? `${co.address}${co.number ? ', ' + co.number : ''}${co.complement ? ', ' + co.complement : ''} — ${co.neighborhood || ''}, ${co.city || 'Recife'}/${co.state || 'PE'}` : 'R General Polidoro, 352, Loja 0104 — Varzea, Recife/PE',
+        telefone: co.phone || '(81) 8887-0766',
+        email: co.email || 'contato@exitogrid.com.br',
+        site: co.website || 'www.exitogrid.com.br',
     };
 
     const clientName = proposal.client?.name || proposal.clientName || '—';

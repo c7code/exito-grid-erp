@@ -847,7 +847,7 @@ export default function AdminProposals() {
         {proposalToPrint && (
           proposalToPrint.activityType === 'energia_solar' && solarProjectData
             ? <SolarProposalPDFTemplate proposal={proposalToPrint} solarProject={solarProjectData} company={companyData} />
-            : <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} />
+            : <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} company={companyData} />
         )}
       </div>
     </div>
