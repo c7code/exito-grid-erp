@@ -106,7 +106,7 @@ export default function AdminFinance() {
         setSearchParams({});
       }, 500);
     } else if (tab === 'purchase-orders' && proposalId) {
-      setTimeout(() => {
+      setTimeout(async () => {
         setEditingPOId(null);
         setPOForm({
           type: 'company_billing', status: 'draft',
@@ -119,7 +119,26 @@ export default function AdminFinance() {
           proposalId,
           proposalNumber: searchParams.get('proposalNumber') || '',
         });
-        setPOItems([{ description: '', quantity: '1', unit: 'un', unitPrice: '0', totalPrice: '0', internalCost: '' }]);
+        // Auto-populate items from proposal
+        try {
+          const proposal = await api.getProposal(proposalId);
+          const proposalItems = proposal.items || [];
+          if (proposalItems.length > 0) {
+            const mapped = proposalItems.filter((i: any) => !i.parentId || !i.isBundleParent).map((i: any) => ({
+              description: i.description || '',
+              quantity: String(i.quantity || 1),
+              unit: i.unit || (i.serviceType === 'material' ? 'un' : 'sv'),
+              unitPrice: String(i.unitPrice || 0),
+              totalPrice: String(Number(i.quantity || 1) * Number(i.unitPrice || 0)),
+              internalCost: '',
+            }));
+            setPOItems(mapped.length > 0 ? mapped : [{ description: '', quantity: '1', unit: 'un', unitPrice: '0', totalPrice: '0', internalCost: '' }]);
+          } else {
+            setPOItems([{ description: '', quantity: '1', unit: 'un', unitPrice: '0', totalPrice: '0', internalCost: '' }]);
+          }
+        } catch {
+          setPOItems([{ description: '', quantity: '1', unit: 'un', unitPrice: '0', totalPrice: '0', internalCost: '' }]);
+        }
         setPODialogOpen(true);
         setSearchParams({});
       }, 500);
@@ -215,7 +234,9 @@ export default function AdminFinance() {
   // ── Receipt CRUD ──
   const handleSaveReceipt = async () => {
     try {
-      const data = { ...receiptForm, amount: Number(receiptForm.amount || 0), percentage: Number(receiptForm.percentage || 100), totalProposalValue: Number(receiptForm.totalProposalValue || 0) };
+      const data: any = { ...receiptForm, amount: Number(receiptForm.amount || 0), percentage: Number(receiptForm.percentage || 100), totalProposalValue: Number(receiptForm.totalProposalValue || 0) };
+      if (!data.clientId) data.clientId = null;
+      if (!data.proposalId) data.proposalId = null;
       if (editingReceiptId) { await api.updateReceipt(editingReceiptId, data); toast.success('Recibo atualizado'); }
       else { await api.createReceipt(data); toast.success('Recibo criado'); }
       setReceiptDialogOpen(false); setEditingReceiptId(null); loadReceipts();
@@ -231,8 +252,13 @@ export default function AdminFinance() {
   // ── Purchase Order CRUD ──
   const handleSavePO = async () => {
     try {
-      const items = poItems.map(i => ({ ...i, quantity: Number(i.quantity || 1), unitPrice: Number(i.unitPrice || 0), totalPrice: Number(i.quantity || 1) * Number(i.unitPrice || 0), internalCost: i.internalCost ? Number(i.internalCost) : undefined }));
-      const data = { ...poForm, totalValue: items.reduce((s: number, i: any) => s + i.totalPrice, 0), internalMargin: Number(poForm.internalMargin || 0), items };
+      const items = poItems.filter(i => i.description?.trim()).map(i => ({ ...i, quantity: Number(i.quantity || 1), unitPrice: Number(i.unitPrice || 0), totalPrice: Number(i.quantity || 1) * Number(i.unitPrice || 0), internalCost: i.internalCost ? Number(i.internalCost) : undefined }));
+      const data: any = { ...poForm, totalValue: items.reduce((s: number, i: any) => s + i.totalPrice, 0), internalMargin: Number(poForm.internalMargin || 0), items };
+      // Sanitize empty strings to null for UUID fields
+      if (!data.supplierId) data.supplierId = null;
+      if (!data.clientId) data.clientId = null;
+      if (!data.proposalId) data.proposalId = null;
+      if (!data.deliveryDate) data.deliveryDate = null;
       if (editingPOId) { await api.updatePurchaseOrder(editingPOId, data); toast.success('Pedido atualizado'); }
       else { await api.createPurchaseOrder(data); toast.success('Pedido criado'); }
       setPODialogOpen(false); setEditingPOId(null); loadPurchaseOrders();
@@ -1454,16 +1480,18 @@ export default function AdminFinance() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Cliente</Label>
-                <Select value={poForm.clientId || 'none'} onValueChange={v => setPOForm({ ...poForm, clientId: v === 'none' ? '' : v })}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              {poForm.type === 'direct_billing' && (
+                <div className="space-y-2">
+                  <Label>Cliente (Faturamento Direto)</Label>
+                  <Select value={poForm.clientId || 'none'} onValueChange={v => setPOForm({ ...poForm, clientId: v === 'none' ? '' : v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Condições de Pagamento</Label>
                 <Input value={poForm.paymentTerms} onChange={e => setPOForm({ ...poForm, paymentTerms: e.target.value })} placeholder="30/60/90 dias, à vista..." />

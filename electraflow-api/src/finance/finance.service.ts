@@ -277,10 +277,16 @@ export class FinanceService {
   async createPurchaseOrder(data: any): Promise<PurchaseOrder> {
     const orderNumber = await this.generatePONumber();
     const { items, ...poData } = data;
+    // Sanitize empty strings to null for UUID fields
+    if (!poData.supplierId) poData.supplierId = null;
+    if (!poData.clientId) poData.clientId = null;
+    if (!poData.proposalId) poData.proposalId = null;
+    if (poData.deliveryDate === '') poData.deliveryDate = null;
     const po = this.poRepo.create({ ...poData, orderNumber });
     const saved = await this.poRepo.save(po) as unknown as PurchaseOrder;
     if (items && Array.isArray(items)) {
       for (const item of items) {
+        if (!item.description) continue; // skip empty items
         await this.poItemRepo.save(this.poItemRepo.create({ ...item, purchaseOrderId: saved.id }));
       }
     }
@@ -290,11 +296,17 @@ export class FinanceService {
   async updatePurchaseOrder(id: string, data: any): Promise<PurchaseOrder> {
     const po = await this.findOnePurchaseOrder(id);
     const { items, ...poData } = data;
+    // Sanitize empty strings to null for UUID fields
+    if (!poData.supplierId) poData.supplierId = null;
+    if (!poData.clientId) poData.clientId = null;
+    if (!poData.proposalId) poData.proposalId = null;
+    if (poData.deliveryDate === '') poData.deliveryDate = null;
     Object.assign(po, poData);
     await this.poRepo.save(po);
     if (items && Array.isArray(items)) {
       await this.poItemRepo.delete({ purchaseOrderId: id });
       for (const item of items) {
+        if (!item.description) continue; // skip empty items
         await this.poItemRepo.save(this.poItemRepo.create({ ...item, purchaseOrderId: id }));
       }
     }
