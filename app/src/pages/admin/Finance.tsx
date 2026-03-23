@@ -156,7 +156,7 @@ export default function AdminFinance() {
   // ── Pedidos de Compra ──
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [poDialogOpen, setPODialogOpen] = useState(false);
-  const [poForm, setPOForm] = useState<any>({ type: 'company_billing', status: 'draft', totalValue: '', paymentTerms: '', notes: '', internalNotes: '', internalMargin: '0', deliveryDate: '', deliveryAddress: '', supplierId: '', clientId: '', proposalId: '' });
+  const [poForm, setPOForm] = useState<any>({ type: 'company_billing', status: 'draft', totalValue: '', paymentTerms: '', notes: '', internalNotes: '', internalMargin: '0', deliveryDate: '', deliveryAddress: '', supplierId: '', clientId: '', proposalId: '', proposalNumber: '', contractNumber: '', workName: '' });
   const [poItems, setPOItems] = useState<any[]>([{ description: '', quantity: '1', unit: 'un', unitPrice: '0', totalPrice: '0', internalCost: '' }]);
   const [editingPOId, setEditingPOId] = useState<string | null>(null);
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -266,7 +266,7 @@ export default function AdminFinance() {
   };
   const handleEditPO = (po: any) => {
     setEditingPOId(po.id);
-    setPOForm({ type: po.type || 'company_billing', status: po.status || 'draft', totalValue: String(po.totalValue || ''), paymentTerms: po.paymentTerms || '', notes: po.notes || '', internalNotes: po.internalNotes || '', internalMargin: String(po.internalMargin || 0), deliveryDate: po.deliveryDate?.split('T')[0] || '', deliveryAddress: po.deliveryAddress || '', supplierId: po.supplierId || '', clientId: po.clientId || '', proposalId: po.proposalId || '' });
+    setPOForm({ type: po.type || 'company_billing', status: po.status || 'draft', totalValue: String(po.totalValue || ''), paymentTerms: po.paymentTerms || '', notes: po.notes || '', internalNotes: po.internalNotes || '', internalMargin: String(po.internalMargin || 0), deliveryDate: po.deliveryDate?.split('T')[0] || '', deliveryAddress: po.deliveryAddress || '', supplierId: po.supplierId || '', clientId: po.clientId || '', proposalId: po.proposalId || '', proposalNumber: po.proposalNumber || '', contractNumber: po.contractNumber || '', workName: po.workName || '' });
     setPOItems(po.items?.length ? po.items.map((i: any) => ({ description: i.description, quantity: String(i.quantity), unit: i.unit || 'un', unitPrice: String(i.unitPrice), totalPrice: String(i.totalPrice), internalCost: i.internalCost ? String(i.internalCost) : '', notes: i.notes || '' })) : [{ description: '', quantity: '1', unit: 'un', unitPrice: '0', totalPrice: '0', internalCost: '' }]);
     setPODialogOpen(true);
   };
@@ -1503,6 +1503,24 @@ export default function AdminFinance() {
               <div className="space-y-2 col-span-2">
                 <Label>Endereço de Entrega</Label>
                 <Input value={poForm.deliveryAddress} onChange={e => setPOForm({ ...poForm, deliveryAddress: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-2">
+              <h3 className="font-semibold text-purple-800 text-sm flex items-center gap-2">📋 Referência (Proposta / Contrato / Obra)</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-sm">Nº Proposta</Label>
+                  <Input className="h-8 text-sm" value={poForm.proposalNumber} onChange={e => setPOForm({ ...poForm, proposalNumber: e.target.value })} placeholder="PROP-2026-XXX" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Nº Contrato</Label>
+                  <Input className="h-8 text-sm" value={poForm.contractNumber} onChange={e => setPOForm({ ...poForm, contractNumber: e.target.value })} placeholder="CONT-XXX" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Obra / Centro de Custo</Label>
+                  <Input className="h-8 text-sm" value={poForm.workName} onChange={e => setPOForm({ ...poForm, workName: e.target.value })} placeholder="Nome da obra" />
+                </div>
               </div>
             </div>
 

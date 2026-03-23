@@ -59,6 +59,12 @@ export class PurchaseOrder {
     @Column({ type: 'text', nullable: true })
     proposalNumber: string;
 
+    @Column({ type: 'text', nullable: true })
+    contractNumber: string;
+
+    @Column({ type: 'text', nullable: true })
+    workName: string;
+
     @OneToMany(() => PurchaseOrderItem, item => item.purchaseOrder, { cascade: true })
     items: PurchaseOrderItem[];
 

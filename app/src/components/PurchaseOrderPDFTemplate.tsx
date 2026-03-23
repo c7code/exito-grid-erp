@@ -6,16 +6,6 @@ interface PurchaseOrderPDFTemplateProps {
 
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const typeLabels: Record<string, string> = {
-    company_billing: 'Faturamento para Empresa',
-    direct_billing: 'Faturamento Direto (Cliente)',
-};
-
-const statusLabels: Record<string, string> = {
-    draft: 'Rascunho', sent: 'Enviado', confirmed: 'Confirmado',
-    delivered: 'Entregue', cancelled: 'Cancelado',
-};
-
 export function PurchaseOrderPDFTemplate({ order }: PurchaseOrderPDFTemplateProps) {
     const empresa = {
         nome: 'ÊXITO GRID SOLUÇÕES EM ENERGIA LTDA',
@@ -28,11 +18,11 @@ export function PurchaseOrderPDFTemplate({ order }: PurchaseOrderPDFTemplateProp
 
     const supplierName = order.supplier?.name || order.supplierName || '—';
     const supplierDoc = order.supplier?.document || order.supplierDocument || '—';
-    const supplierAddress = order.supplier?.address || '—';
     const supplierPhone = order.supplier?.phone || '—';
     const supplierEmail = order.supplier?.email || '—';
 
     const clientName = order.client?.name || order.clientName || '—';
+    const clientDoc = order.client?.document || '—';
 
     const today = new Date();
     const dateStr = today.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -43,33 +33,29 @@ export function PurchaseOrderPDFTemplate({ order }: PurchaseOrderPDFTemplateProp
     const isDirect = order.type === 'direct_billing';
 
     const s = {
-        page: { fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif", fontSize: '10pt', color: '#1a1a1a', lineHeight: '1.55', maxWidth: 800, margin: '0 auto', background: '#fff' } as React.CSSProperties,
-        header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '28px 36px 18px', borderBottom: '3px solid #1d4ed8' } as React.CSSProperties,
-        logo: { fontSize: '28px', fontWeight: '800', letterSpacing: '-0.5px' } as React.CSSProperties,
-        logoSub: { fontSize: '10px', color: '#666', letterSpacing: '2px', textTransform: 'uppercase' as const, marginTop: 2 },
-        headerRight: { textAlign: 'right' as const, fontSize: '9px', color: '#555', lineHeight: '1.7' },
-        darkBar: { background: 'linear-gradient(135deg, #1e3a5f 0%, #1e40af 100%)', padding: '12px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } as React.CSSProperties,
-        darkBarText: { color: '#fff', fontSize: '13px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' as const },
-        darkBarRef: { color: '#93c5fd', fontSize: '9px' },
-        body: { padding: '30px 36px' } as React.CSSProperties,
-        sectionTitle: { fontSize: '11px', fontWeight: '800', color: '#1d4ed8', textTransform: 'uppercase' as const, letterSpacing: '2px', borderBottom: '2px solid #1d4ed8', paddingBottom: '6px', marginTop: '28px', marginBottom: '14px' } as React.CSSProperties,
-        para: { fontSize: '10px', textAlign: 'justify' as const, margin: '6px 0', color: '#2d2d2d', lineHeight: '1.6' } as React.CSSProperties,
-        infoGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 24px', margin: '12px 0', fontSize: '10px' } as React.CSSProperties,
-        infoLabel: { fontWeight: 700, color: '#555', fontSize: '9px', textTransform: 'uppercase' as const, letterSpacing: '0.5px' } as React.CSSProperties,
-        infoValue: { color: '#1a1a1a', fontWeight: 500, paddingBottom: '6px', borderBottom: '1px solid #f0f0f0' } as React.CSSProperties,
-        table: { width: '100%', borderCollapse: 'collapse' as const, marginTop: '10px', marginBottom: '16px' } as React.CSSProperties,
-        th: { background: '#eff6ff', padding: '8px 10px', fontSize: '9px', fontWeight: '700', textTransform: 'uppercase' as const, color: '#1e40af', borderBottom: '2px solid #93c5fd', textAlign: 'left' as const } as React.CSSProperties,
-        thRight: { background: '#eff6ff', padding: '8px 10px', fontSize: '9px', fontWeight: '700', textTransform: 'uppercase' as const, color: '#1e40af', borderBottom: '2px solid #93c5fd', textAlign: 'right' as const } as React.CSSProperties,
-        td: { padding: '7px 10px', fontSize: '9.5px', borderBottom: '1px solid #e8e8e8' } as React.CSSProperties,
-        tdRight: { padding: '7px 10px', fontSize: '9.5px', borderBottom: '1px solid #e8e8e8', textAlign: 'right' as const } as React.CSSProperties,
-        totalRow: { display: 'flex', justifyContent: 'space-between', padding: '12px 0', fontSize: '16px', fontWeight: '800', color: '#1d4ed8', borderTop: '3px solid #1d4ed8', marginTop: '6px' } as React.CSSProperties,
-        typeBadge: { display: 'inline-block', padding: '4px 12px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' as const } as React.CSSProperties,
-        sigArea: { display: 'flex', justifyContent: 'space-between', gap: '60px', marginTop: '40px', paddingTop: '20px' } as React.CSSProperties,
+        page: { fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif", fontSize: '9pt', color: '#1a1a1a', lineHeight: '1.35', maxWidth: 794, margin: '0 auto', background: '#fff' } as React.CSSProperties,
+        header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 28px 10px', borderBottom: '3px solid #1d4ed8' } as React.CSSProperties,
+        logo: { fontSize: '22px', fontWeight: '800', letterSpacing: '-0.5px' } as React.CSSProperties,
+        logoSub: { fontSize: '8px', color: '#666', letterSpacing: '2px', textTransform: 'uppercase' as const, marginTop: 1 },
+        headerRight: { textAlign: 'right' as const, fontSize: '7.5px', color: '#555', lineHeight: '1.5' },
+        darkBar: { background: 'linear-gradient(135deg, #1e3a5f 0%, #1e40af 100%)', padding: '7px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } as React.CSSProperties,
+        darkBarText: { color: '#fff', fontSize: '11px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' as const },
+        darkBarRef: { color: '#93c5fd', fontSize: '8px' },
+        body: { padding: '12px 28px 8px' } as React.CSSProperties,
+        sectionTitle: { fontSize: '8px', fontWeight: '800', color: '#1d4ed8', textTransform: 'uppercase' as const, letterSpacing: '1.5px', borderBottom: '1.5px solid #1d4ed8', paddingBottom: '2px', marginTop: '10px', marginBottom: '5px' } as React.CSSProperties,
+        infoLabel: { fontWeight: 700, color: '#555', fontSize: '7px', textTransform: 'uppercase' as const, letterSpacing: '0.5px' } as React.CSSProperties,
+        infoValue: { color: '#1a1a1a', fontWeight: 500, fontSize: '8.5px' } as React.CSSProperties,
+        table: { width: '100%', borderCollapse: 'collapse' as const, marginTop: '4px', marginBottom: '6px' } as React.CSSProperties,
+        th: { background: '#eff6ff', padding: '4px 6px', fontSize: '7.5px', fontWeight: '700', textTransform: 'uppercase' as const, color: '#1e40af', borderBottom: '1.5px solid #93c5fd', textAlign: 'left' as const } as React.CSSProperties,
+        thRight: { background: '#eff6ff', padding: '4px 6px', fontSize: '7.5px', fontWeight: '700', textTransform: 'uppercase' as const, color: '#1e40af', borderBottom: '1.5px solid #93c5fd', textAlign: 'right' as const } as React.CSSProperties,
+        td: { padding: '3px 6px', fontSize: '8px', borderBottom: '1px solid #e8e8e8' } as React.CSSProperties,
+        tdRight: { padding: '3px 6px', fontSize: '8px', borderBottom: '1px solid #e8e8e8', textAlign: 'right' as const } as React.CSSProperties,
+        sigArea: { display: 'flex', justifyContent: 'space-between', gap: '40px', marginTop: '16px', paddingTop: '6px' } as React.CSSProperties,
         sigBox: { flex: 1, textAlign: 'center' as const } as React.CSSProperties,
-        sigLine: { borderTop: '1px solid #333', marginTop: '50px', paddingTop: '8px', fontSize: '9px', fontWeight: '600' } as React.CSSProperties,
-        sigSub: { fontSize: '8px', color: '#777' } as React.CSSProperties,
-        footer: { background: '#1e3a5f', padding: '14px 36px', textAlign: 'center' as const, marginTop: '30px' } as React.CSSProperties,
-        footerText: { fontSize: '8px', color: '#93c5fd', letterSpacing: '1px' },
+        sigLine: { borderTop: '1px solid #333', marginTop: '30px', paddingTop: '4px', fontSize: '7.5px', fontWeight: '600' } as React.CSSProperties,
+        sigSub: { fontSize: '6.5px', color: '#777' } as React.CSSProperties,
+        footer: { background: '#1e3a5f', padding: '6px 28px', textAlign: 'center' as const, marginTop: '10px' } as React.CSSProperties,
+        footerText: { fontSize: '6.5px', color: '#93c5fd', letterSpacing: '1px' },
     };
 
     return (
@@ -92,15 +78,13 @@ export function PurchaseOrderPDFTemplate({ order }: PurchaseOrderPDFTemplateProp
 
             {/* ═══ DARK BAR ═══ */}
             <div style={s.darkBar}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={s.darkBarText}>Pedido de Compra</span>
-                    <span style={{
-                        ...s.typeBadge,
-                        background: isDirect ? '#7c3aed' : '#1d4ed8',
-                        color: '#fff',
-                    }}>
-                        {typeLabels[order.type] || 'Faturamento Empresa'}
-                    </span>
+                    {isDirect && (
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '3px', fontSize: '7px', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' as const, background: '#7c3aed', color: '#fff' }}>
+                            Fat. Direto
+                        </span>
+                    )}
                 </div>
                 <span style={s.darkBarRef}>
                     Nº {order.orderNumber || '—'} | {dateStr}
@@ -110,36 +94,67 @@ export function PurchaseOrderPDFTemplate({ order }: PurchaseOrderPDFTemplateProp
             {/* ═══ BODY ═══ */}
             <div style={s.body}>
 
-                {/* EMITENTE */}
-                <div style={s.sectionTitle}>Dados do Emitente</div>
-                <div style={s.infoGrid}>
-                    <div><div style={s.infoLabel}>Razão Social</div><div style={s.infoValue}>{empresa.nome}</div></div>
-                    <div><div style={s.infoLabel}>CNPJ</div><div style={s.infoValue}>{empresa.cnpj}</div></div>
-                    <div><div style={s.infoLabel}>Endereço</div><div style={s.infoValue}>{empresa.endereco}</div></div>
-                    <div><div style={s.infoLabel}>Contato</div><div style={s.infoValue}>{empresa.telefone} | {empresa.email}</div></div>
-                </div>
-
-                {/* FORNECEDOR */}
-                <div style={s.sectionTitle}>Dados do Fornecedor</div>
-                <div style={s.infoGrid}>
-                    <div><div style={s.infoLabel}>Razão Social</div><div style={s.infoValue}>{supplierName}</div></div>
-                    <div><div style={s.infoLabel}>CNPJ / CPF</div><div style={s.infoValue}>{supplierDoc}</div></div>
-                    <div><div style={s.infoLabel}>Endereço</div><div style={s.infoValue}>{supplierAddress}</div></div>
-                    <div><div style={s.infoLabel}>Contato</div><div style={s.infoValue}>{supplierPhone} | {supplierEmail}</div></div>
-                </div>
-
-                {/* CLIENTE (if direct billing) */}
-                {isDirect && (
-                    <>
-                        <div style={s.sectionTitle}>Dados do Cliente (Faturamento Direto)</div>
-                        <div style={s.infoGrid}>
-                            <div><div style={s.infoLabel}>Nome / Razão Social</div><div style={s.infoValue}>{clientName}</div></div>
-                            <div><div style={s.infoLabel}>CPF / CNPJ</div><div style={s.infoValue}>{order.client?.document || '—'}</div></div>
+                {/* REFERÊNCIA — Proposta / Contrato / Centro de Custo */}
+                {(order.proposalNumber || order.contractNumber) && (
+                    <div style={{ background: '#faf5ff', border: '1px solid #c4b5fd', borderRadius: '6px', padding: '8px 14px', margin: '8px 0', display: 'flex', gap: '24px', alignItems: 'center' }}>
+                        <div style={{ fontSize: '8px', fontWeight: 700, color: '#6d28d9', letterSpacing: '1px', textTransform: 'uppercase' as const }}>
+                            📋 Referência
                         </div>
-                        <p style={{ ...s.para, fontStyle: 'italic', color: '#7c3aed', fontSize: '9px' }}>
-                            ⚠ Faturamento direto: o fornecedor fatura diretamente ao cliente. Esta ordem serve como controle administrativo da empresa para acompanhamento e supervisão.
-                        </p>
-                    </>
+                        {order.proposalNumber && (
+                            <div style={{ fontSize: '8.5px' }}>
+                                <span style={s.infoLabel}>Proposta: </span>
+                                <span style={{ fontWeight: 600, color: '#6d28d9' }}>{order.proposalNumber}</span>
+                            </div>
+                        )}
+                        {order.contractNumber && (
+                            <div style={{ fontSize: '8.5px' }}>
+                                <span style={s.infoLabel}>Contrato: </span>
+                                <span style={{ fontWeight: 600, color: '#6d28d9' }}>{order.contractNumber}</span>
+                            </div>
+                        )}
+                        {order.workName && (
+                            <div style={{ fontSize: '8.5px' }}>
+                                <span style={s.infoLabel}>Obra/CC: </span>
+                                <span style={{ fontWeight: 600, color: '#6d28d9' }}>{order.workName}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* EMITENTE + FORNECEDOR side by side */}
+                <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={s.sectionTitle}>Emitente</div>
+                        <div style={{ fontSize: '8.5px', lineHeight: '1.5' }}>
+                            <div><span style={s.infoLabel}>Razão Social: </span><span style={s.infoValue}>{empresa.nome}</span></div>
+                            <div><span style={s.infoLabel}>CNPJ: </span><span style={s.infoValue}>{empresa.cnpj}</span></div>
+                            <div><span style={s.infoLabel}>Endereço: </span><span style={s.infoValue}>{empresa.endereco}</span></div>
+                        </div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={s.sectionTitle}>Fornecedor</div>
+                        <div style={{ fontSize: '8.5px', lineHeight: '1.5' }}>
+                            <div><span style={s.infoLabel}>Razão Social: </span><span style={s.infoValue}>{supplierName}</span></div>
+                            <div><span style={s.infoLabel}>CNPJ/CPF: </span><span style={s.infoValue}>{supplierDoc}</span></div>
+                            <div><span style={s.infoLabel}>Contato: </span><span style={s.infoValue}>{supplierPhone} | {supplierEmail}</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* CLIENTE (only for direct billing) */}
+                {isDirect && (
+                    <div style={{ background: '#f5f3ff', border: '1px solid #c4b5fd', borderRadius: '4px', padding: '6px 12px', margin: '6px 0' }}>
+                        <div style={{ fontSize: '7.5px', fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase' as const, letterSpacing: '1px', marginBottom: '2px' }}>
+                            Cliente (Faturamento Direto)
+                        </div>
+                        <div style={{ display: 'flex', gap: '20px', fontSize: '8.5px' }}>
+                            <div><span style={s.infoLabel}>Nome: </span><span style={s.infoValue}>{clientName}</span></div>
+                            <div><span style={s.infoLabel}>CPF/CNPJ: </span><span style={s.infoValue}>{clientDoc}</span></div>
+                        </div>
+                        <div style={{ fontSize: '7px', color: '#7c3aed', fontStyle: 'italic', marginTop: '2px' }}>
+                            ⚠ Fornecedor fatura diretamente ao cliente. Ordem de controle administrativo.
+                        </div>
+                    </div>
                 )}
 
                 {/* ITENS */}
@@ -147,10 +162,10 @@ export function PurchaseOrderPDFTemplate({ order }: PurchaseOrderPDFTemplateProp
                 <table style={s.table}>
                     <thead>
                         <tr>
-                            <th style={{ ...s.th, width: '5%' }}>Item</th>
-                            <th style={{ ...s.th, width: '42%' }}>Descrição</th>
-                            <th style={{ ...s.th, width: '8%' }}>Un</th>
-                            <th style={{ ...s.thRight, width: '10%' }}>Qtd</th>
+                            <th style={{ ...s.th, width: '5%' }}>#</th>
+                            <th style={{ ...s.th, width: '45%' }}>Descrição</th>
+                            <th style={{ ...s.th, width: '7%' }}>Un</th>
+                            <th style={{ ...s.thRight, width: '8%' }}>Qtd</th>
                             <th style={{ ...s.thRight, width: '15%' }}>Vlr. Unit.</th>
                             <th style={{ ...s.thRight, width: '20%' }}>Total</th>
                         </tr>
@@ -169,53 +184,42 @@ export function PurchaseOrderPDFTemplate({ order }: PurchaseOrderPDFTemplateProp
                             </tr>
                         ))}
                         <tr>
-                            <td colSpan={5} style={{ ...s.td, textAlign: 'right', fontWeight: 700, background: '#f8fafc', fontSize: '10px' }}>
-                                VALOR TOTAL DO PEDIDO
+                            <td colSpan={5} style={{ ...s.td, textAlign: 'right', fontWeight: 700, background: '#f8fafc', fontSize: '9px', borderBottom: '2px solid #1d4ed8' }}>
+                                TOTAL
                             </td>
-                            <td style={{ ...s.tdRight, fontWeight: 800, background: '#f8fafc', color: '#1d4ed8', fontSize: '12px' }}>
+                            <td style={{ ...s.tdRight, fontWeight: 800, background: '#f8fafc', color: '#1d4ed8', fontSize: '10px', borderBottom: '2px solid #1d4ed8' }}>
                                 R$ {fmt(totalValue)}
                             </td>
                         </tr>
                     </tbody>
                 </table>
 
-                {/* CONDIÇÕES */}
+                {/* CONDIÇÕES — compact grid */}
                 <div style={s.sectionTitle}>Condições</div>
-                <div style={s.infoGrid}>
-                    <div><div style={s.infoLabel}>Condições de Pagamento</div><div style={s.infoValue}>{order.paymentTerms || '—'}</div></div>
-                    <div><div style={s.infoLabel}>Status</div><div style={s.infoValue}>{statusLabels[order.status] || order.status}</div></div>
-                    <div><div style={s.infoLabel}>Data de Entrega</div><div style={s.infoValue}>{order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('pt-BR') : '—'}</div></div>
-                    <div><div style={s.infoLabel}>Proposta Vinculada</div><div style={s.infoValue}>{order.proposalNumber || order.proposal?.proposalNumber || '—'}</div></div>
-                    {order.deliveryAddress && (
-                        <div style={{ gridColumn: '1 / -1' }}>
-                            <div style={s.infoLabel}>Endereço de Entrega</div>
-                            <div style={s.infoValue}>{order.deliveryAddress}</div>
-                        </div>
-                    )}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '3px 16px', fontSize: '8.5px', margin: '4px 0' }}>
+                    <div><span style={s.infoLabel}>Pagamento: </span><span style={s.infoValue}>{order.paymentTerms || '—'}</span></div>
+                    <div><span style={s.infoLabel}>Entrega: </span><span style={s.infoValue}>{order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('pt-BR') : '—'}</span></div>
+                    <div><span style={s.infoLabel}>Local: </span><span style={s.infoValue}>{order.deliveryAddress || '—'}</span></div>
                 </div>
 
                 {order.notes && (
-                    <>
-                        <div style={s.sectionTitle}>Observações</div>
-                        <p style={s.para}>{order.notes}</p>
-                    </>
+                    <div style={{ fontSize: '8px', color: '#555', marginTop: '4px' }}>
+                        <span style={{ ...s.infoLabel, color: '#1d4ed8' }}>Obs: </span>{order.notes}
+                    </div>
                 )}
 
                 {/* TERMOS */}
-                <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '8px', padding: '18px 22px', margin: '28px 0' }}>
-                    <p style={{ fontSize: '10px', color: '#1e40af', lineHeight: '1.7', margin: 0, textAlign: 'justify' as const }}>
-                        <strong>TERMOS DE FORNECIMENTO:</strong> O fornecedor compromete-se a entregar os materiais e/ou serviços especificados neste pedido de compra, nas condições e prazos aqui estabelecidos.
-                        Qualquer divergência em relação às especificações, quantidades ou prazos deve ser comunicada previamente e por escrito.
-                        O aceite deste pedido implica na concordância integral com todas as condições aqui descritas.
+                <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '5px', padding: '8px 12px', margin: '10px 0' }}>
+                    <p style={{ fontSize: '7.5px', color: '#1e40af', lineHeight: '1.5', margin: 0, textAlign: 'justify' as const }}>
+                        <strong>TERMOS:</strong> O fornecedor compromete-se a entregar os materiais/serviços especificados neste pedido, nas condições e prazos estabelecidos.
+                        Divergências devem ser comunicadas previamente por escrito. O aceite implica concordância integral com as condições descritas.
                     </p>
                 </div>
 
                 {/* DATA/LOCAL */}
-                <div style={{ marginTop: '20px' }}>
-                    <p style={{ ...s.para, textAlign: 'center', fontStyle: 'italic', color: '#555' }}>
-                        Recife/PE, {dateStr}.
-                    </p>
-                </div>
+                <p style={{ fontSize: '8px', textAlign: 'center' as const, fontStyle: 'italic', color: '#555', margin: '6px 0' }}>
+                    Recife/PE, {dateStr}.
+                </p>
 
                 {/* ASSINATURAS */}
                 <div style={s.sigArea}>

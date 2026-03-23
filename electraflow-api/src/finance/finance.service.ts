@@ -69,6 +69,9 @@ export class FinanceService {
           "createdAt" TIMESTAMP DEFAULT NOW()
         )
       `);
+      // Add new columns if table already exists
+      await this.dataSource.query(`ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS "contractNumber" TEXT`).catch(() => {});
+      await this.dataSource.query(`ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS "workName" TEXT`).catch(() => {});
     } catch (e) { console.warn('Finance tables migration:', e?.message); }
   }
 
