@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { api } from '@/api';
 import {
   LayoutDashboard, Sun, Building2, FileSignature, Plus, Pencil, Trash2,
-  RefreshCw, DollarSign, Zap, TrendingUp, Download, Calculator,
+  RefreshCw, Zap, Download, Calculator,
 } from 'lucide-react';
 
 export default function OeM() {
