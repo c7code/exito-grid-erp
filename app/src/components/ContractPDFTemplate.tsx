@@ -19,6 +19,66 @@ function numberToWords(n: number | string): string {
     return result || String(num);
 }
 
+// ═══ PARSER DE TEXTO ESTRUTURADO JURÍDICO ═══
+// Detecta e renderiza: Art., §, Incisos (I, II, III), Alíneas (a, b, c), Itens (1, 2, 3)
+function detectLineLevel(line: string): { level: number; isBold: boolean } {
+    const trimmed = line.trim();
+    // Artigo: "Art. 1º", "Art. 2", "Artigo 1"
+    if (/^Art(igo)?\.?\s/i.test(trimmed)) return { level: 0, isBold: true };
+    // Parágrafo: "§ 1º", "§ único", "Parágrafo"
+    if (/^(§|Parágrafo)/i.test(trimmed)) return { level: 1, isBold: false };
+    // Inciso romano: "I.", "II.", "III -", "IV)", "i.", "ii.", "xi.", "xii." etc.
+    if (/^(X{0,3})(IX|IV|V?I{0,3})\s*[.)\-–—]/i.test(trimmed) && /^[IVXivx]/i.test(trimmed)) return { level: 2, isBold: false };
+    // Alínea: "a)", "b)", "c)" etc.
+    if (/^[a-z]\)\s/i.test(trimmed)) return { level: 3, isBold: false };
+    // Item numérico: "1.", "2.", "3." (com texto depois)
+    if (/^\d{1,3}\.\s/.test(trimmed)) return { level: 4, isBold: false };
+    // Bullet: "•", "▸", "-" no início
+    if (/^[•▸\-]\s/.test(trimmed)) return { level: 3, isBold: false };
+    // Texto normal
+    return { level: -1, isBold: false };
+}
+
+function renderStructuredText(text: string | undefined | null, baseStyle: React.CSSProperties): React.ReactNode {
+    if (!text) return null;
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length === 0) return null;
+
+    // Check if text has ANY structured markers
+    const hasStructure = lines.some(l => {
+        const { level } = detectLineLevel(l);
+        return level >= 0;
+    });
+
+    // No structure detected — render as pre-line paragraph preserving newlines
+    if (!hasStructure) {
+        return <p style={{ ...baseStyle, whiteSpace: 'pre-line' }}>{text}</p>;
+    }
+
+    const indentMap: Record<number, number> = { 0: 0, 1: 16, 2: 24, 3: 36, 4: 48 };
+
+    return (
+        <div>
+            {lines.map((line, i) => {
+                const trimmed = line.trim();
+                const { level, isBold } = detectLineLevel(trimmed);
+                const indent = level >= 0 ? indentMap[level] || 0 : 12;
+
+                return (
+                    <div key={i} style={{
+                        ...baseStyle,
+                        paddingLeft: `${indent}px`,
+                        fontWeight: isBold ? 700 : undefined,
+                        margin: level === 0 ? '10px 0 4px' : '2px 0',
+                    }}>
+                        {trimmed}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 export function ContractPDFTemplate({ contract, company }: ContractPDFTemplateProps) {
     const co = company || {};
     const empresa = {
@@ -151,7 +211,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 <p style={s.para}>
                     O presente instrumento tem por objeto a {(typeLabels[contract.type] || 'prestação de serviços').toLowerCase()} conforme descrito abaixo:
                 </p>
-                <p style={s.para}>{contract.scope || contract.description || 'Conforme especificações técnicas acordadas entre as partes.'}</p>
+                {renderStructuredText(contract.scope || contract.description || 'Conforme especificações técnicas acordadas entre as partes.', s.para)}
                 {contract.work && (
                     <p style={{ ...s.para, fontWeight: 600 }}>
                         Obra/Projeto vinculado: {contract.work.code} — {contract.work.title}
@@ -187,9 +247,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
 
                 {/* CL 5 — PAGAMENTO */}
                 <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS CONDIÇÕES DE PAGAMENTO</div>
-                <p style={s.para}>
-                    {contract.paymentTerms || 'O pagamento será efetuado conforme condições acordadas entre as partes, mediante emissão de nota fiscal pela CONTRATADA.'}
-                </p>
+                {renderStructuredText(contract.paymentTerms || 'O pagamento será efetuado conforme condições acordadas entre as partes, mediante emissão de nota fiscal pela CONTRATADA.', s.para)}
                 {contract.paymentBank && (
                     <>
                         <p style={s.clauseHeading}>Dados Bancários:</p>
@@ -199,29 +257,31 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
 
                 {/* CL 6 — OBRIGAÇÕES CONTRATADA */}
                 <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS OBRIGAÇÕES DA CONTRATADA</div>
-                {contractorObs.map((ob: string, i: number) => (
-                    <div key={i} style={s.listItem}><span style={s.bullet}>▸</span>{ob}</div>
-                ))}
+                {contract.contractorObligations
+                    ? renderStructuredText(contract.contractorObligations, s.para)
+                    : contractorObs.map((ob: string, i: number) => (
+                        <div key={i} style={s.listItem}><span style={s.bullet}>▸</span>{ob}</div>
+                    ))
+                }
 
                 {/* CL 7 — OBRIGAÇÕES CONTRATANTE */}
                 <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS OBRIGAÇÕES DO CONTRATANTE</div>
-                {clientObs.map((ob: string, i: number) => (
-                    <div key={i} style={s.listItem}><span style={s.bullet}>▸</span>{ob}</div>
-                ))}
+                {contract.clientObligations
+                    ? renderStructuredText(contract.clientObligations, s.para)
+                    : clientObs.map((ob: string, i: number) => (
+                        <div key={i} style={s.listItem}><span style={s.bullet}>▸</span>{ob}</div>
+                    ))
+                }
 
                 {/* CL 8 — PENALIDADES */}
                 <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS PENALIDADES</div>
-                <p style={s.para}>
-                    {contract.penalties || 'O descumprimento de quaisquer cláusulas deste contrato sujeitará a parte infratora ao pagamento de multa de 10% (dez por cento) sobre o valor total do contrato, além de perdas e danos eventualmente comprovados, sem prejuízo das demais cominações legais.'}
-                </p>
+                {renderStructuredText(contract.penalties || 'O descumprimento de quaisquer cláusulas deste contrato sujeitará a parte infratora ao pagamento de multa de 10% (dez por cento) sobre o valor total do contrato, além de perdas e danos eventualmente comprovados, sem prejuízo das demais cominações legais.', s.para)}
 
                 {/* CL 9 — GARANTIA (optional) */}
                 {(contract.warranty || contract.type === 'service') && (
                     <>
                         <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DA GARANTIA</div>
-                        <p style={s.para}>
-                            {contract.warranty || 'A CONTRATADA garantirá os serviços executados pelo prazo de 12 (doze) meses, contados da data de conclusão e aceite pelo CONTRATANTE, obrigando-se a corrigir, sem ônus, quaisquer vícios ou defeitos decorrentes da execução.'}
-                        </p>
+                        {renderStructuredText(contract.warranty || 'A CONTRATADA garantirá os serviços executados pelo prazo de 12 (doze) meses, contados da data de conclusão e aceite pelo CONTRATANTE, obrigando-se a corrigir, sem ônus, quaisquer vícios ou defeitos decorrentes da execução.', s.para)}
                     </>
                 )}
 
@@ -229,7 +289,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 {contract.confidentiality && (
                     <>
                         <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DA CONFIDENCIALIDADE</div>
-                        <p style={s.para}>{contract.confidentiality}</p>
+                        {renderStructuredText(contract.confidentiality, s.para)}
                     </>
                 )}
 
@@ -237,9 +297,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 {(contract.termination || true) && (
                     <>
                         <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DA RESCISÃO</div>
-                        <p style={s.para}>
-                            {contract.termination || 'O presente contrato poderá ser rescindido por qualquer das partes, mediante notificação prévia por escrito, com antecedência mínima de 30 (trinta) dias, sendo devidos os pagamentos proporcionais aos serviços já executados e materiais já fornecidos.'}
-                        </p>
+                        {renderStructuredText(contract.termination || 'O presente contrato poderá ser rescindido por qualquer das partes, mediante notificação prévia por escrito, com antecedência mínima de 30 (trinta) dias, sendo devidos os pagamentos proporcionais aos serviços já executados e materiais já fornecidos.', s.para)}
                     </>
                 )}
 
@@ -247,24 +305,25 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 {contract.forceMajeure && (
                     <>
                         <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DA FORÇA MAIOR</div>
-                        <p style={s.para}>{contract.forceMajeure}</p>
+                        {renderStructuredText(contract.forceMajeure, s.para)}
                     </>
                 )}
 
                 {/* CL — DISPOSIÇÕES GERAIS */}
                 <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS DISPOSIÇÕES GERAIS</div>
-                {generalProv.map((p: string, i: number) => (
-                    <div key={i} style={s.listItem}>
-                        <span style={s.bullet}>{String.fromCharCode(97 + i)})</span>
-                        <span style={{ paddingLeft: '6px' }}>{p}</span>
-                    </div>
-                ))}
+                {contract.generalProvisions
+                    ? renderStructuredText(contract.generalProvisions, s.para)
+                    : generalProv.map((p: string, i: number) => (
+                        <div key={i} style={s.listItem}>
+                            <span style={s.bullet}>{String.fromCharCode(97 + i)})</span>
+                            <span style={{ paddingLeft: '6px' }}>{p}</span>
+                        </div>
+                    ))
+                }
 
                 {/* CL — FORO */}
                 <div style={s.sectionTitle}>CLÁUSULA {clause}ª — DO FORO</div>
-                <p style={s.para}>
-                    {contract.jurisdiction || 'Fica eleito o foro da Comarca de Recife/PE para dirimir quaisquer questões oriundas do presente contrato, com renúncia expressa a qualquer outro, por mais privilegiado que seja.'}
-                </p>
+                {renderStructuredText(contract.jurisdiction || 'Fica eleito o foro da Comarca de Recife/PE para dirimir quaisquer questões oriundas do presente contrato, com renúncia expressa a qualquer outro, por mais privilegiado que seja.', s.para)}
                 <p style={{ ...s.para, marginTop: '14px', fontWeight: 600 }}>
                     E por estarem assim justas e contratadas, as partes assinam o presente instrumento em 2 (duas) vias de igual teor e forma, na presença das testemunhas abaixo.
                 </p>
