@@ -125,6 +125,10 @@ export default function NewProposalDialog({
         workDescription: '',
         workAddress: '',
         workDeadlineDays: '',
+        workDeadlineType: 'calendar_days',
+        objectiveType: '',
+        objectiveText: '',
+        thirdPartyDeadlines: '[]',
         paymentBank: '',
         activityType: '',
         contractorObligations: '',
@@ -299,6 +303,10 @@ export default function NewProposalDialog({
                     workDescription: initialData.workDescription || '',
                     workAddress: initialData.workAddress || '',
                     workDeadlineDays: String(initialData.workDeadlineDays || ''),
+                    workDeadlineType: initialData.workDeadlineType || 'calendar_days',
+                    objectiveType: initialData.objectiveType || '',
+                    objectiveText: initialData.objectiveText || '',
+                    thirdPartyDeadlines: initialData.thirdPartyDeadlines || '[]',
                     paymentBank: initialData.paymentBank || '',
                     activityType: initialData.activityType || '',
                     contractorObligations: initialData.contractorObligations || '',
@@ -518,6 +526,10 @@ export default function NewProposalDialog({
             workDescription: '',
             workAddress: '',
             workDeadlineDays: '',
+            workDeadlineType: 'calendar_days',
+            objectiveType: '',
+            objectiveText: '',
+            thirdPartyDeadlines: '[]',
             paymentBank: '',
             activityType: '',
             contractorObligations: '',
@@ -620,6 +632,10 @@ export default function NewProposalDialog({
                     workDescription: formData.workDescription || null,
                     workAddress: formData.workAddress || null,
                     workDeadlineDays: formData.workDeadlineDays ? Number(formData.workDeadlineDays) : null,
+                    workDeadlineType: formData.workDeadlineType || 'calendar_days',
+                    objectiveType: formData.objectiveType || null,
+                    objectiveText: formData.objectiveText || null,
+                    thirdPartyDeadlines: formData.thirdPartyDeadlines && formData.thirdPartyDeadlines !== '[]' ? formData.thirdPartyDeadlines : null,
                     paymentBank: formData.paymentBank || null,
                     activityType: formData.activityType || null,
                     contractorObligations: formData.contractorObligations || null,
@@ -1634,6 +1650,35 @@ export default function NewProposalDialog({
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
+                                    <Label>Objetivo da Proposta</Label>
+                                    <Select
+                                        value={formData.objectiveType}
+                                        onValueChange={(v) => setFormData({ ...formData, objectiveType: v })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecione o objetivo" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="service_only">Apenas Serviço</SelectItem>
+                                            <SelectItem value="supply_only">Apenas Fornecimento</SelectItem>
+                                            <SelectItem value="supply_and_service">Fornecimento e Serviço</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <Label>Texto do Objetivo (opcional — editável ou gerado por IA)</Label>
+                                    <Textarea
+                                        rows={3}
+                                        placeholder="Descreva o objetivo detalhado da proposta ou deixe em branco para usar texto padrão..."
+                                        value={formData.objectiveText}
+                                        onChange={(e) => setFormData({ ...formData, objectiveText: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Prazos */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                <div className="space-y-2">
                                     <Label>Prazo (dias)</Label>
                                     <Input
                                         type="text" inputMode="decimal"
@@ -1642,6 +1687,126 @@ export default function NewProposalDialog({
                                         onChange={(e) => setFormData({ ...formData, workDeadlineDays: e.target.value })}
                                     />
                                 </div>
+                                <div className="space-y-2">
+                                    <Label>Tipo de Prazo</Label>
+                                    <Select
+                                        value={formData.workDeadlineType}
+                                        onValueChange={(v) => setFormData({ ...formData, workDeadlineType: v })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Tipo de prazo" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="calendar_days">Dias Corridos</SelectItem>
+                                            <SelectItem value="business_days">Dias Úteis</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            {/* Prazos de Terceiros */}
+                            <div className="mt-3 p-3 bg-slate-50 rounded-lg border">
+                                <div className="flex items-center justify-between mb-2">
+                                    <Label className="text-xs text-slate-600 font-semibold uppercase">Prazos de Terceiros</Label>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs gap-1"
+                                        onClick={() => {
+                                            const current = (() => { try { return JSON.parse(formData.thirdPartyDeadlines); } catch { return []; } })();
+                                            current.push({ name: '', days: '', type: 'calendar_days', description: '' });
+                                            setFormData({ ...formData, thirdPartyDeadlines: JSON.stringify(current) });
+                                        }}
+                                    >
+                                        <Plus className="w-3 h-3" /> Adicionar
+                                    </Button>
+                                </div>
+                                {(() => {
+                                    let tpDeadlines: any[] = [];
+                                    try { tpDeadlines = JSON.parse(formData.thirdPartyDeadlines); } catch {}
+                                    if (tpDeadlines.length === 0) {
+                                        return <p className="text-xs text-slate-400 italic">Nenhum prazo de terceiro cadastrado.</p>;
+                                    }
+                                    return tpDeadlines.map((tp: any, idx: number) => (
+                                        <div key={idx} className="grid grid-cols-12 gap-2 mb-2 items-end">
+                                            <div className="col-span-3">
+                                                {idx === 0 && <Label className="text-[10px] text-slate-500">Responsável</Label>}
+                                                <Input
+                                                    placeholder="Nome"
+                                                    className="h-8 text-xs"
+                                                    value={tp.name}
+                                                    onChange={(e) => {
+                                                        const arr = [...tpDeadlines];
+                                                        arr[idx] = { ...arr[idx], name: e.target.value };
+                                                        setFormData({ ...formData, thirdPartyDeadlines: JSON.stringify(arr) });
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="col-span-2">
+                                                {idx === 0 && <Label className="text-[10px] text-slate-500">Dias</Label>}
+                                                <Input
+                                                    placeholder="Dias"
+                                                    className="h-8 text-xs"
+                                                    type="text" inputMode="decimal"
+                                                    value={tp.days}
+                                                    onChange={(e) => {
+                                                        const arr = [...tpDeadlines];
+                                                        arr[idx] = { ...arr[idx], days: e.target.value };
+                                                        setFormData({ ...formData, thirdPartyDeadlines: JSON.stringify(arr) });
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="col-span-3">
+                                                {idx === 0 && <Label className="text-[10px] text-slate-500">Tipo</Label>}
+                                                <Select
+                                                    value={tp.type || 'calendar_days'}
+                                                    onValueChange={(v) => {
+                                                        const arr = [...tpDeadlines];
+                                                        arr[idx] = { ...arr[idx], type: v };
+                                                        setFormData({ ...formData, thirdPartyDeadlines: JSON.stringify(arr) });
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="h-8 text-xs">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="calendar_days">Corridos</SelectItem>
+                                                        <SelectItem value="business_days">Úteis</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="col-span-3">
+                                                {idx === 0 && <Label className="text-[10px] text-slate-500">Descrição</Label>}
+                                                <Input
+                                                    placeholder="Descrição"
+                                                    className="h-8 text-xs"
+                                                    value={tp.description}
+                                                    onChange={(e) => {
+                                                        const arr = [...tpDeadlines];
+                                                        arr[idx] = { ...arr[idx], description: e.target.value };
+                                                        setFormData({ ...formData, thirdPartyDeadlines: JSON.stringify(arr) });
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="col-span-1">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0 text-red-400 hover:text-red-600"
+                                                    onClick={() => {
+                                                        const arr = [...tpDeadlines];
+                                                        arr.splice(idx, 1);
+                                                        setFormData({ ...formData, thirdPartyDeadlines: JSON.stringify(arr) });
+                                                    }}
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ));
+                                })()}
                             </div>
                         </div>
 

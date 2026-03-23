@@ -8,6 +8,54 @@ interface ProposalPDFTemplateProps {
 
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// ═══ PARSER DE TEXTO ESTRUTURADO JURÍDICO ═══
+function detectLineLevel(line: string): { level: number; isBold: boolean } {
+    const trimmed = line.trim();
+    if (/^Art(igo)?\.?\s/i.test(trimmed)) return { level: 0, isBold: true };
+    if (/^(§|Parágrafo)/i.test(trimmed)) return { level: 1, isBold: false };
+    if (/^(X{0,3})(IX|IV|V?I{0,3})\s*[.)\-–—]/i.test(trimmed) && /^[IVXivx]/i.test(trimmed)) return { level: 2, isBold: false };
+    if (/^[a-z]\)\s/i.test(trimmed)) return { level: 3, isBold: false };
+    if (/^\d{1,3}\.\s/.test(trimmed)) return { level: 4, isBold: false };
+    if (/^[•▸\-]\s/.test(trimmed)) return { level: 3, isBold: false };
+    return { level: -1, isBold: false };
+}
+
+function renderStructuredText(text: string | undefined | null, baseStyle: React.CSSProperties): React.ReactNode {
+    if (!text) return null;
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length === 0) return null;
+    const hasStructure = lines.some(l => detectLineLevel(l).level >= 0);
+    if (!hasStructure) {
+        return <p style={{ ...baseStyle, whiteSpace: 'pre-line' }}>{text}</p>;
+    }
+    const indentMap: Record<number, number> = { 0: 0, 1: 16, 2: 24, 3: 36, 4: 48 };
+    return (
+        <div>
+            {lines.map((line, i) => {
+                const trimmed = line.trim();
+                const { level, isBold } = detectLineLevel(trimmed);
+                const indent = level >= 0 ? indentMap[level] || 0 : 12;
+                return (
+                    <div key={i} style={{
+                        ...baseStyle,
+                        paddingLeft: `${indent}px`,
+                        fontWeight: isBold ? 700 : undefined,
+                        margin: level === 0 ? '10px 0 4px' : '2px 0',
+                    }}>
+                        {trimmed}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+const objectiveLabels: Record<string, string> = {
+    service_only: 'a prestação de serviços',
+    supply_only: 'o fornecimento de materiais',
+    supply_and_service: 'o fornecimento de materiais e a prestação de serviços',
+};
+
 export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplateProps) {
     const items = proposal.items || [];
     const materialItems = items.filter((i: any) => i.serviceType === 'material');
@@ -99,6 +147,20 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
         : defaultGeneralProvisions;
     const complianceText = proposal.complianceText || defaultCompliance;
 
+    // Objetivo da proposta
+    const objectiveIntro = proposal.objectiveType
+        ? `A presente proposta tem por objeto ${objectiveLabels[proposal.objectiveType] || 'a prestação de serviços e/ou fornecimento de materiais'} conforme especificações abaixo`
+        : `A presente proposta tem por objeto a prestação de serviços e/or fornecimento de materiais conforme especificações abaixo`;
+
+    // Deadline type
+    const deadlineTypeLabel = proposal.workDeadlineType === 'business_days' ? 'dias úteis' : 'dias corridos';
+
+    // Third party deadlines
+    let thirdPartyDeadlines: any[] = [];
+    if (proposal.thirdPartyDeadlines) {
+        try { thirdPartyDeadlines = JSON.parse(proposal.thirdPartyDeadlines); } catch {}
+    }
+
     // ═══ Inline Styles ═══
     const s = {
         page: { fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif", fontSize: '10pt', color: '#1a1a1a', lineHeight: '1.55', maxWidth: 800, margin: '0 auto', background: '#fff' } as React.CSSProperties,
@@ -175,10 +237,11 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                 {/* OBJETO */}
                 <div style={s.sectionTitle}>2. Objeto</div>
                 <p style={s.para}>
-                    A presente proposta tem por objeto a prestação de serviços e/ou fornecimento de materiais conforme especificações abaixo
+                    {objectiveIntro}
                     {proposal.workDescription ? `, referente à obra/projeto: ${proposal.workDescription}` : ''}
                     {proposal.workAddress ? `, localizada em ${proposal.workAddress}` : ''}.
                 </p>
+                {proposal.objectiveText && renderStructuredText(proposal.objectiveText, s.para)}
 
                 {/* ═══ MATERIAIS & SERVIÇOS (4 Modos de Exibição) ═══ */}
                 {(() => {
@@ -659,9 +722,34 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                             <div style={s.sectionTitle}>{n}. Prazo de Execução</div>
                             <p style={s.para}>
                                 {proposal.workDeadlineDays
-                                    ? `O prazo estimado para execução completa dos serviços é de ${proposal.workDeadlineDays} (${numberToWords(proposal.workDeadlineDays)}) dias corridos, contados a partir da data de aprovação desta proposta e efetiva liberação do local.`
+                                    ? `O prazo estimado para execução completa dos serviços é de ${proposal.workDeadlineDays} (${numberToWords(proposal.workDeadlineDays)}) ${deadlineTypeLabel}, contados a partir da data de aprovação desta proposta e efetiva liberação do local.`
                                     : (proposal.deadline || 'A definir em comum acordo entre as partes.')}
                             </p>
+                            {thirdPartyDeadlines.length > 0 && (
+                                <>
+                                    <p style={s.clauseHeading}>Prazos de Terceiros:</p>
+                                    <table style={s.table}>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ ...s.th, width: '30%' }}>Responsável</th>
+                                                <th style={{ ...s.thRight, width: '15%' }}>Prazo</th>
+                                                <th style={{ ...s.th, width: '15%' }}>Tipo</th>
+                                                <th style={{ ...s.th, width: '40%' }}>Descrição</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {thirdPartyDeadlines.map((tp: any, i: number) => (
+                                                <tr key={i}>
+                                                    <td style={s.td}>{tp.name}</td>
+                                                    <td style={s.tdRight}>{tp.days} dias</td>
+                                                    <td style={s.td}>{tp.type === 'business_days' ? 'Úteis' : 'Corridos'}</td>
+                                                    <td style={s.td}>{tp.description || '—'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </>
+                            )}
                         </>
                     );
                 })()}
@@ -807,12 +895,15 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                     return (
                         <>
                             <div style={s.sectionTitle}>{n}. Obrigações da CONTRATADA</div>
-                            {contractorObs.map((ob: string, i: number) => (
-                                <div key={i} style={s.listItem}>
-                                    <span style={s.bullet}>▸</span>
-                                    {ob}
-                                </div>
-                            ))}
+                            {proposal.contractorObligations
+                                ? renderStructuredText(proposal.contractorObligations, s.para)
+                                : contractorObs.map((ob: string, i: number) => (
+                                    <div key={i} style={s.listItem}>
+                                        <span style={s.bullet}>▸</span>
+                                        {ob}
+                                    </div>
+                                ))
+                            }
                         </>
                     );
                 })()}
@@ -823,12 +914,15 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                     return (
                         <>
                             <div style={s.sectionTitle}>{n}. Obrigações do CONTRATANTE</div>
-                            {clientObs.map((ob: string, i: number) => (
-                                <div key={i} style={s.listItem}>
-                                    <span style={s.bullet}>▸</span>
-                                    {ob}
-                                </div>
-                            ))}
+                            {proposal.clientObligations
+                                ? renderStructuredText(proposal.clientObligations, s.para)
+                                : clientObs.map((ob: string, i: number) => (
+                                    <div key={i} style={s.listItem}>
+                                        <span style={s.bullet}>▸</span>
+                                        {ob}
+                                    </div>
+                                ))
+                            }
                         </>
                     );
                 })()}
@@ -844,9 +938,7 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                     <span style={{ fontSize: '14px' }}>✓</span>
                                     DECLARAÇÃO DE CONFORMIDADE
                                 </div>
-                                <p style={{ ...s.para, color: '#166534', fontSize: '9.5px' }}>
-                                    {complianceText}
-                                </p>
+                                {renderStructuredText(complianceText, { ...s.para, color: '#166534', fontSize: '9.5px' })}
                             </div>
                         </>
                     );
@@ -858,12 +950,15 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                     return (
                         <>
                             <div style={s.sectionTitle}>{n}. Disposições Gerais</div>
-                            {generalProv.map((p: string, i: number) => (
-                                <div key={i} style={s.listItem}>
-                                    <span style={s.bullet}>{String.fromCharCode(97 + i)})</span>
-                                    <span style={{ paddingLeft: '6px' }}>{p}</span>
-                                </div>
-                            ))}
+                            {proposal.generalProvisions
+                                ? renderStructuredText(proposal.generalProvisions, s.para)
+                                : generalProv.map((p: string, i: number) => (
+                                    <div key={i} style={s.listItem}>
+                                        <span style={s.bullet}>{String.fromCharCode(97 + i)})</span>
+                                        <span style={{ paddingLeft: '6px' }}>{p}</span>
+                                    </div>
+                                ))
+                            }
                         </>
                     );
                 })()}

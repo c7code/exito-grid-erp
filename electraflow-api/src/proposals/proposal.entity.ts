@@ -112,6 +112,18 @@ export class Proposal {
   @Column({ type: 'int', nullable: true })
   workDeadlineDays: number;            // Prazo em dias
 
+  @Column({ nullable: true, default: 'calendar_days' })
+  workDeadlineType: string;            // 'business_days' | 'calendar_days'
+
+  @Column({ nullable: true })
+  objectiveType: string;               // 'service_only' | 'supply_only' | 'supply_and_service'
+
+  @Column({ type: 'text', nullable: true })
+  objectiveText: string;               // Texto descritivo do objetivo (manual ou IA)
+
+  @Column({ type: 'text', nullable: true })
+  thirdPartyDeadlines: string;         // JSON: [{ name, days, type, description }]
+
   @Column({ type: 'text', nullable: true })
   contractorObligations: string;       // Obrigações CONTRATADA
 
