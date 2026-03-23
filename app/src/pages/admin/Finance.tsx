@@ -273,19 +273,23 @@ export default function AdminFinance() {
   const handleDeletePO = async (id: string) => { if (!confirm('Excluir pedido de compra?')) return; try { await api.deletePurchaseOrder(id); toast.success('Pedido excluído'); loadPurchaseOrders(); } catch { toast.error('Erro'); } };
 
   // ── PDF Generation ──
+  const pdfOpts = (filename: string, elWidth = 794) => ({
+    margin: 0,
+    filename,
+    image: { type: 'jpeg' as const, quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: elWidth, windowWidth: elWidth },
+    jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] } as any,
+  });
+
   const handleDownloadReceiptPDF = (receipt: any) => {
     toast.info('Gerando PDF do recibo...');
     setReceiptToPrint(receipt);
     setTimeout(() => {
       const el = document.getElementById('receipt-pdf-content');
       if (!el) { toast.error('Erro ao gerar PDF'); setReceiptToPrint(null); return; }
-      html2pdf().from(el).set({
-        margin: 0,
-        filename: `recibo_${receipt.receiptNumber || 'novo'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
-        jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait' as const },
-      }).save().then(() => { setReceiptToPrint(null); toast.success('PDF do recibo gerado!'); }).catch(() => { toast.error('Erro ao gerar PDF'); setReceiptToPrint(null); });
+      html2pdf().from(el).set(pdfOpts(`recibo_${receipt.receiptNumber || 'novo'}.pdf`)).save()
+        .then(() => { setReceiptToPrint(null); toast.success('PDF do recibo gerado!'); })
+        .catch(() => { toast.error('Erro ao gerar PDF'); setReceiptToPrint(null); });
     }, 600);
   };
 
@@ -295,13 +299,9 @@ export default function AdminFinance() {
     setTimeout(() => {
       const el = document.getElementById('po-pdf-content');
       if (!el) { toast.error('Erro ao gerar PDF'); setPOToPrint(null); return; }
-      html2pdf().from(el).set({
-        margin: 0,
-        filename: `pedido_compra_${po.orderNumber || 'novo'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
-        jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait' as const },
-      }).save().then(() => { setPOToPrint(null); toast.success('PDF do pedido gerado!'); }).catch(() => { toast.error('Erro ao gerar PDF'); setPOToPrint(null); });
+      html2pdf().from(el).set(pdfOpts(`pedido_compra_${po.orderNumber || 'novo'}.pdf`)).save()
+        .then(() => { setPOToPrint(null); toast.success('PDF do pedido gerado!'); })
+        .catch(() => { toast.error('Erro ao gerar PDF'); setPOToPrint(null); });
     }, 600);
   };
 
