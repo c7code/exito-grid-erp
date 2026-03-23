@@ -16,20 +16,28 @@ function detectLineLevel(line: string): { level: number; isBold: boolean } {
     if (/^(X{0,3})(IX|IV|V?I{0,3})\s*[.)\-–—]/i.test(trimmed) && /^[IVXivx]/i.test(trimmed)) return { level: 2, isBold: false };
     if (/^[a-z]\)\s/i.test(trimmed)) return { level: 3, isBold: false };
     if (/^\d{1,3}\.\s/.test(trimmed)) return { level: 4, isBold: false };
-    if (/^[•▸\-]\s/.test(trimmed)) return { level: 3, isBold: false };
+    if (/^\d{1,3}-\s/.test(trimmed)) return { level: 4, isBold: false };
+    if (/^\d{1,3}\)\s/.test(trimmed)) return { level: 4, isBold: false };
+    if (/^[•▸\-—–]\s/.test(trimmed)) return { level: 3, isBold: false };
     return { level: -1, isBold: false };
 }
 
 function renderStructuredText(text: string | undefined | null, baseStyle: React.CSSProperties): React.ReactNode {
     if (!text) return null;
-    // Pre-process: split inline patterns like "i. text; ii. text" or "a) text; b) text" into separate lines
+    // Pre-process: split inline patterns separated by ; or : into separate lines
     let processed = text;
-    // Split on "; " followed by lowercase Roman numeral + dot (i., ii., iii., iv., v., vi., vii., viii., ix., x.)
-    processed = processed.replace(/;\s*(?=((?:x{0,3})(?:ix|iv|v?i{0,3}))\.\s)/gi, ';\n');
-    // Split on "; " followed by letter + ) (a), b), c))
-    processed = processed.replace(/;\s*(?=[a-z]\)\s)/gi, ';\n');
-    // Split on "; " followed by numbered item (1., 2., 3.)
-    processed = processed.replace(/;\s*(?=\d{1,3}\.\s)/g, ';\n');
+    // Roman numeral + dot: i. ii. iii. iv. v. vi. vii. viii. ix. x.
+    processed = processed.replace(/[;:]\s*(?=(?:x{0,3})(?:ix|iv|v?i{0,3})\.\s)/gi, ';\n');
+    // Letter + paren: a) b) c)
+    processed = processed.replace(/[;:]\s*(?=[a-z]\)\s)/gi, ';\n');
+    // Number + dot: 1. 2. 3.
+    processed = processed.replace(/[;:]\s*(?=\d{1,3}\.\s)/g, ';\n');
+    // Number + dash: 1- 2- 3-
+    processed = processed.replace(/[;:]\s*(?=\d{1,3}-\s)/g, ';\n');
+    // Number + paren: 1) 2) 3)
+    processed = processed.replace(/[;:]\s*(?=\d{1,3}\)\s)/g, ';\n');
+    // Bullet chars: • ▸ — –
+    processed = processed.replace(/[;:]\s*(?=[•▸—–]\s)/g, ';\n');
     const lines = processed.split('\n').filter(l => l.trim());
     if (lines.length === 0) return null;
     const hasStructure = lines.some(l => detectLineLevel(l).level >= 0);
