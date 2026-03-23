@@ -70,6 +70,7 @@ const navSections: NavSection[] = [
     section: 'ENERGIA SOLAR',
     items: [
       { path: '/admin/solar', label: 'Energia Solar', icon: Sun, module: 'solar', roles: ['admin', 'commercial', 'engineer', 'employee'] },
+      { path: '/admin/oem', label: 'O&M Solar', icon: Wrench, module: 'solar', roles: ['admin', 'commercial', 'engineer', 'employee'] },
     ],
   },
   {

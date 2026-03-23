@@ -32,6 +32,7 @@ import { CompaniesModule } from './companies/companies.module';
 import { StructureTemplatesModule } from './structure-templates/structure-templates.module';
 import { MarkupModule } from './markup/markup.module';
 import { AiModule } from './ai/ai.module';
+import { OemModule } from './oem/oem.module';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { AiModule } from './ai/ai.module';
     StructureTemplatesModule,
     MarkupModule,
     AiModule,
+    OemModule,
   ],
 })
 export class AppModule { }

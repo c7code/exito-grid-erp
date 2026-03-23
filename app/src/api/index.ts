@@ -2402,6 +2402,32 @@ class ApiService {
     const response = await this.client.get('/compliance/clinic-suppliers');
     return response.data;
   }
+
+  // ═══ O&M (Operação e Manutenção Solar) ═══════════════════════════
+  async getOemDashboard() { return (await this.client.get('/oem/dashboard')).data; }
+
+  // Usinas
+  async getOemUsinas(clienteId?: string) { return (await this.client.get('/oem/usinas', { params: { clienteId } })).data; }
+  async getOemUsina(id: string) { return (await this.client.get(`/oem/usinas/${id}`)).data; }
+  async createOemUsina(data: any) { return (await this.client.post('/oem/usinas', data)).data; }
+  async updateOemUsina(id: string, data: any) { return (await this.client.put(`/oem/usinas/${id}`, data)).data; }
+  async deleteOemUsina(id: string) { return (await this.client.delete(`/oem/usinas/${id}`)).data; }
+  async importOemUsinaFromSolar(projectId: string) { return (await this.client.post(`/oem/usinas/import-from-solar/${projectId}`)).data; }
+
+  // Planos
+  async getOemPlanos() { return (await this.client.get('/oem/planos')).data; }
+  async getOemPlano(id: string) { return (await this.client.get(`/oem/planos/${id}`)).data; }
+  async createOemPlano(data: any) { return (await this.client.post('/oem/planos', data)).data; }
+  async updateOemPlano(id: string, data: any) { return (await this.client.put(`/oem/planos/${id}`, data)).data; }
+  async deleteOemPlano(id: string) { return (await this.client.delete(`/oem/planos/${id}`)).data; }
+
+  // Contratos
+  async getOemContratos(status?: string) { return (await this.client.get('/oem/contratos', { params: { status } })).data; }
+  async getOemContrato(id: string) { return (await this.client.get(`/oem/contratos/${id}`)).data; }
+  async createOemContrato(data: any) { return (await this.client.post('/oem/contratos', data)).data; }
+  async updateOemContrato(id: string, data: any) { return (await this.client.put(`/oem/contratos/${id}`, data)).data; }
+  async deleteOemContrato(id: string) { return (await this.client.delete(`/oem/contratos/${id}`)).data; }
+  async calculateOemPrice(usinaId: string, planoId: string) { return (await this.client.post('/oem/contratos/calculate-price', { usinaId, planoId })).data; }
 }
 
 export const api = new ApiService();

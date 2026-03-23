@@ -47,6 +47,7 @@ import AdminActivityReport from './pages/admin/ActivityReport';
 import AdminCompanyDocuments from './pages/admin/CompanyDocuments';
 import AdminSafetyPrograms from './pages/admin/SafetyPrograms';
 import AdminExamReferrals from './pages/admin/ExamReferrals';
+import AdminOeM from './pages/admin/OeM';
 
 // Employee Pages (no longer used — employees redirect to admin layout)
 
@@ -132,6 +133,7 @@ function App() {
               <Route path="/admin/service-orders" element={<AdminServiceOrders />} />
               <Route path="/admin/contracts" element={<AdminContracts />} />
               <Route path="/admin/solar" element={<AdminSolarProjects />} />
+              <Route path="/admin/oem" element={<AdminOeM />} />
               <Route path="/admin/structures" element={<AdminStructureTemplates />} />
 
               <Route path="/admin/employees" element={<AdminEmployees />} />
