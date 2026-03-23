@@ -22,7 +22,15 @@ function detectLineLevel(line: string): { level: number; isBold: boolean } {
 
 function renderStructuredText(text: string | undefined | null, baseStyle: React.CSSProperties): React.ReactNode {
     if (!text) return null;
-    const lines = text.split('\n').filter(l => l.trim());
+    // Pre-process: split inline patterns like "i. text; ii. text" or "a) text; b) text" into separate lines
+    let processed = text;
+    // Split on "; " followed by lowercase Roman numeral + dot (i., ii., iii., iv., v., vi., vii., viii., ix., x.)
+    processed = processed.replace(/;\s*(?=((?:x{0,3})(?:ix|iv|v?i{0,3}))\.\s)/gi, ';\n');
+    // Split on "; " followed by letter + ) (a), b), c))
+    processed = processed.replace(/;\s*(?=[a-z]\)\s)/gi, ';\n');
+    // Split on "; " followed by numbered item (1., 2., 3.)
+    processed = processed.replace(/;\s*(?=\d{1,3}\.\s)/g, ';\n');
+    const lines = processed.split('\n').filter(l => l.trim());
     if (lines.length === 0) return null;
     const hasStructure = lines.some(l => detectLineLevel(l).level >= 0);
     if (!hasStructure) {
@@ -372,7 +380,7 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                 {materialItems.length > 0 && (
                                     <>
                                         <div style={s.sectionTitle}>{clauseNum++}. Fornecimento de Materiais</div>
-                                        {proposal.materialFornecimento && <p style={s.para}>{proposal.materialFornecimento}</p>}
+                                        {proposal.materialFornecimento && renderStructuredText(proposal.materialFornecimento, s.para)}
                                         <table style={s.table}>
                                             <thead>
                                                 <tr>
@@ -409,7 +417,7 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                 {serviceItems.length > 0 && (
                                     <>
                                         <div style={s.sectionTitle}>{clauseNum++}. Prestação de Serviços</div>
-                                        {proposal.serviceDescription && <p style={s.para}>{proposal.serviceDescription}</p>}
+                                        {proposal.serviceDescription && renderStructuredText(proposal.serviceDescription, s.para)}
                                         <table style={s.table}>
                                             <thead>
                                                 <tr>
@@ -513,14 +521,14 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                 {materialItems.length > 0 && (
                                     <>
                                         <div style={s.sectionTitle}>{clauseNum++}. Fornecimento de Materiais</div>
-                                        {proposal.materialFornecimento && <p style={s.para}>{proposal.materialFornecimento}</p>}
+                                        {proposal.materialFornecimento && renderStructuredText(proposal.materialFornecimento, s.para)}
                                         {renderDetailedTable(materialItems, 'material')}
                                     </>
                                 )}
                                 {serviceItems.length > 0 && (
                                     <>
                                         <div style={s.sectionTitle}>{clauseNum++}. Prestação de Serviços</div>
-                                        {proposal.serviceDescription && <p style={s.para}>{proposal.serviceDescription}</p>}
+                                        {proposal.serviceDescription && renderStructuredText(proposal.serviceDescription, s.para)}
                                         {renderDetailedTable(serviceItems, 'service')}
                                     </>
                                 )}
@@ -616,14 +624,14 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                 {consolidatedMaterials.length > 0 && (
                                     <>
                                         <div style={s.sectionTitle}>{clauseNum++}. Relação Consolidada de Materiais</div>
-                                        {proposal.materialFornecimento && <p style={s.para}>{proposal.materialFornecimento}</p>}
+                                        {proposal.materialFornecimento && renderStructuredText(proposal.materialFornecimento, s.para)}
                                         {renderConsolidatedTable(consolidatedMaterials, 'material', materialSubtotal)}
                                     </>
                                 )}
                                 {consolidatedServices.length > 0 && (
                                     <>
                                         <div style={s.sectionTitle}>{clauseNum++}. Relação Consolidada de Serviços</div>
-                                        {proposal.serviceDescription && <p style={s.para}>{proposal.serviceDescription}</p>}
+                                        {proposal.serviceDescription && renderStructuredText(proposal.serviceDescription, s.para)}
                                         {renderConsolidatedTable(consolidatedServices, 'service', serviceSubtotal)}
                                     </>
                                 )}
@@ -661,14 +669,14 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                             {autoMatText && (
                                 <div style={{ marginBottom: '16px' }}>
                                     <p style={s.clauseHeading}>Fornecimento de Materiais</p>
-                                    <p style={s.para}>{autoMatText}</p>
+                                    {renderStructuredText(autoMatText, s.para)}
                                 </div>
                             )}
 
                             {autoSvcText && (
                                 <div style={{ marginBottom: '16px' }}>
                                     <p style={s.clauseHeading}>Prestação de Serviços</p>
-                                    <p style={s.para}>{autoSvcText}</p>
+                                    {renderStructuredText(autoSvcText, s.para)}
                                 </div>
                             )}
 
