@@ -81,9 +81,23 @@ export class WorksService {
 
   private async generateCode(): Promise<string> {
     const year = new Date().getFullYear();
-    const count = await this.workRepository.count();
-    const nextNumber = String(count + 1).padStart(3, '0');
-    return `OB-${year}-${nextNumber}`;
+    const prefix = `OB-${year}-`;
+
+    // Find the highest existing code for this year (including soft-deleted)
+    const result = await this.workRepository
+      .createQueryBuilder('work')
+      .withDeleted()
+      .select('MAX(work.code)', 'maxCode')
+      .where('work.code LIKE :prefix', { prefix: `${prefix}%` })
+      .getRawOne();
+
+    let nextNumber = 1;
+    if (result?.maxCode) {
+      const lastNum = parseInt(result.maxCode.replace(prefix, ''), 10);
+      if (!isNaN(lastNum)) nextNumber = lastNum + 1;
+    }
+
+    return `${prefix}${String(nextNumber).padStart(3, '0')}`;
   }
 
   async create(workData: Partial<Work> & {
