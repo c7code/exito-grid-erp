@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/select';
 import {
     Loader2, Plus, X, FileText, CheckCircle, Trash2, Download,
-    Calculator, ClipboardList, Building2,
+    Calculator, ClipboardList, Building2, Percent, DollarSign, ArrowLeftRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -50,6 +50,8 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
     const [description, setDescription] = useState('');
     const [contractValue, setContractValue] = useState('');
     const [executedPercentage, setExecutedPercentage] = useState('');
+    const [manualValue, setManualValue] = useState('');
+    const [inputMode, setInputMode] = useState<'percentage' | 'value'>('percentage');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [notes, setNotes] = useState('');
@@ -59,14 +61,36 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
     const directBillingTotal = directBillingItems.reduce((s, i) => s + (i.total || 0), 0);
     const contractVal = parsePrice(contractValue);
     const baseValue = contractVal - directBillingTotal;
-    const execPercent = parsePrice(executedPercentage);
-    const measurementValue = baseValue * (execPercent / 100);
+
+    // Bi-directional: percentage ↔ value
+    const execPercent = inputMode === 'percentage'
+        ? parsePrice(executedPercentage)
+        : (baseValue > 0 ? (parsePrice(manualValue) / baseValue) * 100 : 0);
+    const measurementValue = inputMode === 'value'
+        ? parsePrice(manualValue)
+        : baseValue * (execPercent / 100);
 
     // Accumulated from previous approved measurements
     const accumulatedTotal = balance?.totalExecuted || 0;
     const accumulatedPercentage = balance?.totalExecutedPercentage || 0;
     const remainingBalance = baseValue - accumulatedTotal - measurementValue;
     const remainingPercentage = 100 - accumulatedPercentage - execPercent;
+
+    // Sync handlers: when user types %, auto-fill R$ and vice-versa
+    const handlePercentChange = (val: string) => {
+        setExecutedPercentage(val);
+        const pct = parsePrice(val);
+        if (baseValue > 0 && pct >= 0) {
+            setManualValue((baseValue * (pct / 100)).toFixed(2));
+        }
+    };
+    const handleValueChange = (val: string) => {
+        setManualValue(val);
+        const v = parsePrice(val);
+        if (baseValue > 0 && v >= 0) {
+            setExecutedPercentage(((v / baseValue) * 100).toFixed(2));
+        }
+    };
 
     useEffect(() => {
         if (isOpen && workId) {
@@ -95,6 +119,8 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
         setDescription('');
         setContractValue(work?.totalValue?.toString() || '');
         setExecutedPercentage('');
+        setManualValue('');
+        setInputMode('percentage');
         setStartDate('');
         setEndDate('');
         setNotes('');
@@ -726,12 +752,19 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
 
                         {/* Percentual e Cálculos */}
                         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 space-y-3">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Calculator className="w-4 h-4 text-orange-600" />
-                                <span className="text-sm font-semibold text-orange-700">Cálculo da Medição</span>
+                            <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                    <Calculator className="w-4 h-4 text-orange-600" />
+                                    <span className="text-sm font-semibold text-orange-700">Cálculo da Medição</span>
+                                </div>
+                                <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] gap-1 border-orange-300 text-orange-700 hover:bg-orange-100"
+                                    onClick={() => setInputMode(prev => prev === 'percentage' ? 'value' : 'percentage')}>
+                                    <ArrowLeftRight className="w-3 h-3" />
+                                    {inputMode === 'percentage' ? 'Digitar Valor R$' : 'Digitar Percentual %'}
+                                </Button>
                             </div>
 
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 <div className="bg-white rounded p-2 text-center">
                                     <p className="text-[10px] text-slate-500 uppercase">Saldo Base</p>
                                     <p className="text-sm font-bold text-slate-800">R$ {fmt(baseValue)}</p>
@@ -740,11 +773,32 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                                     <p className="text-[10px] text-slate-500 uppercase">Acumulado Anterior</p>
                                     <p className="text-sm font-bold text-blue-700">{accumulatedPercentage.toFixed(1)}% (R$ {fmt(accumulatedTotal)})</p>
                                 </div>
-                                <div className="bg-white rounded p-2">
-                                    <Label className="text-[10px] uppercase">% Executado (esta medição) *</Label>
+
+                                {/* INPUT: Percentual */}
+                                <div className={`bg-white rounded p-2 ${inputMode === 'percentage' ? 'ring-2 ring-orange-400' : 'opacity-70'}`}>
+                                    <Label className="text-[10px] uppercase flex items-center gap-1">
+                                        <Percent className="w-3 h-3" /> % Executado *
+                                    </Label>
                                     <Input type="number" step="0.01" min="0" max={100 - accumulatedPercentage}
                                         className="h-8 text-sm font-bold text-center mt-1"
-                                        value={executedPercentage} onChange={e => setExecutedPercentage(e.target.value)} />
+                                        value={executedPercentage}
+                                        onChange={e => handlePercentChange(e.target.value)}
+                                        readOnly={inputMode === 'value'}
+                                        tabIndex={inputMode === 'value' ? -1 : 0} />
+                                </div>
+
+                                {/* INPUT: Valor Manual */}
+                                <div className={`bg-white rounded p-2 ${inputMode === 'value' ? 'ring-2 ring-orange-400' : 'opacity-70'}`}>
+                                    <Label className="text-[10px] uppercase flex items-center gap-1">
+                                        <DollarSign className="w-3 h-3" /> Valor R$ *
+                                    </Label>
+                                    <Input type="number" step="0.01" min="0"
+                                        className="h-8 text-sm font-bold text-center mt-1"
+                                        value={manualValue}
+                                        onChange={e => handleValueChange(e.target.value)}
+                                        readOnly={inputMode === 'percentage'}
+                                        tabIndex={inputMode === 'percentage' ? -1 : 0}
+                                        placeholder="0.00" />
                                 </div>
                             </div>
 
@@ -752,6 +806,7 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                                 <div className="text-center">
                                     <p className="text-[10px] text-slate-500 uppercase">Valor da Medição</p>
                                     <p className="text-lg font-bold text-green-700">R$ {fmt(measurementValue)}</p>
+                                    <p className="text-[10px] text-slate-400">{execPercent.toFixed(2)}% do saldo base</p>
                                 </div>
                                 <div className="text-center">
                                     <p className="text-[10px] text-slate-500 uppercase">Saldo Restante</p>
