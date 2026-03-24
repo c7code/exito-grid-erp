@@ -983,6 +983,21 @@ class ApiService {
     return response.data;
   }
 
+  async updateMeasurement(id: string, data: any) {
+    const response = await this.client.put(`/measurements/${id}`, data);
+    return response.data;
+  }
+
+  async deleteMeasurement(id: string) {
+    const response = await this.client.delete(`/measurements/${id}`);
+    return response.data;
+  }
+
+  async getMeasurementBalance(workId: string) {
+    const response = await this.client.get(`/measurements/balance/${workId}`);
+    return response.data;
+  }
+
   // Supply — Suppliers
   async getSuppliers(filters?: { segment?: string; status?: string }) {
     const response = await this.client.get('/supply/suppliers', { params: filters });

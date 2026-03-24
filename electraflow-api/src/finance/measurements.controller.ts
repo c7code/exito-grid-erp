@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MeasurementsService } from './measurements.service';
@@ -17,6 +17,12 @@ export class MeasurementsController {
         return this.measurementsService.findAll(workId);
     }
 
+    @Get('balance/:workId')
+    @ApiOperation({ summary: 'Saldo acumulado da obra' })
+    async getBalance(@Param('workId') workId: string) {
+        return this.measurementsService.getBalance(workId);
+    }
+
     @Get(':id')
     @ApiOperation({ summary: 'Buscar medição por ID' })
     async findOne(@Param('id') id: string) {
@@ -27,6 +33,18 @@ export class MeasurementsController {
     @ApiOperation({ summary: 'Criar nova medição' })
     async create(@Body() data: { workId: string } & Partial<Measurement>) {
         return this.measurementsService.create(data.workId, data);
+    }
+
+    @Put(':id')
+    @ApiOperation({ summary: 'Atualizar medição (apenas rascunho)' })
+    async update(@Param('id') id: string, @Body() data: Partial<Measurement>) {
+        return this.measurementsService.update(id, data);
+    }
+
+    @Delete(':id')
+    @ApiOperation({ summary: 'Excluir medição (apenas rascunho)' })
+    async remove(@Param('id') id: string) {
+        return this.measurementsService.remove(id);
     }
 
     @Post(':id/calculate')

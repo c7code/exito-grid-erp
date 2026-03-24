@@ -1411,7 +1411,7 @@ export default function AdminWorkDetail() {
       </Dialog>
 
       <ClientDetailViewer open={isClientViewerOpen} onOpenChange={setIsClientViewerOpen} client={work.client} />
-      <MeasurementDialog isOpen={isMeasurementDialogOpen} onClose={() => setIsMeasurementDialogOpen(false)} workId={id!} onSuccess={fetchWork} />
+      <MeasurementDialog isOpen={isMeasurementDialogOpen} onClose={() => setIsMeasurementDialogOpen(false)} workId={id!} work={work} onSuccess={fetchWork} />
     </div>
   );
 }
