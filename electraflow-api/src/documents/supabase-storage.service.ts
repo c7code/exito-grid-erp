@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 @Injectable()
-export class SupabaseStorageService {
+export class SupabaseStorageService implements OnModuleInit {
   private supabase: SupabaseClient;
   private readonly logger = new Logger(SupabaseStorageService.name);
   private readonly BUCKET = 'documentos';
@@ -19,6 +19,31 @@ export class SupabaseStorageService {
     }
 
     this.supabase = createClient(url || '', key || '');
+  }
+
+  async onModuleInit() {
+    if (!this.isConfigured()) return;
+
+    try {
+      // Tenta buscar o bucket; se não existir, cria
+      const { data, error } = await this.supabase.storage.getBucket(this.BUCKET);
+      if (error || !data) {
+        this.logger.log(`📦 Bucket "${this.BUCKET}" não encontrado. Criando...`);
+        const { error: createError } = await this.supabase.storage.createBucket(this.BUCKET, {
+          public: true,
+          fileSizeLimit: 52428800, // 50 MB
+        });
+        if (createError) {
+          this.logger.error(`❌ Erro ao criar bucket: ${createError.message}`);
+        } else {
+          this.logger.log(`✅ Bucket "${this.BUCKET}" criado com sucesso!`);
+        }
+      } else {
+        this.logger.log(`✅ Bucket "${this.BUCKET}" já existe.`);
+      }
+    } catch (e) {
+      this.logger.error(`❌ Erro ao verificar bucket: ${e.message}`);
+    }
   }
 
   /**
