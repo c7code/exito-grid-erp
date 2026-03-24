@@ -118,6 +118,7 @@ export class FinanceService {
         `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS "executedPercentage" DECIMAL(5,2) DEFAULT 0`,
         `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS "accumulatedPercentage" DECIMAL(5,2) DEFAULT 0`,
         `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS "directBillingItems" TEXT`,
+        `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS stages TEXT`,
         `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS "proposalId" UUID`,
         `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS "contractId" UUID`,
         `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS description VARCHAR`,

@@ -63,6 +63,10 @@ export class Measurement {
     @Column({ type: 'text', nullable: true })
     directBillingItems: string;
 
+    /** Etapas da medição (descrição, %, R$) */
+    @Column({ type: 'text', nullable: true })
+    stages: string;
+
     // ═══ Totais ═══
 
     @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
