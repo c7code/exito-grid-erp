@@ -144,7 +144,7 @@ export class WorksService {
     // Remove undefined values to avoid setting NOT NULL columns to null
     const filteredData: Record<string, any> = {};
     for (const [key, value] of Object.entries(cleanData)) {
-      if (value !== undefined) filteredData[key] = value;
+      if (value !== undefined && !(typeof value === 'number' && isNaN(value))) filteredData[key] = value;
     }
 
     if (Object.keys(filteredData).length > 0) {
