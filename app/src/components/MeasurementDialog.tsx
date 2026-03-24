@@ -255,94 +255,229 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
         const net = Number(m.netAmount || 0);
         const retention = Number(m.retentionAmount || 0);
         const tax = Number(m.taxAmount || 0);
+        const remainPct = 100 - accPct;
+        const remainVal = base - (accPct / 100 * base);
 
         const workTitle = m.work?.title || work?.title || 'Obra';
         const clientName = m.work?.client?.name || work?.client?.name || '—';
+        const clientDoc = m.work?.client?.cpfCnpj || work?.client?.cpfCnpj || '';
+        const clientPhone = m.work?.client?.phone || work?.client?.phone || '';
+        const clientEmail = m.work?.client?.email || work?.client?.email || '';
+        const clientAddress = [
+          m.work?.client?.address || work?.client?.address || '',
+          m.work?.client?.city || work?.client?.city || '',
+          m.work?.client?.state || work?.client?.state || '',
+        ].filter(Boolean).join(', ') || '—';
         const workCode = m.work?.code || work?.code || '';
+        const workAddress = [work?.address, work?.city, work?.state].filter(Boolean).join(', ') || '—';
+        const workType = work?.type || '';
+        const measDate = new Date().toLocaleDateString('pt-BR');
+        const measNum = String(m.number).padStart(3, '0');
+        const periodStart = m.startDate ? new Date(m.startDate).toLocaleDateString('pt-BR') : '—';
+        const periodEnd = m.endDate ? new Date(m.endDate).toLocaleDateString('pt-BR') : '—';
 
         const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<title>Boletim de Medição #${m.number}</title>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Boletim de Medição Nº ${measNum}</title>
 <style>
+  @page { size: A4; margin: 20mm 15mm 25mm 15mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1a1a2e; padding: 30px; }
-  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #e67e22; padding-bottom: 15px; margin-bottom: 20px; }
-  .header h1 { font-size: 20px; color: #e67e22; }
-  .header .info { text-align: right; font-size: 10px; color: #666; }
-  .section { margin-bottom: 18px; }
-  .section-title { font-size: 13px; font-weight: 700; color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 4px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-  th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 10px; }
-  th { background: #2c3e50; color: #fff; font-weight: 600; }
-  tr:nth-child(even) { background: #f9f9f9; }
+  body { font-family: 'Times New Roman', 'Georgia', serif; font-size: 11pt; color: #111; line-height: 1.5; }
+  .page { max-width: 210mm; margin: 0 auto; padding: 15mm; }
+
+  /* Header */
+  .doc-header { border: 2px solid #1a1a2e; padding: 15px; margin-bottom: 20px; }
+  .doc-header-top { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 10px; }
+  .doc-header h1 { font-size: 16pt; font-weight: 700; color: #1a1a2e; letter-spacing: 1px; }
+  .doc-header .doc-number { font-size: 22pt; font-weight: 700; color: #b45309; }
+  .doc-header .doc-meta { display: flex; justify-content: space-between; font-size: 9pt; color: #555; }
+
+  /* Sections */
+  .section { margin-bottom: 16px; }
+  .section-title { font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1a1a2e; background: #f0f0f0; padding: 5px 10px; border-left: 4px solid #b45309; margin-bottom: 8px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 9pt; }
+  th { background: #1a1a2e; color: #fff; font-weight: 600; padding: 6px 8px; text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { border: 1px solid #ccc; padding: 5px 8px; }
+  .info-table td { border: none; padding: 3px 8px; }
+  .info-table td.label { font-weight: 600; color: #555; width: 25%; background: #fafafa; }
+  tr:nth-child(even) td { background: #fafafa; }
   .text-right { text-align: right; }
-  .summary-box { background: #f8f9fa; border: 2px solid #e67e22; border-radius: 8px; padding: 15px; margin: 20px 0; }
-  .summary-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 11px; }
-  .summary-row.total { font-weight: 700; font-size: 13px; border-top: 2px solid #e67e22; margin-top: 8px; padding-top: 8px; }
-  .signatures { display: flex; justify-content: space-between; margin-top: 60px; }
-  .sig-block { text-align: center; width: 40%; }
-  .sig-line { border-top: 1px solid #333; margin-top: 50px; padding-top: 5px; font-size: 10px; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 600; }
-  .badge-draft { background: #ffeaa7; color: #d35400; }
-  .badge-approved { background: #d5f4e6; color: #27ae60; }
-  @media print { body { padding: 15px; } }
+  .text-center { text-align: center; }
+
+  /* Financial summary */
+  .financial-table { border: 2px solid #1a1a2e; }
+  .financial-table td { font-size: 10pt; padding: 7px 12px; }
+  .financial-table tr.highlight { background: #f0f7ff !important; }
+  .financial-table tr.highlight td { font-weight: 700; font-size: 11pt; }
+  .financial-table tr.deduction td { color: #c0392b; }
+  .financial-table tr.total-row { background: #1a1a2e !important; }
+  .financial-table tr.total-row td { color: #fff; font-weight: 700; font-size: 12pt; }
+  .financial-table tr.net-row { background: #27ae60 !important; }
+  .financial-table tr.net-row td { color: #fff; font-weight: 700; font-size: 12pt; }
+
+  /* Progress bar */
+  .progress-container { margin: 15px 0; }
+  .progress-bar-bg { width: 100%; height: 16px; background: #e9ecef; border-radius: 8px; overflow: hidden; border: 1px solid #ccc; }
+  .progress-bar-fill { height: 100%; border-radius: 8px; transition: width 0.3s; display: flex; align-items: center; justify-content: center; font-size: 8pt; color: #fff; font-weight: 700; }
+  .progress-labels { display: flex; justify-content: space-between; margin-top: 4px; font-size: 8pt; color: #666; }
+
+  /* Signatures */
+  .signatures { display: flex; justify-content: space-between; margin-top: 50px; gap: 30px; }
+  .sig-block { flex: 1; text-align: center; }
+  .sig-line { border-top: 1px solid #333; margin-top: 60px; padding-top: 5px; font-size: 9pt; font-weight: 600; }
+  .sig-detail { font-size: 8pt; color: #666; margin-top: 2px; }
+
+  /* Footer */
+  .doc-footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 8pt; color: #888; text-align: center; }
+
+  .clause { font-size: 9pt; color: #555; font-style: italic; margin-top: 10px; padding: 8px 12px; background: #f9f9f9; border-left: 3px solid #ddd; }
+
+  @media print {
+    body { padding: 0; }
+    .page { padding: 0; max-width: 100%; }
+    .no-print { display: none; }
+  }
 </style>
 </head><body>
-<div class="header">
-  <div>
-    <h1>BOLETIM DE MEDIÇÃO Nº ${String(m.number).padStart(3, '0')}</h1>
-    <p style="font-size: 10px; color: #7f8c8d;">Documento de controle financeiro da obra</p>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="doc-header">
+    <div class="doc-header-top">
+      <div>
+        <h1>BOLETIM DE MEDIÇÃO</h1>
+        <p style="font-size: 9pt; color: #666; margin-top: 2px;">Documento de Controle e Acompanhamento Financeiro de Obra</p>
+      </div>
+      <div style="text-align: right;">
+        <div class="doc-number">Nº ${measNum}</div>
+      </div>
+    </div>
+    <div class="doc-meta">
+      <span><strong>Código da Obra:</strong> ${workCode}</span>
+      <span><strong>Data de Emissão:</strong> ${measDate}</span>
+      <span><strong>Período:</strong> ${periodStart} a ${periodEnd}</span>
+    </div>
   </div>
-  <div class="info">
-    <p><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
-    <p><strong>Código:</strong> ${workCode}</p>
-    <p><span class="badge ${m.status === 'approved' ? 'badge-approved' : 'badge-draft'}">${m.status === 'approved' ? 'APROVADO' : 'RASCUNHO'}</span></p>
+
+  <!-- DADOS DA OBRA -->
+  <div class="section">
+    <div class="section-title">1. Identificação da Obra</div>
+    <table class="info-table">
+      <tr><td class="label">Obra / Projeto:</td><td colspan="3"><strong>${workTitle}</strong></td></tr>
+      <tr><td class="label">Endereço:</td><td colspan="3">${workAddress}</td></tr>
+      ${workType ? `<tr><td class="label">Tipo de Obra:</td><td colspan="3">${workType}</td></tr>` : ''}
+      ${m.description ? `<tr><td class="label">Descrição:</td><td colspan="3">${m.description}</td></tr>` : ''}
+    </table>
   </div>
-</div>
 
-<div class="section">
-  <div class="section-title">Dados da Obra</div>
-  <table>
-    <tr><td style="width:20%;font-weight:600;">Obra:</td><td>${workTitle}</td><td style="width:20%;font-weight:600;">Cliente:</td><td>${clientName}</td></tr>
-    ${m.description ? `<tr><td style="font-weight:600;">Descrição:</td><td colspan="3">${m.description}</td></tr>` : ''}
-    ${m.startDate || m.endDate ? `<tr><td style="font-weight:600;">Período:</td><td colspan="3">${m.startDate ? new Date(m.startDate).toLocaleDateString('pt-BR') : '—'} a ${m.endDate ? new Date(m.endDate).toLocaleDateString('pt-BR') : '—'}</td></tr>` : ''}
-  </table>
-</div>
-
-${items.length > 0 ? `
-<div class="section">
-  <div class="section-title">Faturamento Direto (Materiais Debitados)</div>
-  <table>
-    <thead><tr><th>Fornecedor</th><th>CNPJ</th><th>Material</th><th class="text-right">Qtd</th><th class="text-right">Preço Unit.</th><th class="text-right">Total</th></tr></thead>
-    <tbody>
-      ${items.map((it: any) => `<tr><td>${it.supplier || it.fornecedor || ''}</td><td>${it.cnpj || ''}</td><td>${it.material || it.item || ''}</td><td class="text-right">${it.quantity || it.quantidade || 1}</td><td class="text-right">R$ ${fmt(Number(it.unitPrice || it.precoUnit || 0))}</td><td class="text-right">R$ ${fmt(Number(it.total || 0))}</td></tr>`).join('')}
-      <tr style="font-weight:700;background:#ecf0f1;"><td colspan="5">Total Faturamento Direto</td><td class="text-right">R$ ${fmt(directTotal)}</td></tr>
-    </tbody>
-  </table>
-</div>` : ''}
-
-<div class="section">
-  <div class="section-title">Resumo da Medição</div>
-  <div class="summary-box">
-    <div class="summary-row"><span>Valor do Contrato:</span><span>R$ ${fmt(contractVal)}</span></div>
-    ${directTotal > 0 ? `<div class="summary-row" style="color:#e74c3c;"><span>(-) Faturamento Direto:</span><span>- R$ ${fmt(directTotal)}</span></div>` : ''}
-    <div class="summary-row" style="font-weight:600;"><span>Saldo Base:</span><span>R$ ${fmt(base)}</span></div>
-    <div class="summary-row"><span>% Executado (esta medição):</span><span>${execPct.toFixed(2)}%</span></div>
-    <div class="summary-row"><span>% Acumulado:</span><span>${accPct.toFixed(2)}%</span></div>
-    <div class="summary-row total"><span>Valor da Medição:</span><span>R$ ${fmt(totalAmt)}</span></div>
-    ${retention > 0 ? `<div class="summary-row" style="color:#e74c3c;"><span>(-) Retenção:</span><span>- R$ ${fmt(retention)}</span></div>` : ''}
-    ${tax > 0 ? `<div class="summary-row" style="color:#e74c3c;"><span>(-) Impostos:</span><span>- R$ ${fmt(tax)}</span></div>` : ''}
-    <div class="summary-row total" style="color:#27ae60;"><span>Valor Líquido:</span><span>R$ ${fmt(net)}</span></div>
-    <div class="summary-row" style="margin-top:8px;"><span>Saldo Restante:</span><span>R$ ${fmt(base - (accPct / 100 * base))}</span></div>
-    <div class="summary-row"><span>% Restante:</span><span>${(100 - accPct).toFixed(2)}%</span></div>
+  <!-- DADOS DO CONTRATANTE -->
+  <div class="section">
+    <div class="section-title">2. Identificação do Contratante</div>
+    <table class="info-table">
+      <tr><td class="label">Contratante:</td><td><strong>${clientName}</strong></td><td class="label">CPF/CNPJ:</td><td>${clientDoc || '—'}</td></tr>
+      <tr><td class="label">Endereço:</td><td>${clientAddress}</td><td class="label">Contato:</td><td>${clientPhone || clientEmail || '—'}</td></tr>
+    </table>
   </div>
-</div>
 
-${m.notes ? `<div class="section"><div class="section-title">Observações</div><p style="font-size:10px;line-height:1.5;">${m.notes}</p></div>` : ''}
+  ${items.length > 0 ? `
+  <!-- FATURAMENTO DIRETO -->
+  <div class="section">
+    <div class="section-title">3. Materiais de Faturamento Direto</div>
+    <p style="font-size: 9pt; color: #555; margin-bottom: 6px;">Materiais adquiridos diretamente pelo contratante, debitados do valor do contrato:</p>
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Fornecedor</th><th>CNPJ</th><th>Material / Descrição</th><th class="text-right">Qtd</th><th class="text-right">Preço Unit. (R$)</th><th class="text-right">Total (R$)</th></tr>
+      </thead>
+      <tbody>
+        ${items.map((it: any, i: number) => `<tr><td class="text-center">${i + 1}</td><td>${it.supplier || it.fornecedor || ''}</td><td>${it.cnpj || ''}</td><td>${it.material || it.item || ''}</td><td class="text-right">${it.quantity || it.quantidade || 1}</td><td class="text-right">${fmt(Number(it.unitPrice || it.precoUnit || 0))}</td><td class="text-right">${fmt(Number(it.total || 0))}</td></tr>`).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="font-weight:700; background:#f5f5f5;"><td colspan="6" class="text-right"><strong>Total Faturamento Direto:</strong></td><td class="text-right"><strong>R$ ${fmt(directTotal)}</strong></td></tr>
+      </tfoot>
+    </table>
+  </div>` : ''}
 
-<div class="signatures">
-  <div class="sig-block"><div class="sig-line">Contratante</div></div>
-  <div class="sig-block"><div class="sig-line">Contratada</div></div>
+  <!-- DEMONSTRATIVO FINANCEIRO -->
+  <div class="section">
+    <div class="section-title">${items.length > 0 ? '4' : '3'}. Demonstrativo Financeiro da Medição</div>
+    <table class="financial-table">
+      <tr class="highlight"><td style="width:65%;">Valor Total do Contrato</td><td class="text-right">R$ ${fmt(contractVal)}</td></tr>
+      ${directTotal > 0 ? `<tr class="deduction"><td>(-) Faturamento Direto (Materiais)</td><td class="text-right">- R$ ${fmt(directTotal)}</td></tr>` : ''}
+      <tr style="font-weight:600; background: #e8f4fd;"><td><strong>Saldo Base para Medição</strong></td><td class="text-right"><strong>R$ ${fmt(base)}</strong></td></tr>
+      <tr><td colspan="2" style="height: 5px; border: none; background: none;"></td></tr>
+      <tr><td>Percentual Executado — Esta Medição</td><td class="text-right"><strong>${execPct.toFixed(2)}%</strong></td></tr>
+      <tr><td>Percentual Acumulado — Medições Anteriores</td><td class="text-right">${(accPct - execPct >= 0 ? (accPct - execPct) : 0).toFixed(2)}%</td></tr>
+      <tr style="font-weight:600;"><td>Percentual Acumulado Total</td><td class="text-right">${accPct.toFixed(2)}%</td></tr>
+      <tr><td colspan="2" style="height: 5px; border: none; background: none;"></td></tr>
+      <tr class="total-row"><td>VALOR DESTA MEDIÇÃO</td><td class="text-right">R$ ${fmt(totalAmt)}</td></tr>
+      ${retention > 0 ? `<tr class="deduction"><td>(-) Retenção Contratual</td><td class="text-right">- R$ ${fmt(retention)}</td></tr>` : ''}
+      ${tax > 0 ? `<tr class="deduction"><td>(-) Impostos Retidos</td><td class="text-right">- R$ ${fmt(tax)}</td></tr>` : ''}
+      <tr class="net-row"><td>VALOR LÍQUIDO A RECEBER</td><td class="text-right">R$ ${fmt(net)}</td></tr>
+    </table>
+  </div>
+
+  <!-- PROGRESSO -->
+  <div class="section">
+    <div class="section-title">${items.length > 0 ? '5' : '4'}. Progresso Acumulado da Obra</div>
+    <div class="progress-container">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" style="width: ${Math.min(accPct, 100)}%; background: linear-gradient(90deg, #27ae60, #2ecc71);">${accPct.toFixed(1)}%</div>
+      </div>
+      <div class="progress-labels">
+        <span>0%</span>
+        <span>Executado: ${accPct.toFixed(1)}% (R$ ${fmt(base * accPct / 100)})</span>
+        <span>Saldo: ${remainPct.toFixed(1)}% (R$ ${fmt(Math.max(0, remainVal))})</span>
+        <span>100%</span>
+      </div>
+    </div>
+    <table style="margin-top: 10px;">
+      <thead><tr><th>Descrição</th><th class="text-right">Percentual</th><th class="text-right">Valor (R$)</th></tr></thead>
+      <tbody>
+        <tr><td>Executado até esta medição</td><td class="text-right">${accPct.toFixed(2)}%</td><td class="text-right">R$ ${fmt(base * accPct / 100)}</td></tr>
+        <tr><td>Saldo a executar</td><td class="text-right">${remainPct.toFixed(2)}%</td><td class="text-right">R$ ${fmt(Math.max(0, remainVal))}</td></tr>
+        <tr style="font-weight:700; background:#f0f0f0;"><td><strong>Total</strong></td><td class="text-right"><strong>100,00%</strong></td><td class="text-right"><strong>R$ ${fmt(base)}</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  ${m.notes ? `
+  <div class="section">
+    <div class="section-title">${items.length > 0 ? '6' : '5'}. Observações</div>
+    <p style="font-size: 9.5pt; line-height: 1.6; padding: 5px 0;">${m.notes}</p>
+  </div>` : ''}
+
+  <!-- CLÁUSULA -->
+  <div class="clause">
+    Declaramos que os serviços descritos neste boletim de medição foram executados conforme as especificações técnicas
+    do contrato e que os valores apresentados correspondem ao trabalho efetivamente realizado no período indicado.
+    Este documento é parte integrante do contrato firmado entre as partes.
+  </div>
+
+  <!-- ASSINATURAS -->
+  <div class="signatures">
+    <div class="sig-block">
+      <div class="sig-line">CONTRATANTE</div>
+      <div class="sig-detail">${clientName}</div>
+      <div class="sig-detail">${clientDoc || ''}</div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-line">CONTRATADA</div>
+      <div class="sig-detail">Exito System</div>
+      <div class="sig-detail"></div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-line">TESTEMUNHA</div>
+      <div class="sig-detail">Nome / CPF</div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="doc-footer">
+    Documento gerado eletronicamente em ${measDate} pelo sistema Electraflow — Exito System<br/>
+    Este documento não possui validade sem as devidas assinaturas das partes envolvidas.
+  </div>
 </div>
 </body></html>`;
 
