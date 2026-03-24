@@ -135,9 +135,14 @@ export class WorksService {
   }
 
   async update(id: string, workData: Partial<Work>): Promise<Work> {
-    const work = await this.findOne(id);
-    Object.assign(work, workData);
-    return this.workRepository.save(work);
+    // Ensure work exists
+    await this.findOne(id);
+
+    // Remove relation objects and id from update data to avoid TypeORM conflicts
+    const { client, opportunity, process, documents, updates, tasks, createdByUser, id: _id, ...cleanData } = workData as any;
+
+    await this.workRepository.update(id, cleanData);
+    return this.findOne(id);
   }
 
   async updateProgress(id: string, progress: number): Promise<Work> {
