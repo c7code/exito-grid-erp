@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Plus, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
+import { parsePrice } from '@/lib/parsePrice';
 
 const defaultTypeLabels: Record<string, string> = {
     muc: 'MUC',
@@ -115,7 +116,7 @@ export default function EditWorkDialog({ open, onOpenChange, work, onWorkUpdated
                 address: formData.address || undefined,
                 city: formData.city || undefined,
                 state: formData.state || undefined,
-                totalValue: formData.totalValue ? Number(formData.totalValue) : undefined,
+                totalValue: formData.totalValue ? parsePrice(formData.totalValue) : undefined,
                 description: formData.description || undefined,
             });
             toast.success('Obra atualizada com sucesso!');
