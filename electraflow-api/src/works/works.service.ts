@@ -141,7 +141,15 @@ export class WorksService {
     // Remove relation objects and id from update data to avoid TypeORM conflicts
     const { client, opportunity, process, documents, updates, tasks, createdByUser, id: _id, ...cleanData } = workData as any;
 
-    await this.workRepository.update(id, cleanData);
+    // Remove undefined values to avoid setting NOT NULL columns to null
+    const filteredData: Record<string, any> = {};
+    for (const [key, value] of Object.entries(cleanData)) {
+      if (value !== undefined) filteredData[key] = value;
+    }
+
+    if (Object.keys(filteredData).length > 0) {
+      await this.workRepository.update(id, filteredData);
+    }
     return this.findOne(id);
   }
 
