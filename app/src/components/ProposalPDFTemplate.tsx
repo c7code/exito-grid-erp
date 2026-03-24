@@ -177,6 +177,13 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
         try { thirdPartyDeadlines = JSON.parse(proposal.thirdPartyDeadlines); } catch {}
     }
 
+    // Direct billing items
+    let directBillingItems: any[] = [];
+    if (proposal.materialFaturamento) {
+        try { directBillingItems = JSON.parse(proposal.materialFaturamento); } catch {}
+    }
+    const hasFatItems = Array.isArray(directBillingItems) && directBillingItems.length > 0;
+
     // ═══ Inline Styles ═══
     const s = {
         page: { fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif", fontSize: '10pt', color: '#1a1a1a', lineHeight: '1.55', maxWidth: 800, margin: '0 auto', background: '#fff' } as React.CSSProperties,
@@ -730,9 +737,68 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                     );
                 })()}
 
+                {/* FATURAMENTO DIRETO */}
+                {(() => {
+                    let fatItems: any[] = [];
+                    if (proposal.materialFaturamento) {
+                        try { fatItems = JSON.parse(proposal.materialFaturamento); } catch {}
+                    }
+                    if (!Array.isArray(fatItems) || fatItems.length === 0) return null;
+                    const fatClauseNum = (materialItems.length > 0 ? 1 : 0) + (serviceItems.length > 0 ? 1 : 0) + 4;
+                    const fatTotal = fatItems.reduce((s: number, fi: any) => {
+                        const q = Number(fi.quantity || 0);
+                        const p = Number(fi.unitPrice || 0);
+                        return s + q * p;
+                    }, 0);
+                    return (
+                        <>
+                            <div style={s.sectionTitle}>{fatClauseNum}. Materiais para Faturamento Direto</div>
+                            <p style={s.para}>
+                                Os materiais abaixo serão adquiridos por faturamento direto, sendo o fornecedor responsável
+                                pela emissão da nota fiscal diretamente ao contratante, conforme dados a seguir:
+                            </p>
+                            <table style={s.table}>
+                                <thead>
+                                    <tr>
+                                        <th style={{ ...s.th, width: '5%' }}>Item</th>
+                                        <th style={{ ...s.th, width: '20%' }}>Fornecedor</th>
+                                        <th style={{ ...s.th, width: '15%' }}>CNPJ</th>
+                                        <th style={{ ...s.th, width: '25%' }}>Material</th>
+                                        <th style={{ ...s.thRight, width: '8%' }}>Qtd</th>
+                                        <th style={{ ...s.thRight, width: '12%' }}>Vlr. Unit.</th>
+                                        <th style={{ ...s.thRight, width: '15%' }}>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {fatItems.map((fi: any, idx: number) => {
+                                        const q = Number(fi.quantity || 0);
+                                        const p = Number(fi.unitPrice || 0);
+                                        const t = q * p;
+                                        return (
+                                            <tr key={idx}>
+                                                <td style={s.td}>{String(idx + 1).padStart(2, '0')}</td>
+                                                <td style={s.td}>{fi.supplierName || '—'}</td>
+                                                <td style={s.td}>{fi.supplierCnpj || '—'}</td>
+                                                <td style={s.td}>{fi.material || '—'}</td>
+                                                <td style={s.tdRight}>{q}</td>
+                                                <td style={s.tdRight}>R$ {fmt(p)}</td>
+                                                <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmt(t)}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                    <tr>
+                                        <td colSpan={6} style={{ ...s.td, textAlign: 'right', fontWeight: 700, background: '#f0f9ff' }}>Total Faturamento Direto</td>
+                                        <td style={{ ...s.tdRight, fontWeight: 700, background: '#f0f9ff', color: '#1d4ed8' }}>R$ {fmt(fatTotal)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </>
+                    );
+                })()}
+
                 {/* PRAZO */}
                 {(() => {
-                    const n = (materialItems.length > 0 ? 1 : 0) + (serviceItems.length > 0 ? 1 : 0) + 4;
+                    const n = (materialItems.length > 0 ? 1 : 0) + (serviceItems.length > 0 ? 1 : 0) + 4 + (hasFatItems ? 1 : 0);
                     return (
                         <>
                             <div style={s.sectionTitle}>{n}. Prazo de Execução</div>
@@ -772,7 +838,7 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
 
                 {/* PAGAMENTO */}
                 {(() => {
-                    const n = (materialItems.length > 0 ? 1 : 0) + (serviceItems.length > 0 ? 1 : 0) + 5;
+                    const n = (materialItems.length > 0 ? 1 : 0) + (serviceItems.length > 0 ? 1 : 0) + 5 + (hasFatItems ? 1 : 0);
                     
                     // Parse simulation data if available
                     let simData: any = null;

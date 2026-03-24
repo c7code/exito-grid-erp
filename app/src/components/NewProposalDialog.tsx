@@ -137,6 +137,7 @@ export default function NewProposalDialog({
         generalProvisions: '',
         serviceDescription: '',
         materialFornecimento: '',
+        materialFaturamento: '[]',
         paymentDueCondition: '',
         // Custos adicionais
         logisticsCostValue: '',
@@ -316,6 +317,7 @@ export default function NewProposalDialog({
                     generalProvisions: initialData.generalProvisions || '',
                     serviceDescription: initialData.serviceDescription || '',
                     materialFornecimento: initialData.materialFornecimento || '',
+                    materialFaturamento: initialData.materialFaturamento || '[]',
                     paymentDueCondition: initialData.paymentDueCondition || '',
                     logisticsCostValue: String(initialData.logisticsCostValue || ''),
                     logisticsCostMode: initialData.logisticsCostMode || 'visible',
@@ -540,6 +542,7 @@ export default function NewProposalDialog({
             generalProvisions: '',
             serviceDescription: '',
             materialFornecimento: '',
+            materialFaturamento: '[]',
             paymentDueCondition: '',
             logisticsCostValue: '',
             logisticsCostMode: 'visible',
@@ -647,6 +650,7 @@ export default function NewProposalDialog({
                     generalProvisions: formData.generalProvisions || null,
                     serviceDescription: formData.serviceDescription || null,
                     materialFornecimento: formData.materialFornecimento || null,
+                    materialFaturamento: formData.materialFaturamento && formData.materialFaturamento !== '[]' ? formData.materialFaturamento : null,
                     paymentDueCondition: formData.paymentDueCondition || null,
                     logisticsCostValue: formData.logisticsCostValue ? Number(formData.logisticsCostValue) : null,
                     logisticsCostMode: formData.logisticsCostMode || 'visible',
@@ -1839,6 +1843,161 @@ export default function NewProposalDialog({
                                         onChange={(e) => setFormData({ ...formData, materialFornecimento: e.target.value })}
                                     />
                                 </div>
+
+                                {/* ── Faturamento Direto ── */}
+                                <div className="space-y-3 md:col-span-2 p-4 bg-blue-50/60 rounded-lg border border-blue-200">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <Label className="text-sm font-semibold text-blue-700">Materiais para Faturamento Direto</Label>
+                                            <p className="text-[10px] text-blue-500 mt-0.5">Materiais que o fornecedor fatura diretamente ao contratante</p>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-xs gap-1 border-blue-300 text-blue-600 hover:bg-blue-100"
+                                            onClick={() => {
+                                                const current = (() => { try { return JSON.parse(formData.materialFaturamento); } catch { return []; } })();
+                                                current.push({ supplierName: '', supplierCnpj: '', material: '', quantity: '1', unitPrice: '', total: '' });
+                                                setFormData({ ...formData, materialFaturamento: JSON.stringify(current) });
+                                            }}
+                                        >
+                                            <Plus className="w-3 h-3" /> Adicionar Item
+                                        </Button>
+                                    </div>
+                                    {(() => {
+                                        let fatItems: any[] = [];
+                                        try { fatItems = JSON.parse(formData.materialFaturamento); } catch {}
+                                        if (fatItems.length === 0) {
+                                            return <p className="text-xs text-blue-400 italic">Nenhum item de faturamento direto cadastrado.</p>;
+                                        }
+                                        const fatTotal = fatItems.reduce((s: number, fi: any) => {
+                                            const q = parseFloat(fi.quantity) || 0;
+                                            const p = parseFloat(String(fi.unitPrice).replace(/\./g, '').replace(',', '.')) || 0;
+                                            return s + q * p;
+                                        }, 0);
+                                        return (
+                                            <>
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-xs">
+                                                        <thead>
+                                                            <tr className="border-b border-blue-200">
+                                                                <th className="text-left py-1.5 px-1 text-blue-600 font-semibold">Fornecedor</th>
+                                                                <th className="text-left py-1.5 px-1 text-blue-600 font-semibold">CNPJ</th>
+                                                                <th className="text-left py-1.5 px-1 text-blue-600 font-semibold">Material</th>
+                                                                <th className="text-right py-1.5 px-1 text-blue-600 font-semibold">Qtd</th>
+                                                                <th className="text-right py-1.5 px-1 text-blue-600 font-semibold">Preço Unit.</th>
+                                                                <th className="text-right py-1.5 px-1 text-blue-600 font-semibold">Total</th>
+                                                                <th className="w-8"></th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {fatItems.map((fi: any, idx: number) => {
+                                                                const q = parseFloat(fi.quantity) || 0;
+                                                                const p = parseFloat(String(fi.unitPrice).replace(/\./g, '').replace(',', '.')) || 0;
+                                                                const lineTotal = q * p;
+                                                                return (
+                                                                    <tr key={idx} className="border-b border-blue-100">
+                                                                        <td className="py-1 px-1">
+                                                                            <Input
+                                                                                placeholder="Nome do fornecedor"
+                                                                                className="h-7 text-xs"
+                                                                                value={fi.supplierName}
+                                                                                onChange={(e) => {
+                                                                                    const arr = [...fatItems];
+                                                                                    arr[idx] = { ...arr[idx], supplierName: e.target.value };
+                                                                                    setFormData({ ...formData, materialFaturamento: JSON.stringify(arr) });
+                                                                                }}
+                                                                            />
+                                                                        </td>
+                                                                        <td className="py-1 px-1">
+                                                                            <Input
+                                                                                placeholder="00.000.000/0001-00"
+                                                                                className="h-7 text-xs w-[150px]"
+                                                                                value={fi.supplierCnpj}
+                                                                                onChange={(e) => {
+                                                                                    const arr = [...fatItems];
+                                                                                    arr[idx] = { ...arr[idx], supplierCnpj: e.target.value };
+                                                                                    setFormData({ ...formData, materialFaturamento: JSON.stringify(arr) });
+                                                                                }}
+                                                                            />
+                                                                        </td>
+                                                                        <td className="py-1 px-1">
+                                                                            <Input
+                                                                                placeholder="Descrição do material"
+                                                                                className="h-7 text-xs"
+                                                                                value={fi.material}
+                                                                                onChange={(e) => {
+                                                                                    const arr = [...fatItems];
+                                                                                    arr[idx] = { ...arr[idx], material: e.target.value };
+                                                                                    setFormData({ ...formData, materialFaturamento: JSON.stringify(arr) });
+                                                                                }}
+                                                                            />
+                                                                        </td>
+                                                                        <td className="py-1 px-1">
+                                                                            <Input
+                                                                                type="text" inputMode="decimal"
+                                                                                placeholder="1"
+                                                                                className="h-7 text-xs w-[60px] text-right"
+                                                                                value={fi.quantity}
+                                                                                onChange={(e) => {
+                                                                                    const arr = [...fatItems];
+                                                                                    arr[idx] = { ...arr[idx], quantity: e.target.value };
+                                                                                    setFormData({ ...formData, materialFaturamento: JSON.stringify(arr) });
+                                                                                }}
+                                                                            />
+                                                                        </td>
+                                                                        <td className="py-1 px-1">
+                                                                            <Input
+                                                                                type="text" inputMode="decimal"
+                                                                                placeholder="0,00"
+                                                                                className="h-7 text-xs w-[100px] text-right"
+                                                                                value={fi.unitPrice}
+                                                                                onChange={(e) => {
+                                                                                    const arr = [...fatItems];
+                                                                                    arr[idx] = { ...arr[idx], unitPrice: e.target.value };
+                                                                                    setFormData({ ...formData, materialFaturamento: JSON.stringify(arr) });
+                                                                                }}
+                                                                            />
+                                                                        </td>
+                                                                        <td className="py-1 px-1 text-right font-medium text-blue-700 whitespace-nowrap">
+                                                                            R$ {lineTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                        </td>
+                                                                        <td className="py-1 px-1">
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="h-7 w-7 p-0 text-red-400 hover:text-red-600"
+                                                                                onClick={() => {
+                                                                                    const arr = [...fatItems];
+                                                                                    arr.splice(idx, 1);
+                                                                                    setFormData({ ...formData, materialFaturamento: JSON.stringify(arr) });
+                                                                                }}
+                                                                            >
+                                                                                <Trash2 className="w-3 h-3" />
+                                                                            </Button>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                        <tfoot>
+                                                            <tr className="border-t-2 border-blue-300">
+                                                                <td colSpan={5} className="py-2 px-1 text-right font-bold text-blue-800 text-xs">Total Faturamento Direto</td>
+                                                                <td className="py-2 px-1 text-right font-bold text-blue-800 text-sm whitespace-nowrap">
+                                                                    R$ {fatTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                </td>
+                                                                <td></td>
+                                                            </tr>
+                                                        </tfoot>
+                                                    </table>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+
                                 <div className="space-y-2">
                                     <Label>Cláusula de Execução do Serviço</Label>
                                     <Textarea
