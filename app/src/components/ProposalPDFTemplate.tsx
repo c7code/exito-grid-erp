@@ -104,9 +104,19 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
     const isInsuranceEvidenciado = proposal.insuranceCostMode === 'evidenciado' && insuranceCost > 0;
     const hasEvidenciadoCosts = isLogisticsEvidenciado || isAdminEvidenciado || isBrokerageEvidenciado || isInsuranceEvidenciado;
 
+    // Direct billing items
+    let directBillingItems: any[] = [];
+    if (proposal.materialFaturamento) {
+        try { directBillingItems = JSON.parse(proposal.materialFaturamento); } catch {}
+    }
+    const hasFatItems = Array.isArray(directBillingItems) && directBillingItems.length > 0;
+    const directBillingTotal = hasFatItems ? directBillingItems.reduce((s: number, fi: any) => {
+        return s + Number(fi.quantity || 0) * Number(fi.unitPrice || 0);
+    }, 0) : 0;
+
     const visibleCosts = (showLogistics ? logisticsCost : 0) + (showAdmin ? adminCost : 0) + (showBrokerage ? brokerageCost : 0) + (showInsurance ? insuranceCost : 0);
     const discount = Number(proposal.discount || 0);
-    const grandTotal = materialSubtotal + serviceSubtotal + visibleCosts - discount;
+    const grandTotal = materialSubtotal + serviceSubtotal + visibleCosts + directBillingTotal - discount;
 
     const co = company || {};
     const empresa = {
@@ -176,13 +186,6 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
     if (proposal.thirdPartyDeadlines) {
         try { thirdPartyDeadlines = JSON.parse(proposal.thirdPartyDeadlines); } catch {}
     }
-
-    // Direct billing items
-    let directBillingItems: any[] = [];
-    if (proposal.materialFaturamento) {
-        try { directBillingItems = JSON.parse(proposal.materialFaturamento); } catch {}
-    }
-    const hasFatItems = Array.isArray(directBillingItems) && directBillingItems.length > 0;
 
     // ═══ Inline Styles ═══
     const s = {
@@ -298,6 +301,12 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                     <span>Serviços</span>
                                     <span style={{ fontWeight: 600 }}>R$ {fmt(serviceSubtotal)}</span>
                                 </div>
+                                {hasFatItems && (
+                                    <div style={s.summaryRow}>
+                                        <span>Faturamento Direto</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmt(directBillingTotal)}</span>
+                                    </div>
+                                )}
                                 {showLogistics && (
                                     <div style={s.summaryRow}>
                                         <span>Custo Logístico{proposal.logisticsCostPercent && Number(proposal.logisticsCostPercent) > 0 && <span style={s.costBadge}>{proposal.logisticsCostPercent}%</span>}</span>
@@ -696,6 +705,12 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                             )}
 
                             <div style={{ background: '#fafafa', borderRadius: '6px', padding: '16px 20px', border: '1px solid #e5e7eb', marginTop: '14px' }}>
+                                {hasFatItems && (
+                                    <div style={s.summaryRow}>
+                                        <span>Faturamento Direto</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmt(directBillingTotal)}</span>
+                                    </div>
+                                )}
                                 {showLogistics && (
                                     <div style={s.summaryRow}>
                                         <span>Custo Logístico{proposal.logisticsCostPercent && Number(proposal.logisticsCostPercent) > 0 && <span style={s.costBadge}>{proposal.logisticsCostPercent}%</span>}</span>

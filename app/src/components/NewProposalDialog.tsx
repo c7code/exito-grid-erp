@@ -499,7 +499,21 @@ export default function NewProposalDialog({
 
     const subtotal = items.filter(i => !i.parentId).reduce((sum, item) => sum + getItemTotal(item), 0);
     const discount = parsePrice(formData.discount);
-    const total = subtotal - discount;
+
+    // Faturamento direto total
+    const fatDiretoTotal = (() => {
+        try {
+            const fatItems = JSON.parse(formData.materialFaturamento);
+            if (!Array.isArray(fatItems)) return 0;
+            return fatItems.reduce((s: number, fi: any) => {
+                const q = parseFloat(fi.quantity) || 0;
+                const p = parseFloat(String(fi.unitPrice).replace(/\./g, '').replace(',', '.')) || 0;
+                return s + q * p;
+            }, 0);
+        } catch { return 0; }
+    })();
+
+    const total = subtotal + fatDiretoTotal - discount;
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
