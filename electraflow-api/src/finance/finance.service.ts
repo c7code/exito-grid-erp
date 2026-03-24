@@ -72,6 +72,57 @@ export class FinanceService {
       // Add new columns if table already exists
       await this.dataSource.query(`ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS "contractNumber" TEXT`).catch(() => {});
       await this.dataSource.query(`ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS "workName" TEXT`).catch(() => {});
+
+      // ═══ Measurements tables ═══
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS measurements (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "workId" UUID NOT NULL,
+          number INTEGER NOT NULL DEFAULT 1,
+          status VARCHAR DEFAULT 'draft',
+          description VARCHAR,
+          "startDate" TIMESTAMP, "endDate" TIMESTAMP,
+          "contractValue" DECIMAL(15,2) DEFAULT 0,
+          "directBillingTotal" DECIMAL(15,2) DEFAULT 0,
+          "baseValue" DECIMAL(15,2) DEFAULT 0,
+          "executedPercentage" DECIMAL(5,2) DEFAULT 0,
+          "accumulatedPercentage" DECIMAL(5,2) DEFAULT 0,
+          "directBillingItems" TEXT,
+          "totalAmount" DECIMAL(15,2) DEFAULT 0,
+          "retentionAmount" DECIMAL(15,2) DEFAULT 0,
+          "taxAmount" DECIMAL(15,2) DEFAULT 0,
+          "netAmount" DECIMAL(15,2) DEFAULT 0,
+          notes TEXT,
+          "proposalId" UUID, "contractId" UUID,
+          "createdAt" TIMESTAMP DEFAULT NOW(), "updatedAt" TIMESTAMP DEFAULT NOW(), "deletedAt" TIMESTAMP
+        )
+      `).catch(() => {});
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS measurement_items (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "measurementId" UUID REFERENCES measurements(id) ON DELETE CASCADE,
+          "taskId" UUID,
+          "previousProgress" DECIMAL(5,2) DEFAULT 0,
+          "currentProgress" DECIMAL(5,2) DEFAULT 0,
+          "weightPercentage" DECIMAL(5,2) DEFAULT 0,
+          "calculatedValue" DECIMAL(15,2) DEFAULT 0,
+          "createdAt" TIMESTAMP DEFAULT NOW(), "deletedAt" TIMESTAMP
+        )
+      `).catch(() => {});
+
+      // ═══ Measurement columns migration ═══
+      const measCols = [
+        `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS "contractValue" DECIMAL(15,2) DEFAULT 0`,
+        `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS "directBillingTotal" DECIMAL(15,2) DEFAULT 0`,
+        `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS "baseValue" DECIMAL(15,2) DEFAULT 0`,
+        `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS "executedPercentage" DECIMAL(5,2) DEFAULT 0`,
+        `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS "accumulatedPercentage" DECIMAL(5,2) DEFAULT 0`,
+        `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS "directBillingItems" TEXT`,
+        `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS "proposalId" UUID`,
+        `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS "contractId" UUID`,
+        `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS description VARCHAR`,
+      ];
+      for (const sql of measCols) { await this.dataSource.query(sql).catch(() => {}); }
     } catch (e) { console.warn('Finance tables migration:', e?.message); }
   }
 

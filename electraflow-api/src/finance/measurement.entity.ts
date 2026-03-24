@@ -25,7 +25,7 @@ export class Measurement {
     @Column()
     number: number;
 
-    @Column({ type: 'enum', enum: MeasurementStatus, default: MeasurementStatus.DRAFT })
+    @Column({ type: 'varchar', default: MeasurementStatus.DRAFT })
     status: MeasurementStatus;
 
     @Column({ nullable: true })
