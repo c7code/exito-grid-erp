@@ -99,10 +99,10 @@ export class Work {
   @Column({ nullable: true })
   assignedDesignerId: string;
 
-  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0, nullable: true })
   totalValue: number;
 
-  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0, nullable: true })
   cost: number;
 
   @Column({
