@@ -7,17 +7,26 @@ import {
     JoinColumn,
     Index,
 } from 'typeorm';
+import { SinapiReference } from './sinapi-reference.entity';
 import { SinapiInput } from './sinapi-input.entity';
 
 // ============================================================
-// SINAPI PRICE — Preço por UF e data de referência
+// SINAPI INPUT PRICE — Preço do insumo por referência mensal
 // ============================================================
 
-@Entity('sinapi_prices')
-@Index(['inputId', 'state', 'referenceDate'])
-export class SinapiPrice {
+@Entity('sinapi_input_prices')
+@Index(['referenceId', 'inputId'], { unique: true })
+@Index(['inputId'])
+export class SinapiInputPrice {
     @PrimaryGeneratedColumn('uuid')
     id: string;
+
+    @Column()
+    referenceId: string;
+
+    @ManyToOne(() => SinapiReference, (r) => r.inputPrices, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'referenceId' })
+    reference: SinapiReference;
 
     @Column()
     inputId: string;
@@ -26,20 +35,14 @@ export class SinapiPrice {
     @JoinColumn({ name: 'inputId' })
     input: SinapiInput;
 
-    @Column({ type: 'char', length: 2 })
-    state: string;                     // UF: "SP", "MG", "BA"
-
-    @Column({ type: 'date' })
-    referenceDate: Date;               // Data de referência: 2025-03-01
-
-    @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+    @Column({ type: 'decimal', precision: 15, scale: 4, nullable: true })
     priceNotTaxed: number;             // Preço não desonerado
 
-    @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+    @Column({ type: 'decimal', precision: 15, scale: 4, nullable: true })
     priceTaxed: number;                // Preço desonerado
 
     @Column({ default: 'sinapi' })
-    source: string;
+    origin: string;
 
     @CreateDateColumn()
     createdAt: Date;

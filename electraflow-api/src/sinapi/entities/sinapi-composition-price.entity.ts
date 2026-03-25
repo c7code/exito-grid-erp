@@ -7,36 +7,51 @@ import {
     JoinColumn,
     Index,
 } from 'typeorm';
+import { SinapiReference } from './sinapi-reference.entity';
 import { SinapiComposition } from './sinapi-composition.entity';
 
 // ============================================================
-// SINAPI COMPOSITION PRICE — Preço calculado da composição
+// SINAPI COMPOSITION COST — Custo final da composição
 // ============================================================
 
-@Entity('sinapi_composition_prices')
-@Index(['compositionId', 'state'])
-export class SinapiCompositionPrice {
+@Entity('sinapi_composition_costs')
+@Index(['referenceId', 'compositionId'], { unique: true })
+@Index(['compositionId'])
+export class SinapiCompositionCost {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
     @Column()
+    referenceId: string;
+
+    @ManyToOne(() => SinapiReference, (r) => r.compositionCosts, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'referenceId' })
+    reference: SinapiReference;
+
+    @Column()
     compositionId: string;
 
-    @ManyToOne(() => SinapiComposition, (c) => c.prices, { onDelete: 'CASCADE' })
+    @ManyToOne(() => SinapiComposition, (c) => c.costs, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'compositionId' })
     composition: SinapiComposition;
 
-    @Column({ type: 'char', length: 2 })
-    state: string;                     // UF
+    @Column({ type: 'decimal', precision: 15, scale: 4, nullable: true })
+    totalNotTaxed: number;             // Custo total não desonerado
 
-    @Column({ type: 'date' })
-    referenceDate: Date;
+    @Column({ type: 'decimal', precision: 15, scale: 4, nullable: true })
+    totalTaxed: number;                // Custo total desonerado
 
-    @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
-    totalNotTaxed: number;             // Preço total não desonerado
+    @Column({ type: 'decimal', precision: 15, scale: 4, nullable: true })
+    materialCost: number;              // Custo materiais
 
-    @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
-    totalTaxed: number;                // Preço total desonerado
+    @Column({ type: 'decimal', precision: 15, scale: 4, nullable: true })
+    laborCost: number;                 // Custo mão de obra
+
+    @Column({ type: 'decimal', precision: 15, scale: 4, nullable: true })
+    equipmentCost: number;             // Custo equipamento
+
+    @Column({ default: 'imported' })
+    calculationMethod: string;         // 'imported' | 'calculated'
 
     @CreateDateColumn()
     createdAt: Date;

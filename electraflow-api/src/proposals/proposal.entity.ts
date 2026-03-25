@@ -379,6 +379,40 @@ export class ProposalItem {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  // ═══════════════════════════════════════════════════════════════
+  // SINAPI Integration — Vínculo com composição SINAPI
+  // ═══════════════════════════════════════════════════════════════
+
+  @Column({ default: false })
+  isSinapiLinked: boolean;              // Item vinculado a composição SINAPI
+
+  @Column({ nullable: true })
+  sinapiCompositionCode: string;        // Código da composição (ex: "87529")
+
+  @Column({ nullable: true })
+  sinapiCompositionId: string;          // UUID da composição
+
+  @Column({ nullable: true })
+  sinapiReferenceId: string;            // Referência mensal usada (UUID)
+
+  @Column({ type: 'decimal', precision: 15, scale: 4, nullable: true })
+  sinapiUnitCost: number;               // Custo unitário SINAPI (congelado)
+
+  @Column({ type: 'decimal', precision: 6, scale: 2, nullable: true })
+  sinapiBdiPercent: number;             // BDI total aplicado (%)
+
+  @Column({ nullable: true })
+  sinapiPricingProfileId: string;       // Perfil de precificação usado (UUID)
+
+  @Column({ type: 'decimal', precision: 15, scale: 4, nullable: true })
+  sinapiSellingPrice: number;           // Preço de venda calculado (antes de override)
+
+  @Column({ type: 'text', nullable: true })
+  sinapiPricingSnapshot: string;        // JSON completo do CommercialPricingResult (congelado)
+
+  @Column({ nullable: true })
+  sinapiFrozenAt: Date;                 // Data de congelamento dos valores
+
   @CreateDateColumn()
   createdAt: Date;
 

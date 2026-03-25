@@ -33,6 +33,9 @@ export class SinapiInput {
     @Column({ default: 'material' })
     type: string;                      // 'material' | 'mao_de_obra' | 'equipamento'
 
+    @Column({ nullable: true })
+    groupClass: string;                // Classe/família do insumo
+
     @Column({ default: 'sinapi' })
     origin: string;                    // 'sinapi' | 'sicro' | 'manual'
 
@@ -46,7 +49,7 @@ export class SinapiInput {
     @Column({ default: true })
     isActive: boolean;
 
-    @OneToMany('SinapiPrice', 'input')
+    @OneToMany('SinapiInputPrice', 'input')
     prices: any[];
 
     @CreateDateColumn()

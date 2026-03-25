@@ -40,8 +40,14 @@ export class SinapiCompositionItem {
     @JoinColumn({ name: 'childCompositionId' })
     childComposition: SinapiComposition;
 
+    @Column({ default: 'insumo' })
+    itemType: string;                  // 'insumo' | 'composicao_auxiliar'
+
     @Column({ type: 'decimal', precision: 15, scale: 6 })
     coefficient: number;               // Coeficiente/quantidade
+
+    @Column({ type: 'int', default: 0 })
+    sortOrder: number;                 // Ordem de exibição
 
     @CreateDateColumn()
     createdAt: Date;

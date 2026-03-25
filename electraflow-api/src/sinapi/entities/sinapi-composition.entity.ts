@@ -34,7 +34,7 @@ export class SinapiComposition {
     className: string;                 // Nome da classe
 
     @Column({ default: 'composition' })
-    type: string;                      // 'composition' | 'composition_family'
+    type: string;                      // 'composition' | 'auxiliar'
 
     @Column({ default: true })
     isActive: boolean;
@@ -42,8 +42,8 @@ export class SinapiComposition {
     @OneToMany('SinapiCompositionItem', 'composition')
     items: any[];
 
-    @OneToMany('SinapiCompositionPrice', 'composition')
-    prices: any[];
+    @OneToMany('SinapiCompositionCost', 'composition')
+    costs: any[];
 
     @CreateDateColumn()
     createdAt: Date;
