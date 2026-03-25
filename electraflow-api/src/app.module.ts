@@ -33,6 +33,7 @@ import { StructureTemplatesModule } from './structure-templates/structure-templa
 import { MarkupModule } from './markup/markup.module';
 import { AiModule } from './ai/ai.module';
 import { OemModule } from './oem/oem.module';
+import { SinapiModule } from './sinapi/sinapi.module';
 
 @Module({
   imports: [
@@ -84,6 +85,7 @@ import { OemModule } from './oem/oem.module';
     MarkupModule,
     AiModule,
     OemModule,
+    SinapiModule,
   ],
 })
 export class AppModule { }
