@@ -393,6 +393,18 @@ export class SinapiService implements OnModuleInit {
         await this.dataSource.query(`DELETE FROM sinapi_import_logs WHERE id = $1`, [id]);
     }
 
+    async purgeTable(tableName: string): Promise<number> {
+        const validTables = [
+            'sinapi_budget_links', 'sinapi_composition_items', 'sinapi_composition_costs',
+            'sinapi_input_prices', 'sinapi_compositions', 'sinapi_inputs',
+            'sinapi_import_logs', 'sinapi_pricing_profiles', 'sinapi_references', 'sinapi_configs',
+        ];
+        if (!validTables.includes(tableName)) return 0;
+        const r = await this.dataSource.query(`DELETE FROM "${tableName}"`);
+        this.logger.log(`🗑️ Purged ${tableName}: ${r?.[1] || 0} rows`);
+        return r?.[1] || 0;
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // INPUTS (INSUMOS)
     // ═══════════════════════════════════════════════════════════════

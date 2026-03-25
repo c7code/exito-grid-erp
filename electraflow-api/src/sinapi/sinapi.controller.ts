@@ -277,7 +277,31 @@ export class SinapiController {
     @Delete('import/logs/:id')
     @ApiOperation({ summary: 'Excluir log de importação' })
     async deleteImportLog(@Param('id') id: string) {
-        return this.importService.deleteImportLog(id);
+        await this.sinapiService.deleteImportLog(id);
+        return { success: true, message: 'Log excluído' };
+    }
+
+    @Delete('purge')
+    @ApiOperation({ summary: 'Limpar TODA a base SINAPI (insumos, composições, preços, referências, logs)' })
+    async purgeAll() {
+        // Delete in dependency order
+        const counts: Record<string, number> = {};
+        const tables = [
+            'sinapi_budget_links',
+            'sinapi_composition_items',
+            'sinapi_composition_costs',
+            'sinapi_input_prices',
+            'sinapi_compositions',
+            'sinapi_inputs',
+            'sinapi_import_logs',
+            'sinapi_pricing_profiles',
+            'sinapi_references',
+        ];
+        for (const t of tables) {
+            const r = await this.sinapiService.purgeTable(t);
+            counts[t] = r;
+        }
+        return { success: true, message: 'Base SINAPI limpa', counts };
     }
 
     // ═══ BULK IMPORT (JSON — backwards compatible) ═══

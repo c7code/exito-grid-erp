@@ -238,7 +238,21 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
             <div className="bg-white rounded-xl border overflow-hidden">
                 <div className="p-4 border-b flex items-center justify-between">
                     <h3 className="font-bold text-slate-900 text-sm">Histórico de Importações</h3>
-                    <Button variant="ghost" size="sm" onClick={loadLogs}><RefreshCw className="w-3.5 h-3.5" /></Button>
+                    <div className="flex items-center gap-2">
+                        <Button variant="destructive" size="sm" onClick={async () => {
+                            if (!window.confirm('⚠️ ATENÇÃO: Isso vai excluir TODOS os dados SINAPI (insumos, composições, preços, referências, logs).\n\nTem certeza?')) return;
+                            try {
+                                await api.client.delete('/sinapi/purge');
+                                toast.success('Base SINAPI limpa com sucesso!');
+                                loadStats(); loadLogs();
+                            } catch (e: any) {
+                                toast.error('Erro ao limpar: ' + (e?.response?.data?.message || e.message));
+                            }
+                        }}>
+                            <Trash2 className="w-3.5 h-3.5 mr-1" /> Limpar Base
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={loadLogs}><RefreshCw className="w-3.5 h-3.5" /></Button>
+                    </div>
                 </div>
                 {loadingLogs ? <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div> : (
                     <Table>
