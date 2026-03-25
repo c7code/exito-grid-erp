@@ -135,7 +135,8 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
         setUploading(true);
         try {
             const r = await api.client.post('/sinapi/import/upload', fd, {
-                timeout: 120000, // 2 min timeout for large files
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 300000, // 5 min timeout for large files
             });
             toast.success(`Importação concluída: ${r.data?.inserted || r.data?.rowsProcessed || 0} registros`);
             if (fileRef.current) fileRef.current.value = '';
@@ -200,7 +201,9 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
                         if (!file) { toast.error('Selecione um arquivo'); return; }
                         const fd = new FormData(); fd.append('file', file);
                         try {
-                            const r = await api.client.post('/sinapi/import/preview', fd);
+                            const r = await api.client.post('/sinapi/import/preview', fd, {
+                                headers: { 'Content-Type': 'multipart/form-data' },
+                            });
                             setPreview(r.data);
                             toast.success('Preview carregado');
                         } catch { toast.error('Erro no preview'); }

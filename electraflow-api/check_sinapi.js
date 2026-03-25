@@ -6,23 +6,22 @@ async function main() {
     });
     await c.connect();
     
-    const tables = ['sinapi_references','sinapi_inputs','sinapi_compositions','sinapi_input_prices','sinapi_composition_costs','sinapi_import_logs'];
-    for (const t of tables) {
-        try {
-            const r = await c.query('SELECT COUNT(*) as c FROM ' + t);
-            console.log(t + ': ' + r.rows[0].c);
-        } catch(e) {
-            console.log(t + ': NOT EXISTS - ' + e.message.substring(0,80));
-        }
-    }
+    // Delete old failed import logs (all had 0 inserted)
+    const r = await c.query(`DELETE FROM sinapi_import_logs WHERE "insertedCount" = 0 OR "insertedCount" IS NULL`);
+    console.log('Deleted old empty import logs:', r.rowCount);
     
-    const logs = await c.query(`SELECT "fileName", status, "fileType", "totalRows", "insertedCount", "skippedCount", "errorCount", errors, warnings FROM sinapi_import_logs ORDER BY "createdAt" DESC LIMIT 5`);
-    for (const l of logs.rows) {
-        console.log('\n' + l.fileName + ' | ' + l.status + ' | type:' + l.fileType + ' | rows:' + l.totalRows + ' ins:' + l.insertedCount + ' skip:' + l.skippedCount + ' err:' + l.errorCount);
-        if (l.errors) console.log('  ERR:', l.errors.substring(0, 500));
-        if (l.warnings) console.log('  WARN:', l.warnings.substring(0, 500));
+    // Delete old references (they were created empty)
+    const r2 = await c.query(`DELETE FROM sinapi_references`);
+    console.log('Deleted old empty references:', r2.rowCount);
+    
+    // Verify clean state
+    const tables = ['sinapi_references', 'sinapi_inputs', 'sinapi_compositions', 'sinapi_input_prices', 'sinapi_import_logs'];
+    for (const t of tables) {
+        const r = await c.query('SELECT COUNT(*) as c FROM "' + t + '"');
+        console.log(t + ': ' + r.rows[0].c);
     }
     
     await c.end();
+    console.log('\nDatabase cleaned. Ready for re-import with fixed parser.');
 }
 main().catch(e => console.error(e));

@@ -203,7 +203,10 @@ export class SinapiController {
     }
 
     @Post('import/upload')
-    @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
+    @UseInterceptors(FileInterceptor('file', {
+        limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+        storage: require('multer').memoryStorage(),
+    }))
     @ApiConsumes('multipart/form-data')
     @ApiOperation({ summary: 'Importar arquivo SINAPI (XLSX/CSV)' })
     @ApiBody({
@@ -227,7 +230,16 @@ export class SinapiController {
         @Body('taxRegime') taxRegime?: string,
         @Body('fileType') fileType?: string,
     ) {
-        if (!file) throw new BadRequestException('Arquivo não enviado');
+        console.log('📤 SINAPI upload received:', {
+            hasFile: !!file,
+            fileName: file?.originalname,
+            fileSize: file?.size,
+            state, year, month, taxRegime, fileType,
+        });
+
+        if (!file) {
+            throw new BadRequestException('Arquivo não enviado. Verifique se o campo "file" está presente no FormData.');
+        }
 
         const ext = file.originalname.split('.').pop()?.toLowerCase();
         if (!['xlsx', 'xls', 'csv'].includes(ext || '')) {
