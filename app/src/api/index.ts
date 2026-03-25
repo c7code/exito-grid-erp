@@ -716,6 +716,42 @@ class ApiService {
     return response.data;
   }
 
+  // ═══ Measurements (Medições) ═══
+  async getMeasurements(workId: string) {
+    const response = await this.client.get('/measurements', { params: { workId } });
+    return response.data;
+  }
+
+  async getMeasurementBalance(workId: string) {
+    const response = await this.client.get(`/measurements/balance/${workId}`);
+    return response.data;
+  }
+
+  async getMeasurement(id: string) {
+    const response = await this.client.get(`/measurements/${id}`);
+    return response.data;
+  }
+
+  async createMeasurement(data: any) {
+    const response = await this.client.post('/measurements', data);
+    return response.data;
+  }
+
+  async updateMeasurement(id: string, data: any) {
+    const response = await this.client.put(`/measurements/${id}`, data);
+    return response.data;
+  }
+
+  async deleteMeasurement(id: string) {
+    const response = await this.client.delete(`/measurements/${id}`);
+    return response.data;
+  }
+
+  async approveMeasurement(id: string) {
+    const response = await this.client.post(`/measurements/${id}/approve`);
+    return response.data;
+  }
+
   // Catalog
   async getCatalogCategories(type?: string) {
     const params = type ? { type } : {};
