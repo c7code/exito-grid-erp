@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +25,10 @@ import {
   Bot,
   Eye,
   EyeOff,
+  Pen,
+  Upload,
 } from 'lucide-react';
+import { SignatureCropDialog } from '@/components/SignatureCropDialog';
 import { toast } from 'sonner';
 
 const workflowStages = [
@@ -145,6 +148,55 @@ export default function AdminSettings() {
     setSavingAi(false);
   };
 
+  // ═══ SIGNATURE CONFIG ═══
+  const [company, setCompany] = useState<any>(null);
+  const [sigLoaded, setSigLoaded] = useState(false);
+  const [showSignatureDialog, setShowSignatureDialog] = useState(false);
+  const [signerName, setSignerName] = useState('');
+  const [signerRole, setSignerRole] = useState('');
+  const [savingSig, setSavingSig] = useState(false);
+
+  const loadSignatureConfig = async () => {
+    if (sigLoaded) return;
+    try {
+      const c = await api.getPrimaryCompany();
+      if (c) {
+        setCompany(c);
+        setSignerName(c.signatureSignerName || '');
+        setSignerRole(c.signatureSignerRole || '');
+      }
+      setSigLoaded(true);
+    } catch { /* ignore */ }
+  };
+
+  const handleSaveSignatureInfo = async () => {
+    if (!company) return;
+    setSavingSig(true);
+    try {
+      const updated = await api.updateCompany(company.id, {
+        signatureSignerName: signerName,
+        signatureSignerRole: signerRole,
+      });
+      setCompany(updated);
+      toast.success('Dados do responsável salvos!');
+    } catch { toast.error('Erro ao salvar'); }
+    setSavingSig(false);
+  };
+
+  const handleSaveSignatureImage = async (croppedDataUrl: string) => {
+    if (!company) return;
+    const blob = await (await fetch(croppedDataUrl)).blob();
+    const file = new File([blob], 'signature.png', { type: 'image/png' });
+    const updated = await api.uploadCompanySignature(company.id, file);
+    setCompany(updated);
+  };
+
+  const handleRemoveSignature = async () => {
+    if (!company) return;
+    const updated = await api.updateCompany(company.id, { signatureImageUrl: null });
+    setCompany(updated);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -155,6 +207,9 @@ export default function AdminSettings() {
       <Tabs defaultValue="workflow">
         <TabsList className="flex flex-wrap h-auto">
           <TabsTrigger value="workflow">Fluxo de Trabalho</TabsTrigger>
+          <TabsTrigger value="signatures" onClick={loadSignatureConfig}>
+            <Pen className="w-3.5 h-3.5 mr-1" /> Assinaturas
+          </TabsTrigger>
           <TabsTrigger value="markup" onClick={() => markupConfigs.length === 0 && loadMarkupConfigs()}>Markup</TabsTrigger>
           <TabsTrigger value="ai" onClick={loadAiConfig}>IA</TabsTrigger>
           <TabsTrigger value="notifications">Notificações</TabsTrigger>
@@ -229,6 +284,102 @@ export default function AdminSettings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ═══ ASSINATURAS TAB ═══ */}
+        <TabsContent value="signatures" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Pen className="w-5 h-5" />
+                Assinatura da Empresa
+              </CardTitle>
+              <CardDescription>
+                Configure a assinatura que aparecerá em todos os documentos (propostas, contratos, medições, recibos, OS)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Current signature preview */}
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <p className="text-xs text-gray-500 mb-3 font-medium uppercase tracking-wide">Assinatura Atual</p>
+                {company?.signatureImageUrl ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="bg-white border rounded-lg p-4 min-h-[80px] flex items-center justify-center w-full max-w-md">
+                      <img
+                        src={company.signatureImageUrl.startsWith('/') ? `${(window as any).__API_BASE_URL || ''}${company.signatureImageUrl}` : company.signatureImageUrl}
+                        alt="Assinatura"
+                        className="max-h-[100px] max-w-full object-contain"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setShowSignatureDialog(true)}>
+                        <Upload className="w-4 h-4 mr-1" /> Trocar
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={handleRemoveSignature}>
+                        <Trash2 className="w-4 h-4 mr-1" /> Remover
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="bg-white border-2 border-dashed border-orange-300 rounded-lg p-6 flex flex-col items-center gap-2 w-full max-w-md cursor-pointer hover:bg-orange-50 transition-colors"
+                      onClick={() => setShowSignatureDialog(true)}
+                    >
+                      <Upload className="w-8 h-8 text-orange-400" />
+                      <p className="text-sm text-gray-600">Clique para enviar sua assinatura escaneada</p>
+                      <p className="text-xs text-gray-400">PNG, JPG — será recortada e ajustada automaticamente</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Signer info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Nome do Responsável</Label>
+                  <Input
+                    value={signerName}
+                    onChange={e => setSignerName(e.target.value)}
+                    placeholder="Ex: João da Silva"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Cargo</Label>
+                  <Input
+                    value={signerRole}
+                    onChange={e => setSignerRole(e.target.value)}
+                    placeholder="Ex: Diretor Técnico / Engenheiro Responsável"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              <Button onClick={handleSaveSignatureInfo} disabled={savingSig} className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900">
+                {savingSig ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Salvando...</> : <><Save className="w-4 h-4 mr-2" /> Salvar Dados do Responsável</>}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Como funciona?</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-slate-600">
+              <div className="flex gap-3 items-start"><span className="text-lg">✍️</span><div><p className="font-medium text-slate-800">Assinatura da Empresa</p><p>Faça sua assinatura no papel, escaneie e envie aqui. Use o recorte para ajustar a área.</p></div></div>
+              <div className="flex gap-3 items-start"><span className="text-lg">📄</span><div><p className="font-medium text-slate-800">Documentos</p><p>A assinatura aparecerá automaticamente em: Propostas, Contratos, Medições, Recibos, OS — onde houver campo de assinatura.</p></div></div>
+              <div className="flex gap-3 items-start"><span className="text-lg">👤</span><div><p className="font-medium text-slate-800">Clientes</p><p>A assinatura do cliente pode ser configurada no cadastro de cada cliente (módulo Clientes).</p></div></div>
+            </CardContent>
+          </Card>
+
+          <SignatureCropDialog
+            open={showSignatureDialog}
+            onOpenChange={setShowSignatureDialog}
+            currentSignatureUrl={company?.signatureImageUrl}
+            onSave={handleSaveSignatureImage}
+            onRemove={handleRemoveSignature}
+            title="Assinatura da Empresa"
+          />
         </TabsContent>
 
         {/* ═══ MARKUP TAB ═══ */}

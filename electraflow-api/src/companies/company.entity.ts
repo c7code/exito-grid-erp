@@ -55,6 +55,16 @@ export class Company {
     @Column({ nullable: true })
     accentColor: string;                // Cor de destaque (hex)
 
+    // Assinatura
+    @Column({ nullable: true })
+    signatureImageUrl: string;          // URL da imagem da assinatura
+
+    @Column({ nullable: true })
+    signatureSignerName: string;        // Nome do responsável
+
+    @Column({ nullable: true })
+    signatureSignerRole: string;        // Cargo (ex: Diretor Técnico)
+
     // Tipo
     @Column({ type: 'boolean', default: true })
     isPrimary: boolean;                 // Empresa matriz

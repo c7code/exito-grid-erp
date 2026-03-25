@@ -129,6 +129,9 @@ export class Client {
   @Column({ nullable: true })
   ibgeCode: string;                // Código IBGE do município (7 dígitos)
 
+  @Column({ nullable: true })
+  signatureImageUrl: string;       // URL da imagem da assinatura do cliente
+
   @OneToMany('ClientDocument', 'client')
   documents: any[];
 

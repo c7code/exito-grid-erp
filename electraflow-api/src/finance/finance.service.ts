@@ -124,6 +124,15 @@ export class FinanceService {
         `ALTER TABLE measurements ADD COLUMN IF NOT EXISTS description VARCHAR`,
       ];
       for (const sql of measCols) { await this.dataSource.query(sql).catch(() => {}); }
+
+      // ═══ Signature columns ═══
+      const sigCols = [
+        `ALTER TABLE companies ADD COLUMN IF NOT EXISTS "signatureImageUrl" VARCHAR`,
+        `ALTER TABLE companies ADD COLUMN IF NOT EXISTS "signatureSignerName" VARCHAR`,
+        `ALTER TABLE companies ADD COLUMN IF NOT EXISTS "signatureSignerRole" VARCHAR`,
+        `ALTER TABLE clients ADD COLUMN IF NOT EXISTS "signatureImageUrl" VARCHAR`,
+      ];
+      for (const sql of sigCols) { await this.dataSource.query(sql).catch(() => {}); }
     } catch (e) { console.warn('Finance tables migration:', e?.message); }
   }
 

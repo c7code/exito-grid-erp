@@ -70,6 +70,31 @@ export class CompaniesController {
         return this.companiesService.updateLogo(id, logoUrl);
     }
 
+    @Post(':id/signature')
+    @UseInterceptors(FileInterceptor('file', {
+        storage: diskStorage({
+            destination: './uploads/signatures',
+            filename: (req, file, cb) => {
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+                cb(null, `sig-${uniqueSuffix}${extname(file.originalname)}`);
+            },
+        }),
+        fileFilter: (req, file, cb) => {
+            if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+                return cb(new Error('Apenas imagens são permitidas'), false);
+            }
+            cb(null, true);
+        },
+        limits: { fileSize: 5 * 1024 * 1024 },
+    }))
+    async uploadSignature(
+        @Param('id') id: string,
+        @UploadedFile() file: Express.Multer.File,
+    ): Promise<Company> {
+        const signatureImageUrl = `/uploads/signatures/${file.filename}`;
+        return this.companiesService.update(id, { signatureImageUrl });
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // COMPANY DOCUMENTS
     // ═══════════════════════════════════════════════════════════════
