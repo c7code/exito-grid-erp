@@ -302,11 +302,12 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
   .doc-header h1 { font-size: 16pt; font-weight: 700; color: #1a1a2e; letter-spacing: 1px; }
   .doc-header .doc-number { font-size: 22pt; font-weight: 700; color: #b45309; }
   .doc-header .doc-meta { display: flex; justify-content: space-between; font-size: 9pt; color: #555; }
-  .section { margin-bottom: 16px; }
-  .section-title { font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1a1a2e; background: #f0f0f0; padding: 5px 10px; border-left: 4px solid #b45309; margin-bottom: 8px; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 9pt; }
+  .section { margin-bottom: 16px; break-inside: avoid; }
+  .section-title { font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1a1a2e; background: #f0f0f0; padding: 5px 10px; border-left: 4px solid #b45309; margin-bottom: 8px; break-after: avoid; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 9pt; break-inside: avoid; }
   th { background: #1a1a2e; color: #fff; font-weight: 600; padding: 6px 8px; text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; }
   td { border: 1px solid #ccc; padding: 5px 8px; }
+  tr { break-inside: avoid; }
   .info-table td { border: none; padding: 3px 8px; }
   .info-table td.label { font-weight: 600; color: #555; width: 25%; background: #fafafa; }
   tr:nth-child(even) td { background: #fafafa; }

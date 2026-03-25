@@ -198,8 +198,8 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
         darkBarText: { color: '#E8620A', fontSize: '12px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' as const },
         darkBarRef: { color: '#888', fontSize: '9px' },
         body: { padding: '30px 36px' } as React.CSSProperties,
-        sectionTitle: { fontSize: '11px', fontWeight: '800', color: '#E8620A', textTransform: 'uppercase' as const, letterSpacing: '2px', borderBottom: '2px solid #E8620A', paddingBottom: '6px', marginTop: '28px', marginBottom: '14px' } as React.CSSProperties,
-        clauseHeading: { fontSize: '10.5px', fontWeight: '700', color: '#1a1a1a', margin: '16px 0 6px' } as React.CSSProperties,
+        sectionTitle: { fontSize: '11px', fontWeight: '800', color: '#E8620A', textTransform: 'uppercase' as const, letterSpacing: '2px', borderBottom: '2px solid #E8620A', paddingBottom: '6px', marginTop: '28px', marginBottom: '14px', breakInside: 'avoid' as const, breakAfter: 'avoid' as const } as React.CSSProperties,
+        clauseHeading: { fontSize: '10.5px', fontWeight: '700', color: '#1a1a1a', margin: '16px 0 6px', breakInside: 'avoid' as const, breakAfter: 'avoid' as const } as React.CSSProperties,
         para: { fontSize: '10px', textAlign: 'justify' as const, margin: '6px 0', color: '#2d2d2d', lineHeight: '1.6' } as React.CSSProperties,
         table: { width: '100%', borderCollapse: 'collapse' as const, marginTop: '10px', marginBottom: '16px' } as React.CSSProperties,
         th: { background: '#f1f5f9', padding: '8px 10px', fontSize: '9px', fontWeight: '700', textTransform: 'uppercase' as const, color: '#444', borderBottom: '2px solid #ddd', textAlign: 'left' as const } as React.CSSProperties,
@@ -211,19 +211,26 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
         costBadge: { display: 'inline-block', background: '#FFF7ED', border: '1px solid #FDBA74', color: '#C2410C', fontSize: '7px', fontWeight: '700', padding: '2px 6px', borderRadius: '3px', marginLeft: '6px' } as React.CSSProperties,
         listItem: { fontSize: '9.5px', color: '#2d2d2d', padding: '3px 0', paddingLeft: '12px', position: 'relative' as const } as React.CSSProperties,
         bullet: { position: 'absolute' as const, left: 0, color: '#E8620A', fontWeight: '700' } as React.CSSProperties,
-        complianceBox: { background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', padding: '16px 20px', margin: '14px 0' } as React.CSSProperties,
+        complianceBox: { background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', padding: '16px 20px', margin: '14px 0', breakInside: 'avoid' as const } as React.CSSProperties,
         complianceTitle: { fontSize: '10px', fontWeight: '700', color: '#166534', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' } as React.CSSProperties,
-        sigArea: { display: 'flex', justifyContent: 'space-between', gap: '60px', marginTop: '40px', paddingTop: '20px' } as React.CSSProperties,
+        sigArea: { display: 'flex', justifyContent: 'space-between', gap: '60px', marginTop: '40px', paddingTop: '20px', breakInside: 'avoid' as const } as React.CSSProperties,
         sigBox: { flex: 1, textAlign: 'center' as const } as React.CSSProperties,
         sigLine: { borderTop: '1px solid #333', marginTop: '50px', paddingTop: '8px', fontSize: '9px', fontWeight: '600' } as React.CSSProperties,
         sigSub: { fontSize: '8px', color: '#777' } as React.CSSProperties,
-        footer: { background: '#1a1a1a', padding: '14px 36px', textAlign: 'center' as const, marginTop: '30px' } as React.CSSProperties,
+        footer: { background: '#1a1a1a', padding: '14px 36px', textAlign: 'center' as const, marginTop: '30px', breakInside: 'avoid' as const } as React.CSSProperties,
         footerText: { fontSize: '8px', color: '#888', letterSpacing: '1px' },
         verifyBox: { background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '6px', padding: '14px 20px', margin: '20px 0' } as React.CSSProperties,
     };
 
     return (
-        <div id="proposal-pdf-content" style={s.page}>
+        <div id="proposal-pdf-content" className="pdf-section" style={s.page}>
+            {/* Global CSS for page breaks */}
+            <style>{`
+                #proposal-pdf-content p,
+                #proposal-pdf-content .pdf-no-break,
+                #proposal-pdf-content table { break-inside: avoid; }
+                #proposal-pdf-content tr { break-inside: avoid; break-after: auto; }
+            `}</style>
             {/* ═══ HEADER TIMBRADO ═══ */}
             <div style={s.header}>
                 <div>
