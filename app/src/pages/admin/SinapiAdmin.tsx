@@ -25,7 +25,7 @@ export default function SinapiAdmin() {
     useEffect(() => { loadStats(); }, []);
 
     const loadStats = async () => {
-        try { const r = await api.get('/sinapi/stats'); setStats(r.data || {}); }
+        try { const r = await api.client.get('/sinapi/stats'); setStats(r.data || {}); }
         catch { /* */ } finally { setLoading(false); }
     };
 
@@ -113,7 +113,7 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
 
     const loadLogs = async () => {
         setLoadingLogs(true);
-        try { const r = await api.get('/sinapi/import/logs?limit=20'); setLogs(Array.isArray(r.data) ? r.data : []); }
+        try { const r = await api.client.get('/sinapi/import/logs?limit=20'); setLogs(Array.isArray(r.data) ? r.data : []); }
         catch { /* */ } finally { setLoadingLogs(false); }
     };
 
@@ -131,8 +131,8 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
 
         setUploading(true);
         try {
-            const token = localStorage.getItem('token');
-            const r = await api.post('/sinapi/import/upload', fd, {
+            const token = localStorage.getItem('electraflow_token');
+            const r = await api.client.post('/sinapi/import/upload', fd, {
                 headers: {
                     'Content-Type': undefined as any, // Let axios set multipart boundary automatically
                     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -152,7 +152,7 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
 
     const handleRollback = async (logId: string) => {
         if (!confirm('Tem certeza que deseja reverter esta importação?')) return;
-        try { await api.post(`/sinapi/import/rollback/${logId}`); toast.success('Importação revertida'); loadLogs(); onRefresh(); }
+        try { await api.client.post(`/sinapi/import/rollback/${logId}`); toast.success('Importação revertida'); loadLogs(); onRefresh(); }
         catch (e: any) { toast.error(e?.response?.data?.message || 'Erro no rollback'); }
     };
 
@@ -256,17 +256,17 @@ function TabReferences({ onRefresh }: { onRefresh: () => void }) {
 
     const loadRefs = async () => {
         setLoading(true);
-        try { const r = await api.get('/sinapi/references', { params: { state: filterUF || undefined } }); setRefs(Array.isArray(r.data) ? r.data : []); }
+        try { const r = await api.client.get('/sinapi/references', { params: { state: filterUF || undefined } }); setRefs(Array.isArray(r.data) ? r.data : []); }
         catch { /* */ } finally { setLoading(false); }
     };
 
     const handleCreate = async () => {
-        try { await api.post('/sinapi/references', newRef); toast.success('Referência criada'); setShowNewRef(false); loadRefs(); onRefresh(); }
+        try { await api.client.post('/sinapi/references', newRef); toast.success('Referência criada'); setShowNewRef(false); loadRefs(); onRefresh(); }
         catch (e: any) { toast.error(e?.response?.data?.message || 'Erro'); }
     };
 
     const handleActivate = async (id: string) => {
-        try { await api.post('/sinapi/config', { key: `active_reference_${refs.find(r => r.id === id)?.state}`, value: id }); toast.success('Referência ativada'); loadRefs(); }
+        try { await api.client.post('/sinapi/config', { key: `active_reference_${refs.find(r => r.id === id)?.state}`, value: id }); toast.success('Referência ativada'); loadRefs(); }
         catch (e: any) { toast.error(e?.response?.data?.message || 'Erro'); }
     };
 
@@ -357,7 +357,7 @@ function TabProfiles({ onRefresh }: { onRefresh: () => void }) {
 
     const loadProfiles = async () => {
         setLoading(true);
-        try { const r = await api.get('/sinapi/pricing/profiles'); setProfiles(Array.isArray(r.data) ? r.data : []); }
+        try { const r = await api.client.get('/sinapi/pricing/profiles'); setProfiles(Array.isArray(r.data) ? r.data : []); }
         catch { /* */ } finally { setLoading(false); }
     };
 
@@ -366,8 +366,8 @@ function TabProfiles({ onRefresh }: { onRefresh: () => void }) {
 
     const handleSave = async () => {
         try {
-            if (editId) { await api.put(`/sinapi/pricing/profiles/${editId}`, form); }
-            else { await api.post('/sinapi/pricing/profiles', form); }
+            if (editId) { await api.client.put(`/sinapi/pricing/profiles/${editId}`, form); }
+            else { await api.client.post('/sinapi/pricing/profiles', form); }
             toast.success(editId ? 'Perfil atualizado' : 'Perfil criado');
             setShowDialog(false); loadProfiles(); onRefresh();
         } catch (e: any) { toast.error(e?.response?.data?.message || 'Erro'); }
@@ -375,7 +375,7 @@ function TabProfiles({ onRefresh }: { onRefresh: () => void }) {
 
     const handleDelete = async (id: string) => {
         if (!confirm('Excluir perfil?')) return;
-        try { await api.delete(`/sinapi/pricing/profiles/${id}`); toast.success('Perfil excluído'); loadProfiles(); onRefresh(); }
+        try { await api.client.delete(`/sinapi/pricing/profiles/${id}`); toast.success('Perfil excluído'); loadProfiles(); onRefresh(); }
         catch (e: any) { toast.error(e?.response?.data?.message || 'Erro'); }
     };
 
@@ -550,7 +550,7 @@ function TabSearch() {
         setLoading(true); setPage(p);
         try {
             const endpoint = mode === 'inputs' ? '/sinapi/inputs' : '/sinapi/compositions';
-            const r = await api.get(endpoint, { params: { search, page: p, limit: 25 } });
+            const r = await api.client.get(endpoint, { params: { search, page: p, limit: 25 } });
             const data = r.data;
             if (Array.isArray(data)) { setResults(data); setTotal(data.length); }
             else { setResults(data?.data || data?.items || []); setTotal(data?.total || 0); }
@@ -561,10 +561,10 @@ function TabSearch() {
         setDetailLoading(true);
         try {
             if (mode === 'inputs') {
-                const r = await api.get(`/sinapi/inputs/${item.code || item.id}/price`, { params: { state: 'PE' } });
+                const r = await api.client.get(`/sinapi/inputs/${item.code || item.id}/price`, { params: { state: 'PE' } });
                 setDetail({ ...item, priceData: r.data });
             } else {
-                const r = await api.get(`/sinapi/compositions/${item.code || item.id}/tree`, { params: { state: 'PE' } });
+                const r = await api.client.get(`/sinapi/compositions/${item.code || item.id}/tree`, { params: { state: 'PE' } });
                 setDetail(r.data);
             }
         } catch { setDetail(item); } finally { setDetailLoading(false); }
@@ -698,8 +698,8 @@ function TabLogs() {
         setLoading(true);
         try {
             const [logR, cfgR] = await Promise.all([
-                api.get('/sinapi/import/logs?limit=50'),
-                api.get('/sinapi/config'),
+                api.client.get('/sinapi/import/logs?limit=50'),
+                api.client.get('/sinapi/config'),
             ]);
             setLogs(Array.isArray(logR.data) ? logR.data : []);
             setConfigs(Array.isArray(cfgR.data) ? cfgR.data : []);

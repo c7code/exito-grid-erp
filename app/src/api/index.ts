@@ -10,7 +10,7 @@ const API_URL = RAW_URL.endsWith('/api/api')
     : RAW_URL + '/api';          // add /api
 
 class ApiService {
-  private client: AxiosInstance;
+  public client: AxiosInstance;
 
   constructor() {
     this.client = axios.create({
