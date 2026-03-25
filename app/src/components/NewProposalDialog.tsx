@@ -32,7 +32,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileText, Loader2, Plus, Trash2, Search, ChevronDown, Box, Layers, Eye, EyeOff, Building2, DollarSign, Shield, UserPlus, Upload, X, Pencil, Calculator } from 'lucide-react';
+import { FileText, Loader2, Plus, Trash2, Search, ChevronDown, Box, Layers, Eye, EyeOff, Building2, DollarSign, Shield, UserPlus, Upload, X, Pencil, Calculator, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { ClientDialog } from '@/components/ClientDialog';
@@ -109,6 +109,13 @@ export default function NewProposalDialog({
     const [structureSearchQuery, setStructureSearchQuery] = useState('');
     const [structureResults, setStructureResults] = useState<any[]>([]);
     const [loadingStructures, setLoadingStructures] = useState(false);
+
+    // SINAPI search
+    const [showSinapiSearch, setShowSinapiSearch] = useState(false);
+    const [sinapiQuery, setSinapiQuery] = useState('');
+    const [sinapiResults, setSinapiResults] = useState<any[]>([]);
+    const [sinapiSearchMode, setSinapiSearchMode] = useState<'compositions' | 'inputs'>('compositions');
+    const [loadingSinapi, setLoadingSinapi] = useState(false);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -913,9 +920,113 @@ export default function NewProposalDialog({
                                             <Layers className="w-4 h-4 mr-2 text-amber-500" />
                                             Importar de Estrutura
                                         </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => {
+                                            setShowSinapiSearch(true);
+                                            setSinapiQuery('');
+                                            setSinapiResults([]);
+                                        }}>
+                                            <Database className="w-4 h-4 mr-2 text-blue-500" />
+                                            Buscar SINAPI
+                                        </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
+
+                            {/* SINAPI Search Panel */}
+                            {showSinapiSearch && (
+                                <div className="border rounded-lg p-4 bg-blue-50/50 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm font-medium text-blue-800 flex items-center gap-2">
+                                            <Database className="w-4 h-4" /> Buscar Composição / Insumo SINAPI
+                                        </p>
+                                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowSinapiSearch(false)}>
+                                            <X className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <div className="flex gap-1 bg-white rounded-md border p-0.5">
+                                            <button type="button" className={`px-2 py-1 text-xs rounded ${sinapiSearchMode === 'compositions' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
+                                                onClick={() => { setSinapiSearchMode('compositions'); setSinapiResults([]); }}>Composições</button>
+                                            <button type="button" className={`px-2 py-1 text-xs rounded ${sinapiSearchMode === 'inputs' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
+                                                onClick={() => { setSinapiSearchMode('inputs'); setSinapiResults([]); }}>Insumos</button>
+                                        </div>
+                                        <Input
+                                            placeholder="Buscar por código ou palavra-chave..."
+                                            value={sinapiQuery}
+                                            className="bg-white flex-1"
+                                            onChange={e => setSinapiQuery(e.target.value)}
+                                            onKeyDown={async e => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    if (!sinapiQuery.trim()) return;
+                                                    setLoadingSinapi(true);
+                                                    try {
+                                                        const endpoint = sinapiSearchMode === 'compositions' ? '/sinapi/compositions' : '/sinapi/inputs';
+                                                        const r = await api.client.get(endpoint, { params: { search: sinapiQuery, limit: 30 } });
+                                                        const data = r.data;
+                                                        setSinapiResults(Array.isArray(data) ? data : data?.data || data?.items || []);
+                                                    } catch { toast.error('Erro na busca SINAPI'); }
+                                                    setLoadingSinapi(false);
+                                                }
+                                            }}
+                                        />
+                                        <Button type="button" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={async () => {
+                                            if (!sinapiQuery.trim()) return;
+                                            setLoadingSinapi(true);
+                                            try {
+                                                const endpoint = sinapiSearchMode === 'compositions' ? '/sinapi/compositions' : '/sinapi/inputs';
+                                                const r = await api.client.get(endpoint, { params: { search: sinapiQuery, limit: 30 } });
+                                                const data = r.data;
+                                                setSinapiResults(Array.isArray(data) ? data : data?.data || data?.items || []);
+                                            } catch { toast.error('Erro na busca SINAPI'); }
+                                            setLoadingSinapi(false);
+                                        }}>
+                                            <Search className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                    {loadingSinapi ? (
+                                        <div className="flex items-center gap-2 py-3 justify-center text-sm text-slate-400">
+                                            <Loader2 className="w-4 h-4 animate-spin" /> Buscando...
+                                        </div>
+                                    ) : (
+                                        <div className="max-h-56 overflow-y-auto space-y-1">
+                                            {sinapiResults.length === 0 && sinapiQuery && (
+                                                <p className="text-xs text-slate-400 text-center py-4">Nenhum resultado. Pressione Enter para buscar.</p>
+                                            )}
+                                            {sinapiResults.map((item: any) => (
+                                                <button
+                                                    key={item.id}
+                                                    type="button"
+                                                    className="w-full text-left px-3 py-2 rounded-md hover:bg-blue-100 transition-colors text-sm border border-transparent hover:border-blue-200"
+                                                    onClick={() => {
+                                                        const newItem: ActivityItem = {
+                                                            description: `[SINAPI ${item.code}] ${item.description || item.name || ''}`.trim(),
+                                                            serviceType: 'service',
+                                                            unitPrice: String(item.unitCost || item.priceNotTaxed || item.priceTaxed || 0),
+                                                            quantity: '1',
+                                                            unit: item.unit || 'UN',
+                                                        };
+                                                        setItems(prev => [...prev, newItem]);
+                                                        toast.success(`Item SINAPI ${item.code} adicionado`);
+                                                        setShowSinapiSearch(false);
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-mono text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{item.code}</span>
+                                                        <span className="flex-1 truncate">{item.description || item.name}</span>
+                                                        {(item.unitCost || item.priceNotTaxed) && (
+                                                            <span className="text-xs font-medium text-emerald-600 whitespace-nowrap">
+                                                                R$ {Number(item.unitCost || item.priceNotTaxed || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs text-slate-400 mt-0.5">{item.unit || ''} {item.type || ''}</div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Structure search popup */}
                             {showStructureSearch && (

@@ -151,6 +151,12 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
         catch (e: any) { toast.error(e?.response?.data?.message || 'Erro no rollback'); }
     };
 
+    const handleDeleteLog = async (logId: string) => {
+        if (!confirm('Excluir este log de importação?')) return;
+        try { await api.client.delete(`/sinapi/import/logs/${logId}`); toast.success('Log excluído'); loadLogs(); onRefresh(); }
+        catch (e: any) { toast.error(e?.response?.data?.message || 'Erro'); }
+    };
+
     return (
         <div className="space-y-6">
             {/* Upload Card */}
@@ -220,12 +226,15 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
                                     </TableCell>
                                     <TableCell className="font-mono text-xs">{l.rowsProcessed || 0}</TableCell>
                                     <TableCell><Badge variant="outline">{l.state || '-'}</Badge></TableCell>
-                                    <TableCell>
+                                    <TableCell className="flex gap-1">
                                         {l.status === 'completed' && (
-                                            <Button variant="ghost" size="sm" onClick={() => handleRollback(l.id)} className="text-red-500 hover:text-red-700">
-                                                <Trash2 className="w-3.5 h-3.5" />
+                                            <Button variant="ghost" size="sm" onClick={() => handleRollback(l.id)} className="text-amber-500 hover:text-amber-700" title="Reverter">
+                                                <RefreshCw className="w-3.5 h-3.5" />
                                             </Button>
                                         )}
+                                        <Button variant="ghost" size="sm" onClick={() => handleDeleteLog(l.id)} className="text-red-500 hover:text-red-700" title="Excluir">
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </Button>
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -265,6 +274,12 @@ function TabReferences({ onRefresh }: { onRefresh: () => void }) {
         catch (e: any) { toast.error(e?.response?.data?.message || 'Erro'); }
     };
 
+    const handleDeleteRef = async (id: string) => {
+        if (!confirm('Excluir esta referência e TODOS os dados vinculados (preços, custos, logs)?')) return;
+        try { await api.client.delete(`/sinapi/references/${id}`); toast.success('Referência excluída'); loadRefs(); onRefresh(); }
+        catch (e: any) { toast.error(e?.response?.data?.message || 'Erro'); }
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -299,12 +314,15 @@ function TabReferences({ onRefresh }: { onRefresh: () => void }) {
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-xs">{r.publishedAt ? new Date(r.publishedAt).toLocaleDateString('pt-BR') : '-'}</TableCell>
-                                    <TableCell>
+                                    <TableCell className="flex gap-1">
                                         {r.status !== 'active' && (
                                             <Button variant="ghost" size="sm" onClick={() => handleActivate(r.id)} className="text-blue-600">
                                                 <Star className="w-3.5 h-3.5 mr-1" /> Ativar
                                             </Button>
                                         )}
+                                        <Button variant="ghost" size="sm" onClick={() => handleDeleteRef(r.id)} className="text-red-500 hover:text-red-700" title="Excluir">
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </Button>
                                     </TableCell>
                                 </TableRow>
                             ))}

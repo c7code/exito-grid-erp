@@ -45,6 +45,13 @@ export class SinapiController {
         return this.sinapiService.createReference(data);
     }
 
+    @Delete('references/:id')
+    @ApiOperation({ summary: 'Excluir referência e dados vinculados' })
+    async deleteReference(@Param('id') id: string) {
+        await this.sinapiService.deleteReference(id);
+        return { message: 'Referência excluída' };
+    }
+
     // ═══ INPUTS ═══
     @Get('inputs')
     @ApiOperation({ summary: 'Buscar insumos SINAPI' })

@@ -379,6 +379,20 @@ export class SinapiService implements OnModuleInit {
         return this.referenceRepo.findOne({ where: { id } });
     }
 
+    async deleteReference(id: string) {
+        // Cascade: delete linked prices, costs, import logs
+        await this.dataSource.query(`DELETE FROM sinapi_input_prices WHERE "referenceId" = $1`, [id]);
+        await this.dataSource.query(`DELETE FROM sinapi_composition_costs WHERE "referenceId" = $1`, [id]);
+        await this.dataSource.query(`DELETE FROM sinapi_budget_links WHERE "referenceId" = $1`, [id]);
+        await this.dataSource.query(`DELETE FROM sinapi_import_logs WHERE "referenceId" = $1`, [id]);
+        await this.referenceRepo.delete(id);
+        this.logger.log(`🗑️ Referência ${id} excluída com dados vinculados`);
+    }
+
+    async deleteImportLog(id: string) {
+        await this.importLogRepo.delete(id);
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // INPUTS (INSUMOS)
     // ═══════════════════════════════════════════════════════════════
