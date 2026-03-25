@@ -44,6 +44,7 @@ import {
   Layers,
   Shield,
   Stethoscope,
+  Database,
 } from 'lucide-react';
 
 type NavItem = { path: string; label: string; icon: any; module: string; roles: string[] };
@@ -83,6 +84,7 @@ const navSections: NavSection[] = [
       { path: '/admin/service-orders', label: 'Ordens de Serviço', icon: Wrench, module: 'service-orders', roles: ['admin', 'engineer', 'employee'] },
       { path: '/admin/contracts', label: 'Contratos', icon: FileSignature, module: 'contracts', roles: ['admin', 'engineer', 'commercial', 'employee'] },
       { path: '/admin/structures', label: 'Estruturas', icon: Layers, module: 'structures', roles: ['admin', 'engineer', 'employee'] },
+      { path: '/admin/sinapi', label: 'SINAPI', icon: Database, module: 'sinapi', roles: ['admin'] },
     ],
   },
   {
