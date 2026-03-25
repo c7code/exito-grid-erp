@@ -396,7 +396,10 @@ export class SinapiImportService {
 
     private async processInputRows(rows: any[], errors: string[], warnings: string[]) {
         let inserted = 0, updated = 0, skipped = 0;
+        const BATCH_SIZE = 500;
 
+        // Phase 1: Parse all rows into clean items
+        const items: { code: string; description: string; unit: string; type: string }[] = [];
         for (let i = 0; i < rows.length; i++) {
             try {
                 const row = rows[i];
@@ -404,36 +407,59 @@ export class SinapiImportService {
                 const description = this.getField(row, ['DESCRICAO', 'DESCRIÇÃO', 'DESCRICAO DO INSUMO', 'DESCRIÇÃO DO INSUMO', 'DESC']);
                 const unit = this.getField(row, ['UNIDADE', 'UN', 'UND', 'UNID']);
 
-                if (!code || !description) {
-                    skipped++;
-                    continue;
-                }
-
+                if (!code || !description) { skipped++; continue; }
                 const cleanCode = String(code).trim().replace(/\D/g, '');
                 if (!cleanCode) { skipped++; continue; }
 
-                const type = this.detectInputType(description);
-
-                const existing = await this.inputRepo.findOne({ where: { code: cleanCode } });
-                if (existing) {
-                    await this.inputRepo.update(existing.id, {
-                        description: String(description).trim(),
-                        unit: String(unit || 'UN').trim().toUpperCase(),
-                        type,
-                    });
-                    updated++;
-                } else {
-                    await this.inputRepo.save(this.inputRepo.create({
-                        code: cleanCode,
-                        description: String(description).trim(),
-                        unit: String(unit || 'UN').trim().toUpperCase(),
-                        type,
-                        origin: 'sinapi',
-                    }));
-                    inserted++;
-                }
+                items.push({
+                    code: cleanCode,
+                    description: String(description).trim(),
+                    unit: String(unit || 'UN').trim().toUpperCase(),
+                    type: this.detectInputType(String(description)),
+                });
             } catch (err) {
                 errors.push(`Linha ${i + 2}: ${err.message}`);
+            }
+        }
+
+        warnings.push(`[DEBUG] processInputRows: parsed ${items.length} valid items from ${rows.length} rows (skipped=${skipped})`);
+
+        // Phase 2: Batch upsert
+        for (let b = 0; b < items.length; b += BATCH_SIZE) {
+            const batch = items.slice(b, b + BATCH_SIZE);
+            try {
+                const result = await this.dataSource.query(`
+                    INSERT INTO sinapi_inputs (id, code, description, unit, type, origin, "isActive", "createdAt", "updatedAt")
+                    SELECT gen_random_uuid(), t.code, t.description, t.unit, t.type, 'sinapi', true, NOW(), NOW()
+                    FROM (VALUES ${batch.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ')})
+                    AS t(code, description, unit, type)
+                    ON CONFLICT (code) DO UPDATE SET
+                        description = EXCLUDED.description,
+                        unit = EXCLUDED.unit,
+                        type = EXCLUDED.type,
+                        "updatedAt" = NOW()
+                    RETURNING (xmax = 0) AS is_insert
+                `, batch.flatMap(i => [i.code, i.description, i.unit, i.type]));
+
+                for (const r of result) {
+                    if (r.is_insert) inserted++;
+                    else updated++;
+                }
+            } catch (batchErr) {
+                // Fallback: try individual inserts for this batch
+                warnings.push(`Batch ${b}-${b + batch.length} error: ${batchErr.message}, trying individual inserts`);
+                for (const item of batch) {
+                    try {
+                        const existing = await this.inputRepo.findOne({ where: { code: item.code } });
+                        if (existing) {
+                            await this.inputRepo.update(existing.id, { description: item.description, unit: item.unit, type: item.type });
+                            updated++;
+                        } else {
+                            await this.inputRepo.save(this.inputRepo.create({ ...item, origin: 'sinapi' }));
+                            inserted++;
+                        }
+                    } catch (e) { errors.push(`Input ${item.code}: ${e.message}`); }
+                }
             }
         }
 
