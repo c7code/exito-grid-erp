@@ -134,21 +134,31 @@ export class SinapiImportService {
                 let headerRowIndex = 0; // default: first row
 
                 const HEADER_PATTERNS = [
-                    'CODIGO', 'CÓDIGO', 'COD', 'CODIGO SINAPI',
-                    'DESCRICAO', 'DESCRIÇÃO', 'DESC',
-                    'UNIDADE', 'COMPOSICAO', 'COMPOSIÇÃO',
-                    'COEFICIENTE', 'PRECO', 'PREÇO', 'CUSTO',
-                    'MEDIANA', 'INSUMO', 'CLASSE', 'TIPO', 'GRUPO',
+                    'CODIGO', 'COD', 'DESCRICAO', 'DESC',
+                    'UNIDADE', 'COMPOSICAO', 'COEFICIENTE',
+                    'PRECO', 'CUSTO', 'MEDIANA', 'INSUMO',
+                    'CLASSE', 'TIPO', 'GRUPO',
                 ];
+
+                // Helper: strip accents AND uppercase
+                const norm = (s: string) => s.toUpperCase().trim()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+                // Dump first 5 raw rows for debugging
+                for (let r = 0; r < Math.min(rawRows.length, 5); r++) {
+                    const vals = Array.isArray(rawRows[r]) ? rawRows[r] : Object.values(rawRows[r]);
+                    this.logger.log(`   RAW[${r}]: ${JSON.stringify(vals).substring(0, 200)}`);
+                }
 
                 for (let r = 0; r < Math.min(rawRows.length, 30); r++) {
                     const rowValues = Array.isArray(rawRows[r])
-                        ? rawRows[r].map((v: any) => String(v || '').toUpperCase().trim())
-                        : Object.values(rawRows[r]).map((v: any) => String(v || '').toUpperCase().trim());
+                        ? rawRows[r].map((v: any) => norm(String(v || '')))
+                        : Object.values(rawRows[r]).map((v: any) => norm(String(v || '')));
 
                     // Count how many cells match known SINAPI header patterns
                     let matchCount = 0;
                     for (const val of rowValues) {
+                        if (!val || val.length < 2) continue;
                         for (const pat of HEADER_PATTERNS) {
                             if (val.includes(pat)) { matchCount++; break; }
                         }
@@ -175,9 +185,13 @@ export class SinapiImportService {
                     continue;
                 }
 
-                // Log detected columns for debugging
+                // Log detected columns for debugging — ALSO save to warnings
                 const detectedCols = Object.keys(rows[0]);
-                this.logger.log(`   📄 Sheet "${sheetName}": ${rows.length} rows, cols: [${detectedCols.slice(0, 8).join(', ')}...]`);
+                warnings.push(`[DEBUG] Sheet "${sheetName}": headerRow=${headerRowIndex}, cols=[${detectedCols.join(', ')}], rows=${rows.length}`);
+                if (rows.length > 0) {
+                    warnings.push(`[DEBUG] Row0: ${JSON.stringify(rows[0]).substring(0, 300)}`);
+                }
+                this.logger.log(`   📄 Sheet "${sheetName}": ${rows.length} rows, headerRow=${headerRowIndex}, cols: [${detectedCols.slice(0, 10).join(', ')}]`);
 
                 const sheetType = this.detectSheetType(sheetName, rows[0]);
                 this.logger.log(`   📄 Tipo detectado: ${sheetType}`);

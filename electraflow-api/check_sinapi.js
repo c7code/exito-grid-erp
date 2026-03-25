@@ -5,23 +5,25 @@ async function main() {
         connectionString: 'postgresql://postgres.ltlpyqyfamsvdhbmyvps:CA8627058CHRR97@aws-1-us-east-1.pooler.supabase.com:5432/postgres'
     });
     await c.connect();
-    
-    // Delete old failed import logs (all had 0 inserted)
-    const r = await c.query(`DELETE FROM sinapi_import_logs WHERE "insertedCount" = 0 OR "insertedCount" IS NULL`);
-    console.log('Deleted old empty import logs:', r.rowCount);
-    
-    // Delete old references (they were created empty)
-    const r2 = await c.query(`DELETE FROM sinapi_references`);
-    console.log('Deleted old empty references:', r2.rowCount);
-    
-    // Verify clean state
-    const tables = ['sinapi_references', 'sinapi_inputs', 'sinapi_compositions', 'sinapi_input_prices', 'sinapi_import_logs'];
-    for (const t of tables) {
-        const r = await c.query('SELECT COUNT(*) as c FROM "' + t + '"');
-        console.log(t + ': ' + r.rows[0].c);
+
+    // Check import log timestamps to see if these are new or old
+    const logs = await c.query(`SELECT "fileName", status, "fileType", "totalRows", "insertedCount", "skippedCount", "errorCount", "createdAt", errors, warnings FROM sinapi_import_logs ORDER BY "createdAt" DESC LIMIT 6`);
+    console.log('=== IMPORT LOGS WITH TIMESTAMPS ===');
+    for (const l of logs.rows) {
+        console.log('\n' + l.fileName);
+        console.log('  Created: ' + l.createdAt);
+        console.log('  Status: ' + l.status + ' | type: ' + l.fileType + ' | rows: ' + l.totalRows);
+        console.log('  ins: ' + l.insertedCount + ' | skip: ' + l.skippedCount + ' | err: ' + l.errorCount);
+        if (l.warnings) {
+            const w = JSON.parse(l.warnings);
+            console.log('  WARNINGS (' + w.length + '):', w.slice(0, 5));
+        }
+        if (l.errors) {
+            const e = JSON.parse(l.errors);
+            console.log('  ERRORS (' + e.length + '):', e.slice(0, 5));
+        }
     }
-    
+
     await c.end();
-    console.log('\nDatabase cleaned. Ready for re-import with fixed parser.');
 }
 main().catch(e => console.error(e));
