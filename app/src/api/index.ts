@@ -660,6 +660,11 @@ class ApiService {
     return response.data;
   }
 
+  async revertProposalAcceptance(id: string) {
+    const response = await this.client.post(`/proposals/${id}/revert-acceptance`);
+    return response.data;
+  }
+
   async rejectProposal(id: string, reason?: string) {
     const response = await this.client.post(`/proposals/${id}/reject`, { reason });
     return response.data;

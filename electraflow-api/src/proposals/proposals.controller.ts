@@ -108,6 +108,12 @@ export class ProposalsController {
     return this.proposalsService.accept(id);
   }
 
+  @Post(':id/revert-acceptance')
+  @ApiOperation({ summary: 'Reverter aprovação da proposta' })
+  async revertAcceptance(@Param('id') id: string) {
+    return this.proposalsService.revertAcceptance(id);
+  }
+
   @Post(':id/reject')
   @ApiOperation({ summary: 'Rejeitar proposta' })
   async reject(@Param('id') id: string, @Body() data: { reason?: string }) {

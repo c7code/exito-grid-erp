@@ -452,10 +452,11 @@ export class ProposalsService implements OnModuleInit {
         ? new Date(Date.now() + deadlineDays * 86400000).toISOString()
         : null;
 
-      // Use raw SQL to avoid TypeORM enum validation issues
+      // Omit enum columns (status, currentStage, priority) — they have defaults and
+      // PostgreSQL enum types reject plain strings. Defaults: pending, project, medium.
       await this.dataSource.query(
-        `INSERT INTO works (id, code, title, type, status, "clientId", "opportunityId", "totalValue", address, description, "expectedEndDate", deadline, "currentStage", "createdAt", "updatedAt")
-         VALUES (gen_random_uuid(), $1, $2, $3, 'pending', $4, $5, $6, $7, $8, $9, $9, 'project', NOW(), NOW())`,
+        `INSERT INTO works (id, code, title, type, "clientId", "opportunityId", "totalValue", address, description, "expectedEndDate", deadline, "createdAt", "updatedAt")
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $9, NOW(), NOW())`,
         [code, title, workType, clientId, opportunityId, totalValue, address, description, deadlineDate],
       );
 
@@ -475,6 +476,17 @@ export class ProposalsService implements OnModuleInit {
     } catch (err) {
       this.logger.error(`❌ [AutoTrigger] Failed to auto-create work from proposal ${proposal.proposalNumber}:`, err?.stack || err?.message);
     }
+  }
+
+  /** Revert an accepted proposal back to 'sent' status */
+  async revertAcceptance(id: string): Promise<Proposal> {
+    const proposal = await this.findOne(id);
+    if (proposal.status !== ProposalStatus.ACCEPTED) {
+      throw new BadRequestException('Somente propostas aprovadas podem ser revertidas');
+    }
+    proposal.status = ProposalStatus.SENT;
+    proposal.acceptedAt = null;
+    return this.proposalRepository.save(proposal);
   }
 
   async reject(id: string, reason?: string): Promise<Proposal> {

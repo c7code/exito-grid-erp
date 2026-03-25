@@ -47,6 +47,7 @@ import {
   Package,
   Wrench,
   ClipboardList,
+  RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -144,6 +145,17 @@ export default function AdminProposals() {
       loadProposals();
     } catch (error) {
       toast.error('Erro ao rejeitar proposta.');
+    }
+  };
+
+  const handleRevertAcceptance = async (proposal: any) => {
+    if (!confirm('Reverter aprovação desta proposta? O status voltará para "Enviada".')) return;
+    try {
+      await api.revertProposalAcceptance(proposal.id);
+      toast.success('Aprovação revertida! Proposta voltou para status "Enviada".');
+      loadProposals();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Erro ao reverter aprovação.');
     }
   };
 
@@ -510,6 +522,12 @@ export default function AdminProposals() {
                                   Rejeitar
                                 </DropdownMenuItem>
                               </>
+                            )}
+                            {proposal.status === 'accepted' && (
+                              <DropdownMenuItem onClick={() => handleRevertAcceptance(proposal)}>
+                                <RotateCcw className="w-4 h-4 mr-2 text-amber-600" />
+                                Reverter Aprovação
+                              </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
                             {/* ═══ ATALHOS FINANCEIROS ═══ */}
