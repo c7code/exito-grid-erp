@@ -390,7 +390,7 @@ export class SinapiService implements OnModuleInit {
     }
 
     async deleteImportLog(id: string) {
-        await this.importLogRepo.delete(id);
+        await this.dataSource.query(`DELETE FROM sinapi_import_logs WHERE id = $1`, [id]);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -879,45 +879,5 @@ export class SinapiService implements OnModuleInit {
             imported++;
         }
         return { imported, skipped, total: costs.length };
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // CONFIG & STATS
-    // ═══════════════════════════════════════════════════════════════
-
-    async getConfig(key: string): Promise<string | null> {
-        const cfg = await this.configRepo.findOne({ where: { key } });
-        return cfg?.value ?? null;
-    }
-
-    async setConfig(key: string, value: string) {
-        const existing = await this.configRepo.findOne({ where: { key } });
-        if (existing) await this.configRepo.update(existing.id, { value });
-        else await this.configRepo.save(this.configRepo.create({ key, value }));
-        return { key, value };
-    }
-
-    async getAllConfigs() { return this.configRepo.find(); }
-
-    async getStats() {
-        const [refCount] = await this.dataSource.query('SELECT COUNT(*) FROM sinapi_references');
-        const [inputCount] = await this.dataSource.query('SELECT COUNT(*) FROM sinapi_inputs');
-        const [compCount] = await this.dataSource.query('SELECT COUNT(*) FROM sinapi_compositions');
-        const [priceCount] = await this.dataSource.query('SELECT COUNT(*) FROM sinapi_input_prices');
-        const [costCount] = await this.dataSource.query('SELECT COUNT(*) FROM sinapi_composition_costs');
-        const [linkCount] = await this.dataSource.query('SELECT COUNT(*) FROM sinapi_budget_links');
-        const defaultState = await this.getConfig('default_state');
-        const activeRef = defaultState ? await this.findActiveReference(defaultState) : null;
-
-        return {
-            references: parseInt(refCount.count),
-            inputs: parseInt(inputCount.count),
-            compositions: parseInt(compCount.count),
-            inputPrices: parseInt(priceCount.count),
-            compositionCosts: parseInt(costCount.count),
-            budgetLinks: parseInt(linkCount.count),
-            defaultState: defaultState || 'PE',
-            activeReference: activeRef?.label || null,
-        };
     }
 }
