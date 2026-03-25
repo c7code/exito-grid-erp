@@ -606,13 +606,18 @@ function TabSearch() {
     const [page, setPage] = useState(1);
     const [detail, setDetail] = useState<any>(null);
     const [detailLoading, setDetailLoading] = useState(false);
+    const [filterState, setFilterState] = useState('');
+    const [filterType, setFilterType] = useState('');
 
     const handleSearch = async (p = 1) => {
         if (!search.trim()) return;
         setLoading(true); setPage(p);
         try {
             const endpoint = mode === 'inputs' ? '/sinapi/inputs' : '/sinapi/compositions';
-            const r = await api.client.get(endpoint, { params: { search, page: p, limit: 25 } });
+            const params: any = { search, page: p, limit: 25 };
+            if (filterState) params.state = filterState;
+            if (filterType && mode === 'inputs') params.type = filterType;
+            const r = await api.client.get(endpoint, { params });
             const data = r.data;
             if (Array.isArray(data)) { setResults(data); setTotal(data.length); }
             else { setResults(data?.data || data?.items || []); setTotal(data?.total || 0); }
@@ -634,52 +639,109 @@ function TabSearch() {
 
     return (
         <div className="space-y-4">
-            <div className="flex gap-2">
-                <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
-                    <button className={`px-3 py-1.5 text-xs font-medium rounded-md ${mode === 'inputs' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`} onClick={() => { setMode('inputs'); setResults([]); }}>Insumos</button>
-                    <button className={`px-3 py-1.5 text-xs font-medium rounded-md ${mode === 'compositions' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`} onClick={() => { setMode('compositions'); setResults([]); }}>Composições</button>
+            {/* Search bar + filters */}
+            <div className="bg-white rounded-xl border p-4 space-y-3">
+                <div className="flex gap-2 flex-wrap">
+                    <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+                        <button className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${mode === 'inputs' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => { setMode('inputs'); setResults([]); }}>Insumos</button>
+                        <button className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${mode === 'compositions' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => { setMode('compositions'); setResults([]); }}>Composições</button>
+                    </div>
+                    <div className="relative flex-1 min-w-[200px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Input
+                            placeholder={mode === 'inputs' ? 'Buscar insumo por código ou descrição...' : 'Buscar composição...'}
+                            className="pl-10"
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                        />
+                    </div>
+                    <Button onClick={() => handleSearch()} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Buscar'}
+                    </Button>
                 </div>
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input
-                        placeholder={mode === 'inputs' ? 'Buscar insumo por código ou descrição...' : 'Buscar composição...'}
-                        className="pl-10"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                    />
+                {/* Advanced Filters */}
+                <div className="flex gap-3 items-center flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                        <Label className="text-xs text-slate-500 whitespace-nowrap">Estado:</Label>
+                        <select
+                            className="border rounded-md px-2 py-1.5 text-xs bg-white min-w-[80px]"
+                            value={filterState}
+                            onChange={e => setFilterState(e.target.value)}
+                        >
+                            <option value="">Todos</option>
+                            {UF_LIST.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                        </select>
+                    </div>
+                    {mode === 'inputs' && (
+                        <div className="flex items-center gap-1.5">
+                            <Label className="text-xs text-slate-500 whitespace-nowrap">Tipo:</Label>
+                            <select
+                                className="border rounded-md px-2 py-1.5 text-xs bg-white min-w-[120px]"
+                                value={filterType}
+                                onChange={e => setFilterType(e.target.value)}
+                            >
+                                <option value="">Todos</option>
+                                <option value="material">Material</option>
+                                <option value="mao_de_obra">Mão de Obra</option>
+                                <option value="equipamento">Equipamento</option>
+                                <option value="servico">Serviço</option>
+                            </select>
+                        </div>
+                    )}
+                    {filterState && <Badge className="bg-blue-100 text-blue-700 text-xs">{filterState}</Badge>}
+                    {filterType && <Badge className="bg-purple-100 text-purple-700 text-xs">{filterType}</Badge>}
                 </div>
-                <Button onClick={() => handleSearch()} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Buscar'}
-                </Button>
             </div>
 
             {results.length > 0 && (
                 <div className="bg-white rounded-xl border overflow-hidden">
-                    <div className="p-3 border-b text-xs text-slate-500">{total} resultado(s)</div>
-                    <Table>
-                        <TableHeader><TableRow>
-                            <TableHead>Código</TableHead><TableHead>Descrição</TableHead><TableHead>Unidade</TableHead>
-                            {mode === 'inputs' && <TableHead>Tipo</TableHead>}
-                            <TableHead></TableHead>
-                        </TableRow></TableHeader>
-                        <TableBody>
-                            {results.map((r: any) => (
-                                <TableRow key={r.id} className="cursor-pointer hover:bg-slate-50" onClick={() => viewDetail(r)}>
-                                    <TableCell className="font-mono text-xs font-bold text-blue-600">{r.code}</TableCell>
-                                    <TableCell className="text-sm max-w-[400px]">{r.description}</TableCell>
-                                    <TableCell><Badge variant="outline">{r.unit}</Badge></TableCell>
-                                    {mode === 'inputs' && <TableCell><Badge className="bg-slate-100 text-slate-600 text-xs">{r.type || '-'}</Badge></TableCell>}
-                                    <TableCell><Eye className="w-4 h-4 text-slate-400" /></TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                    <div className="p-3 border-b text-xs text-slate-500 flex items-center justify-between">
+                        <span>{total} resultado(s)</span>
+                        <span className="text-slate-400">{filterState ? `Filtro: ${filterState}` : 'Todos os estados'}</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="bg-slate-50 border-b">
+                                    <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase w-[100px]">Código</th>
+                                    <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase">Descrição</th>
+                                    <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase w-[80px]">Unidade</th>
+                                    {mode === 'inputs' && <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase w-[120px]">Tipo</th>}
+                                    <th className="w-[50px]"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {results.map((r: any, idx: number) => (
+                                    <tr
+                                        key={r.id}
+                                        className={`cursor-pointer hover:bg-blue-50 transition-colors border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}
+                                        style={{ height: '48px' }}
+                                        onClick={() => viewDetail(r)}
+                                    >
+                                        <td className="px-4 py-3 font-mono text-xs font-bold text-blue-600 whitespace-nowrap">{r.code}</td>
+                                        <td className="px-4 py-3 text-sm text-slate-700" title={r.description}>
+                                            <div className="line-clamp-2 leading-5">{r.description}</div>
+                                        </td>
+                                        <td className="px-4 py-3"><Badge variant="outline" className="text-xs">{r.unit}</Badge></td>
+                                        {mode === 'inputs' && (
+                                            <td className="px-4 py-3">
+                                                <Badge className={`text-xs ${r.type === 'mao_de_obra' ? 'bg-orange-100 text-orange-700' : r.type === 'equipamento' ? 'bg-cyan-100 text-cyan-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                    {r.type === 'mao_de_obra' ? 'MO' : r.type === 'equipamento' ? 'Equip' : r.type || '-'}
+                                                </Badge>
+                                            </td>
+                                        )}
+                                        <td className="px-4 py-3 text-center"><Eye className="w-4 h-4 text-slate-400" /></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                     {total > 25 && (
                         <div className="flex justify-center gap-2 p-3 border-t">
                             <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => handleSearch(page - 1)}>Anterior</Button>
-                            <span className="text-xs text-slate-500 self-center">Pág. {page}</span>
-                            <Button variant="outline" size="sm" onClick={() => handleSearch(page + 1)}>Próxima</Button>
+                            <span className="text-xs text-slate-500 self-center">Pág. {page} de {Math.ceil(total / 25)}</span>
+                            <Button variant="outline" size="sm" disabled={page >= Math.ceil(total / 25)} onClick={() => handleSearch(page + 1)}>Próxima</Button>
                         </div>
                     )}
                 </div>
