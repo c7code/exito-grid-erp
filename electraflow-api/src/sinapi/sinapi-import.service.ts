@@ -126,7 +126,48 @@ export class SinapiImportService {
 
             for (const sheetName of workbook.SheetNames) {
                 const sheet = workbook.Sheets[sheetName];
-                const rows = XLSX.utils.sheet_to_json<any>(sheet, { defval: '', raw: false });
+
+                // ═══ AUTO-DETECT HEADER ROW ═══
+                // SINAPI CAIXA files have merged title rows at the top.
+                // Scan first 30 raw rows to find the real header.
+                const rawRows = XLSX.utils.sheet_to_json<any>(sheet, { defval: '', header: 1, raw: false });
+                let headerRowIndex = 0; // default: first row
+
+                const HEADER_PATTERNS = [
+                    'CODIGO', 'CÓDIGO', 'COD', 'CODIGO SINAPI',
+                    'DESCRICAO', 'DESCRIÇÃO', 'DESC',
+                    'UNIDADE', 'COMPOSICAO', 'COMPOSIÇÃO',
+                    'COEFICIENTE', 'PRECO', 'PREÇO', 'CUSTO',
+                    'MEDIANA', 'INSUMO', 'CLASSE', 'TIPO', 'GRUPO',
+                ];
+
+                for (let r = 0; r < Math.min(rawRows.length, 30); r++) {
+                    const rowValues = Array.isArray(rawRows[r])
+                        ? rawRows[r].map((v: any) => String(v || '').toUpperCase().trim())
+                        : Object.values(rawRows[r]).map((v: any) => String(v || '').toUpperCase().trim());
+
+                    // Count how many cells match known SINAPI header patterns
+                    let matchCount = 0;
+                    for (const val of rowValues) {
+                        for (const pat of HEADER_PATTERNS) {
+                            if (val.includes(pat)) { matchCount++; break; }
+                        }
+                    }
+
+                    // If we find 2+ matches, this is likely the header row
+                    if (matchCount >= 2) {
+                        headerRowIndex = r;
+                        this.logger.log(`   🎯 Header row detected at row ${r + 1} (${matchCount} pattern matches)`);
+                        break;
+                    }
+                }
+
+                // Re-parse with correct header row
+                const rows = XLSX.utils.sheet_to_json<any>(sheet, {
+                    defval: '',
+                    raw: false,
+                    range: headerRowIndex, // Start from the detected header row
+                });
                 totalRows += rows.length;
 
                 if (rows.length === 0) {
@@ -134,8 +175,12 @@ export class SinapiImportService {
                     continue;
                 }
 
+                // Log detected columns for debugging
+                const detectedCols = Object.keys(rows[0]);
+                this.logger.log(`   📄 Sheet "${sheetName}": ${rows.length} rows, cols: [${detectedCols.slice(0, 8).join(', ')}...]`);
+
                 const sheetType = this.detectSheetType(sheetName, rows[0]);
-                this.logger.log(`   📄 Sheet "${sheetName}": ${rows.length} rows, tipo detectado: ${sheetType}`);
+                this.logger.log(`   📄 Tipo detectado: ${sheetType}`);
 
                 try {
                     switch (sheetType) {
@@ -656,15 +701,29 @@ export class SinapiImportService {
     }
 
     private getField(row: any, possibleNames: string[]): string | null {
+        const norm = (s: string) => s.toUpperCase().trim()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // strip accents
+
         for (const name of possibleNames) {
+            const normName = norm(name);
             // Exact match
             if (row[name] !== undefined && row[name] !== '') return String(row[name]);
-            // Case-insensitive match
-            const key = Object.keys(row).find(k => k.toUpperCase().trim() === name.toUpperCase());
-            if (key && row[key] !== undefined && row[key] !== '') return String(row[key]);
-            // Partial match (contains)
-            const partial = Object.keys(row).find(k => k.toUpperCase().trim().includes(name.toUpperCase()));
-            if (partial && row[partial] !== undefined && row[partial] !== '') return String(row[partial]);
+            // Case-insensitive + accent-insensitive exact match
+            const exactKey = Object.keys(row).find(k => norm(k) === normName);
+            if (exactKey && row[exactKey] !== undefined && row[exactKey] !== '') return String(row[exactKey]);
+            // Partial match (contains), accent-insensitive
+            const partialKey = Object.keys(row).find(k => norm(k).includes(normName));
+            if (partialKey && row[partialKey] !== undefined && row[partialKey] !== '') return String(row[partialKey]);
+        }
+        // Last resort: try reverse partial (pattern contained in column name)
+        for (const name of possibleNames) {
+            const normName = (name).toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            for (const key of Object.keys(row)) {
+                const normKey = key.toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                if (normKey.length > 3 && normName.includes(normKey)) {
+                    if (row[key] !== undefined && row[key] !== '') return String(row[key]);
+                }
+            }
         }
         return null;
     }
