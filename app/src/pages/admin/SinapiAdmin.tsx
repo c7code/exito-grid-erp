@@ -108,6 +108,7 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
     const [form, setForm] = useState({ state: '', year: '', month: '', taxRegime: '', fileType: '' });
     const [logs, setLogs] = useState<any[]>([]);
     const [loadingLogs, setLoadingLogs] = useState(true);
+    const [preview, setPreview] = useState<any>(null);
 
     useEffect(() => { loadLogs(); }, []);
 
@@ -191,12 +192,41 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
                         </Select>
                     </div>
                 </div>
-                <div className="mt-4 flex justify-end">
+                <div className="mt-4 flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={async () => {
+                        const file = fileRef.current?.files?.[0];
+                        if (!file) { toast.error('Selecione um arquivo'); return; }
+                        const fd = new FormData(); fd.append('file', file);
+                        try {
+                            const r = await api.client.post('/sinapi/import/preview', fd);
+                            setPreview(r.data);
+                            toast.success('Preview carregado');
+                        } catch { toast.error('Erro no preview'); }
+                    }}>
+                        <Search className="w-4 h-4 mr-2" /> Preview Colunas
+                    </Button>
                     <Button onClick={handleUpload} disabled={uploading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold">
                         {uploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
                         {uploading ? 'Importando...' : 'Importar'}
                     </Button>
                 </div>
+                {preview && (
+                    <div className="mt-4 border rounded-lg p-4 bg-slate-50 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-slate-700">Preview: {preview.fileName}</p>
+                            <Button variant="ghost" size="sm" onClick={() => setPreview(null)}><X className="w-3.5 h-3.5" /></Button>
+                        </div>
+                        {preview.sheets?.map((s: any) => (
+                            <div key={s.sheetName} className="bg-white rounded border p-3">
+                                <p className="text-xs font-bold text-slate-600">Planilha: "{s.sheetName}" ({s.rowCount} linhas)</p>
+                                <p className="text-xs text-blue-600 mt-1 font-mono">Colunas: {s.columns?.join(' | ')}</p>
+                                {s.sampleRows?.slice(0, 2).map((row: any, i: number) => (
+                                    <p key={i} className="text-xs text-slate-400 mt-1 truncate">Linha {i + 1}: {JSON.stringify(row).substring(0, 200)}</p>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Import Logs */}

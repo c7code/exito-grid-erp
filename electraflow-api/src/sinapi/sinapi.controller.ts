@@ -180,6 +180,28 @@ export class SinapiController {
     // FILE IMPORT (UPLOAD)
     // ═══════════════════════════════════════════════════════════════
 
+    @Post('import/preview')
+    @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
+    @ApiConsumes('multipart/form-data')
+    @ApiOperation({ summary: 'Preview: mostra colunas e primeiras linhas do arquivo sem importar' })
+    async previewFile(@UploadedFile() file: Express.Multer.File) {
+        if (!file) throw new BadRequestException('Arquivo não enviado');
+        const XLSX = require('xlsx');
+        const workbook = XLSX.read(file.buffer, { type: 'buffer', cellDates: true, cellNF: true });
+        const result: any[] = [];
+        for (const sheetName of workbook.SheetNames) {
+            const sheet = workbook.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+            result.push({
+                sheetName,
+                rowCount: rows.length,
+                columns: rows.length > 0 ? Object.keys(rows[0]) : [],
+                sampleRows: rows.slice(0, 3),
+            });
+        }
+        return { fileName: file.originalname, sheets: result };
+    }
+
     @Post('import/upload')
     @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
     @ApiConsumes('multipart/form-data')
