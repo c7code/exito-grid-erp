@@ -131,21 +131,16 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
 
         setUploading(true);
         try {
-            const token = localStorage.getItem('electraflow_token');
             const r = await api.client.post('/sinapi/import/upload', fd, {
-                headers: {
-                    'Content-Type': undefined as any, // Let axios set multipart boundary automatically
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
                 timeout: 120000, // 2 min timeout for large files
             });
-            toast.success(`Importação concluída: ${r.data?.rowsProcessed || 0} registros`);
+            toast.success(`Importação concluída: ${r.data?.inserted || r.data?.rowsProcessed || 0} registros`);
             if (fileRef.current) fileRef.current.value = '';
             loadLogs(); onRefresh();
         } catch (e: any) {
-            if (e?.response?.status !== 401) {
-                toast.error(e?.response?.data?.message || 'Erro na importação');
-            }
+            const msg = e?.response?.data?.message || e?.message || 'Erro na importação';
+            toast.error(msg);
+            console.error('SINAPI import error:', e?.response?.status, e?.response?.data, e);
         }
         finally { setUploading(false); }
     };
