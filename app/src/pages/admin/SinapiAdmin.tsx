@@ -131,13 +131,22 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
 
         setUploading(true);
         try {
+            const token = localStorage.getItem('token');
             const r = await api.post('/sinapi/import/upload', fd, {
-                headers: { 'Content-Type': 'multipart/form-data' },
+                headers: {
+                    'Content-Type': undefined as any, // Let axios set multipart boundary automatically
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                timeout: 120000, // 2 min timeout for large files
             });
             toast.success(`Importação concluída: ${r.data?.rowsProcessed || 0} registros`);
             if (fileRef.current) fileRef.current.value = '';
             loadLogs(); onRefresh();
-        } catch (e: any) { toast.error(e?.response?.data?.message || 'Erro na importação'); }
+        } catch (e: any) {
+            if (e?.response?.status !== 401) {
+                toast.error(e?.response?.data?.message || 'Erro na importação');
+            }
+        }
         finally { setUploading(false); }
     };
 
