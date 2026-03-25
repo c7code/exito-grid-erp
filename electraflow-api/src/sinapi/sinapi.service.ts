@@ -289,6 +289,53 @@ export class SinapiService implements OnModuleInit {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // STATS
+    // ═══════════════════════════════════════════════════════════════
+
+    async getStats() {
+        try {
+            const [refs, inputs, compositions, prices, profiles] = await Promise.all([
+                this.referenceRepo.count(),
+                this.inputRepo.count(),
+                this.compositionRepo.count(),
+                this.inputPriceRepo.count(),
+                this.dataSource.query(`SELECT COUNT(*) as count FROM sinapi_pricing_profiles`).catch(() => [{ count: 0 }]),
+            ]);
+            return {
+                references: refs,
+                inputs,
+                compositions,
+                prices,
+                profiles: Number(profiles?.[0]?.count || 0),
+            };
+        } catch (e) {
+            this.logger.warn('getStats error: ' + e?.message);
+            return { references: 0, inputs: 0, compositions: 0, prices: 0, profiles: 0 };
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CONFIG (KEY-VALUE)
+    // ═══════════════════════════════════════════════════════════════
+
+    async getConfigs() {
+        try {
+            return await this.configRepo.find({ order: { key: 'ASC' } });
+        } catch {
+            return [];
+        }
+    }
+
+    async setConfig(key: string, value: string) {
+        const existing = await this.configRepo.findOne({ where: { key } });
+        if (existing) {
+            await this.configRepo.update(existing.id, { value });
+            return { ...existing, value };
+        }
+        return this.configRepo.save(this.configRepo.create({ key, value }));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // REFERENCES (REFERÊNCIAS MENSAIS)
     // ═══════════════════════════════════════════════════════════════
 

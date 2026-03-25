@@ -301,7 +301,7 @@ export class SinapiController {
     // ═══ CONFIG ═══
     @Get('config')
     @ApiOperation({ summary: 'Listar configurações' })
-    async getConfigs() { return this.sinapiService.getAllConfigs(); }
+    async getConfigs() { return this.sinapiService.getConfigs(); }
 
     @Post('config')
     @ApiOperation({ summary: 'Salvar configuração' })
