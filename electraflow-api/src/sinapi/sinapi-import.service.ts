@@ -361,22 +361,24 @@ export class SinapiImportService {
 
     private detectSheetType(sheetName: string, firstRow: any): string {
         const upper = sheetName.toUpperCase();
-        const cols = Object.keys(firstRow).map(k => k.toUpperCase());
+        const normAccent = (s: string) => s.toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const cols = Object.keys(firstRow).map(k => normAccent(k));
 
         // By sheet name
-        if (upper.includes('INSUMO') && (upper.includes('PRECO') || upper.includes('PREÇO') || upper.includes('CUSTO')))
+        const normSheet = normAccent(sheetName);
+        if (normSheet.includes('INSUMO') && (normSheet.includes('PRECO') || normSheet.includes('CUSTO')))
             return 'input_prices';
-        if (upper.includes('INSUMO')) return 'inputs';
-        if (upper.includes('COMPOSIC') && (upper.includes('PRECO') || upper.includes('PREÇO') || upper.includes('CUSTO') || upper.includes('SINT')))
+        if (normSheet.includes('INSUMO')) return 'inputs';
+        if (normSheet.includes('COMPOSIC') && (normSheet.includes('PRECO') || normSheet.includes('CUSTO') || normSheet.includes('SINT')))
             return 'composition_prices';
-        if (upper.includes('COMPOSIC') && upper.includes('ANALI'))
+        if (normSheet.includes('COMPOSIC') && normSheet.includes('ANALI'))
             return 'compositions';
-        if (upper.includes('COMPOSIC')) return 'compositions';
+        if (normSheet.includes('COMPOSIC')) return 'compositions';
 
-        // By column names
-        const hasCode = cols.some(c => c.includes('CODIGO') || c.includes('CÓDIGO') || c === 'CODIGO SINAPI');
+        // By column names (all accent-normalized)
+        const hasCode = cols.some(c => c.includes('CODIGO') || c === 'COD' || c.includes('CODIGO SINAPI'));
         const hasDescription = cols.some(c => c.includes('DESCRI'));
-        const hasPrice = cols.some(c => c.includes('PRECO') || c.includes('PREÇO') || c.includes('MEDIANA') || c.includes('CUSTO'));
+        const hasPrice = cols.some(c => c.includes('PRECO') || c.includes('MEDIANA') || c.includes('CUSTO'));
         const hasUnit = cols.some(c => c.includes('UNIDADE') || c === 'UN');
         const hasCoefficient = cols.some(c => c.includes('COEFICIENTE') || c.includes('COEF'));
 
@@ -674,14 +676,16 @@ export class SinapiImportService {
         return { inserted, updated, skipped };
     }
 
-    // Auto-detect: tries to determine what type of data the rows contain
     private async processAutoDetect(rows: any[], referenceId: string, taxRegime: string, errors: string[], warnings: string[]) {
         if (rows.length === 0) return { inserted: 0, updated: 0, skipped: 0 };
 
-        const cols = Object.keys(rows[0]).map(k => k.toUpperCase());
+        const normAccent = (s: string) => s.toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const cols = Object.keys(rows[0]).map(k => normAccent(k));
         const hasCoef = cols.some(c => c.includes('COEFICIENTE') || c.includes('COEF'));
-        const hasPrice = cols.some(c => c.includes('PRECO') || c.includes('PREÇO') || c.includes('MEDIANA') || c.includes('CUSTO'));
-        const hasComp = cols.some(c => c.includes('COMPOSIC') || c.includes('COMPOSIÇÃO'));
+        const hasPrice = cols.some(c => c.includes('PRECO') || c.includes('MEDIANA') || c.includes('CUSTO'));
+        const hasComp = cols.some(c => c.includes('COMPOSIC'));
+
+        warnings.push(`[DEBUG] autoDetect: cols=[${cols.slice(0, 8).join(', ')}], hasCoef=${hasCoef}, hasPrice=${hasPrice}, hasComp=${hasComp}`);
 
         if (hasCoef) return this.processCompositionRows(rows, errors, warnings);
         if (hasComp && hasPrice) return this.processCompositionCostRows(rows, referenceId, taxRegime, errors, warnings);
