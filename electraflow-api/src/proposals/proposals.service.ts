@@ -416,56 +416,65 @@ export class ProposalsService implements OnModuleInit {
     proposal.acceptedAt = new Date();
     const saved = await this.proposalRepository.save(proposal);
 
-    // ── AUTO-TRIGGER: Create Work from accepted proposal ──────────
+    // Auto-create work from accepted proposal
+    await this.createWorkFromProposal(proposal);
+
+    return saved;
+  }
+
+  /** ═══ AUTO-CREATE WORK from an accepted proposal ═══ */
+  private async createWorkFromProposal(proposal: Proposal): Promise<void> {
     try {
       const activityTypeMap: Record<string, string> = {
         extensao_rede: 'network_work', energia_solar: 'solar',
         instalacao_eletrica: 'residential', projeto_eletrico: 'project_bt',
         manutencao: 'maintenance', laudo: 'report', spda: 'spda',
         aterramento: 'grounding', pde: 'pde_bt',
+        muc: 'muc', subestacao_definitiva: 'subestacao_definitiva',
+        subestacao_provisoria: 'subestacao_provisoria',
+        rede_mt: 'rede_mt', rede_bt: 'rede_bt', rede_mt_bt: 'rede_mt_bt',
       };
 
       const year = new Date().getFullYear();
-      const count = await this.workRepository.count();
+      const countResult = await this.dataSource.query(`SELECT COUNT(*) as cnt FROM works`);
+      const count = Number(countResult?.[0]?.cnt || 0);
       const code = `OB-${year}-${String(count + 1).padStart(3, '0')}`;
 
-      const deadlineDate = proposal.workDeadlineDays
-        ? new Date(Date.now() + proposal.workDeadlineDays * 86400000)
+      const title = proposal.workDescription || proposal.title || `Obra - ${proposal.proposalNumber}`;
+      const workType = activityTypeMap[proposal.activityType] || 'residential';
+      const totalValue = Number(proposal.total) || 0;
+      const clientId = proposal.clientId || null;
+      const opportunityId = proposal.opportunityId || null;
+      const address = proposal.workAddress || null;
+      const description = proposal.scope || proposal.notes || null;
+      const deadlineDays = Number(proposal.workDeadlineDays) || 0;
+      const deadlineDate = deadlineDays > 0
+        ? new Date(Date.now() + deadlineDays * 86400000).toISOString()
         : null;
 
-      const work = this.workRepository.create({
-        code,
-        title: proposal.workDescription || proposal.title || `Obra - ${proposal.proposalNumber}`,
-        type: (activityTypeMap[proposal.activityType] || 'residential') as any,
-        status: 'pending' as any,
-        clientId: proposal.clientId || undefined,
-        opportunityId: proposal.opportunityId || undefined,
-        totalValue: Number(proposal.total) || 0,
-        address: proposal.workAddress || undefined,
-        description: proposal.scope || proposal.notes || undefined,
-        expectedEndDate: deadlineDate,
-        deadline: deadlineDate,
-        currentStage: 'project' as any,
-      });
-      await this.workRepository.save(work);
+      // Use raw SQL to avoid TypeORM enum validation issues
+      await this.dataSource.query(
+        `INSERT INTO works (id, code, title, type, status, "clientId", "opportunityId", "totalValue", address, description, "expectedEndDate", deadline, "currentStage", "createdAt", "updatedAt")
+         VALUES (gen_random_uuid(), $1, $2, $3, 'pending', $4, $5, $6, $7, $8, $9, $9, 'project', NOW(), NOW())`,
+        [code, title, workType, clientId, opportunityId, totalValue, address, description, deadlineDate],
+      );
 
-      // Notify admins about auto-created work
+      this.logger.log(`✅ [AutoTrigger] Work ${code} created from proposal ${proposal.proposalNumber} (type: ${workType}, value: R$ ${totalValue})`);
+
+      // Notify admins
       try {
         await this.notificationRepository.save(
           this.notificationRepository.create({
             title: '🚀 Obra Criada Automaticamente',
-            message: `Proposta ${proposal.proposalNumber} aceita → Obra ${code} criada (R$ ${Number(proposal.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`,
+            message: `Proposta ${proposal.proposalNumber} aceita → Obra ${code} criada (R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`,
             type: 'auto_work_created',
             category: 'works',
           }),
         );
       } catch { /* notification is non-critical */ }
     } catch (err) {
-      // Log but don't fail the accept operation
-      console.error('[AutoTrigger] Failed to auto-create work from proposal:', err?.message);
+      this.logger.error(`❌ [AutoTrigger] Failed to auto-create work from proposal ${proposal.proposalNumber}:`, err?.stack || err?.message);
     }
-
-    return saved;
   }
 
   async reject(id: string, reason?: string): Promise<Proposal> {
@@ -780,6 +789,9 @@ export class ProposalsService implements OnModuleInit {
     proposal.acceptedAt = new Date();
 
     await this.proposalRepository.save(proposal);
+
+    // Auto-create work from signed (accepted) proposal
+    await this.createWorkFromProposal(proposal);
 
     return { proposal, verificationCode: proposal.signatureVerificationCode };
   }
