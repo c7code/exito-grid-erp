@@ -173,11 +173,24 @@ export class SinapiImportService {
                 }
 
                 // Re-parse with correct header row
-                const rows = XLSX.utils.sheet_to_json<any>(sheet, {
+                let rows = XLSX.utils.sheet_to_json<any>(sheet, {
                     defval: '',
                     raw: false,
                     range: headerRowIndex, // Start from the detected header row
                 });
+
+                // ═══ CLEAN COLUMN NAMES ═══
+                // SINAPI CAIXA files have columns with embedded \r\n (e.g. "Código da\r\nFamília")
+                // Clean all column keys by stripping \r\n and collapsing whitespace
+                rows = rows.map((row: any) => {
+                    const cleaned: any = {};
+                    for (const key of Object.keys(row)) {
+                        const cleanKey = key.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+                        cleaned[cleanKey] = row[key];
+                    }
+                    return cleaned;
+                });
+
                 totalRows += rows.length;
 
                 if (rows.length === 0) {
