@@ -716,17 +716,7 @@ class ApiService {
     return response.data;
   }
 
-  // ═══ Companies ═══
-  async getPrimaryCompany() {
-    const response = await this.client.get('/companies/primary');
-    return response.data;
-  }
-
-  async updateCompany(id: string, data: any) {
-    const response = await this.client.patch(`/companies/${id}`, data);
-    return response.data;
-  }
-
+  // ═══ Company Signature ═══
   async uploadCompanySignature(id: string, file: File) {
     const formData = new FormData();
     formData.append('file', file);

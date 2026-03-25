@@ -28,7 +28,6 @@ export function SignatureCropDialog({
   title = 'Upload de Assinatura',
 }: SignatureCropDialogProps) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isCropping, setIsCropping] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -42,7 +41,6 @@ export function SignatureCropDialog({
   const [rotation, setRotation] = useState(0);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Draw image on canvas ──
@@ -111,7 +109,6 @@ export function SignatureCropDialog({
     const reader = new FileReader();
     reader.onload = (ev) => {
       const src = ev.target?.result as string;
-      setImageSrc(src);
       const img = new Image();
       img.onload = () => {
         setImage(img);
@@ -225,7 +222,6 @@ export function SignatureCropDialog({
       toast.success('Assinatura salva com sucesso!');
       onOpenChange(false);
       setImage(null);
-      setImageSrc(null);
       setIsCropping(false);
     } catch {
       toast.error('Erro ao salvar assinatura');
@@ -383,7 +379,6 @@ export function SignatureCropDialog({
                 onClick={() => {
                   setIsCropping(false);
                   setImage(null);
-                  setImageSrc(null);
                 }}
               >
                 Cancelar
