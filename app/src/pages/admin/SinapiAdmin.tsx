@@ -135,7 +135,7 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
         setUploading(true);
         try {
             const r = await api.client.post('/sinapi/import/upload', fd, {
-                headers: { 'Content-Type': 'multipart/form-data' },
+                headers: { 'Content-Type': undefined },
                 timeout: 300000, // 5 min timeout for large files
             });
             toast.success(`Importação concluída: ${r.data?.inserted || r.data?.rowsProcessed || 0} registros`);
@@ -202,7 +202,7 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
                         const fd = new FormData(); fd.append('file', file);
                         try {
                             const r = await api.client.post('/sinapi/import/preview', fd, {
-                                headers: { 'Content-Type': 'multipart/form-data' },
+                                headers: { 'Content-Type': undefined },
                             });
                             setPreview(r.data);
                             toast.success('Preview carregado');
