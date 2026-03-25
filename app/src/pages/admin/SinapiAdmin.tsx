@@ -11,10 +11,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
     Database, Upload, FileSpreadsheet, Search, Loader2, CheckCircle2, XCircle,
     RefreshCw, Trash2, Settings2, Calculator, Building2, DollarSign, TrendingUp, Eye, Plus,
-    Star, ChevronDown, ChevronRight, BarChart3
+    Star, ChevronDown, ChevronRight, BarChart3, X, FileText, ClipboardList
 } from 'lucide-react';
 
-type Tab = 'import' | 'references' | 'profiles' | 'search' | 'logs';
+type Tab = 'import' | 'references' | 'profiles' | 'search' | 'budget' | 'logs';
 const UF_LIST = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'];
 
 export default function SinapiAdmin() {
@@ -34,6 +34,7 @@ export default function SinapiAdmin() {
         { key: 'references', label: 'Referências', icon: Database },
         { key: 'profiles', label: 'Perfis Comerciais', icon: DollarSign },
         { key: 'search', label: 'Consulta', icon: Search },
+        { key: 'budget', label: 'Orçamento', icon: ClipboardList },
         { key: 'logs', label: 'Logs', icon: BarChart3 },
     ];
 
@@ -94,6 +95,7 @@ export default function SinapiAdmin() {
             {tab === 'references' && <TabReferences onRefresh={loadStats} />}
             {tab === 'profiles' && <TabProfiles onRefresh={loadStats} />}
             {tab === 'search' && <TabSearch />}
+            {tab === 'budget' && <TabBudget />}
             {tab === 'logs' && <TabLogs />}
         </div>
     );
@@ -805,6 +807,382 @@ function TabLogs() {
                             ))}
                         </TableBody>
                     </Table>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB: ORÇAMENTO (BUDGET) — Módulo de Orçamento Civil
+// ═══════════════════════════════════════════════════════════════
+
+interface BudgetItem {
+    id: string;
+    sinapiCode: string;
+    description: string;
+    unit: string;
+    sinapiPrice: number;
+    usedPrice: number;
+    quantity: number;
+    type: 'composicao' | 'insumo';
+}
+
+const ALL_COLUMNS = [
+    { key: 'sinapiCode', label: 'Código SINAPI', default: true },
+    { key: 'description', label: 'Descrição', default: true },
+    { key: 'unit', label: 'Unidade', default: true },
+    { key: 'sinapiPrice', label: 'Preço SINAPI', default: true },
+    { key: 'usedPrice', label: 'Preço Utilizado', default: true },
+    { key: 'quantity', label: 'Quantidade', default: true },
+    { key: 'total', label: 'Total', default: true },
+    { key: 'bdiValue', label: 'BDI (R$)', default: false },
+    { key: 'totalBdi', label: 'Total c/ BDI', default: true },
+    { key: 'type', label: 'Tipo', default: false },
+];
+
+function TabBudget() {
+    const [budgetName, setBudgetName] = useState('');
+    const [budgetClient] = useState('');
+    const [budgetUF, setBudgetUF] = useState('PE');
+    const [bdi, setBdi] = useState(25);
+    const [items, setItems] = useState<BudgetItem[]>([]);
+    const [visibleCols, setVisibleCols] = useState<string[]>(ALL_COLUMNS.filter(c => c.default).map(c => c.key));
+    const [showColConfig, setShowColConfig] = useState(false);
+
+    // Search
+    const [showSearch, setShowSearch] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchMode, setSearchMode] = useState<'compositions' | 'inputs'>('compositions');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [searching, setSearching] = useState(false);
+
+    const doSearch = async () => {
+        if (!searchQuery.trim()) return;
+        setSearching(true);
+        try {
+            const endpoint = searchMode === 'compositions' ? '/sinapi/compositions' : '/sinapi/inputs';
+            const r = await api.client.get(endpoint, { params: { search: searchQuery, limit: 30 } });
+            const data = r.data;
+            setSearchResults(Array.isArray(data) ? data : data?.data || data?.items || []);
+        } catch { toast.error('Erro na busca SINAPI'); }
+        setSearching(false);
+    };
+
+    const addItem = (item: any) => {
+        const newItem: BudgetItem = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            sinapiCode: item.code || '',
+            description: item.description || item.name || '',
+            unit: item.unit || 'UN',
+            sinapiPrice: Number(item.unitCost || item.priceNotTaxed || item.priceTaxed || 0),
+            usedPrice: Number(item.unitCost || item.priceNotTaxed || item.priceTaxed || 0),
+            quantity: 1,
+            type: searchMode === 'compositions' ? 'composicao' : 'insumo',
+        };
+        setItems(prev => [...prev, newItem]);
+        toast.success(`${item.code} adicionado`);
+    };
+
+    const removeItem = (id: string) => setItems(prev => prev.filter(i => i.id !== id));
+
+    const updateItem = (id: string, field: keyof BudgetItem, value: any) => {
+        setItems(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i));
+    };
+
+    const subtotal = items.reduce((s, i) => s + i.usedPrice * i.quantity, 0);
+    const totalBdi = subtotal * (1 + bdi / 100);
+
+    const handleGenerateProposal = async () => {
+        if (!budgetName.trim()) { toast.error('Informe o nome do orçamento'); return; }
+        if (items.length === 0) { toast.error('Adicione pelo menos um item'); return; }
+        try {
+            const proposalItems = items.map(i => ({
+                description: `[SINAPI ${i.sinapiCode}] ${i.description}`,
+                serviceType: 'service',
+                unitPrice: String(i.usedPrice * (1 + bdi / 100)),
+                quantity: String(i.quantity),
+                unit: i.unit,
+            }));
+
+            await api.client.post('/proposals', {
+                title: `Orçamento SINAPI — ${budgetName}`,
+                clientId: budgetClient || undefined,
+                items: proposalItems,
+            });
+            toast.success('Proposta gerada com sucesso!');
+        } catch (e: any) {
+            toast.error(e?.response?.data?.message || 'Erro ao gerar proposta');
+        }
+    };
+
+    const toggleCol = (key: string) => {
+        setVisibleCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* Budget Header */}
+            <div className="bg-white rounded-xl border p-5 space-y-4">
+                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                    <ClipboardList className="w-4 h-4" /> Orçamento de Construção Civil
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="md:col-span-2">
+                        <Label>Nome do Orçamento *</Label>
+                        <Input
+                            value={budgetName} onChange={e => setBudgetName(e.target.value)}
+                            placeholder="Ex: Reforma sala comercial"
+                        />
+                    </div>
+                    <div>
+                        <Label>UF Referência</Label>
+                        <Select value={budgetUF} onValueChange={setBudgetUF}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                {UF_LIST.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label>BDI (%)</Label>
+                        <Input
+                            type="number" value={bdi} onChange={e => setBdi(Number(e.target.value))}
+                            min={0} max={100} step={0.5}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Action Bar */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex gap-2">
+                    <Button onClick={() => { setShowSearch(true); setSearchQuery(''); setSearchResults([]); }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white">
+                        <Search className="w-4 h-4 mr-1" /> Buscar SINAPI
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowColConfig(!showColConfig)}>
+                        <Settings2 className="w-4 h-4 mr-1" /> Colunas
+                    </Button>
+                </div>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => {
+                        if (items.length === 0) { toast.error('Sem itens'); return; }
+                        const csv = [visibleCols.map(k => ALL_COLUMNS.find(c => c.key === k)?.label).join(';'),
+                            ...items.map(i => visibleCols.map(k => {
+                                if (k === 'total') return (i.usedPrice * i.quantity).toFixed(2);
+                                if (k === 'bdiValue') return (i.usedPrice * i.quantity * bdi / 100).toFixed(2);
+                                if (k === 'totalBdi') return (i.usedPrice * i.quantity * (1 + bdi / 100)).toFixed(2);
+                                return (i as any)[k] ?? '';
+                            }).join(';'))].join('\n');
+                        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+                        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                        a.download = `orcamento_sinapi_${budgetName || 'sem_nome'}.csv`; a.click();
+                        toast.success('CSV exportado');
+                    }}>
+                        <FileText className="w-4 h-4 mr-1" /> Exportar CSV
+                    </Button>
+                    <Button onClick={handleGenerateProposal} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                        <FileText className="w-4 h-4 mr-1" /> Gerar Proposta
+                    </Button>
+                </div>
+            </div>
+
+            {/* Column Config */}
+            {showColConfig && (
+                <div className="bg-slate-50 border rounded-lg p-4">
+                    <p className="text-xs font-bold text-slate-600 mb-2">Colunas visíveis:</p>
+                    <div className="flex flex-wrap gap-2">
+                        {ALL_COLUMNS.map(c => (
+                            <button key={c.key} type="button"
+                                className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${visibleCols.includes(c.key) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}`}
+                                onClick={() => toggleCol(c.key)}>
+                                {c.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* SINAPI Search Panel */}
+            {showSearch && (
+                <div className="border rounded-lg p-4 bg-blue-50/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-blue-800 flex items-center gap-2">
+                            <Database className="w-4 h-4" /> Buscar Composição / Insumo SINAPI
+                        </p>
+                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowSearch(false)}>
+                            <X className="w-3.5 h-3.5" />
+                        </Button>
+                    </div>
+                    <div className="flex gap-2">
+                        <div className="flex gap-1 bg-white rounded-md border p-0.5">
+                            <button type="button" className={`px-2 py-1 text-xs rounded ${searchMode === 'compositions' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
+                                onClick={() => { setSearchMode('compositions'); setSearchResults([]); }}>Composições</button>
+                            <button type="button" className={`px-2 py-1 text-xs rounded ${searchMode === 'inputs' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
+                                onClick={() => { setSearchMode('inputs'); setSearchResults([]); }}>Insumos</button>
+                        </div>
+                        <Input placeholder="Buscar por código ou palavra-chave..." value={searchQuery}
+                            className="bg-white flex-1" onChange={e => setSearchQuery(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } }}
+                        />
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={doSearch}>
+                            <Search className="w-4 h-4" />
+                        </Button>
+                    </div>
+                    {searching ? (
+                        <div className="flex items-center gap-2 py-3 justify-center text-sm text-slate-400">
+                            <Loader2 className="w-4 h-4 animate-spin" /> Buscando...
+                        </div>
+                    ) : (
+                        <div className="max-h-56 overflow-y-auto space-y-1">
+                            {searchResults.length === 0 && searchQuery && (
+                                <p className="text-xs text-slate-400 text-center py-4">Nenhum resultado. Pressione Enter ou clique 🔍</p>
+                            )}
+                            {searchResults.map((item: any) => (
+                                <button key={item.id} type="button"
+                                    className="w-full text-left px-3 py-2 rounded-md hover:bg-blue-100 transition-colors text-sm border border-transparent hover:border-blue-200"
+                                    onClick={() => addItem(item)}>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-mono text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{item.code}</span>
+                                        <span className="flex-1 truncate">{item.description || item.name}</span>
+                                        {(item.unitCost || item.priceNotTaxed) && (
+                                            <span className="text-xs font-medium text-emerald-600 whitespace-nowrap">
+                                                R$ {Number(item.unitCost || item.priceNotTaxed || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="text-xs text-slate-400 mt-0.5">{item.unit || ''} {item.type || ''}</div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Budget Table */}
+            <div className="bg-white rounded-xl border overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-8">#</TableHead>
+                            {visibleCols.includes('sinapiCode') && <TableHead>Código</TableHead>}
+                            {visibleCols.includes('description') && <TableHead className="min-w-[250px]">Descrição</TableHead>}
+                            {visibleCols.includes('unit') && <TableHead>UN</TableHead>}
+                            {visibleCols.includes('sinapiPrice') && <TableHead>Preço SINAPI</TableHead>}
+                            {visibleCols.includes('usedPrice') && <TableHead>Preço Utilizado</TableHead>}
+                            {visibleCols.includes('quantity') && <TableHead>Qtd</TableHead>}
+                            {visibleCols.includes('total') && <TableHead>Total</TableHead>}
+                            {visibleCols.includes('bdiValue') && <TableHead>BDI (R$)</TableHead>}
+                            {visibleCols.includes('totalBdi') && <TableHead>Total c/ BDI</TableHead>}
+                            {visibleCols.includes('type') && <TableHead>Tipo</TableHead>}
+                            <TableHead className="w-10"></TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {items.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={visibleCols.length + 2} className="text-center py-16 text-slate-400">
+                                    <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                                    Clique em "Buscar SINAPI" para adicionar itens ao orçamento
+                                </TableCell>
+                            </TableRow>
+                        ) : items.map((item, idx) => {
+                            const total = item.usedPrice * item.quantity;
+                            const bdiVal = total * bdi / 100;
+                            const totalWithBdi = total + bdiVal;
+                            return (
+                                <TableRow key={item.id}>
+                                    <TableCell className="text-xs text-slate-400">{idx + 1}</TableCell>
+                                    {visibleCols.includes('sinapiCode') && (
+                                        <TableCell>
+                                            <Badge variant="outline" className="font-mono text-xs">{item.sinapiCode}</Badge>
+                                        </TableCell>
+                                    )}
+                                    {visibleCols.includes('description') && (
+                                        <TableCell>
+                                            <Input value={item.description} onChange={e => updateItem(item.id, 'description', e.target.value)}
+                                                className="h-8 text-sm border-0 bg-transparent px-0 focus-visible:ring-0 shadow-none" />
+                                        </TableCell>
+                                    )}
+                                    {visibleCols.includes('unit') && (
+                                        <TableCell>
+                                            <Input value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}
+                                                className="h-8 w-16 text-xs text-center border-slate-200" />
+                                        </TableCell>
+                                    )}
+                                    {visibleCols.includes('sinapiPrice') && (
+                                        <TableCell className="text-xs text-slate-400 whitespace-nowrap">
+                                            R$ {item.sinapiPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        </TableCell>
+                                    )}
+                                    {visibleCols.includes('usedPrice') && (
+                                        <TableCell>
+                                            <Input type="number" value={item.usedPrice} step="0.01"
+                                                onChange={e => updateItem(item.id, 'usedPrice', Number(e.target.value))}
+                                                className="h-8 w-28 text-sm text-right border-blue-200 bg-blue-50/30" />
+                                        </TableCell>
+                                    )}
+                                    {visibleCols.includes('quantity') && (
+                                        <TableCell>
+                                            <Input type="number" value={item.quantity} step="0.01" min="0"
+                                                onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}
+                                                className="h-8 w-20 text-sm text-center border-slate-200" />
+                                        </TableCell>
+                                    )}
+                                    {visibleCols.includes('total') && (
+                                        <TableCell className="font-medium text-sm whitespace-nowrap">
+                                            R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        </TableCell>
+                                    )}
+                                    {visibleCols.includes('bdiValue') && (
+                                        <TableCell className="text-xs text-amber-600 whitespace-nowrap">
+                                            R$ {bdiVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        </TableCell>
+                                    )}
+                                    {visibleCols.includes('totalBdi') && (
+                                        <TableCell className="font-bold text-sm text-emerald-700 whitespace-nowrap">
+                                            R$ {totalWithBdi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        </TableCell>
+                                    )}
+                                    {visibleCols.includes('type') && (
+                                        <TableCell>
+                                            <Badge className={item.type === 'composicao' ? 'bg-purple-100 text-purple-700' : 'bg-sky-100 text-sky-700'}>
+                                                {item.type === 'composicao' ? 'Comp.' : 'Insumo'}
+                                            </Badge>
+                                        </TableCell>
+                                    )}
+                                    <TableCell>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600"
+                                            onClick={() => removeItem(item.id)}>
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                    </TableBody>
+                </Table>
+            </div>
+
+            {/* Totals */}
+            {items.length > 0 && (
+                <div className="bg-white rounded-xl border p-5">
+                    <div className="flex flex-col items-end gap-2 text-sm">
+                        <div className="flex gap-8">
+                            <span className="text-slate-500">Subtotal:</span>
+                            <span className="font-medium w-36 text-right">R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex gap-8">
+                            <span className="text-slate-500">BDI ({bdi}%):</span>
+                            <span className="font-medium text-amber-600 w-36 text-right">R$ {(subtotal * bdi / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="border-t pt-2 mt-1 flex gap-8">
+                            <span className="text-slate-700 font-bold">TOTAL:</span>
+                            <span className="font-bold text-lg text-emerald-700 w-36 text-right">R$ {totalBdi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">{items.length} itens</p>
+                    </div>
                 </div>
             )}
         </div>
