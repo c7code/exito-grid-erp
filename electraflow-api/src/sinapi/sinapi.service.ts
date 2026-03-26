@@ -409,14 +409,40 @@ export class SinapiService implements OnModuleInit {
     // INPUTS (INSUMOS)
     // ═══════════════════════════════════════════════════════════════
 
-    async searchInputs(params: { search?: string; type?: string; page?: number; limit?: number }) {
-        const { search, type, page = 1, limit = 50 } = params;
-        const qb = this.inputRepo.createQueryBuilder('i')
-            .where('i."isActive" = true');
-        if (type) qb.andWhere('i.type = :type', { type });
-        if (search) qb.andWhere('(i.code ILIKE :s OR i.description ILIKE :s)', { s: `%${search}%` });
-        qb.orderBy('i.code', 'ASC').skip((page - 1) * limit).take(limit);
-        const [items, total] = await qb.getManyAndCount();
+    async searchInputs(params: { search?: string; type?: string; state?: string; page?: number; limit?: number }) {
+        const { search, type, state, page = 1, limit = 50 } = params;
+        const offset = (page - 1) * limit;
+        const refState = (state || 'PE').toUpperCase();
+        const where: string[] = ['i."isActive" = true'];
+        const p: any[] = [];
+        let idx = 1;
+        if (type) { where.push(`i.type = $${idx}`); p.push(type); idx++; }
+        if (search) { where.push(`(i.code ILIKE $${idx} OR i.description ILIKE $${idx})`); p.push(`%${search}%`); idx++; }
+        const wh = where.join(' AND ');
+        const sql = `
+            SELECT i.*, p."priceNotTaxed", p."priceTaxed", p."medianPrice",
+                   r.year as "refYear", r.month as "refMonth", r.state as "refState"
+            FROM sinapi_inputs i
+            LEFT JOIN LATERAL (
+                SELECT ip."priceNotTaxed", ip."priceTaxed", ip."medianPrice", ip."referenceId"
+                FROM sinapi_input_prices ip
+                JOIN sinapi_references sr ON sr.id = ip."referenceId" AND sr.state = '${refState}'
+                WHERE ip."inputId" = i.id
+                ORDER BY sr.year DESC, sr.month DESC
+                LIMIT 1
+            ) p ON true
+            LEFT JOIN sinapi_references r ON r.id = p."referenceId"
+            WHERE ${wh}
+            ORDER BY i.code ASC
+            LIMIT $${idx} OFFSET $${idx + 1}
+        `;
+        p.push(limit, offset);
+        const countSql = `SELECT COUNT(*) as total FROM sinapi_inputs i WHERE ${wh}`;
+        const [items, countR] = await Promise.all([
+            this.dataSource.query(sql, p),
+            this.dataSource.query(countSql, p.slice(0, p.length - 2)),
+        ]);
+        const total = Number(countR[0]?.total || 0);
         return { items, total, page, limit };
     }
 

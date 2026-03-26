@@ -58,11 +58,12 @@ export class SinapiController {
     async searchInputs(
         @Query('search') search?: string,
         @Query('type') type?: string,
+        @Query('state') state?: string,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
         return this.sinapiService.searchInputs({
-            search, type,
+            search, type, state,
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 50,
         });

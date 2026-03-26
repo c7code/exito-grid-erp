@@ -730,15 +730,17 @@ function TabSearch() {
                         <span className="text-slate-400">{filterState ? `Filtro: ${filterState}` : 'Todos os estados'}</span>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full border-collapse" style={{ minWidth: '700px' }}>
+                        <table className="w-full border-collapse" style={{ minWidth: '950px' }}>
                             <thead>
                                 <tr className="bg-slate-50 border-b">
                                     <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '40px' }}></th>
                                     <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '100px' }}>Código</th>
-                                    <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '350px' }}>Descrição</th>
-                                    <th className="text-center px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '80px' }}>Unidade</th>
-                                    {mode === 'inputs' && <th className="text-center px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '110px' }}>Tipo</th>}
-                                    {mode === 'inputs' && <th className="text-center px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '80px' }}>Origem</th>}
+                                    <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '300px' }}>Descrição</th>
+                                    <th className="text-center px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '70px' }}>Unidade</th>
+                                    {mode === 'inputs' && <th className="text-center px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '90px' }}>Tipo</th>}
+                                    {mode === 'inputs' && <th className="text-right px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '110px' }}>Preço ND (R$)</th>}
+                                    {mode === 'inputs' && <th className="text-right px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '110px' }}>Preço D (R$)</th>}
+                                    {mode === 'inputs' && <th className="text-center px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '90px' }}>Ref.</th>}
                                 </tr>
                             </thead>
                             <tbody>
@@ -768,15 +770,25 @@ function TabSearch() {
                                                 </td>
                                             )}
                                             {mode === 'inputs' && (
+                                                <td className="px-4 py-3 text-right font-mono text-xs">
+                                                    {r.priceNotTaxed ? <span className="text-green-700 font-semibold">{Number(r.priceNotTaxed).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> : <span className="text-slate-300">—</span>}
+                                                </td>
+                                            )}
+                                            {mode === 'inputs' && (
+                                                <td className="px-4 py-3 text-right font-mono text-xs">
+                                                    {r.priceTaxed ? <span className="text-blue-700 font-semibold">{Number(r.priceTaxed).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> : <span className="text-slate-300">—</span>}
+                                                </td>
+                                            )}
+                                            {mode === 'inputs' && (
                                                 <td className="px-4 py-3 text-center">
-                                                    <span className="text-[11px] text-slate-400">{r.origin || 'sinapi'}</span>
+                                                    {r.refYear ? <span className="text-[10px] text-slate-400">{String(r.refMonth).padStart(2, '0')}/{r.refYear}</span> : <span className="text-slate-300 text-[10px]">—</span>}
                                                 </td>
                                             )}
                                         </tr>
                                         {/* ── Expanded Detail Row ── */}
                                         {expandedId === r.id && (
                                             <tr className="bg-blue-50/40">
-                                                <td colSpan={mode === 'inputs' ? 6 : 4} className="px-6 py-4">
+                                                <td colSpan={mode === 'inputs' ? 8 : 4} className="px-6 py-4">
                                                     <div className="bg-white rounded-lg border border-blue-200 shadow-sm p-4 space-y-3">
                                                         <div className="flex items-start gap-4">
                                                             <div className="flex-1 space-y-2">
