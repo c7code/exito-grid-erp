@@ -485,17 +485,29 @@ export class SinapiImportService {
             for (const row of r2) if (!inputCodeIdMap.has(row.code)) inputCodeIdMap.set(row.code, `comp:${row.id}`);
         }
 
-        // Phase 4: Batch insert composition items
+        // Phase 4: Batch delete all existing items, then batch insert all new items
+        
+        // Get all compIds that exist
+        const validCompIds: string[] = [];
+        for (const [compCode] of compArray) {
+            const cid = compCodeIdMap.get(compCode);
+            if (cid) validCompIds.push(cid);
+        }
+
+        // Single batch DELETE for all compositions at once
+        if (validCompIds.length > 0) {
+            for (let b = 0; b < validCompIds.length; b += 500) {
+                const batch = validCompIds.slice(b, b + 500);
+                await this.dataSource.query(`DELETE FROM sinapi_composition_items WHERE "compositionId" = ANY($1)`, [batch]);
+            }
+        }
+
+        // Flatten all items into single stream
+        const allItems: any[] = [];
         for (const [compCode, data] of compArray) {
             const compId = compCodeIdMap.get(compCode);
-            if (!compId) continue;
+            if (!compId || data.items.length === 0) continue;
 
-            // Delete existing items for this composition (re-import scenario)
-            await this.dataSource.query(`DELETE FROM sinapi_composition_items WHERE "compositionId" = $1`, [compId]);
-
-            if (data.items.length === 0) continue;
-
-            const itemBatch: any[] = [];
             for (let idx = 0; idx < data.items.length; idx++) {
                 const item = data.items[idx];
                 const ref = inputCodeIdMap.get(item.code);
@@ -506,20 +518,20 @@ export class SinapiImportService {
                     if (ref.startsWith('input:')) { inputId = ref.substring(6); }
                     else if (ref.startsWith('comp:')) { childCompId = ref.substring(5); itemType = 'composicao_auxiliar'; }
                 }
-                itemBatch.push({ compId, inputId, childCompId, coef: item.coef, sort: idx, itemType });
+                allItems.push({ compId, inputId, childCompId, coef: item.coef, sort: idx, itemType });
             }
+        }
 
-            // Batch insert items
-            for (let b = 0; b < itemBatch.length; b += BATCH) {
-                const batch = itemBatch.slice(b, b + BATCH);
-                try {
-                    const vals = batch.map((_, i) => `(gen_random_uuid(), $${i*6+1}::uuid, $${i*6+2}::uuid, $${i*6+3}::uuid, $${i*6+4}::numeric, $${i*6+5}::integer, $${i*6+6})`).join(', ');
-                    await this.dataSource.query(`
-                        INSERT INTO sinapi_composition_items (id, "compositionId", "inputId", "childCompositionId", coefficient, "sortOrder", "itemType")
-                        VALUES ${vals}
-                    `, batch.flatMap(i => [i.compId, i.inputId, i.childCompId, i.coef, i.sort, i.itemType]));
-                } catch (e: any) { errors.push(`Batch comp items ${compCode} ${b}: ${e.message}`); }
-            }
+        // Batch insert ALL items at once
+        for (let b = 0; b < allItems.length; b += BATCH) {
+            const batch = allItems.slice(b, b + BATCH);
+            try {
+                const vals = batch.map((_, i) => `(gen_random_uuid(), $${i*6+1}::uuid, $${i*6+2}::uuid, $${i*6+3}::uuid, $${i*6+4}::numeric, $${i*6+5}::integer, $${i*6+6})`).join(', ');
+                await this.dataSource.query(`
+                    INSERT INTO sinapi_composition_items (id, "compositionId", "inputId", "childCompositionId", coefficient, "sortOrder", "itemType")
+                    VALUES ${vals}
+                `, batch.flatMap(i => [i.compId, i.inputId, i.childCompId, i.coef, i.sort, i.itemType]));
+            } catch (e: any) { errors.push(`Batch items ${b}: ${e.message}`); }
         }
 
         warnings.push(`[RESULT] Analítico: ${compositions.size} composições, ${allItemCodes.length} itens distintos`);
