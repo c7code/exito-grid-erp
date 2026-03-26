@@ -616,45 +616,85 @@ export class SinapiImportService {
     private parseSheet(sheet: XLSX.Sheet): any[] {
         const rawRows = XLSX.utils.sheet_to_json<any>(sheet, { defval: '', header: 1, raw: false });
         const norm = (s: string) => s.toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const PATTERNS = ['CODIGO', 'COD', 'DESCRICAO', 'UNIDADE', 'COMPOSICAO', 'COEFICIENTE', 'PRECO', 'CUSTO', 'GRUPO', 'INSUMO', 'CLASSE'];
 
-        let headerRow = 0;
+        // Strategy: find the row that BEST matches as a header row
+        // SINAPI sheets have multiple header sections. We want the row with actual column labels
+        // like "Código", "Descrição", "Unidade" AND/OR UF abbreviations (AC, AL, AM...)
+        let bestHeaderRow = 0;
+        let bestScore = 0;
+
+        const HEADER_WORDS = ['CODIGO', 'DESCRICAO', 'UNIDADE', 'GRUPO', 'COMPOSICAO', 'INSUMO', 'COEFICIENTE', 'CUSTO', 'TIPO'];
+
         for (let r = 0; r < Math.min(rawRows.length, 30); r++) {
             const vals = (Array.isArray(rawRows[r]) ? rawRows[r] : Object.values(rawRows[r])).map((v: any) => norm(String(v || '')));
-            let matches = 0;
-            for (const val of vals) { if (val && val.length >= 2 && PATTERNS.some(p => val.includes(p))) matches++; }
-            // Also check if row has UF columns
+            let score = 0;
+
+            // Check for header keywords
+            for (const val of vals) {
+                if (!val || val.length < 2) continue;
+                for (const kw of HEADER_WORDS) {
+                    if (val.includes(kw)) { score += 10; break; }
+                }
+            }
+
+            // Check for UF columns  
             const ufMatches = vals.filter(v => UF_LIST.includes(v)).length;
-            if (matches >= 2 || ufMatches >= 5) { headerRow = r; break; }
+            score += ufMatches;
+
+            // Prefer rows that have BOTH header words and UFs, or at least many header words
+            if (score > bestScore) { bestScore = score; bestHeaderRow = r; }
         }
 
-        let rows = XLSX.utils.sheet_to_json<any>(sheet, { defval: '', raw: false, range: headerRow });
+        let rows = XLSX.utils.sheet_to_json<any>(sheet, { defval: '', raw: false, range: bestHeaderRow });
+
+        // Clean column names: remove newlines, trim, and build a column map
         return rows.map((row: any) => {
             const cleaned: any = {};
             for (const key of Object.keys(row)) {
-                cleaned[key.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()] = row[key];
+                const cleanKey = key.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+                cleaned[cleanKey] = row[key];
             }
             return cleaned;
         });
     }
 
     private getCode(row: any): string | null {
-        const raw = this.getField(row, [
+        // Try named columns first
+        const namedResult = this.getField(row, [
             'Código', 'CODIGO', 'CÓDIGO', 'Código SINAPI', 'CODIGO SINAPI',
-            'Código da Composição', 'Codigo da Composicao', 'COD',
-            'Código do Insumo', 'Codigo do Insumo',
+            'Código da Composição', 'Codigo da Composicao', 'Código da Composição',
+            'COD', 'Código do Insumo', 'Codigo do Insumo', 'Código do Item',
         ]);
-        if (!raw) return null;
-        const clean = String(raw).trim().replace(/\D/g, '');
-        return clean || null;
+        if (namedResult) {
+            const clean = String(namedResult).trim().replace(/\D/g, '');
+            if (clean && clean.length >= 2) return clean;
+        }
+
+        // Fallback: scan all values for a numeric code (5-10 digits)
+        for (const key of Object.keys(row)) {
+            const val = String(row[key] || '').trim();
+            if (/^\d{4,10}$/.test(val)) return val;
+        }
+        return null;
     }
 
     private getDesc(row: any): string | null {
         const raw = this.getField(row, [
             'Descrição', 'DESCRICAO', 'DESCRIÇÃO', 'Descrição do Insumo',
             'Descricao do Insumo', 'DESC', 'Descrição da Composição',
+            'Descrição da Composição',
         ]);
-        return raw ? String(raw).trim() : null;
+        if (raw) return String(raw).trim();
+
+        // Fallback: find the longest string value (likely description)
+        let longest = '';
+        for (const key of Object.keys(row)) {
+            const val = String(row[key] || '').trim();
+            if (val.length > longest.length && val.length > 10 && !/^\d+$/.test(val)) {
+                longest = val;
+            }
+        }
+        return longest || null;
     }
 
     private getUnit(row: any): string {
@@ -663,14 +703,19 @@ export class SinapiImportService {
     }
 
     private getField(row: any, names: string[]): string | null {
-        const norm = (s: string) => s.toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const norm = (s: string) => s.toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\r\n]+/g, ' ');
         for (const name of names) {
             const n = norm(name);
+            // Direct match
             if (row[name] !== undefined && row[name] !== '') return String(row[name]);
-            const exact = Object.keys(row).find(k => norm(k) === n);
-            if (exact && row[exact] !== undefined && row[exact] !== '') return String(row[exact]);
-            const partial = Object.keys(row).find(k => norm(k).includes(n));
-            if (partial && row[partial] !== undefined && row[partial] !== '') return String(row[partial]);
+            // Normalized exact match
+            for (const k of Object.keys(row)) {
+                if (norm(k) === n && row[k] !== undefined && row[k] !== '') return String(row[k]);
+            }
+            // Partial match (column name contains the search term)
+            for (const k of Object.keys(row)) {
+                if (norm(k).includes(n) && row[k] !== undefined && row[k] !== '') return String(row[k]);
+            }
         }
         return null;
     }
