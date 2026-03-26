@@ -13,7 +13,7 @@ import {
 // ============================================================
 
 @Entity('sinapi_references')
-@Index(['year', 'month', 'state'], { unique: true })
+@Index(['year', 'month'], { unique: true })
 export class SinapiReference {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -24,8 +24,8 @@ export class SinapiReference {
     @Column({ type: 'int' })
     month: number;                     // 1-12
 
-    @Column({ type: 'char', length: 2 })
-    state: string;                     // "PE", "SP", "BA"
+    @Column({ type: 'char', length: 2, nullable: true })
+    state: string;                     // Deprecated — state now lives on price tables
 
     @Column({ nullable: true })
     label: string;                     // "SINAPI JAN/2025 - PE"

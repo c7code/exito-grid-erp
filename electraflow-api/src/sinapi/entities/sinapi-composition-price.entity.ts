@@ -15,8 +15,9 @@ import { SinapiComposition } from './sinapi-composition.entity';
 // ============================================================
 
 @Entity('sinapi_composition_costs')
-@Index(['referenceId', 'compositionId'], { unique: true })
+@Index(['referenceId', 'compositionId', 'state'], { unique: true })
 @Index(['compositionId'])
+@Index(['state'])
 export class SinapiCompositionCost {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -27,6 +28,9 @@ export class SinapiCompositionCost {
     @ManyToOne(() => SinapiReference, (r) => r.compositionCosts, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'referenceId' })
     reference: SinapiReference;
+
+    @Column({ type: 'char', length: 2 })
+    state: string;                     // UF: "PE", "SP", "AC"...
 
     @Column()
     compositionId: string;

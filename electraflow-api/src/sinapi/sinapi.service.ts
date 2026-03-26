@@ -57,9 +57,19 @@ export class SinapiService implements OnModuleInit {
                 )
             `);
             await this.dataSource.query(`
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_sinapi_ref_year_month_state
-                ON sinapi_references(year, month, state)
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_sinapi_ref_year_month
+                ON sinapi_references(year, month)
             `).catch(() => {});
+            // Add state column to price tables
+            await this.dataSource.query(`ALTER TABLE sinapi_input_prices ADD COLUMN IF NOT EXISTS state CHAR(2)`).catch(() => {});
+            await this.dataSource.query(`ALTER TABLE sinapi_composition_costs ADD COLUMN IF NOT EXISTS state CHAR(2)`).catch(() => {});
+            // New indexes with state
+            await this.dataSource.query(`DROP INDEX IF EXISTS idx_sinapi_input_price_ref`).catch(() => {});
+            await this.dataSource.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sinapi_iprice_ref_input_state ON sinapi_input_prices("referenceId","inputId",state)`).catch(() => {});
+            await this.dataSource.query(`DROP INDEX IF EXISTS idx_sinapi_comp_cost_ref`).catch(() => {});
+            await this.dataSource.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sinapi_ccost_ref_comp_state ON sinapi_composition_costs("referenceId","compositionId",state)`).catch(() => {});
+            await this.dataSource.query(`CREATE INDEX IF NOT EXISTS idx_sinapi_iprice_state ON sinapi_input_prices(state)`).catch(() => {});
+            await this.dataSource.query(`CREATE INDEX IF NOT EXISTS idx_sinapi_ccost_state ON sinapi_composition_costs(state)`).catch(() => {});
 
             // 2. Insumos
             await this.dataSource.query(`
@@ -135,14 +145,7 @@ export class SinapiService implements OnModuleInit {
                     "createdAt" TIMESTAMPTZ DEFAULT NOW()
                 )
             `);
-            await this.dataSource.query(`
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_sinapi_input_price_ref
-                ON sinapi_input_prices("referenceId", "inputId")
-            `).catch(() => {});
-            await this.dataSource.query(`
-                CREATE INDEX IF NOT EXISTS idx_sinapi_input_price_input
-                ON sinapi_input_prices("inputId")
-            `).catch(() => {});
+            // Indexes created above in state migration block
 
             // 6. Custos das composições
             await this.dataSource.query(`
@@ -159,14 +162,7 @@ export class SinapiService implements OnModuleInit {
                     "createdAt" TIMESTAMPTZ DEFAULT NOW()
                 )
             `);
-            await this.dataSource.query(`
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_sinapi_comp_cost_ref
-                ON sinapi_composition_costs("referenceId", "compositionId")
-            `).catch(() => {});
-            await this.dataSource.query(`
-                CREATE INDEX IF NOT EXISTS idx_sinapi_comp_cost_comp
-                ON sinapi_composition_costs("compositionId")
-            `).catch(() => {});
+            // Indexes created above in state migration block
 
             // 7. Budget links (proposta ↔ SINAPI)
             await this.dataSource.query(`
@@ -343,13 +339,15 @@ export class SinapiService implements OnModuleInit {
         const qb = this.referenceRepo.createQueryBuilder('r')
             .orderBy('r.year', 'DESC')
             .addOrderBy('r.month', 'DESC');
+        // State filter is now optional since references are per (year, month)
         if (state) qb.where('r.state = :state', { state: state.toUpperCase() });
         return qb.getMany();
     }
 
-    async findActiveReference(state: string) {
+    async findActiveReference(state?: string) {
+        // Now references are 1 per (year,month) — state is on price tables
         return this.referenceRepo.findOne({
-            where: { state: state.toUpperCase(), status: 'active' },
+            where: { status: 'active' },
             order: { year: 'DESC', month: 'DESC' },
         });
     }
@@ -421,16 +419,17 @@ export class SinapiService implements OnModuleInit {
         const wh = where.join(' AND ');
         const sql = `
             SELECT i.*, p."priceNotTaxed", p."priceTaxed",
-                   r.year as "refYear", r.month as "refMonth", r.state as "refState"
+                   r.year as "refYear", r.month as "refMonth", ip_state.state as "refState"
             FROM sinapi_inputs i
             LEFT JOIN LATERAL (
-                SELECT ip."priceNotTaxed", ip."priceTaxed", ip."referenceId"
+                SELECT ip."priceNotTaxed", ip."priceTaxed", ip."referenceId", ip.state
                 FROM sinapi_input_prices ip
-                JOIN sinapi_references sr ON sr.id = ip."referenceId" AND sr.state = '${refState}'
-                WHERE ip."inputId" = i.id
+                JOIN sinapi_references sr ON sr.id = ip."referenceId"
+                WHERE ip."inputId" = i.id AND ip.state = '${refState}'
                 ORDER BY sr.year DESC, sr.month DESC
                 LIMIT 1
-            ) p ON true
+            ) ip_state ON true
+            LEFT JOIN sinapi_input_prices p ON p."referenceId" = ip_state."referenceId" AND p."inputId" = i.id AND p.state = ip_state.state
             LEFT JOIN sinapi_references r ON r.id = p."referenceId"
             WHERE ${wh}
             ORDER BY i.code ASC
@@ -458,7 +457,7 @@ export class SinapiService implements OnModuleInit {
         const qb = this.inputPriceRepo.createQueryBuilder('p')
             .leftJoinAndSelect('p.reference', 'r')
             .where('p."inputId" = :inputId', { inputId });
-        if (state) qb.andWhere('r.state = :state', { state: state.toUpperCase() });
+        if (state) qb.andWhere('p.state = :state', { state: state.toUpperCase() });
         qb.orderBy('r.year', 'DESC').addOrderBy('r.month', 'DESC').take(24);
         return qb.getMany();
     }
@@ -467,7 +466,7 @@ export class SinapiService implements OnModuleInit {
         const ref = await this.findActiveReference(state);
         if (!ref) return null;
         return this.inputPriceRepo.findOne({
-            where: { inputId, referenceId: ref.id },
+            where: { inputId, referenceId: ref.id, state: state.toUpperCase() },
             relations: ['reference'],
         });
     }
@@ -510,7 +509,7 @@ export class SinapiService implements OnModuleInit {
         const ref = await this.findActiveReference(state);
         if (!ref) return null;
         return this.compositionCostRepo.findOne({
-            where: { compositionId, referenceId: ref.id },
+            where: { compositionId, referenceId: ref.id, state: state.toUpperCase() },
             relations: ['reference'],
         });
     }
@@ -525,7 +524,7 @@ export class SinapiService implements OnModuleInit {
         const qb = this.compositionCostRepo.createQueryBuilder('c')
             .leftJoinAndSelect('c.reference', 'r')
             .where('c."compositionId" = :compositionId', { compositionId });
-        if (state) qb.andWhere('r.state = :state', { state: state.toUpperCase() });
+        if (state) qb.andWhere('c.state = :state', { state: state.toUpperCase() });
         qb.orderBy('r.year', 'DESC').addOrderBy('r.month', 'DESC').take(24);
         return qb.getMany();
     }
@@ -542,7 +541,7 @@ export class SinapiService implements OnModuleInit {
         let price = null;
         if (ref) {
             const p = await this.inputPriceRepo.findOne({
-                where: { inputId: input.id, referenceId: ref.id },
+                where: { inputId: input.id, referenceId: ref.id, state: state.toUpperCase() },
                 relations: ['reference'],
             });
             if (p) {
@@ -566,6 +565,7 @@ export class SinapiService implements OnModuleInit {
         if (!comp) throw new NotFoundException(`Composição ${codeOrId} não encontrada`);
 
         const ref = await this.findActiveReference(state);
+        (this as any)._currentTreeState = state.toUpperCase();
         const tree = await this.buildTree(comp.id, ref?.id || null, 0, maxDepth);
 
         // Calculate consolidated cost from tree
@@ -632,7 +632,7 @@ export class SinapiService implements OnModuleInit {
                 // Get price for this reference
                 if (referenceId) {
                     const price = await this.inputPriceRepo.findOne({
-                        where: { inputId: item.input.id, referenceId },
+                        where: { inputId: item.input.id, referenceId, state: (this as any)._currentTreeState || 'PE' },
                     });
                     if (price) {
                         const pNotTaxed = Number(price.priceNotTaxed) || 0;
@@ -655,7 +655,7 @@ export class SinapiService implements OnModuleInit {
                 // Get stored cost for sub-composition
                 if (referenceId) {
                     const subCost = await this.compositionCostRepo.findOne({
-                        where: { compositionId: item.childComposition.id, referenceId },
+                        where: { compositionId: item.childComposition.id, referenceId, state: (this as any)._currentTreeState || 'PE' },
                     });
                     if (subCost) {
                         node.compositionCost = {
@@ -716,13 +716,14 @@ export class SinapiService implements OnModuleInit {
             ref = await this.findActiveReference(state);
         }
 
+        (this as any)._currentTreeState = state.toUpperCase();
         const tree = await this.buildTree(comp.id, ref?.id || null, 0, 5);
         const consolidated = this.consolidateTreeCost(tree);
 
         let storedCost = null;
         if (ref) {
             storedCost = await this.compositionCostRepo.findOne({
-                where: { compositionId: comp.id, referenceId: ref.id },
+                where: { compositionId: comp.id, referenceId: ref.id, state: state.toUpperCase() },
             });
         }
 

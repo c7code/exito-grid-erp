@@ -15,8 +15,9 @@ import { SinapiInput } from './sinapi-input.entity';
 // ============================================================
 
 @Entity('sinapi_input_prices')
-@Index(['referenceId', 'inputId'], { unique: true })
+@Index(['referenceId', 'inputId', 'state'], { unique: true })
 @Index(['inputId'])
+@Index(['state'])
 export class SinapiInputPrice {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -27,6 +28,9 @@ export class SinapiInputPrice {
     @ManyToOne(() => SinapiReference, (r) => r.inputPrices, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'referenceId' })
     reference: SinapiReference;
+
+    @Column({ type: 'char', length: 2 })
+    state: string;                     // UF: "PE", "SP", "AC"...
 
     @Column()
     inputId: string;

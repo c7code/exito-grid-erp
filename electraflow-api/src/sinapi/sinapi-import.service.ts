@@ -11,7 +11,7 @@ import { SinapiCompositionCost } from './entities/sinapi-composition-price.entit
 import { SinapiImportLog, ImportLogStatus } from './entities/sinapi-import-log.entity';
 
 // ═══════════════════════════════════════════════════════════════
-// CONSTANTES DE DETECÇÃO
+// CONSTANTES
 // ═══════════════════════════════════════════════════════════════
 
 const UF_LIST = [
@@ -20,26 +20,11 @@ const UF_LIST = [
     'SE', 'SP', 'TO',
 ];
 
-const MONTH_MAP: Record<string, number> = {
-    JAN: 1, JANEIRO: 1, FEV: 2, FEVEREIRO: 2, MAR: 3, MARÇO: 3, MARCO: 3,
-    ABR: 4, ABRIL: 4, MAI: 5, MAIO: 5, JUN: 6, JUNHO: 6,
-    JUL: 7, JULHO: 7, AGO: 8, AGOSTO: 8, SET: 9, SETEMBRO: 9,
-    OUT: 10, OUTUBRO: 10, NOV: 11, NOVEMBRO: 11, DEZ: 12, DEZEMBRO: 12,
-};
-
 const MONTH_NAMES = ['', 'JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
 
 // ═══════════════════════════════════════════════════════════════
 // INTERFACES
 // ═══════════════════════════════════════════════════════════════
-
-interface DetectedMetadata {
-    state?: string;
-    year?: number;
-    month?: number;
-    taxRegime: 'desonerado' | 'nao_desonerado';
-    fileType: 'inputs' | 'compositions' | 'prices' | 'composition_prices' | 'mixed';
-}
 
 export interface ImportResult {
     logId: string;
@@ -52,6 +37,9 @@ export interface ImportResult {
     totalRows: number;
     durationMs: number;
 }
+
+type SheetType = 'input_prices_nd' | 'input_prices_d' | 'comp_prices_nd' | 'comp_prices_d'
+    | 'analytic' | 'analytic_cost' | 'labor_pct' | 'coefficients' | 'inputs' | 'unknown';
 
 @Injectable()
 export class SinapiImportService {
@@ -76,13 +64,12 @@ export class SinapiImportService {
     ) {}
 
     // ═══════════════════════════════════════════════════════════════
-    // MAIN ENTRY POINT — Importar arquivo XLSX/CSV
+    // MAIN ENTRY POINT
     // ═══════════════════════════════════════════════════════════════
 
     async importFile(file: Express.Multer.File, overrides?: {
         state?: string; year?: number; month?: number; taxRegime?: string; fileType?: string;
     }): Promise<ImportResult> {
-        // 1. Parse file (fast, sync)
         let workbook: XLSX.WorkBook;
         try {
             workbook = XLSX.read(file.buffer, { type: 'buffer', cellDates: true, cellNF: true });
@@ -90,168 +77,112 @@ export class SinapiImportService {
             throw new Error(`Erro ao ler arquivo: ${err.message}`);
         }
 
-        const detected = this.detectMetadata(file.originalname, workbook);
-        const state = (overrides?.state || detected.state || 'PE').toUpperCase();
-        const year = overrides?.year || detected.year || new Date().getFullYear();
-        const month = overrides?.month || detected.month || new Date().getMonth() + 1;
-        const taxRegime = (overrides?.taxRegime || detected.taxRegime) as any;
-        const fileType = (overrides?.fileType || detected.fileType) as any;
+        const { year, month } = this.detectYearMonth(file.originalname, overrides);
 
-        // Count total rows
         let estRows = 0;
         for (const sn of workbook.SheetNames) {
             const r = XLSX.utils.decode_range(workbook.Sheets[sn]['!ref'] || 'A1');
             estRows += Math.max(0, r.e.r - r.s.r);
         }
 
-        this.logger.log(`📂 Import (async): ${file.originalname} | ${state} | ~${estRows} linhas`);
+        this.logger.log(`📂 Import: ${file.originalname} | ${year}/${month} | ~${estRows} linhas | ${workbook.SheetNames.length} abas`);
 
-        // 2. Create import log
         const log = await this.importLogRepo.save(this.importLogRepo.create({
-            fileName: file.originalname, fileType, state, year, month, taxRegime,
+            fileName: file.originalname, fileType: 'mixed', state: overrides?.state || null,
+            year, month, taxRegime: overrides?.taxRegime || 'nao_desonerado',
             status: ImportLogStatus.RUNNING, totalRows: estRows,
         }));
 
-        // 3. Fire background processing & return immediately
         setImmediate(() => {
-            this.processInBackground(log.id, workbook, state, year, month, taxRegime)
+            this.processInBackground(log.id, workbook, year, month)
                 .catch(err => this.logger.error(`❌ BG import ${log.id}: ${err.message}`));
         });
 
         return {
             logId: log.id, status: ImportLogStatus.RUNNING,
             inserted: 0, updated: 0, skipped: 0,
-            errors: [], warnings: [`Importação iniciada — ~${estRows} linhas`],
+            errors: [], warnings: [`Importação iniciada — ~${estRows} linhas, ${workbook.SheetNames.length} abas`],
             totalRows: estRows, durationMs: 0,
         };
     }
 
-    private async processInBackground(
-        logId: string, workbook: XLSX.WorkBook,
-        state: string, year: number, month: number, taxRegime: string,
-    ) {
+    // ═══════════════════════════════════════════════════════════════
+    // BACKGROUND PROCESSING
+    // ═══════════════════════════════════════════════════════════════
+
+    private async processInBackground(logId: string, workbook: XLSX.WorkBook, year: number, month: number) {
         const startTime = Date.now();
         const errors: string[] = [];
         const warnings: string[] = [];
         let result = { inserted: 0, updated: 0, skipped: 0 };
         let totalRows = 0;
+
         try {
-            const reference = await this.getOrCreateReference(year, month, state);
+            // Get or create single reference for this year/month
+            const reference = await this.getOrCreateReference(year, month);
             await this.importLogRepo.update(logId, { referenceId: reference.id });
+
             for (const sheetName of workbook.SheetNames) {
                 const sheet = workbook.Sheets[sheetName];
-
-                // ═══ AUTO-DETECT HEADER ROW ═══
-                // SINAPI CAIXA files have merged title rows at the top.
-                // Scan first 30 raw rows to find the real header.
-                const rawRows = XLSX.utils.sheet_to_json<any>(sheet, { defval: '', header: 1, raw: false });
-                let headerRowIndex = 0; // default: first row
-
-                const HEADER_PATTERNS = [
-                    'CODIGO', 'COD', 'DESCRICAO', 'DESC',
-                    'UNIDADE', 'COMPOSICAO', 'COEFICIENTE',
-                    'PRECO', 'CUSTO', 'MEDIANA', 'INSUMO',
-                    'CLASSE', 'TIPO', 'GRUPO',
-                ];
-
-                // Helper: strip accents AND uppercase
-                const norm = (s: string) => s.toUpperCase().trim()
-                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-                // Dump first 5 raw rows for debugging
-                for (let r = 0; r < Math.min(rawRows.length, 5); r++) {
-                    const vals = Array.isArray(rawRows[r]) ? rawRows[r] : Object.values(rawRows[r]);
-                    this.logger.log(`   RAW[${r}]: ${JSON.stringify(vals).substring(0, 200)}`);
-                }
-
-                for (let r = 0; r < Math.min(rawRows.length, 30); r++) {
-                    const rowValues = Array.isArray(rawRows[r])
-                        ? rawRows[r].map((v: any) => norm(String(v || '')))
-                        : Object.values(rawRows[r]).map((v: any) => norm(String(v || '')));
-
-                    // Count how many cells match known SINAPI header patterns
-                    let matchCount = 0;
-                    for (const val of rowValues) {
-                        if (!val || val.length < 2) continue;
-                        for (const pat of HEADER_PATTERNS) {
-                            if (val.includes(pat)) { matchCount++; break; }
-                        }
-                    }
-
-                    // If we find 2+ matches, this is likely the header row
-                    if (matchCount >= 2) {
-                        headerRowIndex = r;
-                        this.logger.log(`   🎯 Header row detected at row ${r + 1} (${matchCount} pattern matches)`);
-                        break;
-                    }
-                }
-
-                // Re-parse with correct header row
-                let rows = XLSX.utils.sheet_to_json<any>(sheet, {
-                    defval: '',
-                    raw: false,
-                    range: headerRowIndex, // Start from the detected header row
-                });
-
-                // ═══ CLEAN COLUMN NAMES ═══
-                // SINAPI CAIXA files have columns with embedded \r\n (e.g. "Código da\r\nFamília")
-                // Clean all column keys by stripping \r\n and collapsing whitespace
-                rows = rows.map((row: any) => {
-                    const cleaned: any = {};
-                    for (const key of Object.keys(row)) {
-                        const cleanKey = key.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
-                        cleaned[cleanKey] = row[key];
-                    }
-                    return cleaned;
-                });
-
+                const rows = this.parseSheet(sheet);
                 totalRows += rows.length;
 
-                if (rows.length === 0) {
-                    warnings.push(`Planilha "${sheetName}" vazia — ignorada`);
-                    continue;
-                }
+                if (rows.length === 0) { warnings.push(`Aba "${sheetName}" vazia`); continue; }
 
-                // Log detected columns for debugging — ALSO save to warnings
-                const detectedCols = Object.keys(rows[0]);
-                warnings.push(`[DEBUG] Sheet "${sheetName}": headerRow=${headerRowIndex}, cols=[${detectedCols.join(', ')}], rows=${rows.length}`);
-                if (rows.length > 0) {
-                    warnings.push(`[DEBUG] Row0: ${JSON.stringify(rows[0]).substring(0, 300)}`);
-                }
-                this.logger.log(`   📄 Sheet "${sheetName}": ${rows.length} rows, headerRow=${headerRowIndex}, cols: [${detectedCols.slice(0, 10).join(', ')}]`);
+                const cols = Object.keys(rows[0]);
+                const sheetType = this.detectSheetType(sheetName, cols);
+                const ufCols = this.findUFColumns(cols);
 
-                const sheetType = this.detectSheetType(sheetName, rows[0]);
-                this.logger.log(`   📄 Tipo detectado: ${sheetType}`);
+                warnings.push(`[INFO] Aba "${sheetName}": ${rows.length} rows, tipo=${sheetType}, UF cols=${ufCols.length}`);
+                this.logger.log(`📄 "${sheetName}": ${rows.length} rows, tipo=${sheetType}, ${ufCols.length} UF cols`);
 
                 try {
                     switch (sheetType) {
-                        case 'inputs':
-                            result = this.mergeResults(result, await this.processInputRows(rows, errors, warnings));
+                        case 'input_prices_nd':
+                            result = this.merge(result, await this.processInputPricesMultiState(rows, ufCols, reference.id, 'nao_desonerado', errors, warnings));
                             break;
-                        case 'input_prices':
-                            result = this.mergeResults(result, await this.processInputPriceRows(rows, reference.id, taxRegime, errors, warnings));
+                        case 'input_prices_d':
+                            result = this.merge(result, await this.processInputPricesMultiState(rows, ufCols, reference.id, 'desonerado', errors, warnings));
                             break;
-                        case 'compositions':
-                            result = this.mergeResults(result, await this.processCompositionRows(rows, errors, warnings));
+                        case 'comp_prices_nd':
+                            result = this.merge(result, await this.processCompPricesMultiState(rows, ufCols, reference.id, 'nao_desonerado', errors, warnings));
                             break;
-                        case 'composition_prices':
-                            result = this.mergeResults(result, await this.processCompositionCostRows(rows, reference.id, taxRegime, errors, warnings));
+                        case 'comp_prices_d':
+                            result = this.merge(result, await this.processCompPricesMultiState(rows, ufCols, reference.id, 'desonerado', errors, warnings));
+                            break;
+                        case 'analytic':
+                        case 'analytic_cost':
+                            result = this.merge(result, await this.processAnalyticSheet(rows, errors, warnings));
+                            break;
+                        case 'coefficients':
+                            result = this.merge(result, await this.processCoefficients(rows, ufCols, errors, warnings));
+                            break;
+                        case 'labor_pct':
+                            warnings.push(`[SKIP] Aba "${sheetName}" é percentual de MO — informativo, não importado como preço`);
                             break;
                         default:
-                            // Try auto-detecting from column names
-                            const autoResult = await this.processAutoDetect(rows, reference.id, taxRegime, errors, warnings);
-                            result = this.mergeResults(result, autoResult);
+                            // Fallback: if has UF columns with numeric data, try as input prices
+                            if (ufCols.length >= 10) {
+                                warnings.push(`[FALLBACK] Aba "${sheetName}" tratada como preços de insumo`);
+                                result = this.merge(result, await this.processInputPricesMultiState(rows, ufCols, reference.id, 'nao_desonerado', errors, warnings));
+                            } else {
+                                warnings.push(`[SKIP] Aba "${sheetName}" tipo desconhecido, ignorada`);
+                            }
                     }
                 } catch (sheetErr) {
-                    errors.push(`Erro "${sheetName}": ${sheetErr.message}`);
+                    errors.push(`Erro aba "${sheetName}": ${sheetErr.message}`);
                 }
-                // Progress update mid-import
-                await this.importLogRepo.update(logId, { insertedCount: result.inserted, updatedCount: result.updated, skippedCount: result.skipped, totalRows });
+
+                await this.importLogRepo.update(logId, {
+                    insertedCount: result.inserted, updatedCount: result.updated,
+                    skippedCount: result.skipped, totalRows,
+                });
             }
 
             const status = errors.length > 0
                 ? (result.inserted + result.updated > 0 ? ImportLogStatus.PARTIAL : ImportLogStatus.ERROR)
                 : ImportLogStatus.SUCCESS;
+
             await this.importLogRepo.update(logId, {
                 status, totalRows,
                 insertedCount: result.inserted, updatedCount: result.updated,
@@ -262,7 +193,7 @@ export class SinapiImportService {
             });
             this.logger.log(`✅ Import ${logId}: +${result.inserted} ~${result.updated} (${Date.now() - startTime}ms)`);
         } catch (fatalErr) {
-            this.logger.error(`❌ Fatal ${logId}: ${fatalErr.message}`);
+            this.logger.error(`❌ Fatal ${logId}: ${fatalErr.message}`, fatalErr.stack);
             await this.importLogRepo.update(logId, {
                 status: ImportLogStatus.ERROR, errorCount: 1,
                 errors: JSON.stringify([fatalErr.message]),
@@ -272,348 +203,270 @@ export class SinapiImportService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // DETECÇÃO AUTOMÁTICA
+    // PROCESSOR: Input Prices Multi-State (ISD/ICD)
+    // Each row: { Código, Descrição, Unidade, AC: "12.34", AL: "56.78", ... }
     // ═══════════════════════════════════════════════════════════════
 
-    private detectMetadata(filename: string, workbook: XLSX.WorkBook): DetectedMetadata {
-        const upper = filename.toUpperCase();
-        const result: DetectedMetadata = {
-            taxRegime: 'nao_desonerado',
-            fileType: 'mixed',
-        };
-
-        // Detect UF from filename
-        for (const uf of UF_LIST) {
-            if (upper.includes(`_${uf}_`) || upper.includes(`_${uf}.`) || upper.includes(` ${uf} `) || upper.endsWith(`_${uf}`)) {
-                result.state = uf;
-                break;
-            }
-        }
-
-        // Detect year/month from filename — patterns: "2025_01", "JAN2025", "202501", "01_2025"
-        const yearMonthMatch = upper.match(/(\d{4})[_\- ]?(\d{2})/);
-        if (yearMonthMatch) {
-            const y = parseInt(yearMonthMatch[1]);
-            const m = parseInt(yearMonthMatch[2]);
-            if (y >= 2000 && y <= 2100 && m >= 1 && m <= 12) {
-                result.year = y;
-                result.month = m;
-            }
-        }
-        if (!result.month) {
-            const monthMatch = upper.match(/(\d{2})[_\- ]?(\d{4})/);
-            if (monthMatch) {
-                const m = parseInt(monthMatch[1]);
-                const y = parseInt(monthMatch[2]);
-                if (y >= 2000 && y <= 2100 && m >= 1 && m <= 12) {
-                    result.year = y;
-                    result.month = m;
-                }
-            }
-        }
-        if (!result.month) {
-            for (const [name, num] of Object.entries(MONTH_MAP)) {
-                if (upper.includes(name)) {
-                    result.month = num;
-                    break;
-                }
-            }
-        }
-        if (!result.year) {
-            const justYear = upper.match(/(\d{4})/);
-            if (justYear) {
-                const y = parseInt(justYear[1]);
-                if (y >= 2000 && y <= 2100) result.year = y;
-            }
-        }
-
-        // Detect tax regime
-        if (upper.includes('DESONERADO') && !upper.includes('NAO DESONERADO') && !upper.includes('NÃO DESONERADO') && !upper.includes('NAO_DESONERADO')) {
-            result.taxRegime = 'desonerado';
-        }
-        if (upper.includes('NAO_DESONERADO') || upper.includes('NAO DESONERADO') || upper.includes('NÃO DESONERADO') || upper.includes('SEM_DESONE')) {
-            result.taxRegime = 'nao_desonerado';
-        }
-
-        // Detect file type from filename
-        if (upper.includes('INSUMO')) result.fileType = 'inputs';
-        else if (upper.includes('COMPOSIC') || upper.includes('COMPOSI')) result.fileType = 'compositions';
-        else if (upper.includes('PRECO') || upper.includes('PREÇO') || upper.includes('CUSTO')) result.fileType = 'prices';
-
-        // Try detecting from sheet names
-        if (result.fileType === 'mixed') {
-            const sheetNames = workbook.SheetNames.map(s => s.toUpperCase());
-            if (sheetNames.some(s => s.includes('INSUMO'))) result.fileType = 'inputs';
-            if (sheetNames.some(s => s.includes('COMPOSIC'))) result.fileType = 'compositions';
-        }
-
-        // Try detecting UF from first sheet content if not found in filename
-        if (!result.state && workbook.SheetNames.length > 0) {
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const firstRows = XLSX.utils.sheet_to_json<any>(firstSheet, { defval: '', header: 1, range: 0 }).slice(0, 10);
-            for (const row of firstRows) {
-                const rowStr = (Array.isArray(row) ? row.join(' ') : JSON.stringify(row)).toUpperCase();
-                for (const uf of UF_LIST) {
-                    if (rowStr.includes(` ${uf} `) || rowStr.includes(`/${uf}`) || rowStr.includes(`-${uf}`)) {
-                        result.state = uf;
-                        break;
-                    }
-                }
-                if (result.state) break;
-            }
-        }
-
-        return result;
-    }
-
-    private detectSheetType(sheetName: string, firstRow: any): string {
-        const upper = sheetName.toUpperCase();
-        const normAccent = (s: string) => s.toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const cols = Object.keys(firstRow).map(k => normAccent(k));
-
-        // By sheet name
-        const normSheet = normAccent(sheetName);
-        if (normSheet.includes('INSUMO') && (normSheet.includes('PRECO') || normSheet.includes('CUSTO')))
-            return 'input_prices';
-        if (normSheet.includes('INSUMO')) return 'inputs';
-        if (normSheet.includes('COMPOSIC') && (normSheet.includes('PRECO') || normSheet.includes('CUSTO') || normSheet.includes('SINT')))
-            return 'composition_prices';
-        if (normSheet.includes('COMPOSIC') && normSheet.includes('ANALI'))
-            return 'compositions';
-        if (normSheet.includes('COMPOSIC')) return 'compositions';
-
-        // By column names (all accent-normalized)
-        const hasCode = cols.some(c => c.includes('CODIGO') || c === 'COD' || c.includes('CODIGO SINAPI'));
-        const hasDescription = cols.some(c => c.includes('DESCRI'));
-        const hasPrice = cols.some(c => c.includes('PRECO') || c.includes('MEDIANA') || c.includes('CUSTO'));
-        const hasUnit = cols.some(c => c.includes('UNIDADE') || c === 'UN');
-        const hasCoefficient = cols.some(c => c.includes('COEFICIENTE') || c.includes('COEF'));
-
-        if (hasCoefficient) return 'compositions';
-        if (hasCode && hasPrice && !hasCoefficient) return 'input_prices';
-        if (hasCode && hasDescription && hasUnit && !hasPrice) return 'inputs';
-        if (hasCode && hasPrice) return 'composition_prices';
-
-        return 'unknown';
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // PROCESSORS
-    // ═══════════════════════════════════════════════════════════════
-
-    private async processInputRows(rows: any[], errors: string[], warnings: string[]) {
+    private async processInputPricesMultiState(
+        rows: any[], ufCols: string[], referenceId: string, taxRegime: string,
+        errors: string[], warnings: string[],
+    ) {
         let inserted = 0, updated = 0, skipped = 0;
-        const BATCH_SIZE = 500;
+        const BATCH = 200;
 
-        // Phase 1: Parse all rows into clean items
-        const items: { code: string; description: string; unit: string; type: string }[] = [];
-        for (let i = 0; i < rows.length; i++) {
-            try {
-                const row = rows[i];
-                const code = this.getField(row, ['CODIGO', 'CÓDIGO', 'CODIGO SINAPI', 'CÓDIGO SINAPI', 'COD', 'CODIGO_SINAPI']);
-                const description = this.getField(row, ['DESCRICAO', 'DESCRIÇÃO', 'DESCRICAO DO INSUMO', 'DESCRIÇÃO DO INSUMO', 'DESC']);
-                const unit = this.getField(row, ['UNIDADE', 'UN', 'UND', 'UNID']);
-
-                if (!code || !description) { skipped++; continue; }
-                const cleanCode = String(code).trim().replace(/\D/g, '');
-                if (!cleanCode) { skipped++; continue; }
-
-                items.push({
-                    code: cleanCode,
-                    description: String(description).trim(),
-                    unit: String(unit || 'UN').trim().toUpperCase(),
-                    type: this.detectInputType(String(description)),
-                });
-            } catch (err) {
-                errors.push(`Linha ${i + 2}: ${err.message}`);
-            }
+        // Phase 1: Ensure all inputs exist
+        const inputItems: { code: string; description: string; unit: string; type: string; group?: string }[] = [];
+        for (const row of rows) {
+            const code = this.getCode(row);
+            const desc = this.getDesc(row);
+            if (!code || !desc) { skipped++; continue; }
+            inputItems.push({
+                code, description: desc,
+                unit: this.getUnit(row),
+                type: this.detectInputType(desc),
+                group: this.getField(row, ['Grupo', 'GRUPO', 'Classe']) || undefined,
+            });
         }
 
-        warnings.push(`[DEBUG] processInputRows: parsed ${items.length} valid items from ${rows.length} rows (skipped=${skipped})`);
-
-        // Phase 2: Batch upsert
-        for (let b = 0; b < items.length; b += BATCH_SIZE) {
-            const batch = items.slice(b, b + BATCH_SIZE);
+        // Batch upsert inputs
+        for (let b = 0; b < inputItems.length; b += BATCH) {
+            const batch = inputItems.slice(b, b + BATCH);
             try {
-                const result = await this.dataSource.query(`
-                    INSERT INTO sinapi_inputs (id, code, description, unit, type, origin, "isActive", "createdAt", "updatedAt")
-                    SELECT gen_random_uuid(), t.code, t.description, t.unit, t.type, 'sinapi', true, NOW(), NOW()
-                    FROM (VALUES ${batch.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ')})
-                    AS t(code, description, unit, type)
+                await this.dataSource.query(`
+                    INSERT INTO sinapi_inputs (id, code, description, unit, type, "groupClass", origin, "isActive", "createdAt", "updatedAt")
+                    SELECT gen_random_uuid(), t.code, t.description, t.unit, t.type, t.grp, 'sinapi', true, NOW(), NOW()
+                    FROM (VALUES ${batch.map((_, i) => `($${i * 5 + 1}, $${i * 5 + 2}, $${i * 5 + 3}, $${i * 5 + 4}, $${i * 5 + 5})`).join(', ')})
+                    AS t(code, description, unit, type, grp)
                     ON CONFLICT (code) DO UPDATE SET
-                        description = EXCLUDED.description,
-                        unit = EXCLUDED.unit,
-                        type = EXCLUDED.type,
+                        description = EXCLUDED.description, unit = EXCLUDED.unit,
+                        type = EXCLUDED.type, "groupClass" = COALESCE(EXCLUDED."groupClass", sinapi_inputs."groupClass"),
                         "updatedAt" = NOW()
-                    RETURNING (xmax = 0) AS is_insert
-                `, batch.flatMap(i => [i.code, i.description, i.unit, i.type]));
-
-                for (const r of result) {
-                    if (r.is_insert) inserted++;
-                    else updated++;
-                }
-            } catch (batchErr) {
-                // Fallback: try individual inserts for this batch
-                warnings.push(`Batch ${b}-${b + batch.length} error: ${batchErr.message}, trying individual inserts`);
-                for (const item of batch) {
-                    try {
-                        const existing = await this.inputRepo.findOne({ where: { code: item.code } });
-                        if (existing) {
-                            await this.inputRepo.update(existing.id, { description: item.description, unit: item.unit, type: item.type });
-                            updated++;
-                        } else {
-                            await this.inputRepo.save(this.inputRepo.create({ ...item, origin: 'sinapi' }));
-                            inserted++;
-                        }
-                    } catch (e) { errors.push(`Input ${item.code}: ${e.message}`); }
-                }
+                `, batch.flatMap(i => [i.code, i.description, i.unit, i.type, i.group || null]));
+            } catch (e) {
+                errors.push(`Batch inputs ${b}: ${e.message}`);
             }
         }
 
-        return { inserted, updated, skipped };
-    }
+        // Phase 2: Insert prices for each UF
+        // Build a code→id map
+        const allCodes = inputItems.map(i => i.code);
+        const codeIdMap = new Map<string, string>();
+        for (let b = 0; b < allCodes.length; b += 500) {
+            const batch = allCodes.slice(b, b + 500);
+            const result = await this.dataSource.query(
+                `SELECT id, code FROM sinapi_inputs WHERE code = ANY($1)`, [batch],
+            );
+            for (const r of result) codeIdMap.set(r.code, r.id);
+        }
 
-    private async processInputPriceRows(rows: any[], referenceId: string, taxRegime: string, errors: string[], warnings: string[]) {
-        let inserted = 0, updated = 0, skipped = 0;
-
-        for (let i = 0; i < rows.length; i++) {
-            try {
-                const row = rows[i];
-                const code = this.getField(row, ['CODIGO', 'CÓDIGO', 'CODIGO SINAPI', 'CÓDIGO SINAPI', 'COD']);
-                const priceStr = this.getField(row, ['PRECO MEDIANO', 'PREÇO MEDIANO', 'PRECO', 'PREÇO', 'MEDIANA', 'CUSTO', 'PRECO UNITARIO', 'PREÇO UNITÁRIO', 'VALOR']);
-
-                if (!code || !priceStr) { skipped++; continue; }
-
-                const cleanCode = String(code).trim().replace(/\D/g, '');
-                if (!cleanCode) { skipped++; continue; }
-
+        // For each UF column, batch insert prices
+        for (const uf of ufCols) {
+            const priceRows: { inputId: string; price: number }[] = [];
+            for (const row of rows) {
+                const code = this.getCode(row);
+                if (!code) continue;
+                const inputId = codeIdMap.get(code);
+                if (!inputId) continue;
+                const priceStr = row[uf];
+                if (!priceStr && priceStr !== 0) continue;
                 const price = this.parseNumber(priceStr);
-                if (isNaN(price) || price < 0) { skipped++; continue; }
+                if (isNaN(price) || price < 0) continue;
+                priceRows.push({ inputId, price });
+            }
 
-                // Find or create input
-                let input = await this.inputRepo.findOne({ where: { code: cleanCode } });
-                if (!input) {
-                    const desc = this.getField(row, ['DESCRICAO', 'DESCRIÇÃO', 'DESC']) || `Insumo ${cleanCode}`;
-                    const unit = this.getField(row, ['UNIDADE', 'UN', 'UND']) || 'UN';
-                    input = await this.inputRepo.save(this.inputRepo.create({
-                        code: cleanCode,
-                        description: String(desc).trim(),
-                        unit: String(unit).trim().toUpperCase(),
-                        type: this.detectInputType(String(desc)),
-                        origin: 'sinapi',
-                    }));
-                    warnings.push(`Insumo ${cleanCode} auto-criado na importação de preços`);
+            if (priceRows.length === 0) continue;
+
+            // Batch upsert prices
+            for (let b = 0; b < priceRows.length; b += BATCH) {
+                const batch = priceRows.slice(b, b + BATCH);
+                try {
+                    const isDesonerado = taxRegime === 'desonerado';
+                    const priceCol = isDesonerado ? '"priceTaxed"' : '"priceNotTaxed"';
+                    const otherCol = isDesonerado ? '"priceNotTaxed"' : '"priceTaxed"';
+
+                    const res = await this.dataSource.query(`
+                        INSERT INTO sinapi_input_prices (id, "referenceId", "inputId", state, ${priceCol}, origin, "createdAt")
+                        SELECT gen_random_uuid(), $1, t.input_id, $2, t.price, 'sinapi', NOW()
+                        FROM (VALUES ${batch.map((_, i) => `($${i * 2 + 3}::uuid, $${i * 2 + 4}::numeric)`).join(', ')})
+                        AS t(input_id, price)
+                        ON CONFLICT ("referenceId", "inputId", state) DO UPDATE SET
+                            ${priceCol} = EXCLUDED.${priceCol}
+                        RETURNING (xmax = 0) AS is_insert
+                    `, [referenceId, uf, ...batch.flatMap(r => [r.inputId, r.price])]);
+
+                    for (const r of res) {
+                        if (r.is_insert) inserted++; else updated++;
+                    }
+                } catch (e) {
+                    errors.push(`Preços ${uf} batch ${b}: ${e.message}`);
                 }
-
-                // Upsert price
-                const existing = await this.inputPriceRepo.findOne({
-                    where: { referenceId, inputId: input.id },
-                });
-
-                const priceData: any = {};
-                if (taxRegime === 'desonerado') {
-                    priceData.priceTaxed = price;
-                    if (existing?.priceNotTaxed) priceData.priceNotTaxed = existing.priceNotTaxed;
-                } else {
-                    priceData.priceNotTaxed = price;
-                    if (existing?.priceTaxed) priceData.priceTaxed = existing.priceTaxed;
-                }
-
-                if (existing) {
-                    await this.inputPriceRepo.update(existing.id, priceData);
-                    updated++;
-                } else {
-                    await this.inputPriceRepo.save(this.inputPriceRepo.create({
-                        referenceId,
-                        inputId: input.id,
-                        ...priceData,
-                    }));
-                    inserted++;
-                }
-            } catch (err) {
-                errors.push(`Preço linha ${i + 2}: ${err.message}`);
             }
         }
 
+        warnings.push(`[RESULT] Insumos+Preços: +${inserted} ~${updated} skip=${skipped}`);
         return { inserted, updated, skipped };
     }
 
-    private async processCompositionRows(rows: any[], errors: string[], warnings: string[]) {
+    // ═══════════════════════════════════════════════════════════════
+    // PROCESSOR: Composition Prices Multi-State (CSD/CCD)
+    // Each row: { Grupo, Código, Descrição, Unidade, AC: "123.45", ... }
+    // ═══════════════════════════════════════════════════════════════
+
+    private async processCompPricesMultiState(
+        rows: any[], ufCols: string[], referenceId: string, taxRegime: string,
+        errors: string[], warnings: string[],
+    ) {
         let inserted = 0, updated = 0, skipped = 0;
+        const BATCH = 200;
 
-        // Group rows by composition code (compositions have multiple item rows)
-        const compositions = new Map<string, { desc: string; unit: string; classCode?: string; items: any[] }>();
-        let currentCompCode = '';
-        let currentCompDesc = '';
-        let currentCompUnit = '';
+        // Phase 1: Ensure compositions exist
+        const compItems: { code: string; description: string; unit: string; group?: string }[] = [];
+        for (const row of rows) {
+            const code = this.getCode(row);
+            const desc = this.getDesc(row);
+            if (!code || !desc) { skipped++; continue; }
+            compItems.push({
+                code, description: desc,
+                unit: this.getUnit(row),
+                group: this.getField(row, ['Grupo', 'GRUPO', 'Classe']) || undefined,
+            });
+        }
 
-        for (let i = 0; i < rows.length; i++) {
+        for (let b = 0; b < compItems.length; b += BATCH) {
+            const batch = compItems.slice(b, b + BATCH);
             try {
-                const row = rows[i];
-                const compCode = this.getField(row, ['COMPOSICAO', 'COMPOSIÇÃO', 'CODIGO COMPOSICAO', 'CÓDIGO COMPOSIÇÃO', 'COD.COMPOSICAO', 'GRUPO']);
-                const itemCode = this.getField(row, ['CODIGO', 'CÓDIGO', 'CODIGO INSUMO', 'CÓDIGO INSUMO', 'COD', 'COMPONENTE']);
-                const coefStr = this.getField(row, ['COEFICIENTE', 'COEF', 'COEF.', 'QUANTIDADE', 'QTD']);
-
-                // New composition header
-                if (compCode && String(compCode).trim()) {
-                    const cleanCode = String(compCode).trim().replace(/[^\d]/g, '');
-                    if (cleanCode) {
-                        currentCompCode = cleanCode;
-                        currentCompDesc = this.getField(row, ['DESCRICAO', 'DESCRIÇÃO', 'DESC', 'DESCRICAO DA COMPOSICAO']) || `Composição ${cleanCode}`;
-                        currentCompUnit = this.getField(row, ['UNIDADE', 'UN', 'UND']) || 'UN';
-                        if (!compositions.has(cleanCode)) {
-                            compositions.set(cleanCode, {
-                                desc: String(currentCompDesc).trim(),
-                                unit: String(currentCompUnit).trim().toUpperCase(),
-                                items: [],
-                            });
-                        }
-                    }
-                }
-
-                // Item row
-                if (currentCompCode && itemCode && coefStr) {
-                    const cleanItemCode = String(itemCode).trim().replace(/[^\d]/g, '');
-                    const coef = this.parseNumber(coefStr);
-                    if (cleanItemCode && !isNaN(coef) && coef > 0) {
-                        const comp = compositions.get(currentCompCode);
-                        if (comp) {
-                            comp.items.push({ inputCode: cleanItemCode, coefficient: coef });
-                        }
-                    }
-                }
-            } catch (err) {
-                errors.push(`Composição linha ${i + 2}: ${err.message}`);
+                await this.dataSource.query(`
+                    INSERT INTO sinapi_compositions (id, code, description, unit, "classCode", type, "isActive", "createdAt", "updatedAt")
+                    SELECT gen_random_uuid(), t.code, t.description, t.unit, t.grp, 'composition', true, NOW(), NOW()
+                    FROM (VALUES ${batch.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ')})
+                    AS t(code, description, unit, grp)
+                    ON CONFLICT (code) DO UPDATE SET
+                        description = EXCLUDED.description, unit = EXCLUDED.unit,
+                        "classCode" = COALESCE(EXCLUDED."classCode", sinapi_compositions."classCode"),
+                        "updatedAt" = NOW()
+                `, batch.flatMap(i => [i.code, i.description, i.unit, i.group || null]));
+            } catch (e) {
+                errors.push(`Batch composições ${b}: ${e.message}`);
             }
         }
 
-        // Save compositions
+        // Code→id map
+        const allCodes = compItems.map(i => i.code);
+        const codeIdMap = new Map<string, string>();
+        for (let b = 0; b < allCodes.length; b += 500) {
+            const batch = allCodes.slice(b, b + 500);
+            const result = await this.dataSource.query(
+                `SELECT id, code FROM sinapi_compositions WHERE code = ANY($1)`, [batch],
+            );
+            for (const r of result) codeIdMap.set(r.code, r.id);
+        }
+
+        // Phase 2: Insert costs per UF
+        for (const uf of ufCols) {
+            const costRows: { compId: string; cost: number }[] = [];
+            for (const row of rows) {
+                const code = this.getCode(row);
+                if (!code) continue;
+                const compId = codeIdMap.get(code);
+                if (!compId) continue;
+                const costStr = row[uf];
+                if (!costStr && costStr !== 0) continue;
+                const cost = this.parseNumber(costStr);
+                if (isNaN(cost) || cost < 0) continue;
+                costRows.push({ compId, cost });
+            }
+
+            if (costRows.length === 0) continue;
+
+            for (let b = 0; b < costRows.length; b += BATCH) {
+                const batch = costRows.slice(b, b + BATCH);
+                try {
+                    const isDesonerado = taxRegime === 'desonerado';
+                    const costCol = isDesonerado ? '"totalTaxed"' : '"totalNotTaxed"';
+
+                    const res = await this.dataSource.query(`
+                        INSERT INTO sinapi_composition_costs (id, "referenceId", "compositionId", state, ${costCol}, "calculationMethod", "createdAt")
+                        SELECT gen_random_uuid(), $1, t.comp_id, $2, t.cost, 'imported', NOW()
+                        FROM (VALUES ${batch.map((_, i) => `($${i * 2 + 3}::uuid, $${i * 2 + 4}::numeric)`).join(', ')})
+                        AS t(comp_id, cost)
+                        ON CONFLICT ("referenceId", "compositionId", state) DO UPDATE SET
+                            ${costCol} = EXCLUDED.${costCol}
+                        RETURNING (xmax = 0) AS is_insert
+                    `, [referenceId, uf, ...batch.flatMap(r => [r.compId, r.cost])]);
+
+                    for (const r of res) {
+                        if (r.is_insert) inserted++; else updated++;
+                    }
+                } catch (e) {
+                    errors.push(`Custos comp ${uf} batch ${b}: ${e.message}`);
+                }
+            }
+        }
+
+        warnings.push(`[RESULT] Composições+Custos: +${inserted} ~${updated} skip=${skipped}`);
+        return { inserted, updated, skipped };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PROCESSOR: Analytic Sheet (composition items + coefficients)
+    // ═══════════════════════════════════════════════════════════════
+
+    private async processAnalyticSheet(rows: any[], errors: string[], warnings: string[]) {
+        let inserted = 0, updated = 0, skipped = 0;
+
+        const compositions = new Map<string, { desc: string; unit: string; items: { inputCode: string; coef: number; desc?: string }[] }>();
+        let currentComp = '';
+
+        for (const row of rows) {
+            const compCode = this.getField(row, ['Composição', 'COMPOSICAO', 'COMPOSIÇÃO', 'Código da Composição', 'Codigo da Composicao']);
+            const itemCode = this.getField(row, ['Código', 'CODIGO', 'CÓDIGO', 'Código do Insumo', 'Codigo do Insumo', 'Componente']);
+            const coefStr = this.getField(row, ['Coeficiente', 'COEFICIENTE', 'COEF', 'Quantidade', 'QTD']);
+
+            if (compCode) {
+                const clean = String(compCode).trim().replace(/\D/g, '');
+                if (clean) {
+                    currentComp = clean;
+                    if (!compositions.has(clean)) {
+                        compositions.set(clean, {
+                            desc: this.getDesc(row) || `Composição ${clean}`,
+                            unit: this.getUnit(row),
+                            items: [],
+                        });
+                    }
+                }
+            }
+
+            if (currentComp && itemCode && coefStr) {
+                const cleanItem = String(itemCode).trim().replace(/\D/g, '');
+                const coef = this.parseNumber(coefStr);
+                if (cleanItem && !isNaN(coef) && coef > 0) {
+                    compositions.get(currentComp)?.items.push({
+                        inputCode: cleanItem, coef,
+                        desc: this.getDesc(row) || undefined,
+                    });
+                }
+            }
+        }
+
         for (const [code, data] of compositions) {
             try {
-                let existing = await this.compositionRepo.findOne({ where: { code } });
-                if (existing) {
-                    await this.compositionRepo.update(existing.id, {
-                        description: data.desc,
-                        unit: data.unit,
-                    });
-                    await this.compositionItemRepo.delete({ compositionId: existing.id });
-                    updated++;
-                } else {
-                    existing = await this.compositionRepo.save(this.compositionRepo.create({
-                        code,
-                        description: data.desc,
-                        unit: data.unit,
-                        type: 'composition',
+                // Ensure composition exists
+                let comp = await this.compositionRepo.findOne({ where: { code } });
+                if (!comp) {
+                    comp = await this.compositionRepo.save(this.compositionRepo.create({
+                        code, description: data.desc, unit: data.unit, type: 'composition',
                     }));
                     inserted++;
+                } else {
+                    await this.compositionItemRepo.delete({ compositionId: comp.id });
+                    updated++;
                 }
 
-                // Save items
+                // Insert items
                 for (let idx = 0; idx < data.items.length; idx++) {
                     const item = data.items[idx];
-                    const ci: any = { compositionId: existing.id, coefficient: item.coefficient, sortOrder: idx, itemType: 'insumo' };
+                    const ci: any = { compositionId: comp.id, coefficient: item.coef, sortOrder: idx, itemType: 'insumo' };
 
-                    // Check if it's an input or sub-composition
                     const input = await this.inputRepo.findOne({ where: { code: item.inputCode } });
                     if (input) {
                         ci.inputId = input.id;
@@ -622,159 +475,196 @@ export class SinapiImportService {
                         if (childComp) {
                             ci.childCompositionId = childComp.id;
                             ci.itemType = 'composicao_auxiliar';
-                        } else {
-                            warnings.push(`Item ${item.inputCode} na composição ${code} não encontrado no cadastro`);
                         }
                     }
 
                     await this.compositionItemRepo.save(this.compositionItemRepo.create(ci));
                 }
-            } catch (err) {
-                errors.push(`Composição ${code}: ${err.message}`);
+            } catch (e) {
+                errors.push(`Composição analítica ${code}: ${e.message}`);
             }
         }
 
+        warnings.push(`[RESULT] Analítico: ${compositions.size} composições processadas`);
         return { inserted, updated, skipped };
     }
 
-    private async processCompositionCostRows(rows: any[], referenceId: string, taxRegime: string, errors: string[], warnings: string[]) {
+    // ═══════════════════════════════════════════════════════════════
+    // PROCESSOR: Family Coefficients
+    // ═══════════════════════════════════════════════════════════════
+
+    private async processCoefficients(rows: any[], ufCols: string[], errors: string[], warnings: string[]) {
         let inserted = 0, updated = 0, skipped = 0;
+        const BATCH = 200;
 
-        for (let i = 0; i < rows.length; i++) {
+        // This file has: Família code, Insumo code, Descrição, Unidade, Categoria, then UF columns with coefficients
+        const inputItems: { code: string; description: string; unit: string; type: string }[] = [];
+        for (const row of rows) {
+            const code = this.getField(row, ['Código do Insumo', 'Codigo do Insumo']);
+            const desc = this.getField(row, ['Descrição do Insumo', 'Descricao do Insumo', 'Descrição', 'DESCRICAO']);
+            if (!code || !desc) { skipped++; continue; }
+            const cleanCode = String(code).trim().replace(/\D/g, '');
+            if (!cleanCode) { skipped++; continue; }
+            inputItems.push({
+                code: cleanCode,
+                description: String(desc).trim(),
+                unit: this.getField(row, ['Unidade', 'UNIDADE', 'UN']) || 'UN',
+                type: this.detectInputType(String(desc)),
+            });
+        }
+
+        // Upsert inputs
+        for (let b = 0; b < inputItems.length; b += BATCH) {
+            const batch = inputItems.slice(b, b + BATCH);
             try {
-                const row = rows[i];
-                const code = this.getField(row, ['COMPOSICAO', 'COMPOSIÇÃO', 'CODIGO', 'CÓDIGO', 'CODIGO COMPOSICAO', 'COD']);
-                const totalStr = this.getField(row, ['CUSTO TOTAL', 'PRECO', 'PREÇO', 'TOTAL', 'CUSTO UNITARIO', 'CUSTO UNITÁRIO', 'VALOR']);
-                const matStr = this.getField(row, ['MATERIAL', 'CUSTO MATERIAL', 'MAT']);
-                const labStr = this.getField(row, ['MAO DE OBRA', 'MÃO DE OBRA', 'MO', 'CUSTO MO']);
-                const eqStr = this.getField(row, ['EQUIPAMENTO', 'EQUIP', 'CUSTO EQUIP', 'EQ']);
-
-                if (!code || !totalStr) { skipped++; continue; }
-
-                const cleanCode = String(code).trim().replace(/[^\d]/g, '');
-                if (!cleanCode) { skipped++; continue; }
-
-                const total = this.parseNumber(totalStr);
-                if (isNaN(total) || total < 0) { skipped++; continue; }
-
-                // Find or auto-create composition
-                let comp = await this.compositionRepo.findOne({ where: { code: cleanCode } });
-                if (!comp) {
-                    const desc = this.getField(row, ['DESCRICAO', 'DESCRIÇÃO', 'DESC']) || `Composição ${cleanCode}`;
-                    const unit = this.getField(row, ['UNIDADE', 'UN', 'UND']) || 'UN';
-                    comp = await this.compositionRepo.save(this.compositionRepo.create({
-                        code: cleanCode,
-                        description: String(desc).trim(),
-                        unit: String(unit).trim().toUpperCase(),
-                    }));
-                    warnings.push(`Composição ${cleanCode} auto-criada na importação de custos`);
-                }
-
-                // Upsert cost
-                const existing = await this.compositionCostRepo.findOne({
-                    where: { referenceId, compositionId: comp.id },
-                });
-
-                const costData: any = {
-                    materialCost: matStr ? this.parseNumber(matStr) : null,
-                    laborCost: labStr ? this.parseNumber(labStr) : null,
-                    equipmentCost: eqStr ? this.parseNumber(eqStr) : null,
-                    calculationMethod: 'imported',
-                };
-
-                if (taxRegime === 'desonerado') {
-                    costData.totalTaxed = total;
-                    if (existing?.totalNotTaxed) costData.totalNotTaxed = existing.totalNotTaxed;
-                } else {
-                    costData.totalNotTaxed = total;
-                    if (existing?.totalTaxed) costData.totalTaxed = existing.totalTaxed;
-                }
-
-                if (existing) {
-                    await this.compositionCostRepo.update(existing.id, costData);
-                    updated++;
-                } else {
-                    await this.compositionCostRepo.save(this.compositionCostRepo.create({
-                        referenceId,
-                        compositionId: comp.id,
-                        ...costData,
-                    }));
-                    inserted++;
-                }
-            } catch (err) {
-                errors.push(`Custo composição linha ${i + 2}: ${err.message}`);
+                const res = await this.dataSource.query(`
+                    INSERT INTO sinapi_inputs (id, code, description, unit, type, origin, "isActive", "createdAt", "updatedAt")
+                    SELECT gen_random_uuid(), t.code, t.description, t.unit, t.type, 'sinapi', true, NOW(), NOW()
+                    FROM (VALUES ${batch.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ')})
+                    AS t(code, description, unit, type)
+                    ON CONFLICT (code) DO UPDATE SET
+                        description = EXCLUDED.description, unit = EXCLUDED.unit,
+                        type = EXCLUDED.type, "updatedAt" = NOW()
+                    RETURNING (xmax = 0) AS is_insert
+                `, batch.flatMap(i => [i.code, i.description, i.unit, i.type]));
+                for (const r of res) { if (r.is_insert) inserted++; else updated++; }
+            } catch (e) {
+                errors.push(`Coeficientes batch ${b}: ${e.message}`);
             }
         }
 
+        warnings.push(`[RESULT] Coeficientes: +${inserted} ~${updated} skip=${skipped}`);
         return { inserted, updated, skipped };
     }
 
-    private async processAutoDetect(rows: any[], referenceId: string, taxRegime: string, errors: string[], warnings: string[]) {
-        if (rows.length === 0) return { inserted: 0, updated: 0, skipped: 0 };
-
-        const normAccent = (s: string) => s.toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const cols = Object.keys(rows[0]).map(k => normAccent(k));
-        const hasCoef = cols.some(c => c.includes('COEFICIENTE') || c.includes('COEF'));
-        const hasPrice = cols.some(c => c.includes('PRECO') || c.includes('MEDIANA') || c.includes('CUSTO'));
-        const hasComp = cols.some(c => c.includes('COMPOSIC'));
-
-        warnings.push(`[DEBUG] autoDetect: cols=[${cols.slice(0, 8).join(', ')}], hasCoef=${hasCoef}, hasPrice=${hasPrice}, hasComp=${hasComp}`);
-
-        if (hasCoef) return this.processCompositionRows(rows, errors, warnings);
-        if (hasComp && hasPrice) return this.processCompositionCostRows(rows, referenceId, taxRegime, errors, warnings);
-        if (hasPrice) return this.processInputPriceRows(rows, referenceId, taxRegime, errors, warnings);
-        return this.processInputRows(rows, errors, warnings);
-    }
-
     // ═══════════════════════════════════════════════════════════════
-    // HELPERS
+    // DETECTION HELPERS
     // ═══════════════════════════════════════════════════════════════
 
-    private async getOrCreateReference(year: number, month: number, state: string): Promise<SinapiReference> {
-        let ref = await this.referenceRepo.findOne({ where: { year, month, state: state.toUpperCase() } });
-        if (ref) return ref;
+    private detectSheetType(sheetName: string, cols: string[]): SheetType {
+        const norm = (s: string) => s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        const sn = norm(sheetName);
+        const normCols = cols.map(c => norm(c));
+        const hasUFs = this.findUFColumns(cols).length >= 10;
 
-        // Mark previous refs as superseded
-        await this.referenceRepo.update(
-            { state: state.toUpperCase(), status: 'active' },
-            { status: 'superseded' },
-        );
+        // SINAPI Referência file — sheet names like "SEM Desoneração", "COM Desoneração"
+        const isInsumoFile = normCols.some(c => c.includes('CODIGO') || c.includes('CODIGO SINAPI'));
+        const isCompFile = normCols.some(c => c.includes('CODIGO DA COMPOSICAO') || c.includes('COMPOSICAO'));
+        const hasCoef = normCols.some(c => c.includes('COEFICIENTE') || c.includes('COEF'));
+        const isPctMO = sn.includes('PERCENTUAL') || sn.includes('% MO') || sn.includes('PCT');
 
-        ref = await this.referenceRepo.save(this.referenceRepo.create({
-            year,
-            month,
-            state: state.toUpperCase(),
-            label: `SINAPI ${MONTH_NAMES[month]}/${year} - ${state.toUpperCase()}`,
-            status: 'active',
-        }));
+        // Percentual de MO tab
+        if (isPctMO) return 'labor_pct';
 
-        return ref;
-    }
-
-    private getField(row: any, possibleNames: string[]): string | null {
-        const norm = (s: string) => s.toUpperCase().trim()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // strip accents
-
-        for (const name of possibleNames) {
-            const normName = norm(name);
-            // Exact match
-            if (row[name] !== undefined && row[name] !== '') return String(row[name]);
-            // Case-insensitive + accent-insensitive exact match
-            const exactKey = Object.keys(row).find(k => norm(k) === normName);
-            if (exactKey && row[exactKey] !== undefined && row[exactKey] !== '') return String(row[exactKey]);
-            // Partial match (contains), accent-insensitive
-            const partialKey = Object.keys(row).find(k => norm(k).includes(normName));
-            if (partialKey && row[partialKey] !== undefined && row[partialKey] !== '') return String(row[partialKey]);
+        // Analítico tab
+        if (sn.includes('ANALITICO')) {
+            return normCols.some(c => c.includes('CUSTO') || c.includes('PRECO')) ? 'analytic_cost' : 'analytic';
         }
-        // Last resort: try reverse partial (pattern contained in column name)
-        for (const name of possibleNames) {
-            const normName = (name).toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        // Coeficientes file
+        if (hasCoef || sn.includes('COEFICIENTE')) return 'coefficients';
+
+        // Compositions with prices per state
+        if (isCompFile && hasUFs) {
+            if (sn.includes('SEM') || sn.includes('NAO') || sn.includes('ND')) return 'comp_prices_nd';
+            if (sn.includes('COM') || sn.includes('CD')) return 'comp_prices_d';
+            return 'comp_prices_nd'; // default
+        }
+
+        // Inputs with prices per state
+        if (isInsumoFile && hasUFs) {
+            if (sn.includes('SEM') || sn.includes('NAO') || sn.includes('ND')) return 'input_prices_nd';
+            if (sn.includes('COM') || sn.includes('CD')) return 'input_prices_d';
+            return 'input_prices_nd';
+        }
+
+        // Generic: has UFs → assume input prices
+        if (hasUFs) {
+            if (sn.includes('SEM') || sn.includes('NAO')) return 'input_prices_nd';
+            if (sn.includes('COM')) return 'input_prices_d';
+            // Check if data looks like percentages (%) or currency (R$)
+            return 'input_prices_nd';
+        }
+
+        return 'unknown';
+    }
+
+    private findUFColumns(cols: string[]): string[] {
+        return cols.filter(c => UF_LIST.includes(c.trim().toUpperCase()));
+    }
+
+    private detectYearMonth(filename: string, overrides?: any): { year: number; month: number } {
+        if (overrides?.year && overrides?.month) return { year: overrides.year, month: overrides.month };
+        const upper = filename.toUpperCase();
+        let year = new Date().getFullYear(), month = new Date().getMonth() + 1;
+        const ym = upper.match(/(\d{4})[_\- ]?(\d{2})/);
+        if (ym) { const y = parseInt(ym[1]), m = parseInt(ym[2]); if (y >= 2000 && m >= 1 && m <= 12) { year = y; month = m; } }
+        if (!ym) { const my = upper.match(/(\d{2})[_\- ]?(\d{4})/); if (my) { const m = parseInt(my[1]), y = parseInt(my[2]); if (y >= 2000 && m >= 1 && m <= 12) { year = y; month = m; } } }
+        return { year: overrides?.year || year, month: overrides?.month || month };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // FIELD HELPERS
+    // ═══════════════════════════════════════════════════════════════
+
+    private parseSheet(sheet: XLSX.Sheet): any[] {
+        const rawRows = XLSX.utils.sheet_to_json<any>(sheet, { defval: '', header: 1, raw: false });
+        const norm = (s: string) => s.toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const PATTERNS = ['CODIGO', 'COD', 'DESCRICAO', 'UNIDADE', 'COMPOSICAO', 'COEFICIENTE', 'PRECO', 'CUSTO', 'GRUPO', 'INSUMO', 'CLASSE'];
+
+        let headerRow = 0;
+        for (let r = 0; r < Math.min(rawRows.length, 30); r++) {
+            const vals = (Array.isArray(rawRows[r]) ? rawRows[r] : Object.values(rawRows[r])).map((v: any) => norm(String(v || '')));
+            let matches = 0;
+            for (const val of vals) { if (val && val.length >= 2 && PATTERNS.some(p => val.includes(p))) matches++; }
+            // Also check if row has UF columns
+            const ufMatches = vals.filter(v => UF_LIST.includes(v)).length;
+            if (matches >= 2 || ufMatches >= 5) { headerRow = r; break; }
+        }
+
+        let rows = XLSX.utils.sheet_to_json<any>(sheet, { defval: '', raw: false, range: headerRow });
+        return rows.map((row: any) => {
+            const cleaned: any = {};
             for (const key of Object.keys(row)) {
-                const normKey = key.toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                if (normKey.length > 3 && normName.includes(normKey)) {
-                    if (row[key] !== undefined && row[key] !== '') return String(row[key]);
-                }
+                cleaned[key.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()] = row[key];
             }
+            return cleaned;
+        });
+    }
+
+    private getCode(row: any): string | null {
+        const raw = this.getField(row, [
+            'Código', 'CODIGO', 'CÓDIGO', 'Código SINAPI', 'CODIGO SINAPI',
+            'Código da Composição', 'Codigo da Composicao', 'COD',
+            'Código do Insumo', 'Codigo do Insumo',
+        ]);
+        if (!raw) return null;
+        const clean = String(raw).trim().replace(/\D/g, '');
+        return clean || null;
+    }
+
+    private getDesc(row: any): string | null {
+        const raw = this.getField(row, [
+            'Descrição', 'DESCRICAO', 'DESCRIÇÃO', 'Descrição do Insumo',
+            'Descricao do Insumo', 'DESC', 'Descrição da Composição',
+        ]);
+        return raw ? String(raw).trim() : null;
+    }
+
+    private getUnit(row: any): string {
+        const raw = this.getField(row, ['Unidade', 'UNIDADE', 'UN', 'UND', 'UNID']);
+        return raw ? String(raw).trim().toUpperCase() : 'UN';
+    }
+
+    private getField(row: any, names: string[]): string | null {
+        const norm = (s: string) => s.toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        for (const name of names) {
+            const n = norm(name);
+            if (row[name] !== undefined && row[name] !== '') return String(row[name]);
+            const exact = Object.keys(row).find(k => norm(k) === n);
+            if (exact && row[exact] !== undefined && row[exact] !== '') return String(row[exact]);
+            const partial = Object.keys(row).find(k => norm(k).includes(n));
+            if (partial && row[partial] !== undefined && row[partial] !== '') return String(row[partial]);
         }
         return null;
     }
@@ -782,14 +672,8 @@ export class SinapiImportService {
     private parseNumber(value: any): number {
         if (typeof value === 'number') return value;
         if (!value) return NaN;
-        // Handle Brazilian number format: 1.234,56 → 1234.56
-        let str = String(value).trim();
-        // Remove currency symbols
-        str = str.replace(/R\$\s*/gi, '').replace(/[^\d.,\-]/g, '');
-        // If has comma as decimal separator (Brazilian format)
-        if (str.includes(',')) {
-            str = str.replace(/\./g, '').replace(',', '.');
-        }
+        let str = String(value).trim().replace(/R\$\s*/gi, '').replace(/[^\d.,\-]/g, '');
+        if (str.includes(',')) str = str.replace(/\./g, '').replace(',', '.');
         return parseFloat(str);
     }
 
@@ -800,23 +684,27 @@ export class SinapiImportService {
             || upper.includes('ELETRICISTA') || upper.includes('ENCANADOR')
             || upper.includes('AJUDANTE') || upper.includes('OFICIAL')
             || upper.includes('MONTADOR') || upper.includes('SOLDADOR')
-            || upper.includes('HORA') || upper.includes('ARMADOR'))
-            return 'mao_de_obra';
-        if (upper.includes('EQUIPAMENTO') || upper.includes('EQUIP')
-            || upper.includes('RETROESCAVADEIRA') || upper.includes('BETONEIRA')
-            || upper.includes('CAMINHAO') || upper.includes('GUINDASTE')
-            || upper.includes('COMPRESSOR') || upper.includes('VIBRADOR')
-            || upper.includes('GERADOR') || upper.includes('BOMBA'))
-            return 'equipamento';
+            || upper.includes('ARMADOR')) return 'mao_de_obra';
+        if (upper.includes('EQUIPAMENTO') || upper.includes('RETROESCAVADEIRA')
+            || upper.includes('BETONEIRA') || upper.includes('CAMINHAO')
+            || upper.includes('GUINDASTE') || upper.includes('COMPRESSOR')
+            || upper.includes('VIBRADOR') || upper.includes('GERADOR')) return 'equipamento';
         return 'material';
     }
 
-    private mergeResults(a: { inserted: number; updated: number; skipped: number }, b: { inserted: number; updated: number; skipped: number }) {
-        return {
-            inserted: a.inserted + b.inserted,
-            updated: a.updated + b.updated,
-            skipped: a.skipped + b.skipped,
-        };
+    private async getOrCreateReference(year: number, month: number): Promise<SinapiReference> {
+        let ref = await this.referenceRepo.findOne({ where: { year, month } });
+        if (ref) return ref;
+        ref = await this.referenceRepo.save(this.referenceRepo.create({
+            year, month,
+            label: `SINAPI ${MONTH_NAMES[month]}/${year}`,
+            status: 'active',
+        }));
+        return ref;
+    }
+
+    private merge(a: any, b: any) {
+        return { inserted: a.inserted + b.inserted, updated: a.updated + b.updated, skipped: a.skipped + b.skipped };
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -824,11 +712,7 @@ export class SinapiImportService {
     // ═══════════════════════════════════════════════════════════════
 
     async getImportLogs(limit = 50) {
-        return this.importLogRepo.find({
-            relations: ['reference'],
-            order: { createdAt: 'DESC' },
-            take: limit,
-        });
+        return this.importLogRepo.find({ relations: ['reference'], order: { createdAt: 'DESC' }, take: limit });
     }
 
     async getImportLog(id: string) {
@@ -839,24 +723,12 @@ export class SinapiImportService {
         await this.importLogRepo.delete(id);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // REPROCESSING — rollback and reimport
-    // ═══════════════════════════════════════════════════════════════
-
     async rollbackImport(logId: string): Promise<{ deleted: number }> {
         const log = await this.importLogRepo.findOne({ where: { id: logId } });
         if (!log || !log.referenceId) throw new Error('Log ou referência não encontrado');
-
-        // Only delete prices/costs for this reference (inputs/compositions are reusable)
-        const [pricesDeleted] = await this.dataSource.query(
-            `DELETE FROM sinapi_input_prices WHERE "referenceId" = $1`, [log.referenceId],
-        );
-        const [costsDeleted] = await this.dataSource.query(
-            `DELETE FROM sinapi_composition_costs WHERE "referenceId" = $1`, [log.referenceId],
-        );
-
+        const [pricesDeleted] = await this.dataSource.query(`DELETE FROM sinapi_input_prices WHERE "referenceId" = $1`, [log.referenceId]);
+        const [costsDeleted] = await this.dataSource.query(`DELETE FROM sinapi_composition_costs WHERE "referenceId" = $1`, [log.referenceId]);
         await this.importLogRepo.update(logId, { status: ImportLogStatus.ERROR, errors: JSON.stringify(['Rollback executado']) });
-
         return { deleted: (pricesDeleted?.rowCount || 0) + (costsDeleted?.rowCount || 0) };
     }
 }
