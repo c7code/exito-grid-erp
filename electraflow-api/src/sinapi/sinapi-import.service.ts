@@ -604,28 +604,38 @@ export class SinapiImportService {
             for (const row of r) codeIdMap.set(row.code, row.id);
         }
 
+        // Pre-resolve row→code→compId mapping (reuse work from compItems phase)
+        // compItems was built in order from rows, so compItems[i] corresponds to the i-th valid row
+        const rowCodeMap: (string | null)[] = [];
+        let ciIdx = 0;
+        for (let ri = 0; ri < rows.length; ri++) {
+            let code = this.getCode(rows[ri]);
+            const desc = this.getDesc(rows[ri]);
+            if (!code && desc) {
+                const nd = desc.trim().toUpperCase();
+                for (const len of [80, 60, 40, 28]) {
+                    const key = nd.substring(0, len);
+                    if (descToCode.has(key)) { code = descToCode.get(key)!; break; }
+                }
+            }
+            const compId = code ? codeIdMap.get(code) || null : null;
+            rowCodeMap.push(compId);
+        }
+        const resolvedCount = rowCodeMap.filter(Boolean).length;
+        warnings.push(`[DEBUG] Row→CompId resolved: ${resolvedCount}/${rows.length}`);
+
         // Insert costs per UF
         let debugDone = false;
         for (const uf of ufCols) {
             const costRows: { compId: string; cost: number }[] = [];
             let nanCount = 0, zeroCount = 0, validCount = 0;
-            for (const row of rows) {
-                let code = this.getCode(row);
-                const desc = this.getDesc(row);
-                if (!code && desc) {
-                    const nd = desc.trim().toUpperCase();
-                    for (const len of [80, 60, 40, 28]) {
-                        const key = nd.substring(0, len);
-                        if (descToCode.has(key)) { code = descToCode.get(key)!; break; }
-                    }
-                }
-                if (!code) continue;
-                const compId = codeIdMap.get(code);
+            for (let ri = 0; ri < rows.length; ri++) {
+                const compId = rowCodeMap[ri];
                 if (!compId) continue;
-                const rawVal = row[uf];
+                const rawVal = rows[ri][uf];
                 const cost = this.parseNumber(rawVal);
                 if (!debugDone) {
-                    warnings.push(`[COMP-DEBUG] UF=${uf}, raw="${rawVal}", parsed=${cost}, code=${code}`);
+                    warnings.push(`[COMP-DEBUG] UF=${uf}, raw="${rawVal}", parsed=${cost}, compId=${compId}`);
                     debugDone = true;
                 }
                 if (isNaN(cost)) { nanCount++; continue; }
