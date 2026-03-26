@@ -136,17 +136,45 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
         try {
             const r = await api.client.post('/sinapi/import/upload', fd, {
                 headers: { 'Content-Type': undefined },
-                timeout: 300000, // 5 min timeout for large files
+                timeout: 30000,
             });
-            toast.success(`Importação concluída: ${r.data?.inserted || r.data?.rowsProcessed || 0} registros`);
+            const logId = r.data?.logId;
             if (fileRef.current) fileRef.current.value = '';
-            loadLogs(); onRefresh();
+
+            if (r.data?.status === 'running' && logId) {
+                // Async import — start polling
+                toast.info(`⏳ Importação iniciada em background (~${r.data?.totalRows || '?'} linhas)...`);
+                setUploading(false);
+                const poll = setInterval(async () => {
+                    try {
+                        const lr = await api.client.get(`/sinapi/import/logs/${logId}`);
+                        const log = lr.data;
+                        if (log.status && log.status !== 'running') {
+                            clearInterval(poll);
+                            if (log.status === 'success' || log.status === 'completed') {
+                                toast.success(`✅ Importação concluída: ${log.insertedCount || 0} inseridos, ${log.updatedCount || 0} atualizados`);
+                            } else if (log.status === 'partial') {
+                                toast.warning(`⚠️ Importação parcial: ${log.insertedCount || 0} inseridos, ${log.errorCount || 0} erros`);
+                            } else {
+                                toast.error(`❌ Importação falhou: ${log.errorCount || 0} erros`);
+                            }
+                            loadLogs(); onRefresh();
+                        }
+                    } catch { /* polling error, keep trying */ }
+                }, 3000);
+                // Safety: stop polling after 10 min
+                setTimeout(() => clearInterval(poll), 600000);
+            } else {
+                toast.success(`Importação concluída: ${r.data?.inserted || 0} registros`);
+                loadLogs(); onRefresh();
+                setUploading(false);
+            }
         } catch (e: any) {
             const msg = e?.response?.data?.message || e?.message || 'Erro na importação';
             toast.error(msg);
             console.error('SINAPI import error:', e?.response?.status, e?.response?.data, e);
+            setUploading(false);
         }
-        finally { setUploading(false); }
     };
 
     const handleRollback = async (logId: string) => {

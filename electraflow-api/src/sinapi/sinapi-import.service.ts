@@ -82,11 +82,7 @@ export class SinapiImportService {
     async importFile(file: Express.Multer.File, overrides?: {
         state?: string; year?: number; month?: number; taxRegime?: string; fileType?: string;
     }): Promise<ImportResult> {
-        const startTime = Date.now();
-        const errors: string[] = [];
-        const warnings: string[] = [];
-
-        // 1. Parse file
+        // 1. Parse file (fast, sync)
         let workbook: XLSX.WorkBook;
         try {
             workbook = XLSX.read(file.buffer, { type: 'buffer', cellDates: true, cellNF: true });
@@ -94,7 +90,6 @@ export class SinapiImportService {
             throw new Error(`Erro ao ler arquivo: ${err.message}`);
         }
 
-        // 2. Detect metadata from filename + sheet content
         const detected = this.detectMetadata(file.originalname, workbook);
         const state = (overrides?.state || detected.state || 'PE').toUpperCase();
         const year = overrides?.year || detected.year || new Date().getFullYear();
@@ -102,28 +97,47 @@ export class SinapiImportService {
         const taxRegime = (overrides?.taxRegime || detected.taxRegime) as any;
         const fileType = (overrides?.fileType || detected.fileType) as any;
 
-        this.logger.log(`📂 Importando: ${file.originalname} | ${state} ${MONTH_NAMES[month]}/${year} | ${taxRegime} | tipo: ${fileType}`);
+        // Count total rows
+        let estRows = 0;
+        for (const sn of workbook.SheetNames) {
+            const r = XLSX.utils.decode_range(workbook.Sheets[sn]['!ref'] || 'A1');
+            estRows += Math.max(0, r.e.r - r.s.r);
+        }
 
-        // 3. Create import log
+        this.logger.log(`📂 Import (async): ${file.originalname} | ${state} | ~${estRows} linhas`);
+
+        // 2. Create import log
         const log = await this.importLogRepo.save(this.importLogRepo.create({
-            fileName: file.originalname,
-            fileType,
-            state,
-            year,
-            month,
-            taxRegime,
-            status: ImportLogStatus.RUNNING,
+            fileName: file.originalname, fileType, state, year, month, taxRegime,
+            status: ImportLogStatus.RUNNING, totalRows: estRows,
         }));
 
+        // 3. Fire background processing & return immediately
+        setImmediate(() => {
+            this.processInBackground(log.id, workbook, state, year, month, taxRegime)
+                .catch(err => this.logger.error(`❌ BG import ${log.id}: ${err.message}`));
+        });
+
+        return {
+            logId: log.id, status: ImportLogStatus.RUNNING,
+            inserted: 0, updated: 0, skipped: 0,
+            errors: [], warnings: [`Importação iniciada — ~${estRows} linhas`],
+            totalRows: estRows, durationMs: 0,
+        };
+    }
+
+    private async processInBackground(
+        logId: string, workbook: XLSX.WorkBook,
+        state: string, year: number, month: number, taxRegime: string,
+    ) {
+        const startTime = Date.now();
+        const errors: string[] = [];
+        const warnings: string[] = [];
+        let result = { inserted: 0, updated: 0, skipped: 0 };
+        let totalRows = 0;
         try {
-            // 4. Get or create reference
             const reference = await this.getOrCreateReference(year, month, state);
-            await this.importLogRepo.update(log.id, { referenceId: reference.id });
-
-            // 5. Process based on file type
-            let result: { inserted: number; updated: number; skipped: number } = { inserted: 0, updated: 0, skipped: 0 };
-            let totalRows = 0;
-
+            await this.importLogRepo.update(logId, { referenceId: reference.id });
             for (const sheetName of workbook.SheetNames) {
                 const sheet = workbook.Sheets[sheetName];
 
@@ -229,51 +243,31 @@ export class SinapiImportService {
                             result = this.mergeResults(result, autoResult);
                     }
                 } catch (sheetErr) {
-                    errors.push(`Erro na planilha "${sheetName}": ${sheetErr.message}`);
+                    errors.push(`Erro "${sheetName}": ${sheetErr.message}`);
                 }
+                // Progress update mid-import
+                await this.importLogRepo.update(logId, { insertedCount: result.inserted, updatedCount: result.updated, skippedCount: result.skipped, totalRows });
             }
 
-            // 6. Update log
             const status = errors.length > 0
                 ? (result.inserted + result.updated > 0 ? ImportLogStatus.PARTIAL : ImportLogStatus.ERROR)
                 : ImportLogStatus.SUCCESS;
-
-            const durationMs = Date.now() - startTime;
-            await this.importLogRepo.update(log.id, {
-                status,
-                totalRows,
-                insertedCount: result.inserted,
-                updatedCount: result.updated,
-                skippedCount: result.skipped,
-                errorCount: errors.length,
+            await this.importLogRepo.update(logId, {
+                status, totalRows,
+                insertedCount: result.inserted, updatedCount: result.updated,
+                skippedCount: result.skipped, errorCount: errors.length,
                 errors: errors.length > 0 ? JSON.stringify(errors.slice(0, 100)) : null,
                 warnings: warnings.length > 0 ? JSON.stringify(warnings.slice(0, 100)) : null,
-                durationMs,
+                durationMs: Date.now() - startTime,
             });
-
-            this.logger.log(`✅ Import completo em ${durationMs}ms: +${result.inserted} ~${result.updated} ⏭${result.skipped} ❌${errors.length}`);
-
-            return {
-                logId: log.id,
-                status,
-                inserted: result.inserted,
-                updated: result.updated,
-                skipped: result.skipped,
-                errors,
-                warnings,
-                totalRows,
-                durationMs,
-            };
-
+            this.logger.log(`✅ Import ${logId}: +${result.inserted} ~${result.updated} (${Date.now() - startTime}ms)`);
         } catch (fatalErr) {
-            const durationMs = Date.now() - startTime;
-            await this.importLogRepo.update(log.id, {
-                status: ImportLogStatus.ERROR,
-                errorCount: 1,
+            this.logger.error(`❌ Fatal ${logId}: ${fatalErr.message}`);
+            await this.importLogRepo.update(logId, {
+                status: ImportLogStatus.ERROR, errorCount: 1,
                 errors: JSON.stringify([fatalErr.message]),
-                durationMs,
+                durationMs: Date.now() - startTime,
             });
-            throw fatalErr;
         }
     }
 
