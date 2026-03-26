@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '@/services/api';
-import { budgets as budgetsApi } from '@/services/api';
+import { api } from '@/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,7 +51,7 @@ export default function Budgets() {
     const loadBudgets = useCallback(async () => {
         try {
             setLoading(true);
-            const r = await budgetsApi.getAll();
+            const r = await api.client.get('/budgets');
             setBudgetList(r.data || []);
         } catch { toast.error('Erro ao carregar orçamentos'); }
         finally { setLoading(false); }
@@ -62,7 +61,7 @@ export default function Budgets() {
 
     const loadBudget = async (id: string) => {
         try {
-            const r = await budgetsApi.getById(id);
+            const r = await api.client.get(`/budgets/${id}`);
             setActiveBudget(r.data);
         } catch { toast.error('Erro ao carregar orçamento'); }
     };
@@ -71,7 +70,7 @@ export default function Budgets() {
         if (!newName.trim()) return toast.error('Nome é obrigatório');
         try {
             setSaving(true);
-            const r = await budgetsApi.create({
+            const r = await api.client.post('/budgets', {
                 name: newName, state: newState, workType: newType, bdiPercent: Number(newBdi) || 0,
             });
             toast.success('Orçamento criado!');
@@ -86,7 +85,7 @@ export default function Budgets() {
     const handleDelete = async (id: string) => {
         if (!confirm('Excluir orçamento?')) return;
         try {
-            await budgetsApi.delete(id);
+            await api.client.delete(`/budgets/${id}`);
             toast.success('Excluído');
             if (activeBudget?.id === id) setActiveBudget(null);
             loadBudgets();
@@ -98,7 +97,7 @@ export default function Budgets() {
         if (!searchQuery.trim()) return;
         try {
             setSearching(true);
-            const r = await api.get('/sinapi/search', { params: { q: searchQuery, limit: 20 } });
+            const r = await api.client.get('/sinapi/search', { params: { q: searchQuery, limit: 20 } });
             setSearchResults(r.data?.items || r.data || []);
         } catch { toast.error('Erro na busca'); }
         finally { setSearching(false); }
@@ -108,7 +107,7 @@ export default function Budgets() {
         if (!activeBudget) return;
         try {
             setSaving(true);
-            await budgetsApi.addSinapiComposition(activeBudget.id, code, activeBudget.state);
+            await api.client.post(`/budgets/${activeBudget.id}/sinapi/${code}`, null, { params: { state: activeBudget.state } });
             toast.success(`Composição ${code} adicionada!`);
             await loadBudget(activeBudget.id);
             setShowSearch(false);
@@ -120,7 +119,7 @@ export default function Budgets() {
     // === Item Edit ===
     const handleUpdateItem = async (itemId: string, quantity: number) => {
         try {
-            await budgetsApi.updateItem(itemId, { quantity });
+            await api.client.put(`/budgets/items/${itemId}`, { quantity });
             toast.success('Atualizado');
             setEditingItem(null);
             await loadBudget(activeBudget.id);
@@ -129,7 +128,7 @@ export default function Budgets() {
 
     const handleRemoveItem = async (itemId: string) => {
         try {
-            await budgetsApi.removeItem(itemId);
+            await api.client.delete(`/budgets/items/${itemId}`);
             toast.success('Removido');
             await loadBudget(activeBudget.id);
         } catch { toast.error('Erro'); }
@@ -137,7 +136,7 @@ export default function Budgets() {
 
     const handleUpdateBdi = async (bdi: string) => {
         try {
-            await budgetsApi.update(activeBudget.id, { bdiPercent: Number(bdi) || 0 });
+            await api.client.put(`/budgets/${activeBudget.id}`, { bdiPercent: Number(bdi) || 0 });
             await loadBudget(activeBudget.id);
         } catch { toast.error('Erro'); }
     };
