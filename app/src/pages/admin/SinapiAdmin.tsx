@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '@/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -608,6 +608,7 @@ function TabSearch() {
     const [detailLoading, setDetailLoading] = useState(false);
     const [filterState, setFilterState] = useState('');
     const [filterType, setFilterType] = useState('');
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
     const handleSearch = async (p = 1) => {
         if (!search.trim()) return;
@@ -701,38 +702,73 @@ function TabSearch() {
                         <span className="text-slate-400">{filterState ? `Filtro: ${filterState}` : 'Todos os estados'}</span>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full">
+                        <table className="w-full border-collapse" style={{ minWidth: '700px' }}>
                             <thead>
                                 <tr className="bg-slate-50 border-b">
-                                    <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase w-[100px]">Código</th>
-                                    <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase">Descrição</th>
-                                    <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase w-[80px]">Unidade</th>
-                                    {mode === 'inputs' && <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase w-[120px]">Tipo</th>}
-                                    <th className="w-[50px]"></th>
+                                    <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '40px' }}></th>
+                                    <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '100px' }}>Código</th>
+                                    <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '350px' }}>Descrição</th>
+                                    <th className="text-center px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '80px' }}>Unidade</th>
+                                    {mode === 'inputs' && <th className="text-center px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '110px' }}>Tipo</th>}
+                                    {mode === 'inputs' && <th className="text-center px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '80px' }}>Origem</th>}
                                 </tr>
                             </thead>
                             <tbody>
                                 {results.map((r: any, idx: number) => (
-                                    <tr
-                                        key={r.id}
-                                        className={`cursor-pointer hover:bg-blue-50 transition-colors border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}
-                                        style={{ height: '48px' }}
-                                        onClick={() => viewDetail(r)}
-                                    >
-                                        <td className="px-4 py-3 font-mono text-xs font-bold text-blue-600 whitespace-nowrap">{r.code}</td>
-                                        <td className="px-4 py-3 text-sm text-slate-700" title={r.description}>
-                                            <div className="line-clamp-2 leading-5">{r.description}</div>
-                                        </td>
-                                        <td className="px-4 py-3"><Badge variant="outline" className="text-xs">{r.unit}</Badge></td>
-                                        {mode === 'inputs' && (
-                                            <td className="px-4 py-3">
-                                                <Badge className={`text-xs ${r.type === 'mao_de_obra' ? 'bg-orange-100 text-orange-700' : r.type === 'equipamento' ? 'bg-cyan-100 text-cyan-700' : 'bg-slate-100 text-slate-600'}`}>
-                                                    {r.type === 'mao_de_obra' ? 'MO' : r.type === 'equipamento' ? 'Equip' : r.type || '-'}
-                                                </Badge>
+                                    <React.Fragment key={r.id}>
+                                        <tr
+                                            className={`cursor-pointer hover:bg-blue-50/60 transition-colors border-b ${expandedId === r.id ? 'bg-blue-50 border-blue-200' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
+                                            onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
+                                        >
+                                            <td className="px-4 py-3 text-center">
+                                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${expandedId === r.id ? 'rotate-180' : ''}`} />
                                             </td>
+                                            <td className="px-4 py-3">
+                                                <span className="font-mono text-xs font-bold text-blue-600">{r.code}</span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <p className="text-sm text-slate-700 truncate" style={{ maxWidth: '350px' }} title={r.description}>{r.description}</p>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <Badge variant="outline" className="text-[11px] font-mono">{r.unit}</Badge>
+                                            </td>
+                                            {mode === 'inputs' && (
+                                                <td className="px-4 py-3 text-center">
+                                                    <Badge className={`text-[11px] ${r.type === 'mao_de_obra' ? 'bg-orange-100 text-orange-700' : r.type === 'equipamento' ? 'bg-cyan-100 text-cyan-700' : r.type === 'servico' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                        {r.type === 'mao_de_obra' ? 'Mão de Obra' : r.type === 'equipamento' ? 'Equipamento' : r.type === 'servico' ? 'Serviço' : r.type || 'Material'}
+                                                    </Badge>
+                                                </td>
+                                            )}
+                                            {mode === 'inputs' && (
+                                                <td className="px-4 py-3 text-center">
+                                                    <span className="text-[11px] text-slate-400">{r.origin || 'sinapi'}</span>
+                                                </td>
+                                            )}
+                                        </tr>
+                                        {/* ── Expanded Detail Row ── */}
+                                        {expandedId === r.id && (
+                                            <tr className="bg-blue-50/40">
+                                                <td colSpan={mode === 'inputs' ? 6 : 4} className="px-6 py-4">
+                                                    <div className="bg-white rounded-lg border border-blue-200 shadow-sm p-4 space-y-3">
+                                                        <div className="flex items-start gap-4">
+                                                            <div className="flex-1 space-y-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-xs font-bold font-mono">{r.code}</span>
+                                                                    <Badge variant="outline" className="text-xs">{r.unit}</Badge>
+                                                                    {r.type && <Badge className={`text-xs ${r.type === 'mao_de_obra' ? 'bg-orange-100 text-orange-700' : r.type === 'equipamento' ? 'bg-cyan-100 text-cyan-700' : 'bg-slate-100 text-slate-600'}`}>{r.type === 'mao_de_obra' ? 'Mão de Obra' : r.type === 'equipamento' ? 'Equipamento' : r.type}</Badge>}
+                                                                </div>
+                                                                <p className="text-sm text-slate-800 leading-6 whitespace-pre-wrap">{r.description}</p>
+                                                                {r.groupClass && <p className="text-xs text-slate-400">Classe: {r.groupClass}</p>}
+                                                            </div>
+                                                            <Button variant="outline" size="sm" className="shrink-0" onClick={(e) => { e.stopPropagation(); viewDetail(r); }}>
+                                                                <Eye className="w-3.5 h-3.5 mr-1" /> Ver Preços
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         )}
-                                        <td className="px-4 py-3 text-center"><Eye className="w-4 h-4 text-slate-400" /></td>
-                                    </tr>
+                                    </React.Fragment>
                                 ))}
                             </tbody>
                         </table>
