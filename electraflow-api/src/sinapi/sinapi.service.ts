@@ -420,11 +420,11 @@ export class SinapiService implements OnModuleInit {
         if (search) { where.push(`(i.code ILIKE $${idx} OR i.description ILIKE $${idx})`); p.push(`%${search}%`); idx++; }
         const wh = where.join(' AND ');
         const sql = `
-            SELECT i.*, p."priceNotTaxed", p."priceTaxed", p."medianPrice",
+            SELECT i.*, p."priceNotTaxed", p."priceTaxed",
                    r.year as "refYear", r.month as "refMonth", r.state as "refState"
             FROM sinapi_inputs i
             LEFT JOIN LATERAL (
-                SELECT ip."priceNotTaxed", ip."priceTaxed", ip."medianPrice", ip."referenceId"
+                SELECT ip."priceNotTaxed", ip."priceTaxed", ip."referenceId"
                 FROM sinapi_input_prices ip
                 JOIN sinapi_references sr ON sr.id = ip."referenceId" AND sr.state = '${refState}'
                 WHERE ip."inputId" = i.id
