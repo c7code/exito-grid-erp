@@ -134,7 +134,13 @@ export class SinapiImportService {
                 const ufCols = this.findUFColumns(cols);
 
                 warnings.push(`[INFO] Aba "${sheetName}": ${rows.length} rows, tipo=${sheetType}, UF cols=${ufCols.length}`);
-                this.logger.log(`📄 "${sheetName}": ${rows.length} rows, tipo=${sheetType}, ${ufCols.length} UF cols`);
+                warnings.push(`[COLS] "${sheetName}": ${cols.slice(0, 15).join(' | ')}`);
+                if (rows[0]) {
+                    const sample: any = {};
+                    for (const k of cols.slice(0, 8)) sample[k] = String(rows[0][k] || '').substring(0, 30);
+                    warnings.push(`[ROW0] "${sheetName}": ${JSON.stringify(sample)}`);
+                }
+                this.logger.log(`📄 "${sheetName}": ${rows.length} rows, tipo=${sheetType}, ${ufCols.length} UF cols, cols=${cols.slice(0, 10).join('|')}`);
 
                 try {
                     switch (sheetType) {
