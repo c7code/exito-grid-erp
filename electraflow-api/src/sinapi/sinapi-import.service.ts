@@ -27,6 +27,14 @@ export interface ImportResult {
 type SheetType = 'input_prices_nd'|'input_prices_d'|'comp_prices_nd'|'comp_prices_d'
     |'analytic'|'analytic_cost'|'labor_pct'|'coefficients'|'unknown';
 
+// Priority order: inputs first, then analytic, then comp prices, then labor %
+const SHEET_PRIORITY: Record<SheetType, number> = {
+    'input_prices_nd': 1, 'input_prices_d': 2,
+    'analytic': 3, 'analytic_cost': 4,
+    'comp_prices_nd': 5, 'comp_prices_d': 6,
+    'labor_pct': 7, 'coefficients': 8, 'unknown': 99,
+};
+
 @Injectable()
 export class SinapiImportService {
     private readonly logger = new Logger(SinapiImportService.name);
@@ -77,7 +85,7 @@ export class SinapiImportService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // BACKGROUND
+    // BACKGROUND — Orchestrates the entire import with correct ordering
     // ═══════════════════════════════════════════════════════════════
     private async processInBackground(logId: string, workbook: XLSX.WorkBook, year: number, month: number) {
         const startTime = Date.now();
@@ -90,6 +98,9 @@ export class SinapiImportService {
             const reference = await this.getOrCreateReference(year, month);
             await this.importLogRepo.update(logId, { referenceId: reference.id });
 
+            // STEP 1: Parse all sheets and classify them
+            const parsedSheets: { name: string; rows: any[]; headers: string[]; type: SheetType; ufCols: string[] }[] = [];
+
             for (const sheetName of workbook.SheetNames) {
                 const sheet = workbook.Sheets[sheetName];
                 const { rows, headers } = this.parseSheet(sheet);
@@ -97,52 +108,56 @@ export class SinapiImportService {
                 if (rows.length === 0) { warnings.push(`Aba "${sheetName}" vazia`); continue; }
 
                 const ufCols = this.findUFColumns(headers);
-                let sheetType = this.detectSheetType(sheetName, headers);
+                let type = this.detectSheetType(sheetName, headers);
 
-                // Detect if UF values are percentages (MO file) vs currency
-                if (ufCols.length > 0 && rows.length > 0 && sheetType !== 'labor_pct') {
+                // Detect % values (MO file)
+                if (ufCols.length > 0 && rows.length > 0 && type !== 'labor_pct') {
                     const sampleVals = rows.slice(0, 5).map(r => String(r[ufCols[0]] || ''));
-                    const hasPct = sampleVals.some(v => v.includes('%'));
-                    if (hasPct) { sheetType = 'labor_pct'; }
+                    if (sampleVals.some(v => v.includes('%'))) type = 'labor_pct';
                 }
 
-                warnings.push(`[INFO] "${sheetName}": ${rows.length} rows, tipo=${sheetType}, UFs=${ufCols.length}, hdrs=${headers.slice(0,6).join('|')}`);
-                if (rows[0]) {
-                    const sample: any = {};
-                    for (const k of headers.slice(0, 6)) sample[k] = String(rows[0][k] || '').substring(0, 30);
-                    warnings.push(`[ROW0] "${sheetName}": ${JSON.stringify(sample)}`);
-                }
+                warnings.push(`[INFO] "${sheetName}": ${rows.length} rows, tipo=${type}, UFs=${ufCols.length}, hdrs=${headers.slice(0,6).join('|')}`);
+                parsedSheets.push({ name: sheetName, rows, headers, type, ufCols });
+            }
 
+            // STEP 2: Sort by priority (inputs → analytic → comp costs → labor %)
+            parsedSheets.sort((a, b) => (SHEET_PRIORITY[a.type] || 99) - (SHEET_PRIORITY[b.type] || 99));
+            warnings.push(`[ORDER] ${parsedSheets.map(s => `${s.name}(${s.type})`).join(' → ')}`);
+
+            // STEP 3: Process in order
+            for (const ps of parsedSheets) {
+                this.logger.log(`📄 Processing "${ps.name}" (${ps.type}) — ${ps.rows.length} rows`);
                 try {
-                    switch (sheetType) {
+                    switch (ps.type) {
                         case 'input_prices_nd':
-                            result = this.merge(result, await this.processInputPrices(rows, ufCols, reference.id, 'nao_desonerado', errors, warnings));
+                            result = this.merge(result, await this.processInputPrices(ps.rows, ps.ufCols, reference.id, 'nao_desonerado', errors, warnings));
                             break;
                         case 'input_prices_d':
-                            result = this.merge(result, await this.processInputPrices(rows, ufCols, reference.id, 'desonerado', errors, warnings));
-                            break;
-                        case 'comp_prices_nd':
-                            result = this.merge(result, await this.processCompPrices(rows, ufCols, reference.id, 'nao_desonerado', errors, warnings));
-                            break;
-                        case 'comp_prices_d':
-                            result = this.merge(result, await this.processCompPrices(rows, ufCols, reference.id, 'desonerado', errors, warnings));
+                            result = this.merge(result, await this.processInputPrices(ps.rows, ps.ufCols, reference.id, 'desonerado', errors, warnings));
                             break;
                         case 'analytic': case 'analytic_cost':
-                            result = this.merge(result, await this.processAnalytic(rows, errors, warnings));
+                            result = this.merge(result, await this.processAnalyticBatch(ps.rows, errors, warnings));
+                            break;
+                        case 'comp_prices_nd':
+                            result = this.merge(result, await this.processCompPrices(ps.rows, ps.ufCols, reference.id, 'nao_desonerado', errors, warnings));
+                            break;
+                        case 'comp_prices_d':
+                            result = this.merge(result, await this.processCompPrices(ps.rows, ps.ufCols, reference.id, 'desonerado', errors, warnings));
                             break;
                         case 'labor_pct':
-                            result = this.merge(result, await this.processLaborPercent(rows, ufCols, reference.id, errors, warnings));
+                            result = this.merge(result, await this.processLaborPercent(ps.rows, ps.ufCols, reference.id, errors, warnings));
                             break;
                         default:
-                            if (ufCols.length >= 10) {
-                                warnings.push(`[FALLBACK] "${sheetName}" tratada como preços insumo`);
-                                result = this.merge(result, await this.processInputPrices(rows, ufCols, reference.id, 'nao_desonerado', errors, warnings));
+                            if (ps.ufCols.length >= 10) {
+                                warnings.push(`[FALLBACK] "${ps.name}" → input_prices_nd`);
+                                result = this.merge(result, await this.processInputPrices(ps.rows, ps.ufCols, reference.id, 'nao_desonerado', errors, warnings));
                             } else {
-                                warnings.push(`[SKIP] "${sheetName}" desconhecida`);
+                                warnings.push(`[SKIP] "${ps.name}" desconhecida`);
                             }
                     }
-                } catch (e: any) { errors.push(`Erro "${sheetName}": ${e.message}`); }
+                } catch (e: any) { errors.push(`Erro "${ps.name}": ${e.message}`); }
 
+                // Update progress
                 await this.importLogRepo.update(logId, {
                     insertedCount: result.inserted, updatedCount: result.updated,
                     skippedCount: result.skipped, totalRows,
@@ -161,6 +176,7 @@ export class SinapiImportService {
                 warnings: warnings.length > 0 ? JSON.stringify(warnings.slice(0, 200)) : null,
                 durationMs: Date.now() - startTime,
             });
+            this.logger.log(`✅ Import ${logId}: +${result.inserted} ~${result.updated} (${Date.now() - startTime}ms)`);
         } catch (fatalErr: any) {
             this.logger.error(`❌ Fatal: ${fatalErr.message}`, fatalErr.stack);
             await this.importLogRepo.update(logId, {
@@ -181,24 +197,19 @@ export class SinapiImportService {
         const norm = (s: string) => String(s || '').toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\r\n]+/g, ' ');
         const KW = ['CODIGO','DESCRICAO','UNIDADE','GRUPO','COMPOSICAO','INSUMO','COEFICIENTE','CUSTO','TIPO','ITEM'];
 
-        // Scan first 30 rows to find key landmarks
         let ufRow = -1, labelRow = -1, firstDataRow = -1;
 
         for (let r = 0; r < Math.min(allRows.length, 30); r++) {
             const vals = (allRows[r] || []).map((v: any) => norm(v));
-
-            // Row with many UF abbreviations
             const ufCount = vals.filter(v => UF_LIST.includes(v)).length;
             if (ufCount >= 10 && ufRow === -1) ufRow = r;
 
-            // Row with header keywords as VALUES
             let kwCount = 0;
             for (const val of vals) {
                 if (val && KW.some(k => val.includes(k))) kwCount++;
             }
             if (kwCount >= 2 && (labelRow === -1 || kwCount > 2)) labelRow = r;
 
-            // First row with a 4+ digit number (actual data)
             if (firstDataRow === -1) {
                 for (const val of vals) {
                     if (/^\d{4,10}$/.test(val)) { firstDataRow = r; break; }
@@ -206,66 +217,48 @@ export class SinapiImportService {
             }
         }
 
-        // Build headers by merging UF row (for UF column names) + label row (for item columns)
         let headers: string[] = [];
         let dataStart: number;
 
         if (ufRow >= 0) {
-            const ufVals = allRows[ufRow].map((v: any) => norm(v));
             headers = allRows[ufRow].map((v: any) => String(v || '').replace(/[\r\n]+/g, ' ').trim());
-
-            // If there's a label row AFTER uf row, merge labels for non-UF columns
             if (labelRow > ufRow) {
                 const labelVals = allRows[labelRow].map((v: any) => String(v || '').replace(/[\r\n]+/g, ' ').trim());
                 for (let c = 0; c < Math.max(headers.length, labelVals.length); c++) {
                     const h = norm(headers[c] || '');
                     const lv = labelVals[c] || '';
-                    if (!UF_LIST.includes(h) && lv && lv.length > 1) {
-                        headers[c] = lv;
-                    }
+                    if (!UF_LIST.includes(h) && lv && lv.length > 1) headers[c] = lv;
                 }
                 dataStart = labelRow + 1;
-            } else if (labelRow === ufRow) {
-                // Same row has both UFs and labels
-                dataStart = ufRow + 1;
             } else {
                 dataStart = ufRow + 1;
             }
-
-            // Skip "Localidade" / city names rows
-            while (dataStart < allRows.length) {
+            // Skip meta rows (Localidade, city names, Custo R$, %AS headers)
+            while (dataStart < allRows.length && dataStart < ufRow + 5) {
                 const checkVals = (allRows[dataStart] || []).map((v: any) => norm(v));
                 const isMetaRow = checkVals.some(v =>
                     v.includes('LOCALIDADE') || v.includes('RIO BRANCO') || v.includes('MACEIO') ||
-                    v.includes('CUSTO') || v === '%AS' || v.includes('PRECO MEDIANO')
+                    v === 'CUSTO (R$)' || v === '%AS' || v.includes('PRECO MEDIANO')
                 );
-                if (isMetaRow) { dataStart++; } else { break; }
+                if (isMetaRow) dataStart++; else break;
             }
         } else if (labelRow >= 0) {
-            // No UF row — use label row (Analítico, ISE)
             headers = allRows[labelRow].map((v: any) => String(v || '').replace(/[\r\n]+/g, ' ').trim());
             dataStart = labelRow + 1;
         } else if (firstDataRow >= 0) {
-            // Fallback: use row before data as headers
             const hr = Math.max(0, firstDataRow - 1);
             headers = allRows[hr].map((v: any) => String(v || '').replace(/[\r\n]+/g, ' ').trim());
             dataStart = firstDataRow;
         } else {
-            // Last resort
             const fallback = XLSX.utils.sheet_to_json<any>(sheet, { defval: '', raw: false });
-            if (fallback.length > 0) {
-                return { rows: fallback, headers: Object.keys(fallback[0]) };
-            }
-            return { rows: [], headers: [] };
+            return fallback.length > 0 ? { rows: fallback, headers: Object.keys(fallback[0]) } : { rows: [], headers: [] };
         }
 
-        // Clean header names
         headers = headers.map((h, i) => {
             const clean = h.replace(/\s+/g, ' ').trim();
             return clean && clean.length > 0 && !clean.startsWith('__') ? clean : `col_${i}`;
         });
 
-        // Build rows
         const result: any[] = [];
         for (let r = dataStart; r < allRows.length; r++) {
             const arr = allRows[r] || [];
@@ -273,11 +266,8 @@ export class SinapiImportService {
             for (let c = 0; c < headers.length; c++) {
                 obj[headers[c]] = arr[c] !== undefined ? String(arr[c]) : '';
             }
-            // Skip completely empty rows
-            const hasContent = Object.values(obj).some((v: any) => v && String(v).trim());
-            if (hasContent) result.push(obj);
+            if (Object.values(obj).some((v: any) => v && String(v).trim())) result.push(obj);
         }
-
         return { rows: result, headers };
     }
 
@@ -296,25 +286,21 @@ export class SinapiImportService {
         if (sn.includes('ANALITICO')) return sn.includes('CUSTO') ? 'analytic_cost' : 'analytic';
         if (hasCoef && !hasUFs) return 'analytic';
 
-        // ISD/ICD = Insumos Sem/Com Desoneração
-        if (sn === 'ISD' || (sn.includes('INSUMO') && sn.includes('SEM'))) return 'input_prices_nd';
-        if (sn === 'ICD' || (sn.includes('INSUMO') && sn.includes('COM'))) return 'input_prices_d';
+        // Direct name matching (SINAPI Referência file)
+        if (sn === 'ISD') return 'input_prices_nd';
+        if (sn === 'ICD') return 'input_prices_d';
+        if (sn === 'ISE') return hasUFs ? 'input_prices_nd' : 'coefficients';
+        if (sn === 'CSD' || sn === 'CSE') return 'comp_prices_nd';
+        if (sn === 'CCD' || sn === 'CCE') return 'comp_prices_d';
 
-        // CSD/CCD = Composições Sem/Com Desoneração
-        if (sn === 'CSD' || (hasComp && hasUFs && (sn.includes('SEM') || sn.includes('NAO')))) return 'comp_prices_nd';
-        if (sn === 'CCD' || (hasComp && hasUFs && sn.includes('COM'))) return 'comp_prices_d';
+        // MO file: "SEM Desoneração" / "COM Desoneração"
+        if (sn.includes('SEM DESONERACAO') || sn.includes('SEM DESONERAÇÃO')) return hasUFs ? 'comp_prices_nd' : 'input_prices_nd';
+        if (sn.includes('COM DESONERACAO') || sn.includes('COM DESONERAÇÃO')) return hasUFs ? 'comp_prices_d' : 'input_prices_d';
 
-        // CSE/CCE = Composições Sintético
-        if (sn === 'CSE') return 'comp_prices_nd';
-        if (sn === 'CCE') return 'comp_prices_d';
-
-        // ISE = Insumos Sintético (sem preço por UF, mas com dados dos insumos)
-        if (sn === 'ISE') return hasUFs ? 'input_prices_nd' : 'unknown';
-
-        // Generic detection
+        if (sn.includes('INSUMO') && sn.includes('SEM')) return 'input_prices_nd';
+        if (sn.includes('INSUMO') && sn.includes('COM')) return 'input_prices_d';
         if (hasUFs && hasComp) return sn.includes('COM') ? 'comp_prices_d' : 'comp_prices_nd';
         if (hasUFs) return sn.includes('COM') ? 'input_prices_d' : 'input_prices_nd';
-
         return 'unknown';
     }
 
@@ -336,7 +322,7 @@ export class SinapiImportService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // PROCESS: Input Prices Multi-State (ISD/ICD)
+    // PROCESS: Input Prices (ISD/ICD)
     // ═══════════════════════════════════════════════════════════════
     private async processInputPrices(
         rows: any[], ufCols: string[], referenceId: string, taxRegime: string,
@@ -345,7 +331,6 @@ export class SinapiImportService {
         let inserted = 0, updated = 0, skipped = 0;
         const BATCH = 200;
 
-        // Phase 1: Collect inputs
         const inputItems: { code: string; description: string; unit: string; type: string }[] = [];
         for (const row of rows) {
             const code = this.getCode(row);
@@ -374,15 +359,15 @@ export class SinapiImportService {
         }
 
         // Build code→id map
-        const allCodes = inputItems.map(i => i.code);
         const codeIdMap = new Map<string, string>();
+        const allCodes = [...new Set(inputItems.map(i => i.code))];
         for (let b = 0; b < allCodes.length; b += 500) {
             const batch = allCodes.slice(b, b + 500);
             const r = await this.dataSource.query(`SELECT id, code FROM sinapi_inputs WHERE code = ANY($1)`, [batch]);
             for (const row of r) codeIdMap.set(row.code, row.id);
         }
 
-        // Phase 2: Insert prices per UF
+        // Insert prices per UF
         for (const uf of ufCols) {
             const priceRows: { inputId: string; price: number }[] = [];
             for (const row of rows) {
@@ -391,7 +376,7 @@ export class SinapiImportService {
                 const inputId = codeIdMap.get(code);
                 if (!inputId) continue;
                 const price = this.parseNumber(row[uf]);
-                if (isNaN(price) || price < 0) continue;
+                if (isNaN(price) || price <= 0) continue;
                 priceRows.push({ inputId, price });
             }
             if (priceRows.length === 0) continue;
@@ -414,12 +399,135 @@ export class SinapiImportService {
             }
         }
 
-        warnings.push(`[RESULT] Insumos: +${inserted} ~${updated} skip=${skipped} (${inputItems.length} válidos, ${ufCols.length} UFs)`);
+        warnings.push(`[RESULT] Insumos+Preços: +${inserted} ~${updated} skip=${skipped} (${inputItems.length} válidos, ${ufCols.length} UFs)`);
         return { inserted, updated, skipped };
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // PROCESS: Composition Prices Multi-State (CSD/CCD/CSE)
+    // PROCESS: Analytic — BATCH version (compositions + items)
+    // ═══════════════════════════════════════════════════════════════
+    private async processAnalyticBatch(rows: any[], errors: string[], warnings: string[]) {
+        let inserted = 0, updated = 0, skipped = 0;
+        const BATCH = 200;
+
+        // Phase 1: Extract compositions and their items
+        const compositions = new Map<string, { desc: string; unit: string; group: string; items: { code: string; coef: number }[] }>();
+        let currentComp = '';
+
+        for (const row of rows) {
+            const compCode = this.getField(row, ['Composição','COMPOSICAO','COMPOSIÇÃO','Código da Composição']);
+            const coefStr = this.getField(row, ['Coeficiente','COEFICIENTE','COEF','Quantidade','QTD']);
+            const tipoItem = this.getField(row, ['Tipo Item','TIPO ITEM','Tipo']);
+            const itemCodeRaw = this.getField(row, ['Código do Item','CODIGO DO ITEM','Código do Insumo','Código']);
+
+            // Check if this row defines a NEW composition
+            if (compCode) {
+                const clean = String(compCode).trim().replace(/\D/g, '');
+                if (clean && clean.length >= 4) {
+                    currentComp = clean;
+                    if (!compositions.has(clean)) {
+                        const desc = this.getDesc(row) || `Composição ${clean}`;
+                        const unit = this.getUnit(row);
+                        const group = this.getField(row, ['Grupo','GRUPO']) || '';
+                        compositions.set(clean, { desc, unit, group, items: [] });
+                    }
+                }
+            }
+
+            // Check if this row is an ITEM within the current composition
+            if (currentComp && itemCodeRaw && coefStr) {
+                const itemCode = String(itemCodeRaw).trim().replace(/\D/g, '');
+                const coef = this.parseNumber(coefStr);
+                if (itemCode && itemCode.length >= 2 && !isNaN(coef) && coef > 0) {
+                    compositions.get(currentComp)?.items.push({ code: itemCode, coef });
+                }
+            }
+        }
+
+        warnings.push(`[DEBUG] Analítico: ${compositions.size} composições encontradas`);
+        if (compositions.size === 0) return { inserted, updated, skipped };
+
+        // Phase 2: Batch upsert compositions
+        const compArray = Array.from(compositions.entries());
+        for (let b = 0; b < compArray.length; b += BATCH) {
+            const batch = compArray.slice(b, b + BATCH);
+            try {
+                await this.dataSource.query(`
+                    INSERT INTO sinapi_compositions (id, code, description, unit, "classCode", type, "isActive", "createdAt", "updatedAt")
+                    SELECT gen_random_uuid(), t.code, t.description, t.unit, t.grp, 'composition', true, NOW(), NOW()
+                    FROM (VALUES ${batch.map((_, i) => `($${i*4+1}, $${i*4+2}, $${i*4+3}, $${i*4+4})`).join(', ')})
+                    AS t(code, description, unit, grp)
+                    ON CONFLICT (code) DO UPDATE SET description=EXCLUDED.description, unit=EXCLUDED.unit,
+                        "classCode"=COALESCE(EXCLUDED."classCode", sinapi_compositions."classCode"), "updatedAt"=NOW()
+                `, batch.flatMap(([code, data]) => [code, data.desc, data.unit, data.group || null]));
+                inserted += batch.length;
+            } catch (e: any) { errors.push(`Batch comp upsert ${b}: ${e.message}`); }
+        }
+
+        // Phase 3: Build code→id maps
+        const compCodeIdMap = new Map<string, string>();
+        const compCodes = compArray.map(([code]) => code);
+        for (let b = 0; b < compCodes.length; b += 500) {
+            const batch = compCodes.slice(b, b + 500);
+            const r = await this.dataSource.query(`SELECT id, code FROM sinapi_compositions WHERE code = ANY($1)`, [batch]);
+            for (const row of r) compCodeIdMap.set(row.code, row.id);
+        }
+
+        const inputCodeIdMap = new Map<string, string>();
+        const allItemCodes = [...new Set(compArray.flatMap(([, data]) => data.items.map(i => i.code)))];
+        for (let b = 0; b < allItemCodes.length; b += 500) {
+            const batch = allItemCodes.slice(b, b + 500);
+            // Check inputs first
+            const r1 = await this.dataSource.query(`SELECT id, code FROM sinapi_inputs WHERE code = ANY($1)`, [batch]);
+            for (const row of r1) inputCodeIdMap.set(row.code, `input:${row.id}`);
+            // Check child compositions
+            const r2 = await this.dataSource.query(`SELECT id, code FROM sinapi_compositions WHERE code = ANY($1)`, [batch]);
+            for (const row of r2) if (!inputCodeIdMap.has(row.code)) inputCodeIdMap.set(row.code, `comp:${row.id}`);
+        }
+
+        // Phase 4: Batch insert composition items
+        for (const [compCode, data] of compArray) {
+            const compId = compCodeIdMap.get(compCode);
+            if (!compId) continue;
+
+            // Delete existing items for this composition (re-import scenario)
+            await this.dataSource.query(`DELETE FROM sinapi_composition_items WHERE "compositionId" = $1`, [compId]);
+
+            if (data.items.length === 0) continue;
+
+            const itemBatch: any[] = [];
+            for (let idx = 0; idx < data.items.length; idx++) {
+                const item = data.items[idx];
+                const ref = inputCodeIdMap.get(item.code);
+                let inputId: string | null = null;
+                let childCompId: string | null = null;
+                let itemType = 'insumo';
+                if (ref) {
+                    if (ref.startsWith('input:')) { inputId = ref.substring(6); }
+                    else if (ref.startsWith('comp:')) { childCompId = ref.substring(5); itemType = 'composicao_auxiliar'; }
+                }
+                itemBatch.push({ compId, inputId, childCompId, coef: item.coef, sort: idx, itemType });
+            }
+
+            // Batch insert items
+            for (let b = 0; b < itemBatch.length; b += BATCH) {
+                const batch = itemBatch.slice(b, b + BATCH);
+                try {
+                    const vals = batch.map((_, i) => `(gen_random_uuid(), $${i*6+1}::uuid, $${i*6+2}::uuid, $${i*6+3}::uuid, $${i*6+4}::numeric, $${i*6+5}::integer, $${i*6+6})`).join(', ');
+                    await this.dataSource.query(`
+                        INSERT INTO sinapi_composition_items (id, "compositionId", "inputId", "childCompositionId", coefficient, "sortOrder", "itemType")
+                        VALUES ${vals}
+                    `, batch.flatMap(i => [i.compId, i.inputId, i.childCompId, i.coef, i.sort, i.itemType]));
+                } catch (e: any) { errors.push(`Batch comp items ${compCode} ${b}: ${e.message}`); }
+            }
+        }
+
+        warnings.push(`[RESULT] Analítico: ${compositions.size} composições, ${allItemCodes.length} itens distintos`);
+        return { inserted, updated, skipped };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PROCESS: Composition Prices (CSD/CCD/CSE)
     // ═══════════════════════════════════════════════════════════════
     private async processCompPrices(
         rows: any[], ufCols: string[], referenceId: string, taxRegime: string,
@@ -428,23 +536,22 @@ export class SinapiImportService {
         let inserted = 0, updated = 0, skipped = 0;
         const BATCH = 200;
 
-        const compItems: { code: string; description: string; unit: string; group?: string }[] = [];
-
-        // Pre-build description→code map from existing compositions (for CSD code="0" fallback)
-        let descToCode = new Map<string, string>();
-        const existingComps = await this.dataSource.query(`SELECT code, description FROM sinapi_compositions LIMIT 50000`);
+        // Build description→code lookup from existing compositions
+        const descToCode = new Map<string, string>();
+        const existingComps = await this.dataSource.query(`SELECT code, description FROM sinapi_compositions`);
         for (const ec of existingComps) {
             const normDesc = String(ec.description || '').trim().toUpperCase().substring(0, 60);
             if (normDesc) descToCode.set(normDesc, ec.code);
         }
-        warnings.push(`[DEBUG] descToCode map: ${descToCode.size} composições existentes para lookup`);
+        warnings.push(`[DEBUG] descToCode: ${descToCode.size} composições para lookup`);
 
+        const compItems: { code: string; description: string; unit: string; group?: string }[] = [];
         for (const row of rows) {
             let code = this.getCode(row);
             const desc = this.getDesc(row);
             if (!desc) { skipped++; continue; }
 
-            // Fallback: match by description if code is missing
+            // Fallback: match by description
             if (!code && desc) {
                 const normDesc = desc.trim().toUpperCase().substring(0, 60);
                 code = descToCode.get(normDesc) || null;
@@ -459,6 +566,7 @@ export class SinapiImportService {
             return { inserted, updated, skipped };
         }
 
+        // Upsert compositions (creates any missing)
         for (let b = 0; b < compItems.length; b += BATCH) {
             const batch = compItems.slice(b, b + BATCH);
             try {
@@ -467,28 +575,34 @@ export class SinapiImportService {
                     SELECT gen_random_uuid(), t.code, t.description, t.unit, t.grp, 'composition', true, NOW(), NOW()
                     FROM (VALUES ${batch.map((_, i) => `($${i*4+1}, $${i*4+2}, $${i*4+3}, $${i*4+4})`).join(', ')})
                     AS t(code, description, unit, grp)
-                    ON CONFLICT (code) DO UPDATE SET description=EXCLUDED.description, unit=EXCLUDED.unit, "classCode"=COALESCE(EXCLUDED."classCode", sinapi_compositions."classCode"), "updatedAt"=NOW()
+                    ON CONFLICT (code) DO UPDATE SET description=EXCLUDED.description, unit=EXCLUDED.unit, "updatedAt"=NOW()
                 `, batch.flatMap(i => [i.code, i.description, i.unit, i.group || null]));
             } catch (e: any) { errors.push(`Batch comp ${b}: ${e.message}`); }
         }
 
+        // Build code→id map
         const codeIdMap = new Map<string, string>();
-        const allCodes = compItems.map(i => i.code);
+        const allCodes = [...new Set(compItems.map(i => i.code))];
         for (let b = 0; b < allCodes.length; b += 500) {
             const batch = allCodes.slice(b, b + 500);
             const r = await this.dataSource.query(`SELECT id, code FROM sinapi_compositions WHERE code = ANY($1)`, [batch]);
             for (const row of r) codeIdMap.set(row.code, row.id);
         }
 
+        // Insert costs per UF
         for (const uf of ufCols) {
             const costRows: { compId: string; cost: number }[] = [];
             for (const row of rows) {
-                const code = this.getCode(row);
+                let code = this.getCode(row);
+                const desc = this.getDesc(row);
+                if (!code && desc) {
+                    code = descToCode.get(desc.trim().toUpperCase().substring(0, 60)) || null;
+                }
                 if (!code) continue;
                 const compId = codeIdMap.get(code);
                 if (!compId) continue;
                 const cost = this.parseNumber(row[uf]);
-                if (isNaN(cost) || cost < 0) continue;
+                if (isNaN(cost) || cost <= 0) continue;
                 costRows.push({ compId, cost });
             }
             if (costRows.length === 0) continue;
@@ -511,71 +625,12 @@ export class SinapiImportService {
             }
         }
 
-        warnings.push(`[RESULT] Composições: +${inserted} ~${updated} skip=${skipped} (${compItems.length} válidas)`);
+        warnings.push(`[RESULT] Composições+Custos: +${inserted} ~${updated} skip=${skipped} (${compItems.length} válidas, ${ufCols.length} UFs)`);
         return { inserted, updated, skipped };
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // PROCESS: Analítico (composition items + coefficients)
-    // ═══════════════════════════════════════════════════════════════
-    private async processAnalytic(rows: any[], errors: string[], warnings: string[]) {
-        let inserted = 0, updated = 0, skipped = 0;
-        const compositions = new Map<string, { desc: string; unit: string; items: { code: string; coef: number }[] }>();
-        let currentComp = '';
-
-        for (const row of rows) {
-            const compCode = this.getField(row, ['Composição','COMPOSICAO','COMPOSIÇÃO','Código da Composição']);
-            const itemCode = this.getCode(row);
-            const coefStr = this.getField(row, ['Coeficiente','COEFICIENTE','COEF','Quantidade','QTD']);
-
-            if (compCode) {
-                const clean = String(compCode).trim().replace(/\D/g, '');
-                if (clean && clean.length >= 4) {
-                    currentComp = clean;
-                    if (!compositions.has(clean)) {
-                        compositions.set(clean, { desc: this.getDesc(row) || `Composição ${clean}`, unit: this.getUnit(row), items: [] });
-                    }
-                }
-            }
-
-            if (currentComp && itemCode && coefStr) {
-                const coef = this.parseNumber(coefStr);
-                if (!isNaN(coef) && coef > 0) {
-                    compositions.get(currentComp)?.items.push({ code: itemCode, coef });
-                }
-            }
-        }
-
-        for (const [code, data] of compositions) {
-            try {
-                let comp = await this.compositionRepo.findOne({ where: { code } });
-                if (!comp) {
-                    comp = await this.compositionRepo.save(this.compositionRepo.create({ code, description: data.desc, unit: data.unit, type: 'composition' }));
-                    inserted++;
-                } else {
-                    await this.compositionItemRepo.delete({ compositionId: comp.id });
-                    updated++;
-                }
-                for (let idx = 0; idx < data.items.length; idx++) {
-                    const item = data.items[idx];
-                    const ci: any = { compositionId: comp.id, coefficient: item.coef, sortOrder: idx, itemType: 'insumo' };
-                    const input = await this.inputRepo.findOne({ where: { code: item.code } });
-                    if (input) { ci.inputId = input.id; }
-                    else {
-                        const child = await this.compositionRepo.findOne({ where: { code: item.code } });
-                        if (child) { ci.childCompositionId = child.id; ci.itemType = 'composicao_auxiliar'; }
-                    }
-                    await this.compositionItemRepo.save(this.compositionItemRepo.create(ci));
-                }
-            } catch (e: any) { errors.push(`Analítico ${code}: ${e.message}`); }
-        }
-
-        warnings.push(`[RESULT] Analítico: ${compositions.size} composições`);
-        return { inserted, updated, skipped };
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // PROCESS: Labor Percent (MO file — % de mão de obra por composição)
+    // PROCESS: Labor Percent (MO file — % de mão de obra)
     // ═══════════════════════════════════════════════════════════════
     private async processLaborPercent(
         rows: any[], ufCols: string[], referenceId: string,
@@ -584,35 +639,27 @@ export class SinapiImportService {
         let inserted = 0, updated = 0, skipped = 0;
         const BATCH = 200;
 
-        // Build description→code map from existing compositions
+        // Build lookup maps
         const descToCode = new Map<string, string>();
-        const existingComps = await this.dataSource.query(`SELECT code, description FROM sinapi_compositions LIMIT 50000`);
-        for (const ec of existingComps) {
+        const codeIdMap = new Map<string, string>();
+        const comps = await this.dataSource.query(`SELECT id, code, description FROM sinapi_compositions`);
+        for (const ec of comps) {
             const normDesc = String(ec.description || '').trim().toUpperCase().substring(0, 60);
             if (normDesc) descToCode.set(normDesc, ec.code);
+            codeIdMap.set(ec.code, ec.id);
         }
+        warnings.push(`[DEBUG] %MO lookup: ${comps.length} composições`);
 
-        // Build code→id map
-        const codeIdMap = new Map<string, string>();
-        for (const ec of existingComps) codeIdMap.set(ec.code, ec.code); // we need actual IDs
-        const compIds = await this.dataSource.query(`SELECT id, code FROM sinapi_compositions LIMIT 50000`);
-        for (const ci of compIds) codeIdMap.set(ci.code, ci.id);
-
-        // Process each row
         for (const uf of ufCols) {
             const pctRows: { compId: string; pct: number }[] = [];
 
             for (const row of rows) {
                 let code = this.getCode(row);
                 const desc = this.getDesc(row);
-
-                // Fallback: match by description
                 if (!code && desc) {
-                    const normDesc = desc.trim().toUpperCase().substring(0, 60);
-                    code = descToCode.get(normDesc) || null;
+                    code = descToCode.get(desc.trim().toUpperCase().substring(0, 60)) || null;
                 }
                 if (!code) continue;
-
                 const compId = codeIdMap.get(code);
                 if (!compId) continue;
 
@@ -622,7 +669,6 @@ export class SinapiImportService {
 
                 pctRows.push({ compId, pct });
             }
-
             if (pctRows.length === 0) continue;
 
             for (let b = 0; b < pctRows.length; b += BATCH) {
@@ -658,7 +704,6 @@ export class SinapiImportService {
             const clean = String(named).trim().replace(/\D/g, '');
             if (clean && clean.length >= 2) return clean;
         }
-        // Fallback: scan for numeric code
         for (const key of Object.keys(row)) {
             const val = String(row[key] || '').trim();
             if (/^\d{4,10}$/.test(val)) return val;
@@ -672,7 +717,6 @@ export class SinapiImportService {
             'Descricao do Insumo','DESC','Descrição da Composição','Descrição da Composição',
         ]);
         if (raw) return String(raw).trim();
-        // Fallback: longest string
         let longest = '';
         for (const key of Object.keys(row)) {
             const val = String(row[key] || '').trim();
@@ -711,8 +755,8 @@ export class SinapiImportService {
 
     private detectInputType(desc: string): string {
         const u = (desc || '').toUpperCase();
-        if (u.includes('MAO DE OBRA') || u.includes('MÃO DE OBRA') || u.includes('SERVENTE') || u.includes('PEDREIRO') || u.includes('ELETRICISTA') || u.includes('AJUDANTE') || u.includes('OFICIAL') || u.includes('MONTADOR') || u.includes('SOLDADOR') || u.includes('ARMADOR')) return 'mao_de_obra';
-        if (u.includes('EQUIPAMENTO') || u.includes('RETROESCAVADEIRA') || u.includes('BETONEIRA') || u.includes('CAMINHAO') || u.includes('GUINDASTE') || u.includes('COMPRESSOR') || u.includes('VIBRADOR')) return 'equipamento';
+        if (u.includes('MAO DE OBRA') || u.includes('MÃO DE OBRA') || u.includes('SERVENTE') || u.includes('PEDREIRO') || u.includes('ELETRICISTA') || u.includes('AJUDANTE') || u.includes('OFICIAL') || u.includes('MONTADOR') || u.includes('SOLDADOR') || u.includes('ARMADOR') || u.includes('ENCANADOR') || u.includes('CARPINTEIRO') || u.includes('PINTOR') || u.includes('SERRALHEIRO') || u.includes('OPERADOR') || u.includes('HORISTA')) return 'mao_de_obra';
+        if (u.includes('EQUIPAMENTO') || u.includes('RETROESCAVADEIRA') || u.includes('BETONEIRA') || u.includes('CAMINHAO') || u.includes('GUINDASTE') || u.includes('COMPRESSOR') || u.includes('VIBRADOR') || u.includes('ROLO COMPACTADOR') || u.includes('ESCAVADEIRA') || u.includes('TRATOR') || u.includes('GUINCHO')) return 'equipamento';
         return 'material';
     }
 
