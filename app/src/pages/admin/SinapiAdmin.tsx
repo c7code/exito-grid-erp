@@ -730,7 +730,7 @@ function TabSearch() {
                         <span className="text-slate-400">{filterState ? `Filtro: ${filterState}` : 'Todos os estados'}</span>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full border-collapse" style={{ minWidth: '950px' }}>
+                        <table className="w-full border-collapse" style={{ minWidth: '950px', tableLayout: 'fixed' }}>
                             <thead>
                                 <tr className="bg-slate-50 border-b">
                                     <th className="text-left px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider" style={{ width: '40px' }}></th>
@@ -756,8 +756,8 @@ function TabSearch() {
                                             <td className="px-4 py-3">
                                                 <span className="font-mono text-xs font-bold text-blue-600">{r.code}</span>
                                             </td>
-                                            <td className="px-4 py-3">
-                                                <p className="text-sm text-slate-700 truncate" style={{ maxWidth: '350px' }} title={r.description}>{r.description}</p>
+                                            <td className="px-4 py-3" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.description}>
+                                                <span className="text-sm text-slate-700">{r.description}</span>
                                             </td>
                                             <td className="px-4 py-3 text-center">
                                                 <Badge variant="outline" className="text-[11px] font-mono">{r.unit}</Badge>

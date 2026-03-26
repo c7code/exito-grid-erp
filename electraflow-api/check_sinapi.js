@@ -4,44 +4,45 @@ async function main() {
         connectionString: 'postgresql://postgres.ltlpyqyfamsvdhbmyvps:CA8627058CHRR97@aws-1-us-east-1.pooler.supabase.com:5432/postgres'
     });
     await c.connect();
-    
-    // Test the exact query from searchInputs
-    try {
-        const sql = `
-            SELECT i.*, p."priceNotTaxed", p."priceTaxed", p."medianPrice",
-                   r.year as "refYear", r.month as "refMonth", r.state as "refState"
-            FROM sinapi_inputs i
-            LEFT JOIN LATERAL (
-                SELECT ip."priceNotTaxed", ip."priceTaxed", ip."medianPrice", ip."referenceId"
-                FROM sinapi_input_prices ip
-                JOIN sinapi_references sr ON sr.id = ip."referenceId" AND sr.state = 'PE'
-                WHERE ip."inputId" = i.id
-                ORDER BY sr.year DESC, sr.month DESC
-                LIMIT 1
-            ) p ON true
-            LEFT JOIN sinapi_references r ON r.id = p."referenceId"
-            WHERE i."isActive" = true AND (i.code ILIKE $1 OR i.description ILIKE $1)
-            ORDER BY i.code ASC
-            LIMIT $2 OFFSET $3
-        `;
-        const result = await c.query(sql, ['%tomada%', 25, 0]);
-        console.log('Query OK:', result.rows.length, 'rows');
-        if (result.rows.length > 0) {
-            const r = result.rows[0];
-            console.log('Sample:', { code: r.code, unit: r.unit, type: r.type, priceNotTaxed: r.priceNotTaxed, priceTaxed: r.priceTaxed, refYear: r.refYear });
-        }
-    } catch (e) {
-        console.error('QUERY ERROR:', e.message);
+
+    // 1. Table structure
+    const tables = ['sinapi_inputs', 'sinapi_input_prices', 'sinapi_compositions', 'sinapi_references', 'sinapi_import_logs'];
+    for (const t of tables) {
+        const cols = await c.query(`SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = '${t}' ORDER BY ordinal_position`);
+        console.log(`\n=== ${t} (${cols.rows.length} cols) ===`);
+        console.log(cols.rows.map(r => `  ${r.column_name} (${r.data_type}${r.is_nullable === 'YES' ? ', null' : ''})`).join('\n'));
     }
-    
-    // Check if sinapi_input_prices has any data
-    const prices = await c.query('SELECT COUNT(*) as c FROM sinapi_input_prices');
-    console.log('sinapi_input_prices count:', prices.rows[0].c);
-    
-    // Check references
-    const refs = await c.query('SELECT * FROM sinapi_references ORDER BY year DESC, month DESC LIMIT 5');
-    console.log('References:', refs.rows.map(r => `${r.state} ${r.month}/${r.year} [${r.status}]`));
-    
+
+    // 2. Sample data from sinapi_inputs
+    const sample = await c.query('SELECT id, code, description, unit, type, origin, "groupClass", "isActive" FROM sinapi_inputs LIMIT 3');
+    console.log('\n=== SAMPLE sinapi_inputs ===');
+    for (const r of sample.rows) {
+        console.log(`  ${r.code} | ${r.unit} | ${r.type} | desc: "${String(r.description).substring(0, 100)}"`);
+    }
+
+    // 3. Counts
+    for (const t of tables) {
+        const cnt = await c.query(`SELECT COUNT(*) as c FROM "${t}"`);
+        console.log(`${t}: ${cnt.rows[0].c}`);
+    }
+
+    // 4. Sample prices
+    const prices = await c.query('SELECT * FROM sinapi_input_prices LIMIT 3');
+    console.log('\n=== sinapi_input_prices samples ===');
+    console.log(JSON.stringify(prices.rows, null, 2));
+
+    // 5. References
+    const refs = await c.query('SELECT * FROM sinapi_references');
+    console.log('\n=== sinapi_references ===');
+    console.log(JSON.stringify(refs.rows, null, 2));
+
+    // 6. Import logs
+    const logs = await c.query('SELECT "fileName", status, "totalRows", "insertedCount", "updatedCount", "errorCount" FROM sinapi_import_logs ORDER BY "createdAt" DESC LIMIT 5');
+    console.log('\n=== Recent imports ===');
+    for (const l of logs.rows) {
+        console.log(`  ${l.fileName} [${l.status}] rows:${l.totalRows} ins:${l.insertedCount} upd:${l.updatedCount} err:${l.errorCount}`);
+    }
+
     await c.end();
 }
 main().catch(e => console.error(e));
