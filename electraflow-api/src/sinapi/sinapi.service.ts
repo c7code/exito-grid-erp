@@ -48,7 +48,7 @@ export class SinapiService implements OnModuleInit {
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     year INT NOT NULL,
                     month INT NOT NULL,
-                    state CHAR(2) NOT NULL,
+                    state CHAR(2),
                     label VARCHAR,
                     "publishedAt" DATE,
                     source VARCHAR DEFAULT 'sinapi_caixa',
@@ -56,6 +56,10 @@ export class SinapiService implements OnModuleInit {
                     "createdAt" TIMESTAMPTZ DEFAULT NOW()
                 )
             `);
+            // Make state nullable if table already existed with NOT NULL
+            await this.dataSource.query(`ALTER TABLE sinapi_references ALTER COLUMN state DROP NOT NULL`).catch(() => {});
+            // Drop old index and create new one
+            await this.dataSource.query(`DROP INDEX IF EXISTS idx_sinapi_ref_year_month_state`).catch(() => {});
             await this.dataSource.query(`
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_sinapi_ref_year_month
                 ON sinapi_references(year, month)
