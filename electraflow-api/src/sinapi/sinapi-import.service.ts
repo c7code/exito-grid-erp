@@ -590,8 +590,10 @@ export class SinapiImportService {
         }
 
         // Insert costs per UF
+        let debugDone = false;
         for (const uf of ufCols) {
             const costRows: { compId: string; cost: number }[] = [];
+            let nanCount = 0, zeroCount = 0, validCount = 0;
             for (const row of rows) {
                 let code = this.getCode(row);
                 const desc = this.getDesc(row);
@@ -601,11 +603,23 @@ export class SinapiImportService {
                 if (!code) continue;
                 const compId = codeIdMap.get(code);
                 if (!compId) continue;
-                const cost = this.parseNumber(row[uf]);
-                if (isNaN(cost) || cost <= 0) continue;
+                const rawVal = row[uf];
+                const cost = this.parseNumber(rawVal);
+                if (!debugDone) {
+                    warnings.push(`[COMP-DEBUG] UF=${uf}, raw="${rawVal}", parsed=${cost}, code=${code}`);
+                    debugDone = true;
+                }
+                if (isNaN(cost)) { nanCount++; continue; }
+                if (cost <= 0) { zeroCount++; continue; }
                 costRows.push({ compId, cost });
+                validCount++;
             }
-            if (costRows.length === 0) continue;
+            if (costRows.length === 0) {
+                if (nanCount > 0 || zeroCount > 0) {
+                    warnings.push(`[COMP-SKIP] UF=${uf}: ${nanCount} NaN, ${zeroCount} zero, ${validCount} valid`);
+                }
+                continue;
+            }
 
             for (let b = 0; b < costRows.length; b += BATCH) {
                 const batch = costRows.slice(b, b + BATCH);
