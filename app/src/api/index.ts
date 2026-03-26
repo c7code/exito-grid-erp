@@ -45,10 +45,11 @@ class ApiService {
           const isFiscalEndpoint = requestUrl.includes('/fiscal/');
           const isCatalogEndpoint = requestUrl.includes('/catalog/');
           const isSinapiEndpoint = requestUrl.includes('/sinapi/');
+          const isBudgetsEndpoint = requestUrl.includes('/budgets');
 
           // Don't redirect for fiscal/catalog endpoints — 401 there means
           // external API auth failed (Nuvem Fiscal, BrasilAPI), not our JWT
-          if (hadToken && !isRedirecting && !isFiscalEndpoint && !isCatalogEndpoint && !isSinapiEndpoint) {
+          if (hadToken && !isRedirecting && !isFiscalEndpoint && !isCatalogEndpoint && !isSinapiEndpoint && !isBudgetsEndpoint) {
             isRedirecting = true;
             localStorage.removeItem('electraflow_token');
             localStorage.removeItem('electraflow_user');
