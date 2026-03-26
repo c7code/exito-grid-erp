@@ -272,7 +272,7 @@ function TabImport({ onRefresh }: { onRefresh: () => void }) {
                             try {
                                 await api.client.delete('/sinapi/purge');
                                 toast.success('Base SINAPI limpa com sucesso!');
-                                loadStats(); loadLogs();
+                                loadLogs(); onRefresh();
                             } catch (e: any) {
                                 toast.error('Erro ao limpar: ' + (e?.response?.data?.message || e.message));
                             }
