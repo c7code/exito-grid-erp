@@ -97,9 +97,15 @@ export default function Budgets() {
         if (!searchQuery.trim()) return;
         try {
             setSearching(true);
-            const r = await api.client.get('/sinapi/search', { params: { q: searchQuery, limit: 20 } });
-            setSearchResults(r.data?.items || r.data || []);
-        } catch { toast.error('Erro na busca'); }
+            // Search both compositions and inputs in parallel
+            const [compRes, inputRes] = await Promise.all([
+                api.client.get('/sinapi/compositions', { params: { search: searchQuery, limit: 15 } }),
+                api.client.get('/sinapi/inputs', { params: { search: searchQuery, limit: 15 } }),
+            ]);
+            const comps = (compRes.data || []).map((c: any) => ({ ...c, type: 'composition' }));
+            const inputs = (inputRes.data || []).map((i: any) => ({ ...i, type: 'input' }));
+            setSearchResults([...comps, ...inputs]);
+        } catch { toast.error('Erro na busca SINAPI'); }
         finally { setSearching(false); }
     };
 
