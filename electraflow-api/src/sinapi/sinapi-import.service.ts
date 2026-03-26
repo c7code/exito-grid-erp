@@ -97,7 +97,14 @@ export class SinapiImportService {
                 if (rows.length === 0) { warnings.push(`Aba "${sheetName}" vazia`); continue; }
 
                 const ufCols = this.findUFColumns(headers);
-                const sheetType = this.detectSheetType(sheetName, headers);
+                let sheetType = this.detectSheetType(sheetName, headers);
+
+                // Detect if UF values are percentages (MO file) vs currency
+                if (ufCols.length > 0 && rows.length > 0 && sheetType !== 'labor_pct') {
+                    const sampleVals = rows.slice(0, 5).map(r => String(r[ufCols[0]] || ''));
+                    const hasPct = sampleVals.some(v => v.includes('%'));
+                    if (hasPct) { sheetType = 'labor_pct'; }
+                }
 
                 warnings.push(`[INFO] "${sheetName}": ${rows.length} rows, tipo=${sheetType}, UFs=${ufCols.length}, hdrs=${headers.slice(0,6).join('|')}`);
                 if (rows[0]) {
@@ -422,10 +429,28 @@ export class SinapiImportService {
         const BATCH = 200;
 
         const compItems: { code: string; description: string; unit: string; group?: string }[] = [];
+
+        // Pre-build description→code map from existing compositions (for CSD code="0" fallback)
+        let descToCode = new Map<string, string>();
+        const existingComps = await this.dataSource.query(`SELECT code, description FROM sinapi_compositions LIMIT 50000`);
+        for (const ec of existingComps) {
+            const normDesc = String(ec.description || '').trim().toUpperCase().substring(0, 60);
+            if (normDesc) descToCode.set(normDesc, ec.code);
+        }
+        warnings.push(`[DEBUG] descToCode map: ${descToCode.size} composições existentes para lookup`);
+
         for (const row of rows) {
-            const code = this.getCode(row);
+            let code = this.getCode(row);
             const desc = this.getDesc(row);
-            if (!code || !desc) { skipped++; continue; }
+            if (!desc) { skipped++; continue; }
+
+            // Fallback: match by description if code is missing
+            if (!code && desc) {
+                const normDesc = desc.trim().toUpperCase().substring(0, 60);
+                code = descToCode.get(normDesc) || null;
+            }
+            if (!code) { skipped++; continue; }
+
             compItems.push({ code, description: desc, unit: this.getUnit(row), group: this.getField(row, ['Grupo','GRUPO']) || undefined });
         }
 
