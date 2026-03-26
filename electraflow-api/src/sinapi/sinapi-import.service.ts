@@ -787,7 +787,33 @@ export class SinapiImportService {
         if (typeof value === 'number') return value;
         if (!value) return NaN;
         let str = String(value).trim().replace(/R\$\s*/gi, '').replace(/[^\d.,\-]/g, '');
-        if (str.includes(',')) str = str.replace(/\./g, '').replace(',', '.');
+        if (!str || str === '-') return NaN;
+
+        const hasComma = str.includes(',');
+        const hasDot = str.includes('.');
+
+        if (hasComma && hasDot) {
+            const lastComma = str.lastIndexOf(',');
+            const lastDot = str.lastIndexOf('.');
+            if (lastDot > lastComma) {
+                // US format: 1,026.85 → comma is thousands
+                str = str.replace(/,/g, '');
+            } else {
+                // BR format: 1.026,85 → period is thousands
+                str = str.replace(/\./g, '').replace(',', '.');
+            }
+        } else if (hasComma) {
+            // Only comma: could be "8,50" (BR decimal) or "1,026" (US thousands)
+            const parts = str.split(',');
+            if (parts.length === 2 && parts[1].length <= 2) {
+                // Likely BR decimal: "8,50" → "8.50"
+                str = str.replace(',', '.');
+            } else {
+                // Likely US thousands: "1,026" → "1026"
+                str = str.replace(/,/g, '');
+            }
+        }
+        // If only dot or no separator, parseFloat handles it natively
         return parseFloat(str);
     }
 
