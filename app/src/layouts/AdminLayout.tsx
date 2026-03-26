@@ -85,6 +85,7 @@ const navSections: NavSection[] = [
       { path: '/admin/contracts', label: 'Contratos', icon: FileSignature, module: 'contracts', roles: ['admin', 'engineer', 'commercial', 'employee'] },
       { path: '/admin/structures', label: 'Estruturas', icon: Layers, module: 'structures', roles: ['admin', 'engineer', 'employee'] },
       { path: '/admin/sinapi', label: 'SINAPI', icon: Database, module: 'sinapi', roles: ['admin'] },
+      { path: '/admin/orcamentos', label: 'Orçamentos', icon: Calculator, module: 'budgets', roles: ['admin', 'engineer', 'commercial', 'employee'] },
     ],
   },
   {

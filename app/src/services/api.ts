@@ -197,3 +197,17 @@ export const solarProjects = {
   getHspTable: () => api.get('/solar-projects/hsp-table'),
   searchEquipment: (q?: string) => api.get('/solar-projects/catalog-equipment', { params: { q } }),
 };
+
+// Budgets (Orçamentos)
+export const budgets = {
+  getAll: () => api.get('/budgets'),
+  getById: (id: string) => api.get(`/budgets/${id}`),
+  create: (data: any) => api.post('/budgets', data),
+  update: (id: string, data: any) => api.put(`/budgets/${id}`, data),
+  delete: (id: string) => api.delete(`/budgets/${id}`),
+  addItem: (id: string, data: any) => api.post(`/budgets/${id}/items`, data),
+  updateItem: (itemId: string, data: any) => api.put(`/budgets/items/${itemId}`, data),
+  removeItem: (itemId: string) => api.delete(`/budgets/items/${itemId}`),
+  addSinapiComposition: (id: string, code: string, state?: string) =>
+    api.post(`/budgets/${id}/sinapi/${code}`, null, { params: { state } }),
+};
