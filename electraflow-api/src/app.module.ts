@@ -34,6 +34,7 @@ import { MarkupModule } from './markup/markup.module';
 import { AiModule } from './ai/ai.module';
 import { OemModule } from './oem/oem.module';
 import { SinapiModule } from './sinapi/sinapi.module';
+import { BudgetsModule } from './budgets/budgets.module';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { SinapiModule } from './sinapi/sinapi.module';
     AiModule,
     OemModule,
     SinapiModule,
+    BudgetsModule,
   ],
 })
 export class AppModule { }
