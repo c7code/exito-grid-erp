@@ -537,13 +537,21 @@ export class SinapiImportService {
         const BATCH = 200;
 
         // Build description→code lookup from existing compositions
+        // Use MULTIPLE key lengths because CSD truncates descriptions differently
         const descToCode = new Map<string, string>();
         const existingComps = await this.dataSource.query(`SELECT code, description FROM sinapi_compositions`);
         for (const ec of existingComps) {
-            const normDesc = String(ec.description || '').trim().toUpperCase().substring(0, 60);
-            if (normDesc) descToCode.set(normDesc, ec.code);
+            const full = String(ec.description || '').trim().toUpperCase();
+            if (!full) continue;
+            // Store at multiple lengths for fuzzy matching
+            for (const len of [80, 60, 40, 28]) {
+                const key = full.substring(0, len);
+                if (key.length >= 15 && !descToCode.has(key)) {
+                    descToCode.set(key, ec.code);
+                }
+            }
         }
-        warnings.push(`[DEBUG] descToCode: ${descToCode.size} composições para lookup`);
+        warnings.push(`[DEBUG] descToCode: ${descToCode.size} keys (${existingComps.length} composições)`);
 
         const compItems: { code: string; description: string; unit: string; group?: string }[] = [];
         for (const row of rows) {
@@ -551,10 +559,13 @@ export class SinapiImportService {
             const desc = this.getDesc(row);
             if (!desc) { skipped++; continue; }
 
-            // Fallback: match by description
+            // Fallback: match by description prefix (try longer first, then shorter)
             if (!code && desc) {
-                const normDesc = desc.trim().toUpperCase().substring(0, 60);
-                code = descToCode.get(normDesc) || null;
+                const normDesc = desc.trim().toUpperCase();
+                for (const len of [80, 60, 40, 28]) {
+                    const key = normDesc.substring(0, len);
+                    if (descToCode.has(key)) { code = descToCode.get(key)!; break; }
+                }
             }
             if (!code) { skipped++; continue; }
 
@@ -598,7 +609,11 @@ export class SinapiImportService {
                 let code = this.getCode(row);
                 const desc = this.getDesc(row);
                 if (!code && desc) {
-                    code = descToCode.get(desc.trim().toUpperCase().substring(0, 60)) || null;
+                    const nd = desc.trim().toUpperCase();
+                    for (const len of [80, 60, 40, 28]) {
+                        const key = nd.substring(0, len);
+                        if (descToCode.has(key)) { code = descToCode.get(key)!; break; }
+                    }
                 }
                 if (!code) continue;
                 const compId = codeIdMap.get(code);
@@ -653,16 +668,21 @@ export class SinapiImportService {
         let inserted = 0, updated = 0, skipped = 0;
         const BATCH = 200;
 
-        // Build lookup maps
+        // Build lookup maps (multi-length for fuzzy matching)
         const descToCode = new Map<string, string>();
         const codeIdMap = new Map<string, string>();
         const comps = await this.dataSource.query(`SELECT id, code, description FROM sinapi_compositions`);
         for (const ec of comps) {
-            const normDesc = String(ec.description || '').trim().toUpperCase().substring(0, 60);
-            if (normDesc) descToCode.set(normDesc, ec.code);
+            const full = String(ec.description || '').trim().toUpperCase();
+            if (full) {
+                for (const len of [80, 60, 40, 28]) {
+                    const key = full.substring(0, len);
+                    if (key.length >= 15 && !descToCode.has(key)) descToCode.set(key, ec.code);
+                }
+            }
             codeIdMap.set(ec.code, ec.id);
         }
-        warnings.push(`[DEBUG] %MO lookup: ${comps.length} composições`);
+        warnings.push(`[DEBUG] %MO lookup: ${comps.length} composições, ${descToCode.size} keys`);
 
         for (const uf of ufCols) {
             const pctRows: { compId: string; pct: number }[] = [];
@@ -671,7 +691,11 @@ export class SinapiImportService {
                 let code = this.getCode(row);
                 const desc = this.getDesc(row);
                 if (!code && desc) {
-                    code = descToCode.get(desc.trim().toUpperCase().substring(0, 60)) || null;
+                    const nd = desc.trim().toUpperCase();
+                    for (const len of [80, 60, 40, 28]) {
+                        const key = nd.substring(0, len);
+                        if (descToCode.has(key)) { code = descToCode.get(key)!; break; }
+                    }
                 }
                 if (!code) continue;
                 const compId = codeIdMap.get(code);
