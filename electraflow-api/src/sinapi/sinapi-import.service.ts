@@ -131,7 +131,7 @@ export class SinapiImportService {
                             result = this.merge(result, await this.processAnalytic(rows, errors, warnings));
                             break;
                         case 'labor_pct':
-                            warnings.push(`[SKIP] "${sheetName}" é %MO — não importado`);
+                            result = this.merge(result, await this.processLaborPercent(rows, ufCols, reference.id, errors, warnings));
                             break;
                         default:
                             if (ufCols.length >= 10) {
@@ -571,6 +571,77 @@ export class SinapiImportService {
         }
 
         warnings.push(`[RESULT] Analítico: ${compositions.size} composições`);
+        return { inserted, updated, skipped };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PROCESS: Labor Percent (MO file — % de mão de obra por composição)
+    // ═══════════════════════════════════════════════════════════════
+    private async processLaborPercent(
+        rows: any[], ufCols: string[], referenceId: string,
+        errors: string[], warnings: string[],
+    ) {
+        let inserted = 0, updated = 0, skipped = 0;
+        const BATCH = 200;
+
+        // Build description→code map from existing compositions
+        const descToCode = new Map<string, string>();
+        const existingComps = await this.dataSource.query(`SELECT code, description FROM sinapi_compositions LIMIT 50000`);
+        for (const ec of existingComps) {
+            const normDesc = String(ec.description || '').trim().toUpperCase().substring(0, 60);
+            if (normDesc) descToCode.set(normDesc, ec.code);
+        }
+
+        // Build code→id map
+        const codeIdMap = new Map<string, string>();
+        for (const ec of existingComps) codeIdMap.set(ec.code, ec.code); // we need actual IDs
+        const compIds = await this.dataSource.query(`SELECT id, code FROM sinapi_compositions LIMIT 50000`);
+        for (const ci of compIds) codeIdMap.set(ci.code, ci.id);
+
+        // Process each row
+        for (const uf of ufCols) {
+            const pctRows: { compId: string; pct: number }[] = [];
+
+            for (const row of rows) {
+                let code = this.getCode(row);
+                const desc = this.getDesc(row);
+
+                // Fallback: match by description
+                if (!code && desc) {
+                    const normDesc = desc.trim().toUpperCase().substring(0, 60);
+                    code = descToCode.get(normDesc) || null;
+                }
+                if (!code) continue;
+
+                const compId = codeIdMap.get(code);
+                if (!compId) continue;
+
+                const rawVal = String(row[uf] || '').replace('%', '').replace(',', '.').trim();
+                const pct = parseFloat(rawVal);
+                if (isNaN(pct) || pct < 0 || pct > 100) continue;
+
+                pctRows.push({ compId, pct });
+            }
+
+            if (pctRows.length === 0) continue;
+
+            for (let b = 0; b < pctRows.length; b += BATCH) {
+                const batch = pctRows.slice(b, b + BATCH);
+                try {
+                    const res = await this.dataSource.query(`
+                        INSERT INTO sinapi_composition_costs (id, "referenceId", "compositionId", state, "laborPercent", "calculationMethod", "createdAt")
+                        SELECT gen_random_uuid(), $1, t.cid, $2, t.pct, 'imported', NOW()
+                        FROM (VALUES ${batch.map((_, i) => `($${i*2+3}::uuid, $${i*2+4}::numeric)`).join(', ')})
+                        AS t(cid, pct)
+                        ON CONFLICT ("referenceId", "compositionId", state) DO UPDATE SET "laborPercent" = EXCLUDED."laborPercent"
+                        RETURNING (xmax = 0) AS is_insert
+                    `, [referenceId, uf, ...batch.flatMap(r => [r.compId, r.pct])]);
+                    for (const r of res) { if (r.is_insert) inserted++; else updated++; }
+                } catch (e: any) { errors.push(`%MO ${uf} batch ${b}: ${e.message}`); }
+            }
+        }
+
+        warnings.push(`[RESULT] %MO: +${inserted} ~${updated} skip=${skipped}`);
         return { inserted, updated, skipped };
     }
 

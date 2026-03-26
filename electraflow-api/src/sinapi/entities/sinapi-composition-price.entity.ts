@@ -54,6 +54,9 @@ export class SinapiCompositionCost {
     @Column({ type: 'decimal', precision: 15, scale: 4, nullable: true })
     equipmentCost: number;             // Custo equipamento
 
+    @Column({ type: 'decimal', precision: 8, scale: 4, nullable: true })
+    laborPercent: number;              // % mão de obra (da planilha MO)
+
     @Column({ default: 'imported' })
     calculationMethod: string;         // 'imported' | 'calculated'
 

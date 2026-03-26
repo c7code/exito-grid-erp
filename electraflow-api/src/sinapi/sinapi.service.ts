@@ -74,6 +74,8 @@ export class SinapiService implements OnModuleInit {
             await this.dataSource.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sinapi_ccost_ref_comp_state ON sinapi_composition_costs("referenceId","compositionId",state)`).catch(() => {});
             await this.dataSource.query(`CREATE INDEX IF NOT EXISTS idx_sinapi_iprice_state ON sinapi_input_prices(state)`).catch(() => {});
             await this.dataSource.query(`CREATE INDEX IF NOT EXISTS idx_sinapi_ccost_state ON sinapi_composition_costs(state)`).catch(() => {});
+            // Add laborPercent column
+            await this.dataSource.query(`ALTER TABLE sinapi_composition_costs ADD COLUMN IF NOT EXISTS "laborPercent" DECIMAL(8,4)`).catch(() => {});
 
             // 2. Insumos
             await this.dataSource.query(`
