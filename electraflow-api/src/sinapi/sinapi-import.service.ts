@@ -577,9 +577,13 @@ export class SinapiImportService {
             return { inserted, updated, skipped };
         }
 
-        // Upsert compositions (creates any missing)
-        for (let b = 0; b < compItems.length; b += BATCH) {
-            const batch = compItems.slice(b, b + BATCH);
+        // Upsert compositions (deduplicate by code first)
+        const uniqueComps = new Map<string, typeof compItems[0]>();
+        for (const ci of compItems) uniqueComps.set(ci.code, ci);
+        const compArray = Array.from(uniqueComps.values());
+
+        for (let b = 0; b < compArray.length; b += BATCH) {
+            const batch = compArray.slice(b, b + BATCH);
             try {
                 await this.dataSource.query(`
                     INSERT INTO sinapi_compositions (id, code, description, unit, "classCode", type, "isActive", "createdAt", "updatedAt")
@@ -636,8 +640,13 @@ export class SinapiImportService {
                 continue;
             }
 
-            for (let b = 0; b < costRows.length; b += BATCH) {
-                const batch = costRows.slice(b, b + BATCH);
+            // Deduplicate by compId (PostgreSQL doesn't allow same row affected twice in ON CONFLICT)
+            const deduped = new Map<string, number>();
+            for (const cr of costRows) deduped.set(cr.compId, cr.cost);
+            const uniqueCosts = Array.from(deduped.entries()).map(([compId, cost]) => ({ compId, cost }));
+
+            for (let b = 0; b < uniqueCosts.length; b += BATCH) {
+                const batch = uniqueCosts.slice(b, b + BATCH);
                 try {
                     const isD = taxRegime === 'desonerado';
                     const col = isD ? '"totalTaxed"' : '"totalNotTaxed"';
