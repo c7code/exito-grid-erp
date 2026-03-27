@@ -279,14 +279,53 @@ export class BudgetsService implements OnModuleInit {
                 }
             }
 
-            // Get unit cost from SINAPI
+            // ★ INTELLIGENT PRICE LOOKUP with 3-level fallback
             let unitCost = 0;
+            let priceSource = 'sinapi';
+            let priceSuggested = false;
+
             if (item.inputId && refId) {
+                // Level 1: Direct price for this state
                 const price = await this.dataSource.query(
                     `SELECT "priceNotTaxed" FROM sinapi_input_prices WHERE "inputId" = $1 AND "referenceId" = $2 AND state = $3 LIMIT 1`,
                     [item.inputId, refId, uf],
                 );
-                if (price.length) unitCost = Number(price[0].priceNotTaxed) || 0;
+                if (price.length && Number(price[0].priceNotTaxed) > 0) {
+                    unitCost = Number(price[0].priceNotTaxed);
+                    priceSource = 'sinapi';
+                } else {
+                    // Level 2: Average from other states for the same input
+                    const avgStates = await this.dataSource.query(
+                        `SELECT AVG("priceNotTaxed"::numeric) as avg_price, COUNT(*) as cnt
+                         FROM sinapi_input_prices WHERE "inputId" = $1 AND "referenceId" = $2 AND "priceNotTaxed"::numeric > 0`,
+                        [item.inputId, refId],
+                    );
+                    if (avgStates.length && Number(avgStates[0].avg_price) > 0) {
+                        unitCost = Number(Number(avgStates[0].avg_price).toFixed(2));
+                        priceSource = `estimado_${avgStates[0].cnt}_estados`;
+                        priceSuggested = true;
+                        this.logger.debug(`  ${code}: No ${uf} price → avg R$${unitCost} from ${avgStates[0].cnt} states`);
+                    } else {
+                        // Level 3: Family average — similar inputs with same keywords
+                        const inputDesc = (item.input_desc || '').toUpperCase();
+                        const keywords = inputDesc.split(/[,\s]+/).filter((w: string) => w.length > 3).slice(0, 3);
+                        if (keywords.length >= 2) {
+                            const likePattern = `%${keywords[0]}%${keywords[1]}%`;
+                            const familyAvg = await this.dataSource.query(`
+                                SELECT AVG(ip."priceNotTaxed"::numeric) as avg_price, COUNT(*) as cnt
+                                FROM sinapi_inputs i
+                                JOIN sinapi_input_prices ip ON ip."inputId" = i.id AND ip."referenceId" = $1 AND ip.state = $2
+                                WHERE UPPER(i.description) LIKE $3 AND ip."priceNotTaxed"::numeric > 0
+                            `, [refId, uf, likePattern]);
+                            if (familyAvg.length && Number(familyAvg[0].avg_price) > 0) {
+                                unitCost = Number(Number(familyAvg[0].avg_price).toFixed(2));
+                                priceSource = `sugerido_familia`;
+                                priceSuggested = true;
+                                this.logger.debug(`  ${code}: Family avg R$${unitCost} (${familyAvg[0].cnt} similar)`);
+                            }
+                        }
+                    }
+                }
             } else if (item.childCompositionId && refId) {
                 const cost = await this.dataSource.query(
                     `SELECT "totalNotTaxed" FROM sinapi_composition_costs WHERE "compositionId" = $1 AND "referenceId" = $2 AND state = $3 LIMIT 1`,
@@ -306,10 +345,10 @@ export class BudgetsService implements OnModuleInit {
                     quantity: coef,
                     sinapiCoefficient: coef,
                     unitCost,
-                    priceSource: 'sinapi',
-                    parametricData: null,
-                    confidenceLevel: 'sinapi',
-                    suggestedCost: unitCost,
+                    priceSource,
+                    parametricData: priceSuggested ? { source: priceSource, isSuggested: true, originalPrice: 0 } : null,
+                    confidenceLevel: priceSuggested ? 'media' : 'sinapi',
+                    suggestedCost: priceSuggested ? unitCost : null,
                 });
                 addedItems.push(newItem);
             } catch (itemErr) {
