@@ -114,7 +114,6 @@ export default function NewProposalDialog({
     const [showSinapiSearch, setShowSinapiSearch] = useState(false);
     const [sinapiQuery, setSinapiQuery] = useState('');
     const [sinapiResults, setSinapiResults] = useState<any[]>([]);
-    const [sinapiSearchMode, setSinapiSearchMode] = useState<'compositions' | 'inputs'>('compositions');
     const [loadingSinapi, setLoadingSinapi] = useState(false);
 
     const [formData, setFormData] = useState({
