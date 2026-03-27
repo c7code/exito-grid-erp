@@ -65,6 +65,19 @@ export class BudgetItem {
     @Column({ nullable: true })
     notes: string;                         // Observações do orçamentista
 
+    // === MOTOR PARAMÉTRICO ===
+    @Column({ type: 'jsonb', nullable: true })
+    parametricData: any;                   // ParametricResult completo (transparência)
+
+    @Column({ default: false })
+    isManualOverride: boolean;             // true = orçamentista editou o valor sugerido
+
+    @Column({ type: 'decimal', precision: 14, scale: 4, nullable: true })
+    suggestedCost: number;                 // Valor original sugerido pelo motor (auditoria)
+
+    @Column({ nullable: true })
+    confidenceLevel: string;              // 'alta' | 'media' | 'manual' | 'sinapi'
+
     @CreateDateColumn()
     createdAt: Date;
 }

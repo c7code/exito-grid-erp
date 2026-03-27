@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Budget } from './budget.entity';
 import { BudgetItem } from './budget-item.entity';
+import { ParametricEngineService } from './parametric-engine.service';
 
 @Injectable()
 export class BudgetsService implements OnModuleInit {
@@ -14,10 +15,12 @@ export class BudgetsService implements OnModuleInit {
         @InjectRepository(BudgetItem)
         private itemRepo: Repository<BudgetItem>,
         private dataSource: DataSource,
+        private parametricEngine: ParametricEngineService,
     ) {}
 
     async onModuleInit() {
         await this.ensureTables();
+        await this.parametricEngine.seedDefaultRules();
     }
 
     private async ensureTables() {
@@ -59,12 +62,65 @@ export class BudgetsService implements OnModuleInit {
                     "priceSource" VARCHAR(30),
                     "sortOrder" INTEGER DEFAULT 0,
                     notes TEXT,
+                    "parametricData" JSONB,
+                    "isManualOverride" BOOLEAN DEFAULT false,
+                    "suggestedCost" DECIMAL(14,4),
+                    "confidenceLevel" VARCHAR(20),
                     "createdAt" TIMESTAMP DEFAULT NOW()
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_budget_items_budget ON budget_items("budgetId");
+
+                -- Service Rules
+                CREATE TABLE IF NOT EXISTS service_rules (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    name VARCHAR(200) NOT NULL,
+                    category VARCHAR(50) DEFAULT 'eletrica',
+                    keywords JSONB DEFAULT '[]',
+                    "excludeKeywords" JSONB DEFAULT '[]',
+                    "parameterName" VARCHAR(100),
+                    "parameterRegex" VARCHAR(500),
+                    "professionalCode" VARCHAR(20),
+                    "professionalLabel" VARCHAR(100),
+                    "helperCode" VARCHAR(20),
+                    "helperLabel" VARCHAR(100),
+                    bands JSONB DEFAULT '[]',
+                    "customProfitPercent" DECIMAL(6,2),
+                    "isActive" BOOLEAN DEFAULT true,
+                    "sortOrder" INTEGER DEFAULT 0,
+                    "companyId" UUID,
+                    "createdAt" TIMESTAMP DEFAULT NOW(),
+                    "updatedAt" TIMESTAMP DEFAULT NOW()
+                );
+
+                -- Company Financials
+                CREATE TABLE IF NOT EXISTS company_financials (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    "profileName" VARCHAR(200) DEFAULT 'Padrão',
+                    "encargosPercent" DECIMAL(6,2) DEFAULT 68.47,
+                    "adminCentralPercent" DECIMAL(6,2) DEFAULT 4.00,
+                    "seguroPercent" DECIMAL(6,2) DEFAULT 0.80,
+                    "riscoPercent" DECIMAL(6,2) DEFAULT 1.20,
+                    "despesasFinanceirasPercent" DECIMAL(6,2) DEFAULT 1.40,
+                    "lucroPercent" DECIMAL(6,2) DEFAULT 8.00,
+                    "pisCofinPercent" DECIMAL(6,2) DEFAULT 3.65,
+                    "issPercent" DECIMAL(6,2) DEFAULT 5.00,
+                    "icmsPercent" DECIMAL(6,2) DEFAULT 0.00,
+                    "categoryMargins" JSONB,
+                    "bdiCalculated" DECIMAL(6,2) DEFAULT 25.00,
+                    "isActive" BOOLEAN DEFAULT true,
+                    "companyId" UUID,
+                    "createdAt" TIMESTAMP DEFAULT NOW(),
+                    "updatedAt" TIMESTAMP DEFAULT NOW()
+                );
+
+                -- Add new columns if tables already existed
+                ALTER TABLE budget_items ADD COLUMN IF NOT EXISTS "parametricData" JSONB;
+                ALTER TABLE budget_items ADD COLUMN IF NOT EXISTS "isManualOverride" BOOLEAN DEFAULT false;
+                ALTER TABLE budget_items ADD COLUMN IF NOT EXISTS "suggestedCost" DECIMAL(14,4);
+                ALTER TABLE budget_items ADD COLUMN IF NOT EXISTS "confidenceLevel" VARCHAR(20);
             `);
-            this.logger.log('Budget tables ensured');
+            this.logger.log('Budget + ServiceRules + CompanyFinancials tables ensured');
         } catch (e) {
             this.logger.warn('Budget tables migration: ' + e.message);
         }
@@ -112,7 +168,6 @@ export class BudgetsService implements OnModuleInit {
     // ═══════════════════════════════════════════════════════════
 
     async addItem(budgetId: string, data: Partial<BudgetItem>) {
-        // Get max sortOrder
         const maxSort = await this.itemRepo
             .createQueryBuilder('i')
             .select('MAX(i.sortOrder)', 'max')
@@ -134,12 +189,22 @@ export class BudgetsService implements OnModuleInit {
         const item = await this.itemRepo.findOne({ where: { id: itemId } });
         if (!item) throw new NotFoundException('Item não encontrado');
 
-        // Recalculate subtotal
         const qty = data.quantity !== undefined ? Number(data.quantity) : Number(item.quantity);
         const unitCost = data.unitCost !== undefined ? Number(data.unitCost) : Number(item.unitCost);
         const subtotal = qty * unitCost;
 
-        await this.itemRepo.update(itemId, { ...data, quantity: qty, unitCost, subtotal } as any);
+        // Detect manual override
+        const isManualOverride = data.unitCost !== undefined && item.suggestedCost != null
+            && Number(data.unitCost) !== Number(item.suggestedCost);
+
+        await this.itemRepo.update(itemId, {
+            ...data,
+            quantity: qty,
+            unitCost,
+            subtotal,
+            isManualOverride: isManualOverride || item.isManualOverride,
+            confidenceLevel: isManualOverride ? 'manual' : item.confidenceLevel,
+        } as any);
         await this.recalcTotals(item.budgetId);
         return this.itemRepo.findOne({ where: { id: itemId } });
     }
@@ -153,7 +218,7 @@ export class BudgetsService implements OnModuleInit {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // ADD SINAPI COMPOSITION TO BUDGET
+    // ADD SINAPI COMPOSITION — COM MOTOR PARAMÉTRICO
     // ═══════════════════════════════════════════════════════════
 
     async addSinapiComposition(budgetId: string, compositionCode: string, state?: string) {
@@ -171,6 +236,10 @@ export class BudgetsService implements OnModuleInit {
         const refRows = await this.dataSource.query(`SELECT id FROM sinapi_references ORDER BY "createdAt" DESC LIMIT 1`);
         const refId = refRows[0]?.id;
 
+        // ★ MOTOR PARAMÉTRICO: Analisa a composição
+        const parametricResult = await this.parametricEngine.analyze(comp[0].description, uf);
+        this.logger.log(`Parametric: ${parametricResult.confidence} — ${parametricResult.reasoning}`);
+
         // Get composition items with their IDs for direct lookup
         const items = await this.dataSource.query(`
             SELECT ci.coefficient, ci."itemType", ci."inputId", ci."childCompositionId",
@@ -183,7 +252,7 @@ export class BudgetsService implements OnModuleInit {
             ORDER BY ci."sortOrder"
         `, [comp[0].id]);
 
-        this.logger.log(`Adding composition ${compositionCode}: ${items.length} items, UF=${uf}, refId=${refId?.substring(0,8)}`);
+        this.logger.log(`Adding composition ${compositionCode}: ${items.length} items, UF=${uf}`);
 
         const addedItems: BudgetItem[] = [];
 
@@ -194,16 +263,13 @@ export class BudgetsService implements OnModuleInit {
             const unit = item.input_unit || item.comp_unit || 'UN';
             const coef = Number(item.coefficient) || 0;
 
-            // Determine cost category from input type
             let costCategory = 'material';
             let itemType = 'insumo';
 
             if (isChildComp) {
                 itemType = 'composicao';
-                // Child compositions are typically labor (encargos complementares)
                 costCategory = 'mao_de_obra';
             } else if (item.input_type) {
-                // Use the input's own type classification
                 if (item.input_type === 'mao_de_obra' || item.input_type === 'mao de obra') {
                     costCategory = 'mao_de_obra';
                 } else if (item.input_type === 'equipamento' || item.input_type === 'equipamentos') {
@@ -213,25 +279,21 @@ export class BudgetsService implements OnModuleInit {
                 }
             }
 
-            // Get unit cost from SINAPI using IDs directly (not by code re-lookup)
+            // Get unit cost from SINAPI
             let unitCost = 0;
             if (item.inputId && refId) {
-                // Direct lookup by inputId — much more reliable
                 const price = await this.dataSource.query(
                     `SELECT "priceNotTaxed" FROM sinapi_input_prices WHERE "inputId" = $1 AND "referenceId" = $2 AND state = $3 LIMIT 1`,
                     [item.inputId, refId, uf],
                 );
                 if (price.length) unitCost = Number(price[0].priceNotTaxed) || 0;
             } else if (item.childCompositionId && refId) {
-                // Child composition — get total cost
                 const cost = await this.dataSource.query(
                     `SELECT "totalNotTaxed" FROM sinapi_composition_costs WHERE "compositionId" = $1 AND "referenceId" = $2 AND state = $3 LIMIT 1`,
                     [item.childCompositionId, refId, uf],
                 );
                 if (cost.length) unitCost = Number(cost[0].totalNotTaxed) || 0;
             }
-
-            this.logger.debug(`  Item ${code}: unitCost=${unitCost}, coef=${coef}, cat=${costCategory}`);
 
             try {
                 const newItem = await this.addItem(budgetId, {
@@ -245,19 +307,100 @@ export class BudgetsService implements OnModuleInit {
                     sinapiCoefficient: coef,
                     unitCost,
                     priceSource: 'sinapi',
+                    parametricData: null,
+                    confidenceLevel: 'sinapi',
+                    suggestedCost: unitCost,
                 });
                 addedItems.push(newItem);
             } catch (itemErr) {
                 this.logger.error(`Failed to add item ${code}: ${itemErr.message}`);
-                // Continue with other items instead of failing
+            }
+        }
+
+        // ★ Add parametric labor cost as a separate line item (if motor detected)
+        if (parametricResult.confidence !== 'sinapi' && parametricResult.laborCostWithBdi > 0) {
+            try {
+                const laborItem = await this.addItem(budgetId, {
+                    sinapiCode: comp[0].code,
+                    sinapiCompositionId: comp[0].id,
+                    description: `⚡ MO PARAMÉTRICA: ${comp[0].description}`,
+                    unit: 'SV',
+                    itemType: 'mao_de_obra_parametrica',
+                    costCategory: 'mao_de_obra',
+                    quantity: 1,
+                    unitCost: parametricResult.laborCostWithBdi,
+                    suggestedCost: parametricResult.laborCostWithBdi,
+                    priceSource: 'motor_parametrico',
+                    parametricData: parametricResult,
+                    confidenceLevel: parametricResult.confidence,
+                    isManualOverride: false,
+                });
+                addedItems.push(laborItem);
+                this.logger.log(
+                    `★ Parametric MO added: R$${parametricResult.laborCostWithBdi.toFixed(2)} ` +
+                    `(${parametricResult.bandLabel} — ${parametricResult.professional?.hours}h ${parametricResult.professional?.label})`,
+                );
+            } catch (e) {
+                this.logger.error(`Failed to add parametric MO: ${e.message}`);
             }
         }
 
         if (addedItems.length === 0 && items.length > 0) {
-            throw new BadRequestException(`Não foi possível adicionar nenhum item da composição ${compositionCode}. Verifique os logs.`);
+            throw new BadRequestException(`Não foi possível adicionar nenhum item da composição ${compositionCode}.`);
         }
 
-        return { composition: comp[0], items: addedItems };
+        return { composition: comp[0], items: addedItems, parametric: parametricResult };
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // RECALCULATE ALL — Reaplicar motor em todos itens
+    // ═══════════════════════════════════════════════════════════
+
+    async recalculateParametric(budgetId: string) {
+        const budget = await this.findOne(budgetId);
+        const uf = budget.state || 'PE';
+
+        // Remove old parametric MO items
+        await this.dataSource.query(
+            `DELETE FROM budget_items WHERE "budgetId" = $1 AND "itemType" = 'mao_de_obra_parametrica'`,
+            [budgetId],
+        );
+
+        // Get distinct compositions in this budget
+        const compositions = await this.dataSource.query(`
+            SELECT DISTINCT "sinapiCompositionId", "sinapiCode"
+            FROM budget_items WHERE "budgetId" = $1 AND "sinapiCompositionId" IS NOT NULL
+        `, [budgetId]);
+
+        for (const comp of compositions) {
+            if (!comp.sinapiCompositionId) continue;
+            const compData = await this.dataSource.query(
+                `SELECT code, description FROM sinapi_compositions WHERE id = $1`,
+                [comp.sinapiCompositionId],
+            );
+            if (!compData.length) continue;
+
+            const result = await this.parametricEngine.analyze(compData[0].description, uf);
+            if (result.confidence !== 'sinapi' && result.laborCostWithBdi > 0) {
+                await this.addItem(budgetId, {
+                    sinapiCode: compData[0].code,
+                    sinapiCompositionId: comp.sinapiCompositionId,
+                    description: `⚡ MO PARAMÉTRICA: ${compData[0].description}`,
+                    unit: 'SV',
+                    itemType: 'mao_de_obra_parametrica',
+                    costCategory: 'mao_de_obra',
+                    quantity: 1,
+                    unitCost: result.laborCostWithBdi,
+                    suggestedCost: result.laborCostWithBdi,
+                    priceSource: 'motor_parametrico',
+                    parametricData: result,
+                    confidenceLevel: result.confidence,
+                });
+            }
+        }
+
+        await this.recalcTotals(budgetId);
+        return this.findOne(budgetId);
     }
 
     // ═══════════════════════════════════════════════════════════
