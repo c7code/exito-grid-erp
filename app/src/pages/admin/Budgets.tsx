@@ -95,19 +95,15 @@ export default function Budgets() {
         } catch { toast.error('Erro'); }
     };
 
-    // === SINAPI Search ===
+    // === SINAPI Search (with prices!) ===
     const handleSearch = async () => {
         if (!searchQuery.trim()) return;
         try {
             setSearching(true);
-            // Search both compositions and inputs in parallel
-            const [compRes, inputRes] = await Promise.all([
-                api.client.get('/sinapi/compositions', { params: { search: searchQuery, limit: 15 } }),
-                api.client.get('/sinapi/inputs', { params: { search: searchQuery, limit: 15 } }),
-            ]);
-            const comps = (compRes.data?.items || compRes.data || []).map((c: any) => ({ ...c, type: 'composition' }));
-            const inputs = (inputRes.data?.items || inputRes.data || []).map((i: any) => ({ ...i, type: 'input' }));
-            setSearchResults([...comps, ...inputs]);
+            const res = await api.client.get('/budgets/search', {
+                params: { q: searchQuery, state: activeBudget?.state || 'PE' },
+            });
+            setSearchResults(res.data || []);
         } catch { toast.error('Erro na busca SINAPI'); }
         finally { setSearching(false); }
     };
@@ -122,6 +118,19 @@ export default function Budgets() {
             setShowSearch(false);
         } catch (e: any) {
             toast.error(e.response?.data?.message || 'Erro ao adicionar');
+        } finally { setSaving(false); }
+    };
+
+    const handleAddInput = async (code: string) => {
+        if (!activeBudget) return;
+        try {
+            setSaving(true);
+            await api.client.post(`/budgets/${activeBudget.id}/input/${code}`, {}, { params: { state: activeBudget.state } });
+            toast.success(`Insumo ${code} adicionado!`);
+            await loadBudget(activeBudget.id);
+            setShowSearch(false);
+        } catch (e: any) {
+            toast.error(e.response?.data?.message || 'Erro ao adicionar insumo');
         } finally { setSaving(false); }
     };
 
@@ -478,22 +487,42 @@ export default function Budgets() {
                         {searchResults.map((r: any) => (
                             <div key={r.id || r.code}
                                 className="flex items-center justify-between p-3 rounded-lg border hover:bg-emerald-50 transition-colors">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-mono text-sm text-emerald-600 font-bold">{r.code}</span>
                                         <Badge variant="outline" className="text-[10px]">{r.unit}</Badge>
                                         <Badge className={`text-[10px] ${r.type === 'composition' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                             {r.type === 'composition' ? 'Composição' : 'Insumo'}
                                         </Badge>
+                                        {Number(r.price) > 0 && (
+                                            <span className={`text-sm font-bold ${
+                                                r.priceSource === 'sinapi' || !r.priceSource ? 'text-emerald-700' :
+                                                r.priceSource?.startsWith('estimado') ? 'text-yellow-700' : 'text-orange-600'
+                                            }`}>
+                                                {fmt(r.price)}
+                                            </span>
+                                        )}
+                                        {r.priceSource?.startsWith('estimado') && (
+                                            <span className="text-[8px] text-yellow-600 bg-yellow-50 border border-dashed border-yellow-300 rounded px-1">
+                                                📊 Estimado
+                                            </span>
+                                        )}
                                     </div>
-                                    <p className="text-sm text-slate-600 mt-1">{r.description}</p>
+                                    <p className="text-sm text-slate-600 mt-1 truncate">{r.description}</p>
                                 </div>
-                                {r.type === 'composition' && (
-                                    <Button size="sm" className="bg-emerald-600 ml-3" onClick={() => handleAddComposition(r.code)}
-                                        disabled={saving}>
-                                        {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                                    </Button>
-                                )}
+                                <div className="ml-3 shrink-0">
+                                    {r.type === 'composition' ? (
+                                        <Button size="sm" className="bg-emerald-600" onClick={() => handleAddComposition(r.code)}
+                                            disabled={saving}>
+                                            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                                        </Button>
+                                    ) : (
+                                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleAddInput(r.code)}
+                                            disabled={saving}>
+                                            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
                         ))}
                         {searchResults.length === 0 && searchQuery && !searching && (
