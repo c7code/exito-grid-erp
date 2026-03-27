@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
     Calculator, Plus, Trash2, Search, Loader2, DollarSign, Package, Wrench,
-    HardHat, ArrowLeft, Save, Percent
+    HardHat, ArrowLeft, Save, Percent, Zap, RefreshCw, Info, ChevronDown, ChevronUp
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const UF_LIST = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'];
 const WORK_TYPES = [
@@ -23,7 +24,7 @@ const WORK_TYPES = [
     { value: 'geral', label: 'Geral' },
 ];
 
-const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+// fmt defined at bottom of file
 
 export default function Budgets() {
     const [budgetList, setBudgetList] = useState<any[]>([]);
@@ -47,6 +48,8 @@ export default function Budgets() {
     // Editing item
     const [editingItem, setEditingItem] = useState<string | null>(null);
     const [editQty, setEditQty] = useState('');
+    const [expandedParametric, setExpandedParametric] = useState<string | null>(null);
+    const [recalculating, setRecalculating] = useState(false);
 
     const loadBudgets = useCallback(async () => {
         try {
@@ -145,6 +148,17 @@ export default function Budgets() {
             await api.client.put(`/budgets/${activeBudget.id}`, { bdiPercent: Number(bdi) || 0 });
             await loadBudget(activeBudget.id);
         } catch { toast.error('Erro'); }
+    };
+
+    const handleRecalculate = async () => {
+        if (!activeBudget) return;
+        try {
+            setRecalculating(true);
+            await api.client.post(`/budgets/${activeBudget.id}/recalculate`, {});
+            toast.success('MO recalculada pelo motor paramétrico!');
+            await loadBudget(activeBudget.id);
+        } catch { toast.error('Erro ao recalcular'); }
+        finally { setRecalculating(false); }
     };
 
     // === RENDER: Budget List ===
@@ -291,9 +305,16 @@ export default function Budgets() {
                         </div>
                     </div>
                 </div>
-                <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setShowSearch(true)}>
-                    <Plus className="w-4 h-4 mr-2" /> Adicionar SINAPI
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={handleRecalculate} disabled={recalculating}
+                        className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                        {recalculating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                        Recalcular MO
+                    </Button>
+                    <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setShowSearch(true)}>
+                        <Plus className="w-4 h-4 mr-2" /> Adicionar SINAPI
+                    </Button>
+                </div>
             </div>
 
             {/* Summary Cards */}
@@ -386,6 +407,8 @@ export default function Budgets() {
                                     onCancel={() => setEditingItem(null)}
                                     onRemove={() => handleRemoveItem(item.id)}
                                     category="mao_de_obra"
+                                    expanded={expandedParametric === item.id}
+                                    onToggleExpand={() => setExpandedParametric(expandedParametric === item.id ? null : item.id)}
                                 />
                             ))}
 
@@ -483,29 +506,67 @@ export default function Budgets() {
     );
 }
 
-// === Item Row Component ===
-function ItemRow({ item, idx, editing, editQty, onStartEdit, onChangeQty, onSave, onCancel, onRemove, category }: any) {
-    const catColors: any = {
-        mao_de_obra: 'text-amber-600 bg-amber-50',
-        material: 'text-blue-600 bg-blue-50',
-        equipamento: 'text-purple-600 bg-purple-50',
+// === Item Row Component (with Parametric Data) ===
+function ItemRow({ item, idx, editing, editQty, onStartEdit, onChangeQty, onSave, onCancel, onRemove, category, expanded, onToggleExpand }: any) {
+    const isParametric = item.itemType === 'mao_de_obra_parametrica';
+    const pd = item.parametricData;
+    const confidence = item.confidenceLevel;
+
+    const confidenceBadge: any = {
+        alta: { bg: 'bg-green-100 text-green-700 border-green-300', icon: '⚡', label: 'Auto' },
+        media: { bg: 'bg-yellow-100 text-yellow-700 border-yellow-300', icon: '⚙️', label: 'Média' },
+        manual: { bg: 'bg-orange-100 text-orange-700 border-orange-300', icon: '✏️', label: 'Manual' },
+        sinapi: { bg: 'bg-slate-100 text-slate-600 border-slate-300', icon: '📊', label: 'SINAPI' },
     };
+    const badge = confidenceBadge[confidence] || confidenceBadge.sinapi;
 
     return (
-        <TableRow className="hover:bg-slate-50 text-sm">
-            <TableCell className="text-slate-400 text-xs">{idx + 1}</TableCell>
+        <>
+        <TableRow className={`hover:bg-slate-50 text-sm ${isParametric ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-l-4 border-l-amber-400' : ''}`}>
+            <TableCell className="text-slate-400 text-xs">{isParametric ? '⚡' : idx + 1}</TableCell>
             <TableCell>
                 <span className="font-mono text-xs text-emerald-600">{item.sinapiCode}</span>
             </TableCell>
             <TableCell>
-                <span className="text-xs">{item.description}</span>
+                <div className="flex items-center gap-1.5">
+                    <span className={`text-xs ${isParametric ? 'font-semibold text-amber-800' : ''}`}>
+                        {isParametric ? item.description.replace('⚡ MO PARAMÉTRICA: ', '') : item.description}
+                    </span>
+                    {isParametric && pd && (
+                        <button onClick={onToggleExpand}
+                            className="text-amber-500 hover:text-amber-700 ml-1">
+                            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
+                    )}
+                </div>
+                {isParametric && pd && (
+                    <div className="flex items-center gap-1 mt-0.5">
+                        <Badge className={`text-[9px] border ${badge.bg}`}>
+                            {badge.icon} {badge.label}
+                        </Badge>
+                        {pd.bandLabel && (
+                            <Badge className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200">
+                                {pd.bandLabel}
+                            </Badge>
+                        )}
+                        {item.isManualOverride && (
+                            <Badge className="text-[9px] bg-orange-50 text-orange-600 border border-orange-200">
+                                ✏️ Editado
+                            </Badge>
+                        )}
+                    </div>
+                )}
             </TableCell>
             <TableCell>
                 <Badge variant="outline" className="text-[10px]">{item.unit}</Badge>
             </TableCell>
             <TableCell>
-                <Badge className={`text-[10px] ${catColors[category] || ''}`}>
-                    {category === 'mao_de_obra' ? 'MO' : category === 'material' ? 'Mat' : 'Eq'}
+                <Badge className={`text-[10px] ${
+                    isParametric ? 'bg-amber-100 text-amber-700' :
+                    category === 'mao_de_obra' ? 'text-amber-600 bg-amber-50' :
+                    category === 'material' ? 'text-blue-600 bg-blue-50' : 'text-purple-600 bg-purple-50'
+                }`}>
+                    {isParametric ? '⚡ Motor' : category === 'mao_de_obra' ? 'MO' : category === 'material' ? 'Mat' : 'Eq'}
                 </Badge>
             </TableCell>
             <TableCell className="text-right">
@@ -530,8 +591,11 @@ function ItemRow({ item, idx, editing, editQty, onStartEdit, onChangeQty, onSave
             </TableCell>
             <TableCell className="text-right font-medium">
                 {fmt(item.unitCost)}
+                {item.suggestedCost && item.isManualOverride && (
+                    <div className="text-[9px] text-slate-400 line-through">{fmt(item.suggestedCost)}</div>
+                )}
             </TableCell>
-            <TableCell className="text-right font-bold text-emerald-700">
+            <TableCell className={`text-right font-bold ${isParametric ? 'text-amber-700' : 'text-emerald-700'}`}>
                 {fmt(item.subtotal)}
             </TableCell>
             <TableCell>
@@ -540,5 +604,56 @@ function ItemRow({ item, idx, editing, editQty, onStartEdit, onChangeQty, onSave
                 </button>
             </TableCell>
         </TableRow>
+        {/* Expanded parametric breakdown */}
+        {isParametric && expanded && pd && (
+            <TableRow className="bg-amber-50/80">
+                <TableCell colSpan={10}>
+                    <div className="p-3 rounded-lg bg-white border border-amber-200 text-xs space-y-2 mx-4 my-1">
+                        <div className="font-semibold text-amber-800 flex items-center gap-1">
+                            <Zap className="w-3.5 h-3.5" /> Composição de Preço — {pd.ruleName}
+                        </div>
+                        <div className="text-slate-600">{pd.reasoning}</div>
+                        <div className="grid grid-cols-2 gap-4">
+                            {pd.professional && pd.professional.hours > 0 && (
+                                <div className="bg-slate-50 rounded p-2">
+                                    <div className="font-medium text-slate-700">👷 {pd.professional.label} ({pd.professional.code})</div>
+                                    <div className="mt-1 space-y-0.5 text-slate-500">
+                                        <div>Base SINAPI: {fmt(pd.professional.baseCostHour)}/h</div>
+                                        <div>+ Encargos {pd.professional.encargosPercent}%: {fmt(pd.professional.encargosValue)}</div>
+                                        <div className="font-medium text-slate-700">= Custo Real: {fmt(pd.professional.realCostHour)}/h</div>
+                                        <div>× {pd.professional.hours}h = <span className="font-bold text-amber-700">{fmt(pd.professional.subtotal)}</span></div>
+                                    </div>
+                                </div>
+                            )}
+                            {pd.helper && pd.helper.hours > 0 && (
+                                <div className="bg-slate-50 rounded p-2">
+                                    <div className="font-medium text-slate-700">🔧 {pd.helper.label} ({pd.helper.code})</div>
+                                    <div className="mt-1 space-y-0.5 text-slate-500">
+                                        <div>Base SINAPI: {fmt(pd.helper.baseCostHour)}/h</div>
+                                        <div>+ Encargos {pd.helper.encargosPercent}%: {fmt(pd.helper.encargosValue)}</div>
+                                        <div className="font-medium text-slate-700">= Custo Real: {fmt(pd.helper.realCostHour)}/h</div>
+                                        <div>× {pd.helper.hours}h = <span className="font-bold text-amber-700">{fmt(pd.helper.subtotal)}</span></div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="border-t pt-2 flex items-center justify-between">
+                            <div>
+                                <span className="text-slate-500">MO Direta: </span>
+                                <span className="font-medium">{fmt(pd.laborCostDirect)}</span>
+                                <span className="text-slate-500 ml-3">+ BDI {pd.bdiComposition?.bdiPercent?.toFixed(1)}%: </span>
+                                <span className="font-medium">{fmt(pd.bdiComposition?.bdiValue)}</span>
+                            </div>
+                            <div className="text-base font-bold text-amber-800">
+                                Total: {fmt(pd.laborCostWithBdi)}
+                            </div>
+                        </div>
+                    </div>
+                </TableCell>
+            </TableRow>
+        )}
+        </>
     );
 }
+
+const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
