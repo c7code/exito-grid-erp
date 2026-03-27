@@ -167,9 +167,13 @@ export class BudgetsService implements OnModuleInit {
         );
         if (!comp.length) throw new NotFoundException(`Composição SINAPI ${compositionCode} não encontrada`);
 
-        // Get composition items (tree)
+        // Get reference ID
+        const refRows = await this.dataSource.query(`SELECT id FROM sinapi_references ORDER BY "createdAt" DESC LIMIT 1`);
+        const refId = refRows[0]?.id;
+
+        // Get composition items with their IDs for direct lookup
         const items = await this.dataSource.query(`
-            SELECT ci.coefficient, ci."itemType",
+            SELECT ci.coefficient, ci."itemType", ci."inputId", ci."childCompositionId",
                    i.code as input_code, i.description as input_desc, i.unit as input_unit, i.type as input_type,
                    c.code as comp_code, c.description as comp_desc, c.unit as comp_unit
             FROM sinapi_composition_items ci
@@ -179,49 +183,55 @@ export class BudgetsService implements OnModuleInit {
             ORDER BY ci."sortOrder"
         `, [comp[0].id]);
 
-        // Get reference ID
-        const refRows = await this.dataSource.query(`SELECT id FROM sinapi_references ORDER BY "createdAt" DESC LIMIT 1`);
-        const refId = refRows[0]?.id;
+        this.logger.log(`Adding composition ${compositionCode}: ${items.length} items, UF=${uf}, refId=${refId?.substring(0,8)}`);
 
         const addedItems: BudgetItem[] = [];
 
         for (const item of items) {
+            const isChildComp = !!item.childCompositionId;
             const code = item.input_code || item.comp_code;
             const desc = item.input_desc || item.comp_desc;
             const unit = item.input_unit || item.comp_unit || 'UN';
             const coef = Number(item.coefficient) || 0;
 
-            // Determine cost category
+            // Determine cost category from input type
             let costCategory = 'material';
             let itemType = 'insumo';
-            if (item.itemType === 'composicao_auxiliar' || item.comp_code) {
+
+            if (isChildComp) {
                 itemType = 'composicao';
-                // Sub-compositions of MO typically have "ENCARGOS" in description
-                const isLabor = (desc || '').toUpperCase().includes('ENCARGOS') ||
-                                (desc || '').toUpperCase().includes('SERVENTE') ||
-                                (desc || '').toUpperCase().includes('ELETRICISTA') ||
-                                (desc || '').toUpperCase().includes('ENCANADOR') ||
-                                (desc || '').toUpperCase().includes('PEDREIRO');
-                costCategory = isLabor ? 'mao_de_obra' : 'material';
+                // Child compositions are typically labor (encargos complementares)
+                costCategory = 'mao_de_obra';
             } else if (item.input_type) {
-                costCategory = item.input_type === 'mao_de_obra' ? 'mao_de_obra' : 'material';
+                // Use the input's own type classification
+                if (item.input_type === 'mao_de_obra' || item.input_type === 'mao de obra') {
+                    costCategory = 'mao_de_obra';
+                } else if (item.input_type === 'equipamento' || item.input_type === 'equipamentos') {
+                    costCategory = 'equipamento';
+                } else {
+                    costCategory = 'material';
+                }
             }
 
-            // Get unit cost from SINAPI
+            // Get unit cost from SINAPI using IDs directly (not by code re-lookup)
             let unitCost = 0;
-            if (item.input_code && refId) {
+            if (item.inputId && refId) {
+                // Direct lookup by inputId — much more reliable
                 const price = await this.dataSource.query(
-                    `SELECT "priceNotTaxed" FROM sinapi_input_prices WHERE "inputId" = (SELECT id FROM sinapi_inputs WHERE code = $1 LIMIT 1) AND "referenceId" = $2 AND state = $3 LIMIT 1`,
-                    [item.input_code, refId, uf],
+                    `SELECT "priceNotTaxed" FROM sinapi_input_prices WHERE "inputId" = $1 AND "referenceId" = $2 AND state = $3 LIMIT 1`,
+                    [item.inputId, refId, uf],
                 );
                 if (price.length) unitCost = Number(price[0].priceNotTaxed) || 0;
-            } else if (item.comp_code && refId) {
+            } else if (item.childCompositionId && refId) {
+                // Child composition — get total cost
                 const cost = await this.dataSource.query(
-                    `SELECT "totalNotTaxed" FROM sinapi_composition_costs WHERE "compositionId" = (SELECT id FROM sinapi_compositions WHERE code = $1 LIMIT 1) AND "referenceId" = $2 AND state = $3 LIMIT 1`,
-                    [item.comp_code, refId, uf],
+                    `SELECT "totalNotTaxed" FROM sinapi_composition_costs WHERE "compositionId" = $1 AND "referenceId" = $2 AND state = $3 LIMIT 1`,
+                    [item.childCompositionId, refId, uf],
                 );
                 if (cost.length) unitCost = Number(cost[0].totalNotTaxed) || 0;
             }
+
+            this.logger.debug(`  Item ${code}: unitCost=${unitCost}, coef=${coef}, cat=${costCategory}`);
 
             const newItem = await this.addItem(budgetId, {
                 sinapiCode: code,
