@@ -100,10 +100,21 @@ export default function Budgets() {
         if (!searchQuery.trim()) return;
         try {
             setSearching(true);
-            const res = await api.client.get('/budgets/search', {
-                params: { q: searchQuery, state: activeBudget?.state || 'PE' },
-            });
-            setSearchResults(res.data || []);
+            try {
+                const res = await api.client.get('/budgets/search', {
+                    params: { q: searchQuery, state: activeBudget?.state || 'PE' },
+                });
+                setSearchResults(res.data || []);
+            } catch {
+                // Fallback to old endpoints
+                const [compRes, inputRes] = await Promise.all([
+                    api.client.get('/sinapi/compositions', { params: { search: searchQuery, limit: 15 } }),
+                    api.client.get('/sinapi/inputs', { params: { search: searchQuery, limit: 15 } }),
+                ]);
+                const comps = (compRes.data?.items || compRes.data || []).map((c: any) => ({ ...c, type: 'composition' }));
+                const inputs = (inputRes.data?.items || inputRes.data || []).map((i: any) => ({ ...i, type: 'input' }));
+                setSearchResults([...comps, ...inputs]);
+            }
         } catch { toast.error('Erro na busca SINAPI'); }
         finally { setSearching(false); }
     };
@@ -494,12 +505,12 @@ export default function Budgets() {
                                         <Badge className={`text-[10px] ${r.type === 'composition' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                             {r.type === 'composition' ? 'Composição' : 'Insumo'}
                                         </Badge>
-                                        {Number(r.price) > 0 && (
+                                        {Number(r.price || r.totalNotTaxed || r.priceNotTaxed || 0) > 0 && (
                                             <span className={`text-sm font-bold ${
                                                 r.priceSource === 'sinapi' || !r.priceSource ? 'text-emerald-700' :
                                                 r.priceSource?.startsWith('estimado') ? 'text-yellow-700' : 'text-orange-600'
                                             }`}>
-                                                {fmt(r.price)}
+                                                {fmt(r.price || r.totalNotTaxed || r.priceNotTaxed || 0)}
                                             </span>
                                         )}
                                         {r.priceSource?.startsWith('estimado') && (

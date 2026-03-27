@@ -955,9 +955,21 @@ export default function NewProposalDialog({
                                                     if (!sinapiQuery.trim()) return;
                                                     setLoadingSinapi(true);
                                                     try {
+                                                        // Try unified search with prices first
                                                         const r = await api.client.get('/budgets/search', { params: { q: sinapiQuery, state: 'PE' } });
                                                         setSinapiResults(r.data || []);
-                                                    } catch { toast.error('Erro na busca SINAPI'); }
+                                                    } catch {
+                                                        // Fallback to old endpoints if budgets/search not available
+                                                        try {
+                                                            const [compRes, inputRes] = await Promise.all([
+                                                                api.client.get('/sinapi/compositions', { params: { search: sinapiQuery, limit: 15 } }),
+                                                                api.client.get('/sinapi/inputs', { params: { search: sinapiQuery, limit: 15 } }),
+                                                            ]);
+                                                            const comps = (compRes.data?.items || compRes.data || []).map((c: any) => ({ ...c, type: 'composition' }));
+                                                            const inputs = (inputRes.data?.items || inputRes.data || []).map((i: any) => ({ ...i, type: 'input' }));
+                                                            setSinapiResults([...comps, ...inputs]);
+                                                        } catch { toast.error('Erro na busca SINAPI'); }
+                                                    }
                                                     setLoadingSinapi(false);
                                                 }
                                             }}
@@ -968,7 +980,17 @@ export default function NewProposalDialog({
                                             try {
                                                 const r = await api.client.get('/budgets/search', { params: { q: sinapiQuery, state: 'PE' } });
                                                 setSinapiResults(r.data || []);
-                                            } catch { toast.error('Erro na busca SINAPI'); }
+                                            } catch {
+                                                try {
+                                                    const [compRes, inputRes] = await Promise.all([
+                                                        api.client.get('/sinapi/compositions', { params: { search: sinapiQuery, limit: 15 } }),
+                                                        api.client.get('/sinapi/inputs', { params: { search: sinapiQuery, limit: 15 } }),
+                                                    ]);
+                                                    const comps = (compRes.data?.items || compRes.data || []).map((c: any) => ({ ...c, type: 'composition' }));
+                                                    const inputs = (inputRes.data?.items || inputRes.data || []).map((i: any) => ({ ...i, type: 'input' }));
+                                                    setSinapiResults([...comps, ...inputs]);
+                                                } catch { toast.error('Erro na busca SINAPI'); }
+                                            }
                                             setLoadingSinapi(false);
                                         }}>
                                             <Search className="w-4 h-4" />
@@ -989,7 +1011,7 @@ export default function NewProposalDialog({
                                                     type="button"
                                                     className="w-full text-left px-3 py-2 rounded-md hover:bg-blue-100 transition-colors text-sm border border-transparent hover:border-blue-200"
                                                     onClick={() => {
-                                                        const price = Number(item.price) || 0;
+                                                        const price = Number(item.price || item.unitCost || item.priceNotTaxed || item.totalNotTaxed || 0);
                                                         const isComp = item.type === 'composition';
                                                         const newItem: ActivityItem = {
                                                             description: `[SINAPI ${item.code}] ${item.description || ''}`.trim(),
@@ -1011,13 +1033,13 @@ export default function NewProposalDialog({
                                                             {item.type === 'composition' ? 'Composição' : 'Insumo'}
                                                         </span>
                                                         <span className="flex-1 truncate">{item.description}</span>
-                                                        {Number(item.price) > 0 && (
+                                                        {Number(item.price || item.unitCost || item.priceNotTaxed || item.totalNotTaxed || 0) > 0 && (
                                                             <span className={`text-xs font-bold whitespace-nowrap ${
                                                                 item.priceSource?.startsWith('estimado') ? 'text-yellow-600' :
                                                                 item.priceSource === 'sugerido_familia' ? 'text-orange-600' :
                                                                 'text-emerald-600'
                                                             }`}>
-                                                                R$ {Number(item.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                R$ {Number(item.price || item.unitCost || item.priceNotTaxed || item.totalNotTaxed || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                             </span>
                                                         )}
                                                         {item.priceSource?.startsWith('estimado') && (
