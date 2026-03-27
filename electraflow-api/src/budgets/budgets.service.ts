@@ -19,8 +19,12 @@ export class BudgetsService implements OnModuleInit {
     ) {}
 
     async onModuleInit() {
-        await this.ensureTables();
-        await this.parametricEngine.seedDefaultRules();
+        try {
+            await this.ensureTables();
+            await this.parametricEngine.seedDefaultRules();
+        } catch (e) {
+            this.logger.error('Budget module init error (non-fatal): ' + e.message);
+        }
     }
 
     private async ensureTables() {

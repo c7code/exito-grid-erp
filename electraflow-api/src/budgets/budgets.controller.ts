@@ -19,67 +19,12 @@ export class BudgetsController {
         private financialsRepo: Repository<CompanyFinancials>,
     ) {}
 
-    // ═══ BUDGETS CRUD ═══
+    // ═══════════════════════════════════════════════════════════
+    // IMPORTANT: Static routes MUST come BEFORE dynamic :id routes
+    // Otherwise NestJS will try to match "config" as a UUID
+    // ═══════════════════════════════════════════════════════════
 
-    @Get()
-    findAll(@Req() req: any) {
-        return this.service.findAll(req.user?.id);
-    }
-
-    @Get(':id')
-    findOne(@Param('id') id: string) {
-        return this.service.findOne(id);
-    }
-
-    @Post()
-    create(@Body() data: any, @Req() req: any) {
-        return this.service.create({ ...data, userId: req.user?.id, companyId: req.user?.companyId });
-    }
-
-    @Put(':id')
-    update(@Param('id') id: string, @Body() data: any) {
-        return this.service.update(id, data);
-    }
-
-    @Delete(':id')
-    remove(@Param('id') id: string) {
-        return this.service.remove(id);
-    }
-
-    // ═══ ITEMS ═══
-
-    @Post(':id/items')
-    addItem(@Param('id') budgetId: string, @Body() data: any) {
-        return this.service.addItem(budgetId, data);
-    }
-
-    @Put('items/:itemId')
-    updateItem(@Param('itemId') itemId: string, @Body() data: any) {
-        return this.service.updateItem(itemId, data);
-    }
-
-    @Delete('items/:itemId')
-    removeItem(@Param('itemId') itemId: string) {
-        return this.service.removeItem(itemId);
-    }
-
-    // ═══ SINAPI INTEGRATION ═══
-
-    @Post(':id/sinapi/:code')
-    addSinapiComposition(
-        @Param('id') budgetId: string,
-        @Param('code') compositionCode: string,
-        @Query('state') state?: string,
-    ) {
-        return this.service.addSinapiComposition(budgetId, compositionCode, state);
-    }
-
-    @Post(':id/recalculate')
-    recalculate(@Param('id') budgetId: string) {
-        return this.service.recalculateParametric(budgetId);
-    }
-
-    // ═══ SERVICE RULES (Admin) ═══
+    // ═══ SERVICE RULES (Admin) — Static routes first ═══
 
     @Get('config/rules')
     async findAllRules() {
@@ -92,6 +37,11 @@ export class BudgetsController {
         const saved = await this.ruleRepo.save(rule);
         this.engine.invalidateCache();
         return saved;
+    }
+
+    @Post('config/rules/test')
+    async testRule(@Body() body: { description: string; state?: string }) {
+        return this.engine.analyze(body.description, body.state || 'PE');
     }
 
     @Put('config/rules/:id')
@@ -108,12 +58,7 @@ export class BudgetsController {
         return { deleted: true };
     }
 
-    @Post('config/rules/test')
-    async testRule(@Body() body: { description: string; state?: string }) {
-        return this.engine.analyze(body.description, body.state || 'PE');
-    }
-
-    // ═══ COMPANY FINANCIALS ═══
+    // ═══ COMPANY FINANCIALS — Static routes ═══
 
     @Get('config/financials')
     async getFinancials() {
@@ -127,7 +72,6 @@ export class BudgetsController {
 
     @Put('config/financials/:id')
     async updateFinancials(@Param('id') id: string, @Body() data: any) {
-        // Auto-calculate BDI
         const bdi = (Number(data.adminCentralPercent) || 0) +
                      (Number(data.seguroPercent) || 0) +
                      (Number(data.riscoPercent) || 0) +
@@ -139,5 +83,65 @@ export class BudgetsController {
         await this.financialsRepo.update(id, { ...data, bdiCalculated: bdi });
         this.engine.invalidateCache();
         return this.financialsRepo.findOne({ where: { id } });
+    }
+
+    // ═══ STATIC ITEM ROUTES ═══
+
+    @Put('items/:itemId')
+    updateItem(@Param('itemId') itemId: string, @Body() data: any) {
+        return this.service.updateItem(itemId, data);
+    }
+
+    @Delete('items/:itemId')
+    removeItem(@Param('itemId') itemId: string) {
+        return this.service.removeItem(itemId);
+    }
+
+    // ═══ BUDGETS CRUD — Dynamic :id routes LAST ═══
+
+    @Get()
+    findAll(@Req() req: any) {
+        return this.service.findAll(req.user?.id);
+    }
+
+    @Post()
+    create(@Body() data: any, @Req() req: any) {
+        return this.service.create({ ...data, userId: req.user?.id, companyId: req.user?.companyId });
+    }
+
+    @Get(':id')
+    findOne(@Param('id') id: string) {
+        return this.service.findOne(id);
+    }
+
+    @Put(':id')
+    update(@Param('id') id: string, @Body() data: any) {
+        return this.service.update(id, data);
+    }
+
+    @Delete(':id')
+    remove(@Param('id') id: string) {
+        return this.service.remove(id);
+    }
+
+    // ═══ ITEMS & SINAPI — Under :id ═══
+
+    @Post(':id/items')
+    addItem(@Param('id') budgetId: string, @Body() data: any) {
+        return this.service.addItem(budgetId, data);
+    }
+
+    @Post(':id/sinapi/:code')
+    addSinapiComposition(
+        @Param('id') budgetId: string,
+        @Param('code') compositionCode: string,
+        @Query('state') state?: string,
+    ) {
+        return this.service.addSinapiComposition(budgetId, compositionCode, state);
+    }
+
+    @Post(':id/recalculate')
+    recalculate(@Param('id') budgetId: string) {
+        return this.service.recalculateParametric(budgetId);
     }
 }
