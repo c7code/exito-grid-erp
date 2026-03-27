@@ -448,6 +448,31 @@ export class SinapiService implements OnModuleInit {
             this.dataSource.query(countSql, p.slice(0, p.length - 2)),
         ]);
         const total = Number(countR[0]?.total || 0);
+
+        // Enrich: add unified 'price' field + fallback when PE price is null
+        const refRows = await this.dataSource.query(`SELECT id FROM sinapi_references ORDER BY "createdAt" DESC LIMIT 1`);
+        const activeRefId = refRows[0]?.id;
+        for (const item of items) {
+            item.type = 'input';
+            item.price = item.priceNotTaxed ? Number(item.priceNotTaxed) : null;
+            if (!item.price && activeRefId) {
+                try {
+                    const avg = await this.dataSource.query(
+                        `SELECT AVG(CAST("priceNotTaxed" AS numeric)) as avg_price, COUNT(*) as cnt
+                         FROM sinapi_input_prices WHERE "inputId" = $1 AND "referenceId" = $2 AND CAST("priceNotTaxed" AS numeric) > 0`,
+                        [item.id, activeRefId],
+                    );
+                    if (avg.length && Number(avg[0].avg_price) > 0) {
+                        item.price = Number(Number(avg[0].avg_price).toFixed(2));
+                        item.priceSource = `estimado_${avg[0].cnt}_estados`;
+                    }
+                } catch { /* ignore */ }
+            }
+            if (!item.priceSource) {
+                item.priceSource = item.price ? 'sinapi' : 'sem_preco';
+            }
+        }
+
         return { items, total, page, limit };
     }
 

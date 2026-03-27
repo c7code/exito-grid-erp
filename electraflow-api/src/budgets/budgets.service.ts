@@ -249,6 +249,26 @@ export class BudgetsService implements OnModuleInit {
             ORDER BY i.code ASC LIMIT 15
         `, [`%${search}%`, refId, uf]);
 
+        // Enrich compositions with priceSource
+        for (const comp of compositions) {
+            if (!comp.price || Number(comp.price) === 0) {
+                // Try avg of other states for composition
+                const avg = await this.dataSource.query(
+                    `SELECT AVG("totalNotTaxed"::numeric) as avg_price, COUNT(*) as cnt
+                     FROM sinapi_composition_costs WHERE "compositionId" = $1 AND "referenceId" = $2 AND "totalNotTaxed"::numeric > 0`,
+                    [comp.id, refId],
+                );
+                if (avg.length && Number(avg[0].avg_price) > 0) {
+                    comp.price = Number(Number(avg[0].avg_price).toFixed(2));
+                    comp.priceSource = `estimado_${avg[0].cnt}_estados`;
+                } else {
+                    comp.priceSource = 'sem_preco';
+                }
+            } else {
+                comp.priceSource = 'sinapi';
+            }
+        }
+
         // For inputs without direct price, try avg of other states
         for (const inp of inputs) {
             if (!inp.price || Number(inp.price) === 0) {
