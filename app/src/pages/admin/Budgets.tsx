@@ -590,12 +590,41 @@ function ItemRow({ item, idx, editing, editQty, onStartEdit, onChangeQty, onSave
                 {item.sinapiCoefficient ? Number(item.sinapiCoefficient).toFixed(4) : '—'}
             </TableCell>
             <TableCell className="text-right font-medium">
-                {fmt(item.unitCost)}
-                {item.suggestedCost && item.isManualOverride && (
-                    <div className="text-[9px] text-slate-400 line-through">{fmt(item.suggestedCost)}</div>
+                {Number(item.unitCost) > 0 ? (
+                    <div>
+                        <span className={item.priceSource && item.priceSource !== 'sinapi' && item.priceSource !== 'motor_parametrico'
+                            ? 'text-yellow-700' : ''}>
+                            {fmt(item.unitCost)}
+                        </span>
+                        {item.priceSource && item.priceSource.startsWith('estimado') && (
+                            <div className="text-[8px] text-yellow-600 bg-yellow-50 border border-dashed border-yellow-300 rounded px-1 mt-0.5 inline-block">
+                                📊 Estimado
+                            </div>
+                        )}
+                        {item.priceSource === 'sugerido_familia' && (
+                            <div className="text-[8px] text-orange-600 bg-orange-50 border border-dashed border-orange-300 rounded px-1 mt-0.5 inline-block">
+                                🔍 Sugerido
+                            </div>
+                        )}
+                        {item.suggestedCost && item.isManualOverride && (
+                            <div className="text-[9px] text-slate-400 line-through">{fmt(item.suggestedCost)}</div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="text-center">
+                        <span className="text-slate-300">—</span>
+                        <div className="text-[8px] text-red-400 bg-red-50 border border-dashed border-red-200 rounded px-1 mt-0.5 inline-block">
+                            ⚠️ Sem preço
+                        </div>
+                    </div>
                 )}
             </TableCell>
-            <TableCell className={`text-right font-bold ${isParametric ? 'text-amber-700' : 'text-emerald-700'}`}>
+            <TableCell className={`text-right font-bold ${
+                isParametric ? 'text-amber-700' :
+                Number(item.unitCost) === 0 ? 'text-red-300' :
+                item.priceSource && item.priceSource !== 'sinapi' && item.priceSource !== 'motor_parametrico' ? 'text-yellow-700' :
+                'text-emerald-700'
+            }`}>
                 {fmt(item.subtotal)}
             </TableCell>
             <TableCell>
