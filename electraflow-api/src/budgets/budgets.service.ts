@@ -448,11 +448,26 @@ export class BudgetsService implements OnModuleInit {
                     }
                 }
             } else if (item.childCompositionId && refId) {
+                // ★ CRITICAL: Child compositions can be MES (monthly) or H (hourly)
+                // If unit=MES, we must divide by 220 to get hourly cost
                 const cost = await this.dataSource.query(
-                    `SELECT "totalNotTaxed" FROM sinapi_composition_costs WHERE "compositionId" = $1 AND "referenceId" = $2 AND state = $3 LIMIT 1`,
+                    `SELECT cc."totalNotTaxed", c.unit 
+                     FROM sinapi_composition_costs cc
+                     JOIN sinapi_compositions c ON c.id = cc."compositionId"
+                     WHERE cc."compositionId" = $1 AND cc."referenceId" = $2 AND cc.state = $3 LIMIT 1`,
                     [item.childCompositionId, refId, uf],
                 );
-                if (cost.length) unitCost = Number(cost[0].totalNotTaxed) || 0;
+                if (cost.length) {
+                    const rawCost = Number(cost[0].totalNotTaxed) || 0;
+                    const childUnit = (cost[0].unit || '').toUpperCase();
+                    if (childUnit === 'MES' || childUnit === 'MÊS') {
+                        // Monthly salary → convert to hourly (220h/month standard)
+                        unitCost = Number((rawCost / 220).toFixed(2));
+                        this.logger.debug(`  ${code}: MES→H R$${rawCost.toFixed(0)}/mês → R$${unitCost}/h`);
+                    } else {
+                        unitCost = rawCost;
+                    }
+                }
             }
 
             try {
