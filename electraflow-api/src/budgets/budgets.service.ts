@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Budget } from './budget.entity';
@@ -233,19 +233,28 @@ export class BudgetsService implements OnModuleInit {
 
             this.logger.debug(`  Item ${code}: unitCost=${unitCost}, coef=${coef}, cat=${costCategory}`);
 
-            const newItem = await this.addItem(budgetId, {
-                sinapiCode: code,
-                sinapiCompositionId: comp[0].id,
-                description: `[${comp[0].code}] ${desc}`,
-                unit,
-                itemType,
-                costCategory,
-                quantity: coef,
-                sinapiCoefficient: coef,
-                unitCost,
-                priceSource: 'sinapi',
-            });
-            addedItems.push(newItem);
+            try {
+                const newItem = await this.addItem(budgetId, {
+                    sinapiCode: code,
+                    sinapiCompositionId: comp[0].id,
+                    description: `[${comp[0].code}] ${desc}`,
+                    unit,
+                    itemType,
+                    costCategory,
+                    quantity: coef,
+                    sinapiCoefficient: coef,
+                    unitCost,
+                    priceSource: 'sinapi',
+                });
+                addedItems.push(newItem);
+            } catch (itemErr) {
+                this.logger.error(`Failed to add item ${code}: ${itemErr.message}`);
+                // Continue with other items instead of failing
+            }
+        }
+
+        if (addedItems.length === 0 && items.length > 0) {
+            throw new BadRequestException(`Não foi possível adicionar nenhum item da composição ${compositionCode}. Verifique os logs.`);
         }
 
         return { composition: comp[0], items: addedItems };
