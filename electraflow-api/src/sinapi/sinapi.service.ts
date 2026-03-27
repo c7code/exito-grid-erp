@@ -494,7 +494,32 @@ export class SinapiService implements OnModuleInit {
         if (search) qb.andWhere('(c.code ILIKE :s OR c.description ILIKE :s)', { s: `%${search}%` });
         qb.orderBy('c.code', 'ASC').skip((page - 1) * limit).take(limit);
         const [items, total] = await qb.getManyAndCount();
-        return { items, total, page, limit };
+
+        // Enrich with prices from latest reference for PE
+        try {
+            const ref = await this.findActiveReference('PE');
+            if (ref && items.length > 0) {
+                const ids = items.map(i => i.id);
+                const costs = await this.compositionCostRepo.createQueryBuilder('cc')
+                    .where('cc."compositionId" IN (:...ids)', { ids })
+                    .andWhere('cc."referenceId" = :refId', { refId: ref.id })
+                    .andWhere('cc.state = :state', { state: 'PE' })
+                    .getMany();
+                const costMap = new Map(costs.map(c => [c.compositionId, c]));
+                const enriched = items.map(item => {
+                    const cost = costMap.get(item.id);
+                    return {
+                        ...item,
+                        price: cost ? Number(cost.totalNotTaxed) : null,
+                        priceTaxed: cost ? Number(cost.totalTaxed) : null,
+                        unitCost: cost ? Number(cost.totalNotTaxed) : null,
+                        type: 'composition',
+                    };
+                });
+                return { items: enriched, total, page, limit };
+            }
+        } catch (e) { /* fallback: return without prices */ }
+        return { items: items.map(i => ({ ...i, type: 'composition' })), total, page, limit };
     }
 
     async findCompositionByCode(code: string) {
