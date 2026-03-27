@@ -97,6 +97,14 @@ export class BudgetsController {
         return this.service.removeItem(itemId);
     }
 
+    // ═══ SEARCH SINAPI (with prices) — Static route ═══
+
+    @Get('search')
+    async searchSinapi(@Query('q') q: string, @Query('state') state?: string) {
+        if (!q || q.length < 2) return [];
+        return this.service.searchSinapi(q, state || 'PE');
+    }
+
     // ═══ BUDGETS CRUD — Dynamic :id routes LAST ═══
 
     @Get()
@@ -138,6 +146,15 @@ export class BudgetsController {
         @Query('state') state?: string,
     ) {
         return this.service.addSinapiComposition(budgetId, compositionCode, state);
+    }
+
+    @Post(':id/input/:code')
+    addSinapiInput(
+        @Param('id') budgetId: string,
+        @Param('code') inputCode: string,
+        @Query('state') state?: string,
+    ) {
+        return this.service.addSinapiInput(budgetId, inputCode, state);
     }
 
     @Post(':id/recalculate')

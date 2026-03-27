@@ -220,6 +220,123 @@ export class BudgetsService implements OnModuleInit {
         await this.recalcTotals(item.budgetId);
         return { deleted: true };
     }
+    // ═══════════════════════════════════════════════════════════
+    // SEARCH SINAPI (with prices!)
+    // ═══════════════════════════════════════════════════════════
+
+    async searchSinapi(search: string, state: string) {
+        const uf = (state || 'PE').toUpperCase();
+        const refRows = await this.dataSource.query(`SELECT id FROM sinapi_references ORDER BY "createdAt" DESC LIMIT 1`);
+        const refId = refRows[0]?.id;
+
+        // Search compositions WITH cost
+        const compositions = await this.dataSource.query(`
+            SELECT c.id, c.code, c.description, c.unit, 'composition' as type,
+                   cc."totalNotTaxed" as price, cc."totalTaxed" as price_taxed
+            FROM sinapi_compositions c
+            LEFT JOIN sinapi_composition_costs cc ON cc."compositionId" = c.id AND cc."referenceId" = $2 AND cc.state = $3
+            WHERE c."isActive" = true AND (c.code ILIKE $1 OR c.description ILIKE $1)
+            ORDER BY c.code ASC LIMIT 15
+        `, [`%${search}%`, refId, uf]);
+
+        // Search inputs WITH price (3-level fallback)
+        const inputs = await this.dataSource.query(`
+            SELECT i.id, i.code, i.description, i.unit, i.type as input_type, 'input' as type,
+                   ip."priceNotTaxed" as price, ip."priceTaxed" as price_taxed
+            FROM sinapi_inputs i
+            LEFT JOIN sinapi_input_prices ip ON ip."inputId" = i.id AND ip."referenceId" = $2 AND ip.state = $3
+            WHERE i.code ILIKE $1 OR i.description ILIKE $1
+            ORDER BY i.code ASC LIMIT 15
+        `, [`%${search}%`, refId, uf]);
+
+        // For inputs without direct price, try avg of other states
+        for (const inp of inputs) {
+            if (!inp.price || Number(inp.price) === 0) {
+                const avg = await this.dataSource.query(
+                    `SELECT AVG("priceNotTaxed"::numeric) as avg_price, COUNT(*) as cnt
+                     FROM sinapi_input_prices WHERE "inputId" = $1 AND "referenceId" = $2 AND "priceNotTaxed"::numeric > 0`,
+                    [inp.id, refId],
+                );
+                if (avg.length && Number(avg[0].avg_price) > 0) {
+                    inp.price = Number(Number(avg[0].avg_price).toFixed(2));
+                    inp.priceSource = `estimado_${avg[0].cnt}_estados`;
+                } else {
+                    inp.priceSource = 'sem_preco';
+                }
+            } else {
+                inp.priceSource = 'sinapi';
+            }
+        }
+
+        return [...compositions, ...inputs];
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // ADD INDIVIDUAL INPUT TO BUDGET
+    // ═══════════════════════════════════════════════════════════
+
+    async addSinapiInput(budgetId: string, inputCode: string, state?: string) {
+        const budget = await this.findOne(budgetId);
+        const uf = state || budget.state || 'PE';
+
+        const refRows = await this.dataSource.query(`SELECT id FROM sinapi_references ORDER BY "createdAt" DESC LIMIT 1`);
+        const refId = refRows[0]?.id;
+
+        const inp = await this.dataSource.query(
+            `SELECT id, code, description, unit, type FROM sinapi_inputs WHERE code = $1`,
+            [inputCode],
+        );
+        if (!inp.length) throw new NotFoundException(`Insumo SINAPI ${inputCode} não encontrado`);
+
+        const input = inp[0];
+        let unitCost = 0;
+        let priceSource = 'sinapi';
+        let priceSuggested = false;
+
+        if (refId) {
+            // Level 1: Direct price
+            const price = await this.dataSource.query(
+                `SELECT "priceNotTaxed" FROM sinapi_input_prices WHERE "inputId" = $1 AND "referenceId" = $2 AND state = $3 LIMIT 1`,
+                [input.id, refId, uf],
+            );
+            if (price.length && Number(price[0].priceNotTaxed) > 0) {
+                unitCost = Number(price[0].priceNotTaxed);
+            } else {
+                // Level 2: Avg other states
+                const avg = await this.dataSource.query(
+                    `SELECT AVG("priceNotTaxed"::numeric) as avg_price, COUNT(*) as cnt
+                     FROM sinapi_input_prices WHERE "inputId" = $1 AND "referenceId" = $2 AND "priceNotTaxed"::numeric > 0`,
+                    [input.id, refId],
+                );
+                if (avg.length && Number(avg[0].avg_price) > 0) {
+                    unitCost = Number(Number(avg[0].avg_price).toFixed(2));
+                    priceSource = `estimado_${avg[0].cnt}_estados`;
+                    priceSuggested = true;
+                }
+            }
+        }
+
+        // Determine category
+        let costCategory = 'material';
+        if (input.type === 'mao_de_obra' || input.type === 'mao de obra') costCategory = 'mao_de_obra';
+        else if (input.type === 'equipamento' || input.type === 'equipamentos') costCategory = 'equipamento';
+
+        const item = await this.addItem(budgetId, {
+            sinapiCode: input.code,
+            description: input.description,
+            unit: input.unit || 'UN',
+            itemType: 'insumo',
+            costCategory,
+            quantity: 1,
+            unitCost,
+            priceSource,
+            parametricData: priceSuggested ? { source: priceSource, isSuggested: true } : null,
+            confidenceLevel: priceSuggested ? 'media' : 'sinapi',
+            suggestedCost: priceSuggested ? unitCost : null,
+        });
+
+        return item;
+    }
 
     // ═══════════════════════════════════════════════════════════
     // ADD SINAPI COMPOSITION — COM MOTOR PARAMÉTRICO
