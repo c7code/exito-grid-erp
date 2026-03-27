@@ -10,9 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
     Calculator, Plus, Trash2, Search, Loader2, DollarSign, Package, Wrench,
-    HardHat, ArrowLeft, Save, Percent, Zap, RefreshCw, Info, ChevronDown, ChevronUp
+    HardHat, ArrowLeft, Save, Percent, Zap, RefreshCw, ChevronDown, ChevronUp
 } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
 
 const UF_LIST = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'];
 const WORK_TYPES = [
