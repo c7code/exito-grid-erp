@@ -102,8 +102,8 @@ export default function Budgets() {
                 api.client.get('/sinapi/compositions', { params: { search: searchQuery, limit: 15 } }),
                 api.client.get('/sinapi/inputs', { params: { search: searchQuery, limit: 15 } }),
             ]);
-            const comps = (compRes.data || []).map((c: any) => ({ ...c, type: 'composition' }));
-            const inputs = (inputRes.data || []).map((i: any) => ({ ...i, type: 'input' }));
+            const comps = (compRes.data?.items || compRes.data || []).map((c: any) => ({ ...c, type: 'composition' }));
+            const inputs = (inputRes.data?.items || inputRes.data || []).map((i: any) => ({ ...i, type: 'input' }));
             setSearchResults([...comps, ...inputs]);
         } catch { toast.error('Erro na busca SINAPI'); }
         finally { setSearching(false); }
