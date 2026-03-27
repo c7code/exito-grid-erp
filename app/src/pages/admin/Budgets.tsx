@@ -113,7 +113,7 @@ export default function Budgets() {
         if (!activeBudget) return;
         try {
             setSaving(true);
-            await api.client.post(`/budgets/${activeBudget.id}/sinapi/${code}`, null, { params: { state: activeBudget.state } });
+            await api.client.post(`/budgets/${activeBudget.id}/sinapi/${code}`, {}, { params: { state: activeBudget.state } });
             toast.success(`Composição ${code} adicionada!`);
             await loadBudget(activeBudget.id);
             setShowSearch(false);
