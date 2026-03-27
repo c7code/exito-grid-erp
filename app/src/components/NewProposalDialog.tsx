@@ -1010,18 +1010,111 @@ export default function NewProposalDialog({
                                                     key={item.id}
                                                     type="button"
                                                     className="w-full text-left px-3 py-2 rounded-md hover:bg-blue-100 transition-colors text-sm border border-transparent hover:border-blue-200"
-                                                    onClick={() => {
+                                                    onClick={async () => {
                                                         const price = Number(item.price || item.unitCost || item.priceNotTaxed || item.totalNotTaxed || 0);
                                                         const isComp = item.type === 'composition';
-                                                        const newItem: ActivityItem = {
-                                                            description: `[SINAPI ${item.code}] ${item.description || ''}`.trim(),
-                                                            serviceType: isComp ? 'service' : 'material',
-                                                            unitPrice: String(price),
-                                                            quantity: '1',
-                                                            unit: item.unit || 'UN',
-                                                        };
-                                                        setItems(prev => [...prev, newItem]);
-                                                        toast.success(`${isComp ? 'Composição' : 'Insumo'} SINAPI ${item.code} adicionado — R$ ${price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+
+                                                        if (isComp) {
+                                                            // ═══ COMPOSIÇÃO → Expandir como Bundle com sub-itens ═══
+                                                            try {
+                                                                setLoadingSinapi(true);
+                                                                const treeRes = await api.client.get(`/sinapi/compositions/${item.code}/tree`, { params: { state: 'PE' } });
+                                                                const tree = treeRes.data?.tree || [];
+                                                                const parentTempId = `sinapi-${item.code}-${Date.now()}`;
+
+                                                                // Parent bundle
+                                                                const parentItem: ActivityItem = {
+                                                                    id: parentTempId,
+                                                                    description: `[SINAPI ${item.code}] ${item.description || ''}`.trim(),
+                                                                    serviceType: 'service',
+                                                                    unitPrice: '0',
+                                                                    quantity: '1',
+                                                                    unit: item.unit || 'UN',
+                                                                    isBundleParent: true,
+                                                                    showDetailedPrices: true,
+                                                                };
+
+                                                                // Flatten tree into children
+                                                                const childItems: ActivityItem[] = [];
+                                                                const flattenTree = (nodes: any[]) => {
+                                                                    for (const node of nodes) {
+                                                                        const coeff = Number(node.coefficient) || 1;
+                                                                        let nodePrice = 0;
+                                                                        let nodeUnit = node.unit || 'UN';
+                                                                        let nodeType: string = 'material';
+
+                                                                        if (node.price) {
+                                                                            // Insumo leaf — use price with monthly→hourly conversion
+                                                                            let rawPrice = Number(node.price?.priceNotTaxed || 0);
+                                                                            if (nodeUnit === 'MES' || nodeUnit === 'MÊS') {
+                                                                                rawPrice = rawPrice / 220;
+                                                                                nodeUnit = 'H';
+                                                                            }
+                                                                            nodePrice = rawPrice * coeff;
+                                                                        } else if (node.compositionCost) {
+                                                                            // Sub-composition
+                                                                            nodePrice = Number(node.compositionCost.totalNotTaxed || 0) * coeff;
+                                                                        } else if (node.subtotal) {
+                                                                            nodePrice = Number(node.subtotal.notTaxed || 0);
+                                                                        }
+
+                                                                        // Determine type from SINAPI input type
+                                                                        if (node.inputType === 'mao_de_obra' || node.inputType === 'labor') {
+                                                                            nodeType = 'service';
+                                                                        } else {
+                                                                            nodeType = 'material';
+                                                                        }
+
+                                                                        if (nodePrice > 0 || node.description) {
+                                                                            childItems.push({
+                                                                                description: `${node.code ? `[${node.code}] ` : ''}${node.description || ''}`.trim(),
+                                                                                serviceType: nodeType,
+                                                                                unitPrice: nodePrice.toFixed(2),
+                                                                                quantity: '1',
+                                                                                unit: nodeUnit,
+                                                                                parentId: parentTempId,
+                                                                            });
+                                                                        }
+                                                                    }
+                                                                };
+
+                                                                flattenTree(tree);
+
+                                                                if (childItems.length > 0) {
+                                                                    setItems(prev => [...prev, parentItem, ...childItems]);
+                                                                    const totalComp = childItems.reduce((s, c) => s + Number(c.unitPrice), 0);
+                                                                    toast.success(`Composição SINAPI ${item.code} expandida com ${childItems.length} sub-itens — Total R$ ${totalComp.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+                                                                } else {
+                                                                    // Fallback: add as single item if tree is empty
+                                                                    setItems(prev => [...prev, { ...parentItem, isBundleParent: false, unitPrice: String(price) }]);
+                                                                    toast.success(`Composição SINAPI ${item.code} adicionada — R$ ${price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+                                                                }
+                                                            } catch (err) {
+                                                                console.error('Erro ao expandir composição:', err);
+                                                                // Fallback: add as simple item
+                                                                setItems(prev => [...prev, {
+                                                                    description: `[SINAPI ${item.code}] ${item.description || ''}`.trim(),
+                                                                    serviceType: 'service',
+                                                                    unitPrice: String(price),
+                                                                    quantity: '1',
+                                                                    unit: item.unit || 'UN',
+                                                                }]);
+                                                                toast.success(`Composição SINAPI ${item.code} adicionada — R$ ${price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+                                                            } finally {
+                                                                setLoadingSinapi(false);
+                                                            }
+                                                        } else {
+                                                            // ═══ INSUMO → Adicionar como item simples ═══
+                                                            const newItem: ActivityItem = {
+                                                                description: `[SINAPI ${item.code}] ${item.description || ''}`.trim(),
+                                                                serviceType: 'material',
+                                                                unitPrice: String(price),
+                                                                quantity: '1',
+                                                                unit: item.unit || 'UN',
+                                                            };
+                                                            setItems(prev => [...prev, newItem]);
+                                                            toast.success(`Insumo SINAPI ${item.code} adicionado — R$ ${price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+                                                        }
                                                         setShowSinapiSearch(false);
                                                     }}
                                                 >
