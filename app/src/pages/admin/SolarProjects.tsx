@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { api } from '@/api';
 import { toast } from 'sonner';
 import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate';
+import { ClientDialog } from '@/components/ClientDialog';
 import html2pdf from 'html2pdf.js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -91,6 +92,7 @@ export default function SolarProjects() {
   const [catalogSearch, setCatalogSearch] = useState('');
   const [catalogResults, setCatalogResults] = useState<any[]>([]);
   const [searchingCatalog, setSearchingCatalog] = useState(false);
+  const [newClientDialogOpen, setNewClientDialogOpen] = useState(false);
 
   // Form state
   const [form, setForm] = useState<any>({
@@ -128,6 +130,21 @@ export default function SolarProjects() {
       setClients(cData.status === 'fulfilled' ? (Array.isArray(cData.value) ? cData.value : (cData.value?.data ?? [])) : []);
       setCompanies(coData.status === 'fulfilled' ? (Array.isArray(coData.value) ? coData.value : []) : []);
     } catch { /* */ } finally { setLoading(false); }
+  };
+
+  // Callback after creating a new client
+  const handleNewClientCreated = async () => {
+    try {
+      const cData = await api.getClients();
+      const list = Array.isArray(cData) ? cData : (cData?.data ?? []);
+      setClients(list);
+      // Auto-select the latest client (last in the list)
+      if (list.length > 0) {
+        const newest = list[list.length - 1];
+        handleClientChange(newest.id);
+        toast.success(`Cliente "${newest.name}" selecionado automaticamente`);
+      }
+    } catch { /* */ }
   };
 
   // ═══ CLIENT AUTO-FILL ═══
@@ -621,13 +638,27 @@ export default function SolarProjects() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Cliente *</Label>
-                  <Select value={form.clientId || '__none__'} onValueChange={handleClientChange}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o cliente..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Selecione...</SelectItem>
-                      {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Select value={form.clientId || '__none__'} onValueChange={handleClientChange}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o cliente..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Selecione...</SelectItem>
+                          {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 h-10 w-10 border-amber-300 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+                      title="Cadastrar novo cliente"
+                      onClick={() => setNewClientDialogOpen(true)}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <Label>Título do Projeto</Label>
@@ -1697,6 +1728,13 @@ export default function SolarProjects() {
             )}
           </div>
         </div>
+
+        {/* Client Dialog also available in wizard */}
+        <ClientDialog
+          open={newClientDialogOpen}
+          onOpenChange={setNewClientDialogOpen}
+          onSuccess={handleNewClientCreated}
+        />
       </div>
     );
   }
@@ -1765,6 +1803,13 @@ export default function SolarProjects() {
           })}
         </div>
       )}
+
+      {/* ═══ NEW CLIENT DIALOG ═══ */}
+      <ClientDialog
+        open={newClientDialogOpen}
+        onOpenChange={setNewClientDialogOpen}
+        onSuccess={handleNewClientCreated}
+      />
     </div>
   );
 }
