@@ -91,7 +91,6 @@ export default function AdminProposals() {
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewProposalData, setPreviewProposalData] = useState<any>(null);
   const [hideFinancialValues, setHideFinancialValues] = useState(false);
-  const [loadingPreview, setLoadingPreview] = useState(false);
 
   useEffect(() => {
     loadProposals();
@@ -234,7 +233,6 @@ export default function AdminProposals() {
   };
 
   const handlePreviewProposal = async (proposal: any) => {
-    setLoadingPreview(true);
     try {
       const freshProposal = await api.getProposal(proposal.id);
       let coData = null;
@@ -246,8 +244,6 @@ export default function AdminProposals() {
       console.warn('Preview failed, using local data:', err);
       setPreviewProposalData(proposal);
       setPreviewDialogOpen(true);
-    } finally {
-      setLoadingPreview(false);
     }
   };
 
@@ -303,7 +299,7 @@ export default function AdminProposals() {
       }
 
       const opt = {
-        margin: [0, 0, 38, 0], // top, left, bottom (1cm ≈ 38px), right
+        margin: [0, 0, 38, 0] as [number, number, number, number], // top, left, bottom (1cm ≈ 38px), right
         filename: `proposta_${proposal.proposalNumber}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
