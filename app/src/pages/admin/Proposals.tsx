@@ -42,6 +42,7 @@ import {
   Pencil,
   Trash2,
   Eye,
+  EyeOff,
   History,
   Receipt,
   Package,
@@ -85,6 +86,12 @@ export default function AdminProposals() {
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(null);
   const [previewRevision, setPreviewRevision] = useState<any>(null);
+
+  // Preview & visibility toggle
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewProposalData, setPreviewProposalData] = useState<any>(null);
+  const [hideFinancialValues, setHideFinancialValues] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   useEffect(() => {
     loadProposals();
@@ -226,6 +233,24 @@ export default function AdminProposals() {
     }
   };
 
+  const handlePreviewProposal = async (proposal: any) => {
+    setLoadingPreview(true);
+    try {
+      const freshProposal = await api.getProposal(proposal.id);
+      let coData = null;
+      try { coData = await api.getPrimaryCompany(); } catch {}
+      setPreviewProposalData(freshProposal);
+      setCompanyData(coData);
+      setPreviewDialogOpen(true);
+    } catch (err) {
+      console.warn('Preview failed, using local data:', err);
+      setPreviewProposalData(proposal);
+      setPreviewDialogOpen(true);
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
   const handleDownloadPDF = async (proposal: any) => {
     toast.info('Gerando PDF profissional...');
 
@@ -278,7 +303,7 @@ export default function AdminProposals() {
       }
 
       const opt = {
-        margin: 0,
+        margin: [0, 0, 38, 0], // top, left, bottom (1cm ≈ 38px), right
         filename: `proposta_${proposal.proposalNumber}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
@@ -492,6 +517,10 @@ export default function AdminProposals() {
                               Ver Revisões
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handlePreviewProposal(proposal)}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              Pré-visualizar
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleDownloadPDF(proposal)}>
                               <Download className="w-4 h-4 mr-2" />
                               Baixar PDF
@@ -860,12 +889,79 @@ export default function AdminProposals() {
         </DialogContent>
       </Dialog>
 
+      {/* ═══ PREVIEW DIALOG ═══ */}
+      <Dialog open={previewDialogOpen} onOpenChange={(open) => {
+        setPreviewDialogOpen(open);
+        if (!open) setPreviewProposalData(null);
+      }}>
+        <DialogContent className="sm:max-w-5xl max-h-[92vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="px-6 pt-5 pb-3 border-b bg-slate-50/80">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
+                  <Eye className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <DialogTitle className="text-lg">Pré-visualização da Proposta</DialogTitle>
+                  <DialogDescription>
+                    {previewProposalData?.proposalNumber} — {previewProposalData?.title}
+                  </DialogDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Toggle de visibilidade de valores */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`text-xs gap-1.5 transition-all ${
+                    hideFinancialValues
+                      ? 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100'
+                      : 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                  }`}
+                  onClick={() => setHideFinancialValues(!hideFinancialValues)}
+                >
+                  {hideFinancialValues ? (
+                    <><EyeOff className="w-3.5 h-3.5" /> Valores Ocultos</>
+                  ) : (
+                    <><Eye className="w-3.5 h-3.5" /> Valores Visíveis</>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  className="text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
+                  onClick={() => {
+                    if (previewProposalData) {
+                      handleDownloadPDF(previewProposalData);
+                    }
+                  }}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Baixar PDF
+                </Button>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto bg-slate-200/60 p-6">
+            <div className="mx-auto shadow-xl rounded-lg overflow-hidden" style={{ maxWidth: 794 }}>
+              {previewProposalData && (
+                <ProposalPDFTemplate
+                  proposal={previewProposalData}
+                  client={previewProposalData.client || previewProposalData.opportunity?.client}
+                  company={companyData}
+                  hideFinancialValues={hideFinancialValues}
+                />
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Hidden container for PDF generation */}
       <div className="fixed -left-[9999px] top-0">
         {proposalToPrint && (
           proposalToPrint.activityType === 'energia_solar' && solarProjectData
             ? <SolarProposalPDFTemplate proposal={proposalToPrint} solarProject={solarProjectData} company={companyData} />
-            : <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} company={companyData} />
+            : <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} company={companyData} hideFinancialValues={hideFinancialValues} />
         )}
       </div>
     </div>

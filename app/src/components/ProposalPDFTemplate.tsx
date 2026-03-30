@@ -4,6 +4,7 @@ interface ProposalPDFTemplateProps {
     proposal: any;
     client?: any;
     company?: any;
+    hideFinancialValues?: boolean;
 }
 
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -72,10 +73,13 @@ const objectiveLabels: Record<string, string> = {
     supply_and_service: 'o fornecimento de materiais e a prestação de serviços',
 };
 
-export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplateProps) {
+export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = false }: ProposalPDFTemplateProps) {
     const items = proposal.items || [];
     const materialItems = items.filter((i: any) => i.serviceType === 'material');
     const serviceItems = items.filter((i: any) => i.serviceType !== 'material');
+
+    // Masked format helper
+    const fmtV = (v: number) => hideFinancialValues ? '•••••' : fmt(v);
 
     const materialSubtotal = materialItems.reduce((s: number, i: any) => s + Number(i.total || i.unitPrice * i.quantity || 0), 0);
     const serviceSubtotal = serviceItems.reduce((s: number, i: any) => s + Number(i.total || i.unitPrice * i.quantity || 0), 0);
@@ -224,12 +228,16 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
 
     return (
         <div id="proposal-pdf-content" className="pdf-section" style={s.page}>
-            {/* Global CSS for page breaks */}
+            {/* Global CSS for page breaks + bottom margin */}
             <style>{`
                 #proposal-pdf-content p,
                 #proposal-pdf-content .pdf-no-break,
                 #proposal-pdf-content table { break-inside: avoid; }
                 #proposal-pdf-content tr { break-inside: avoid; break-after: auto; }
+                @media print {
+                    @page { margin-bottom: 1cm; }
+                }
+                #proposal-pdf-content { padding-bottom: 38px; }
             `}</style>
             {/* ═══ HEADER TIMBRADO ═══ */}
             <div style={s.header}>
@@ -302,51 +310,51 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                             <div style={{ background: '#fafafa', borderRadius: '6px', padding: '16px 20px', border: '1px solid #e5e7eb' }}>
                                 <div style={s.summaryRow}>
                                     <span>Materiais</span>
-                                    <span style={{ fontWeight: 600 }}>R$ {fmt(materialSubtotal)}</span>
+                                    <span style={{ fontWeight: 600 }}>R$ {fmtV(materialSubtotal)}</span>
                                 </div>
                                 <div style={s.summaryRow}>
                                     <span>Serviços</span>
-                                    <span style={{ fontWeight: 600 }}>R$ {fmt(serviceSubtotal)}</span>
+                                    <span style={{ fontWeight: 600 }}>R$ {fmtV(serviceSubtotal)}</span>
                                 </div>
                                 {hasFatItems && (
                                     <div style={s.summaryRow}>
                                         <span>Faturamento Direto</span>
-                                        <span style={{ fontWeight: 600 }}>R$ {fmt(directBillingTotal)}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(directBillingTotal)}</span>
                                     </div>
                                 )}
                                 {showLogistics && (
                                     <div style={s.summaryRow}>
                                         <span>Custo Logístico{proposal.logisticsCostPercent && Number(proposal.logisticsCostPercent) > 0 && <span style={s.costBadge}>{proposal.logisticsCostPercent}%</span>}</span>
-                                        <span style={{ fontWeight: 600 }}>R$ {fmt(logisticsCost)}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(logisticsCost)}</span>
                                     </div>
                                 )}
                                 {showAdmin && (
                                     <div style={s.summaryRow}>
                                         <span>Custo Administrativo{proposal.adminCostPercent && Number(proposal.adminCostPercent) > 0 && <span style={s.costBadge}>{proposal.adminCostPercent}%</span>}</span>
-                                        <span style={{ fontWeight: 600 }}>R$ {fmt(adminCost)}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(adminCost)}</span>
                                     </div>
                                 )}
                                 {showBrokerage && (
                                     <div style={s.summaryRow}>
                                         <span>Corretagem{proposal.brokerageCostPercent && Number(proposal.brokerageCostPercent) > 0 && <span style={s.costBadge}>{proposal.brokerageCostPercent}%</span>}</span>
-                                        <span style={{ fontWeight: 600 }}>R$ {fmt(brokerageCost)}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(brokerageCost)}</span>
                                     </div>
                                 )}
                                 {showInsurance && (
                                     <div style={s.summaryRow}>
                                         <span>Seguro{proposal.insuranceCostPercent && Number(proposal.insuranceCostPercent) > 0 && <span style={s.costBadge}>{proposal.insuranceCostPercent}%</span>}</span>
-                                        <span style={{ fontWeight: 600 }}>R$ {fmt(insuranceCost)}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(insuranceCost)}</span>
                                     </div>
                                 )}
                                 {discount > 0 && (
                                     <div style={{ ...s.summaryRow, color: '#16a34a' }}>
                                         <span>Desconto</span>
-                                        <span style={{ fontWeight: 600 }}>- R$ {fmt(discount)}</span>
+                                        <span style={{ fontWeight: 600 }}>- R$ {fmtV(discount)}</span>
                                     </div>
                                 )}
                                 <div style={s.totalRow}>
                                     <span>VALOR TOTAL DA PROPOSTA</span>
-                                    <span>R$ {fmt(grandTotal)}</span>
+                                    <span>R$ {fmtV(grandTotal)}</span>
                                 </div>
                             </div>
                         </>
@@ -359,7 +367,7 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                 <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                                         <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Custo Logístico</span>
-                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(logisticsCost)}</span>
+                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmtV(logisticsCost)}</span>
                                     </div>
                                     <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
                                         {proposal.logisticsCostDescription || 'Custo referente à mobilização e desmobilização de equipes, transporte de equipamentos especializados, veículos operacionais, combustível, pedágios e logística de campo necessários para a execução dos serviços no local da obra.'}
@@ -370,7 +378,7 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                 <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                                         <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Custo Administrativo</span>
-                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(adminCost)}</span>
+                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmtV(adminCost)}</span>
                                     </div>
                                     <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
                                         {proposal.adminCostDescription || 'Custo referente à gestão administrativa do contrato, incluindo coordenação técnica, controle de qualidade, gestão documental e suporte operacional.'}
@@ -381,7 +389,7 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                 <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                                         <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Corretagem</span>
-                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(brokerageCost)}</span>
+                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmtV(brokerageCost)}</span>
                                     </div>
                                     <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
                                         {proposal.brokerageCostDescription || 'Custo referente a honorários de intermediação comercial e assessoria técnico-comercial.'}
@@ -392,7 +400,7 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                 <div style={{ marginBottom: '14px', padding: '14px 18px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                                         <span style={{ fontWeight: 700, fontSize: '12px', color: '#1e293b' }}>Seguro</span>
-                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmt(insuranceCost)}</span>
+                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#0f172a' }}>R$ {fmtV(insuranceCost)}</span>
                                     </div>
                                     <p style={{ fontSize: '10.5px', color: '#475569', lineHeight: '1.6', margin: 0 }}>
                                         {proposal.insuranceCostDescription || 'Custo referente à contratação de seguro de responsabilidade civil e cobertura de riscos operacionais.'}
@@ -432,14 +440,14 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                                             <td style={s.td}>{item.description}</td>
                                                             <td style={s.td}>{item.unit || 'un'}</td>
                                                             <td style={s.tdRight}>{Number(item.quantity || 1)}</td>
-                                                            <td style={s.tdRight}>R$ {fmt(up)}</td>
-                                                            <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmt(item.total || up * Number(item.quantity || 1))}</td>
+                                                            <td style={s.tdRight}>R$ {fmtV(up)}</td>
+                                                            <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmtV(item.total || up * Number(item.quantity || 1))}</td>
                                                         </tr>
                                                     );
                                                 })}
                                                 <tr>
                                                     <td colSpan={5} style={{ ...s.td, textAlign: 'right', fontWeight: 700, background: '#fafafa' }}>Subtotal Materiais</td>
-                                                    <td style={{ ...s.tdRight, fontWeight: 700, background: '#fafafa', color: '#E8620A' }}>R$ {fmt(materialSubtotal)}</td>
+                                                    <td style={{ ...s.tdRight, fontWeight: 700, background: '#fafafa', color: '#E8620A' }}>R$ {fmtV(materialSubtotal)}</td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -469,14 +477,14 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                                             <td style={s.td}>{item.description}</td>
                                                             <td style={s.td}>{item.unit || 'sv'}</td>
                                                             <td style={s.tdRight}>{Number(item.quantity || 1)}</td>
-                                                            <td style={s.tdRight}>R$ {fmt(up)}</td>
-                                                            <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmt(item.total || up * Number(item.quantity || 1))}</td>
+                                                            <td style={s.tdRight}>R$ {fmtV(up)}</td>
+                                                            <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmtV(item.total || up * Number(item.quantity || 1))}</td>
                                                         </tr>
                                                     );
                                                 })}
                                                 <tr>
                                                     <td colSpan={5} style={{ ...s.td, textAlign: 'right', fontWeight: 700, background: '#fafafa' }}>Subtotal Serviços</td>
-                                                    <td style={{ ...s.tdRight, fontWeight: 700, background: '#fafafa', color: '#E8620A' }}>R$ {fmt(serviceSubtotal)}</td>
+                                                    <td style={{ ...s.tdRight, fontWeight: 700, background: '#fafafa', color: '#E8620A' }}>R$ {fmtV(serviceSubtotal)}</td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -517,8 +525,8 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                                         <td style={{ ...s.td, fontWeight: item.isBundleParent ? 700 : 400 }}>{item.description}</td>
                                                         <td style={s.td}>{item.unit || (type === 'material' ? 'un' : 'sv')}</td>
                                                         <td style={s.tdRight}>{Number(item.quantity || 1)}</td>
-                                                        <td style={s.tdRight}>R$ {fmt(up)}</td>
-                                                        <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmt(item.total || up * Number(item.quantity || 1))}</td>
+                                                        <td style={s.tdRight}>R$ {fmtV(up)}</td>
+                                                        <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmtV(item.total || up * Number(item.quantity || 1))}</td>
                                                     </tr>
                                                     {/* Child items (indented) */}
                                                     {children.map((child: any, ci: number) => (
@@ -527,8 +535,8 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                                             <td style={{ ...s.td, paddingLeft: '20px', color: '#555', fontSize: '9px' }}>↳ {child.description}</td>
                                                             <td style={{ ...s.td, color: '#888', fontSize: '8.5px' }}>{child.unit || (type === 'material' ? 'un' : 'sv')}</td>
                                                             <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>{Number(child.quantity || 1)}</td>
-                                                            <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>R$ {fmt(child.unitPrice)}</td>
-                                                            <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>R$ {fmt(child.total || child.unitPrice * child.quantity)}</td>
+                                                            <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>R$ {fmtV(child.unitPrice)}</td>
+                                                            <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>R$ {fmtV(child.total || child.unitPrice * child.quantity)}</td>
                                                         </tr>
                                                     ))}
                                                 </React.Fragment>
@@ -539,7 +547,7 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                                 Subtotal {type === 'material' ? 'Materiais' : 'Serviços'}
                                             </td>
                                             <td style={{ ...s.tdRight, fontWeight: 700, background: '#fafafa', color: '#E8620A' }}>
-                                                R$ {fmt(type === 'material' ? materialSubtotal : serviceSubtotal)}
+                                                R$ {fmtV(type === 'material' ? materialSubtotal : serviceSubtotal)}
                                             </td>
                                         </tr>
                                     </tbody>
@@ -635,8 +643,8 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                                 <td style={s.td}>{item.description}</td>
                                                 <td style={s.td}>{item.unit || (type === 'material' ? 'un' : 'sv')}</td>
                                                 <td style={s.tdRight}>{Number(item.quantity)}</td>
-                                                <td style={s.tdRight}>R$ {fmt(up)}</td>
-                                                <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmt(item.total)}</td>
+                                                <td style={s.tdRight}>R$ {fmtV(up)}</td>
+                                                <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmtV(item.total)}</td>
                                             </tr>
                                         );
                                     })}
@@ -644,7 +652,7 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                         <td colSpan={5} style={{ ...s.td, textAlign: 'right', fontWeight: 700, background: '#fafafa' }}>
                                             Subtotal {type === 'material' ? 'Materiais' : 'Serviços'}
                                         </td>
-                                        <td style={{ ...s.tdRight, fontWeight: 700, background: '#fafafa', color: '#E8620A' }}>R$ {fmt(subtotal)}</td>
+                                        <td style={{ ...s.tdRight, fontWeight: 700, background: '#fafafa', color: '#E8620A' }}>R$ {fmtV(subtotal)}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -715,42 +723,42 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                 {hasFatItems && (
                                     <div style={s.summaryRow}>
                                         <span>Faturamento Direto</span>
-                                        <span style={{ fontWeight: 600 }}>R$ {fmt(directBillingTotal)}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(directBillingTotal)}</span>
                                     </div>
                                 )}
                                 {showLogistics && (
                                     <div style={s.summaryRow}>
                                         <span>Custo Logístico{proposal.logisticsCostPercent && Number(proposal.logisticsCostPercent) > 0 && <span style={s.costBadge}>{proposal.logisticsCostPercent}%</span>}</span>
-                                        <span style={{ fontWeight: 600 }}>R$ {fmt(logisticsCost)}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(logisticsCost)}</span>
                                     </div>
                                 )}
                                 {showAdmin && (
                                     <div style={s.summaryRow}>
                                         <span>Custo Administrativo{proposal.adminCostPercent && Number(proposal.adminCostPercent) > 0 && <span style={s.costBadge}>{proposal.adminCostPercent}%</span>}</span>
-                                        <span style={{ fontWeight: 600 }}>R$ {fmt(adminCost)}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(adminCost)}</span>
                                     </div>
                                 )}
                                 {showBrokerage && (
                                     <div style={s.summaryRow}>
                                         <span>Corretagem{proposal.brokerageCostPercent && Number(proposal.brokerageCostPercent) > 0 && <span style={s.costBadge}>{proposal.brokerageCostPercent}%</span>}</span>
-                                        <span style={{ fontWeight: 600 }}>R$ {fmt(brokerageCost)}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(brokerageCost)}</span>
                                     </div>
                                 )}
                                 {showInsurance && (
                                     <div style={s.summaryRow}>
                                         <span>Seguro{proposal.insuranceCostPercent && Number(proposal.insuranceCostPercent) > 0 && <span style={s.costBadge}>{proposal.insuranceCostPercent}%</span>}</span>
-                                        <span style={{ fontWeight: 600 }}>R$ {fmt(insuranceCost)}</span>
+                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(insuranceCost)}</span>
                                     </div>
                                 )}
                                 {discount > 0 && (
                                     <div style={{ ...s.summaryRow, color: '#16a34a' }}>
                                         <span>Desconto</span>
-                                        <span style={{ fontWeight: 600 }}>- R$ {fmt(discount)}</span>
+                                        <span style={{ fontWeight: 600 }}>- R$ {fmtV(discount)}</span>
                                     </div>
                                 )}
                                 <div style={s.totalRow}>
                                     <span>{totalLabel.toUpperCase()}</span>
-                                    <span>R$ {fmt(grandTotal)}</span>
+                                    <span>R$ {fmtV(grandTotal)}</span>
                                 </div>
                             </div>
 
@@ -803,14 +811,14 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                                 <td style={s.td}>{fi.supplierCnpj || '—'}</td>
                                                 <td style={s.td}>{fi.material || '—'}</td>
                                                 <td style={s.tdRight}>{q}</td>
-                                                <td style={s.tdRight}>R$ {fmt(p)}</td>
-                                                <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmt(t)}</td>
+                                                <td style={s.tdRight}>R$ {fmtV(p)}</td>
+                                                <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmtV(t)}</td>
                                             </tr>
                                         );
                                     })}
                                     <tr>
                                         <td colSpan={6} style={{ ...s.td, textAlign: 'right', fontWeight: 700, background: '#f0f9ff' }}>Total Faturamento Direto</td>
-                                        <td style={{ ...s.tdRight, fontWeight: 700, background: '#f0f9ff', color: '#1d4ed8' }}>R$ {fmt(fatTotal)}</td>
+                                        <td style={{ ...s.tdRight, fontWeight: 700, background: '#f0f9ff', color: '#1d4ed8' }}>R$ {fmtV(fatTotal)}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -910,7 +918,7 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                             {sel.entry > 0 && (
                                                 <tr>
                                                     <td style={s.td}>Investimento Inicial (Entrada via PIX/Transferência)</td>
-                                                    <td style={{ ...s.tdRight, fontWeight: 700, color: '#E8620A' }}>R$ {fmt(sel.entry)}</td>
+                                                    <td style={{ ...s.tdRight, fontWeight: 700, color: '#E8620A' }}>R$ {fmtV(sel.entry)}</td>
                                                 </tr>
                                             )}
                                             {sel.installmentAmount > 0 && (
@@ -918,19 +926,19 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                                     <td style={s.td}>
                                                         {sel.installments}x parcelas {sel.frequency === 1 ? 'mensais' : sel.frequency === 2 ? 'bimestrais' : 'trimestrais'}
                                                     </td>
-                                                    <td style={{ ...s.tdRight, fontWeight: 700 }}>R$ {fmt(sel.installmentAmount)}</td>
+                                                    <td style={{ ...s.tdRight, fontWeight: 700 }}>R$ {fmtV(sel.installmentAmount)}</td>
                                                 </tr>
                                             )}
                                             {sel.correctionAmount > 0 && (
                                                 <tr>
                                                     <td style={{ ...s.td, color: '#666' }}>Correção monetária</td>
-                                                    <td style={{ ...s.tdRight, color: '#666' }}>R$ {fmt(sel.correctionAmount)}</td>
+                                                    <td style={{ ...s.tdRight, color: '#666' }}>R$ {fmtV(sel.correctionAmount)}</td>
                                                 </tr>
                                             )}
                                             <tr style={{ background: '#fafafa' }}>
                                                 <td style={{ ...s.td, fontWeight: 800, fontSize: '11px', borderTop: '2px solid #E8620A' }}>TOTAL DO INVESTIMENTO</td>
                                                 <td style={{ ...s.tdRight, fontWeight: 800, fontSize: '13px', color: '#E8620A', borderTop: '2px solid #E8620A' }}>
-                                                    R$ {fmt(sel.totalClient)}
+                                                    R$ {fmtV(sel.totalClient)}
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -957,9 +965,9 @@ export function ProposalPDFTemplate({ proposal, company }: ProposalPDFTemplatePr
                                                     <p style={{ fontSize: '10px', fontWeight: 700, color: '#E8620A', margin: '0 0 6px 0', textTransform: 'uppercase' as const, letterSpacing: '0.5px' }}>
                                                         {alt.commercialName}
                                                     </p>
-                                                    {alt.entry > 0 && <p style={{ fontSize: '9px', color: '#555', margin: '0 0 2px 0' }}>▸ Entrada: R$ {fmt(alt.entry)}</p>}
-                                                    {alt.installmentAmount > 0 && <p style={{ fontSize: '9px', color: '#555', margin: '0 0 2px 0' }}>▸ {alt.installments}x de R$ {fmt(alt.installmentAmount)}</p>}
-                                                    <p style={{ fontSize: '11px', fontWeight: 700, color: '#1a1a1a', margin: '6px 0 0 0' }}>Total: R$ {fmt(alt.totalClient)}</p>
+                                                    {alt.entry > 0 && <p style={{ fontSize: '9px', color: '#555', margin: '0 0 2px 0' }}>▸ Entrada: R$ {fmtV(alt.entry)}</p>}
+                                                    {alt.installmentAmount > 0 && <p style={{ fontSize: '9px', color: '#555', margin: '0 0 2px 0' }}>▸ {alt.installments}x de R$ {fmtV(alt.installmentAmount)}</p>}
+                                                    <p style={{ fontSize: '11px', fontWeight: 700, color: '#1a1a1a', margin: '6px 0 0 0' }}>Total: R$ {fmtV(alt.totalClient)}</p>
                                                 </div>
                                             ))}
                                         </div>
