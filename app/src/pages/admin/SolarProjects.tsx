@@ -66,7 +66,7 @@ const createEmptyKit = (name: string, isRecommended: boolean, equipment: any[] =
   laborCost: 0, installationCost: 0, otherCosts: 0, margin: 15, totalPrice: 0,
 });
 
-const EQUIPMENT_TYPES = [
+const DEFAULT_EQUIPMENT_TYPES = [
   { value: 'module', label: 'Módulo Solar' },
   { value: 'inverter', label: 'Inversor' },
   { value: 'structure', label: 'Estrutura de Fixação' },
@@ -93,6 +93,8 @@ export default function SolarProjects() {
   const [catalogResults, setCatalogResults] = useState<any[]>([]);
   const [searchingCatalog, setSearchingCatalog] = useState(false);
   const [newClientDialogOpen, setNewClientDialogOpen] = useState(false);
+  const [customEquipmentTypes, setCustomEquipmentTypes] = useState<{value: string; label: string}[]>([]);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
 
   // Form state
   const [form, setForm] = useState<any>({
@@ -1211,7 +1213,51 @@ export default function SolarProjects() {
                           <td className="px-2 py-1.5">
                             <Select value={eq.type} onValueChange={v => updateEquipment(i, 'type', v)}>
                               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                              <SelectContent>{EQUIPMENT_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                              <SelectContent>
+                                {[...DEFAULT_EQUIPMENT_TYPES, ...customEquipmentTypes].map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                                <div className="border-t mt-1 pt-1 px-2 pb-1">
+                                  <div className="flex gap-1">
+                                    <Input
+                                      className="h-7 text-xs flex-1"
+                                      placeholder="Nova categoria..."
+                                      value={newCategoryInput}
+                                      onChange={e => setNewCategoryInput(e.target.value)}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter' && newCategoryInput.trim()) {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          const val = newCategoryInput.trim().toLowerCase().replace(/\s+/g, '_');
+                                          if (![...DEFAULT_EQUIPMENT_TYPES, ...customEquipmentTypes].find(t => t.value === val)) {
+                                            setCustomEquipmentTypes(prev => [...prev, { value: val, label: newCategoryInput.trim() }]);
+                                            updateEquipment(i, 'type', val);
+                                          }
+                                          setNewCategoryInput('');
+                                        }
+                                      }}
+                                    />
+                                    <Button
+                                      type="button"
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-7 w-7 shrink-0 text-amber-600 hover:bg-amber-50"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (newCategoryInput.trim()) {
+                                          const val = newCategoryInput.trim().toLowerCase().replace(/\s+/g, '_');
+                                          if (![...DEFAULT_EQUIPMENT_TYPES, ...customEquipmentTypes].find(t => t.value === val)) {
+                                            setCustomEquipmentTypes(prev => [...prev, { value: val, label: newCategoryInput.trim() }]);
+                                            updateEquipment(i, 'type', val);
+                                          }
+                                          setNewCategoryInput('');
+                                        }
+                                      }}
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </SelectContent>
                             </Select>
                           </td>
                           <td className="px-2 py-1.5"><Input className="h-8 text-xs" value={eq.description} onChange={e => updateEquipment(i, 'description', e.target.value)} /></td>
