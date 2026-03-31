@@ -202,8 +202,8 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
         darkBarText: { color: '#E8620A', fontSize: '12px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' as const },
         darkBarRef: { color: '#888', fontSize: '9px' },
         body: { padding: '30px 36px' } as React.CSSProperties,
-        sectionTitle: { fontSize: '11px', fontWeight: '800', color: '#E8620A', textTransform: 'uppercase' as const, letterSpacing: '2px', borderBottom: '2px solid #E8620A', paddingBottom: '6px', marginTop: '28px', marginBottom: '14px', breakInside: 'avoid' as const, breakAfter: 'avoid' as const } as React.CSSProperties,
-        clauseHeading: { fontSize: '10.5px', fontWeight: '700', color: '#1a1a1a', margin: '16px 0 6px', breakInside: 'avoid' as const, breakAfter: 'avoid' as const } as React.CSSProperties,
+        sectionTitle: { fontSize: '11px', fontWeight: '800', color: '#E8620A', textTransform: 'uppercase' as const, letterSpacing: '2px', borderBottom: '2px solid #E8620A', paddingBottom: '6px', marginTop: '28px', marginBottom: '14px' } as React.CSSProperties,
+        clauseHeading: { fontSize: '10.5px', fontWeight: '700', color: '#1a1a1a', margin: '16px 0 6px' } as React.CSSProperties,
         para: { fontSize: '10px', textAlign: 'justify' as const, margin: '6px 0', color: '#2d2d2d', lineHeight: '1.6' } as React.CSSProperties,
         table: { width: '100%', borderCollapse: 'collapse' as const, marginTop: '10px', marginBottom: '16px' } as React.CSSProperties,
         th: { background: '#f1f5f9', padding: '8px 10px', fontSize: '9px', fontWeight: '700', textTransform: 'uppercase' as const, color: '#444', borderBottom: '2px solid #ddd', textAlign: 'left' as const } as React.CSSProperties,
@@ -215,7 +215,7 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
         costBadge: { display: 'inline-block', background: '#FFF7ED', border: '1px solid #FDBA74', color: '#C2410C', fontSize: '7px', fontWeight: '700', padding: '2px 6px', borderRadius: '3px', marginLeft: '6px' } as React.CSSProperties,
         listItem: { fontSize: '9.5px', color: '#2d2d2d', padding: '3px 0', paddingLeft: '12px', position: 'relative' as const } as React.CSSProperties,
         bullet: { position: 'absolute' as const, left: 0, color: '#E8620A', fontWeight: '700' } as React.CSSProperties,
-        complianceBox: { background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', padding: '16px 20px', margin: '14px 0', breakInside: 'avoid' as const } as React.CSSProperties,
+        complianceBox: { background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', padding: '16px 20px', margin: '14px 0' } as React.CSSProperties,
         complianceTitle: { fontSize: '10px', fontWeight: '700', color: '#166534', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' } as React.CSSProperties,
         sigArea: { display: 'flex', justifyContent: 'space-between', gap: '60px', marginTop: '40px', paddingTop: '20px', breakInside: 'avoid' as const } as React.CSSProperties,
         sigBox: { flex: 1, textAlign: 'center' as const } as React.CSSProperties,
@@ -228,10 +228,15 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
 
     return (
         <div id="proposal-pdf-content" className="pdf-section" style={s.page}>
-            {/* Global CSS for page breaks + bottom margin */}
+            {/* Global CSS for page breaks + content fragmentation */}
             <style>{`
                 #proposal-pdf-content tr { break-inside: avoid; break-after: auto; }
                 #proposal-pdf-content .sig-block { break-inside: avoid; }
+                #proposal-pdf-content .pdf-keep-together { break-inside: avoid; }
+                #proposal-pdf-content .pdf-section-title { break-inside: avoid; break-after: avoid; }
+                #proposal-pdf-content .pdf-fragmentable { break-inside: auto; }
+                #proposal-pdf-content .pdf-fragmentable > div,
+                #proposal-pdf-content .pdf-fragmentable > p { break-inside: auto; }
                 @media print {
                     @page { margin-bottom: 1cm; }
                 }
@@ -829,7 +834,7 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                     const n = (materialItems.length > 0 ? 1 : 0) + (serviceItems.length > 0 ? 1 : 0) + 4 + (hasFatItems ? 1 : 0);
                     return (
                         <>
-                            <div style={s.sectionTitle}>{n}. Prazo de Execução</div>
+                            <div className="pdf-section-title" style={s.sectionTitle}>{n}. Prazo de Execução</div>
                             <p style={s.para}>
                                 {proposal.workDeadlineDays
                                     ? `O prazo estimado para execução completa dos serviços é de ${proposal.workDeadlineDays} (${numberToWords(proposal.workDeadlineDays)}) ${deadlineTypeLabel}, ${proposal.workDeadlineText || 'contados a partir da data de aprovação desta proposta e efetiva liberação do local.'}`
@@ -881,7 +886,7 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
 
                         return (
                             <>
-                                <div style={s.sectionTitle}>{n}. Condições de Pagamento</div>
+                                <div className="pdf-section-title" style={s.sectionTitle}>{n}. Condições de Pagamento</div>
 
                                 {/* Persuasive intro */}
                                 <p style={s.para}>
@@ -985,7 +990,7 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                     // ═══ FALLBACK: plain text payment conditions ═══
                     return (
                         <>
-                            <div style={s.sectionTitle}>{n}. Condições de Pagamento</div>
+                            <div className="pdf-section-title" style={s.sectionTitle}>{n}. Condições de Pagamento</div>
                             <p style={s.para}>
                                 {proposal.paymentConditions || proposal.paymentDueCondition || 'Conforme condições acordadas entre as partes.'}
                             </p>
@@ -1004,7 +1009,8 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                     const n = (materialItems.length > 0 ? 1 : 0) + (serviceItems.length > 0 ? 1 : 0) + 6;
                     return (
                         <>
-                            <div style={s.sectionTitle}>{n}. Obrigações da CONTRATADA</div>
+                            <div className="pdf-section-title" style={s.sectionTitle}>{n}. Obrigações da CONTRATADA</div>
+                            <div className="pdf-fragmentable">
                             {proposal.contractorObligations
                                 ? renderStructuredText(proposal.contractorObligations, s.para)
                                 : contractorObs.map((ob: string, i: number) => (
@@ -1014,6 +1020,7 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                                     </div>
                                 ))
                             }
+                            </div>
                         </>
                     );
                 })()}
@@ -1023,7 +1030,8 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                     const n = (materialItems.length > 0 ? 1 : 0) + (serviceItems.length > 0 ? 1 : 0) + 7;
                     return (
                         <>
-                            <div style={s.sectionTitle}>{n}. Obrigações do CONTRATANTE</div>
+                            <div className="pdf-section-title" style={s.sectionTitle}>{n}. Obrigações do CONTRATANTE</div>
+                            <div className="pdf-fragmentable">
                             {proposal.clientObligations
                                 ? renderStructuredText(proposal.clientObligations, s.para)
                                 : clientObs.map((ob: string, i: number) => (
@@ -1033,6 +1041,7 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                                     </div>
                                 ))
                             }
+                            </div>
                         </>
                     );
                 })()}
@@ -1042,7 +1051,7 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                     const n = (materialItems.length > 0 ? 1 : 0) + (serviceItems.length > 0 ? 1 : 0) + 8;
                     return (
                         <>
-                            <div style={s.sectionTitle}>{n}. Conformidade Normativa e Segurança</div>
+                            <div className="pdf-section-title" style={s.sectionTitle}>{n}. Conformidade Normativa e Segurança</div>
                             <div style={s.complianceBox}>
                                 <div style={s.complianceTitle}>
                                     <span style={{ fontSize: '14px' }}>✓</span>
@@ -1059,7 +1068,8 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                     const n = (materialItems.length > 0 ? 1 : 0) + (serviceItems.length > 0 ? 1 : 0) + 9;
                     return (
                         <>
-                            <div style={s.sectionTitle}>{n}. Disposições Gerais</div>
+                            <div className="pdf-section-title" style={s.sectionTitle}>{n}. Disposições Gerais</div>
+                            <div className="pdf-fragmentable">
                             {proposal.generalProvisions
                                 ? renderStructuredText(proposal.generalProvisions, s.para)
                                 : generalProv.map((p: string, i: number) => (
@@ -1069,6 +1079,7 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                                     </div>
                                 ))
                             }
+                            </div>
                         </>
                     );
                 })()}

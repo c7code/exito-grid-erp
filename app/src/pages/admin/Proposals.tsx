@@ -304,7 +304,7 @@ export default function AdminProposals() {
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
         jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
-        pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', '.sig-block'] },
+        pagebreak: { mode: ['css'], avoid: ['tr', '.sig-block', '.pdf-keep-together', '.pdf-section-title'] },
       };
 
       html2pdf().from(element).set(opt).save().then(() => {
