@@ -230,10 +230,8 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
         <div id="proposal-pdf-content" className="pdf-section" style={s.page}>
             {/* Global CSS for page breaks + bottom margin */}
             <style>{`
-                #proposal-pdf-content p,
-                #proposal-pdf-content .pdf-no-break,
-                #proposal-pdf-content table { break-inside: avoid; }
                 #proposal-pdf-content tr { break-inside: avoid; break-after: auto; }
+                #proposal-pdf-content .sig-block { break-inside: avoid; }
                 @media print {
                     @page { margin-bottom: 1cm; }
                 }
@@ -1100,7 +1098,7 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                     </p>
                 </div>
 
-                <div style={s.sigArea}>
+                <div className="sig-block" style={s.sigArea}>
                     <div style={s.sigBox}>
                         <div style={s.sigLine}>{empresa.nome}</div>
                         <div style={s.sigSub}>CNPJ: {empresa.cnpj}</div>
