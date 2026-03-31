@@ -90,24 +90,41 @@ export class SolarService {
     }
 
     async create(data: Partial<SolarProject>): Promise<SolarProject> {
-        const code = await this.generateCode();
         const sanitized = this.sanitizeData(data);
-        const project = this.solarRepo.create({ ...sanitized, code });
 
-        // Auto-fill from client
-        if (data.clientId) {
-            const client = await this.clientRepo.findOne({ where: { id: data.clientId } });
-            if (client) {
-                project.concessionaria = project.concessionaria || client.concessionaria || '';
-                project.propertyAddress = project.propertyAddress || client.address || '';
-                project.propertyCity = project.propertyCity || client.city || '';
-                project.propertyState = project.propertyState || client.state || '';
-                if (!project.consumptionKwh && client.consumptionKwh) {
-                    project.consumptionKwh = client.consumptionKwh;
+        // Retry logic to handle race conditions on unique code
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const code = await this.generateCode();
+            const project = this.solarRepo.create({ ...sanitized, code });
+
+            // Auto-fill from client
+            if (data.clientId) {
+                const client = await this.clientRepo.findOne({ where: { id: data.clientId } });
+                if (client) {
+                    project.concessionaria = project.concessionaria || client.concessionaria || '';
+                    project.propertyAddress = project.propertyAddress || client.address || '';
+                    project.propertyCity = project.propertyCity || client.city || '';
+                    project.propertyState = project.propertyState || client.state || '';
+                    if (!project.consumptionKwh && client.consumptionKwh) {
+                        project.consumptionKwh = client.consumptionKwh;
+                    }
                 }
+            }
+
+            try {
+                return await this.solarRepo.save(project);
+            } catch (err: any) {
+                if (err?.code === '23505' && err?.detail?.includes('code')) {
+                    this.logger.warn(`Code collision on "${code}", retrying (attempt ${attempt + 1})...`);
+                    continue;
+                }
+                throw err;
             }
         }
 
+        // Final fallback: timestamp-based code
+        const fallbackCode = `PV-${Date.now().toString(36).toUpperCase()}`;
+        const project = this.solarRepo.create({ ...sanitized, code: fallbackCode });
         return this.solarRepo.save(project);
     }
 

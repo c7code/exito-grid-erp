@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '@/api';
 import { toast } from 'sonner';
 import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate';
@@ -86,6 +86,7 @@ export default function SolarProjects() {
   const [currentProject, setCurrentProject] = useState<any>(null);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false); // Guard against concurrent saves
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [showPdfRender, setShowPdfRender] = useState(false);
   const [pdfCompanyData, setPdfCompanyData] = useState<any>(null);
@@ -235,7 +236,16 @@ export default function SolarProjects() {
   };
 
   // ═══ SAVE / UPDATE ═══
-  const handleSave = async (silent = false) => {
+  const handleSave = async (silent = false): Promise<boolean> => {
+    // Guard against concurrent saves (race condition when clicking 'Next' rapidly)
+    if (savingRef.current) {
+      // Wait for the current save to finish instead of starting a new one
+      while (savingRef.current) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      return true; // Previous save succeeded
+    }
+    savingRef.current = true;
     setSaving(true);
     try {
       const payload = { ...form };
@@ -256,8 +266,14 @@ export default function SolarProjects() {
         setCurrentProject(created);
         if (!silent) toast.success('Projeto criado!');
       }
-    } catch (e: any) { toast.error(e?.response?.data?.message || 'Erro ao salvar'); }
-    finally { setSaving(false); }
+      return true;
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Erro ao salvar');
+      return false;
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   };
 
   // ═══ DIMENSIONING ═══
@@ -560,10 +576,11 @@ export default function SolarProjects() {
 
   // ═══ NAVIGATION ═══
   const goNext = async () => {
+    if (saving) return; // Prevent double-click
     if (step === 0 && !form.clientId) { toast.error('Selecione um cliente'); return; }
     if (step === 1 && !Number(form.consumptionKwh)) { toast.error('Informe o consumo mensal'); return; }
-    await handleSave(true);
-    setStep(s => Math.min(s + 1, STEPS.length - 1));
+    const ok = await handleSave(true);
+    if (ok) setStep(s => Math.min(s + 1, STEPS.length - 1));
   };
 
   const goPrev = () => setStep(s => Math.max(s - 1, 0));
