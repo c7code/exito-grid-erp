@@ -75,6 +75,8 @@ const AVAILABLE_MODULES = [
     { id: 'daily-logs', label: 'Diário de Obra' },
     { id: 'service-orders', label: 'Ordens de Serviço' },
     { id: 'structures', label: 'Estruturas' },
+    { id: 'sinapi', label: 'SINAPI' },
+    { id: 'budgets', label: 'Orçamentos' },
     { id: 'catalog', label: 'Produtos & Estoque' },
     { id: 'inventory', label: 'Almoxarifado' },
     { id: 'suppliers', label: 'Fornecedores' },
