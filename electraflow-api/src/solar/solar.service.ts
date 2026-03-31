@@ -382,8 +382,30 @@ export class SolarService {
     // ═══════════════════════════════════════════════════════════════
 
     private async generateCode(): Promise<string> {
-        const count = await this.solarRepo.count();
-        return `PV-${String(count + 1).padStart(4, '0')}`;
+        // Find the highest existing code number, INCLUDING soft-deleted records
+        const result = await this.solarRepo
+            .createQueryBuilder('sp')
+            .withDeleted()  // include soft-deleted so we never reuse a code
+            .select("MAX(CAST(REPLACE(sp.code, 'PV-', '') AS INTEGER))", 'maxNum')
+            .getRawOne();
+
+        const nextNum = (result?.maxNum || 0) + 1;
+        const code = `PV-${String(nextNum).padStart(4, '0')}`;
+
+        // Double-check: if this code somehow exists, keep incrementing
+        const exists = await this.solarRepo
+            .createQueryBuilder('sp')
+            .withDeleted()
+            .where('sp.code = :code', { code })
+            .getCount();
+
+        if (exists > 0) {
+            // Fallback: use timestamp-based unique code
+            const ts = Date.now().toString(36).toUpperCase();
+            return `PV-${ts}`;
+        }
+
+        return code;
     }
 
     getHspTable(): Record<string, number> {
