@@ -35,6 +35,7 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
   const [filterTipo, setFilterTipo] = useState('todos');
   const [checklist, setChecklist] = useState<any[]>([]);
   const [newCheckItem, setNewCheckItem] = useState('');
+  const [displayMode, setDisplayMode] = useState<'com_valor' | 'sem_valor' | 'texto'>('com_valor');
 
   const getClientName = (id: string) => { const c = clients.find((c: any) => c.id === id); return c?.name || c?.razaoSocial || '—'; };
 
@@ -49,6 +50,7 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
   const handleNew = (tipo: string = 'preventiva') => {
     setEditingId(null);
     setForm({ ...emptyServico, tipo });
+    setDisplayMode('com_valor');
     loadChecklist(tipo);
     setDialogOpen(true);
   };
@@ -57,7 +59,9 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
     if (!form.usinaId) { toast.error('Selecione uma usina'); return; }
     if (!form.clienteId) { toast.error('Selecione um cliente'); return; }
     try {
-      const data = { ...form, checklist: JSON.stringify(checklist) };
+      // Salvar displayMode em cada item do checklist
+      const clWithMode = checklist.map(c => ({ ...c, displayMode }));
+      const data = { ...form, checklist: JSON.stringify(clWithMode) };
       if (!data.valorEstimado) data.valorEstimado = null;
       if (!data.dataAgendada) data.dataAgendada = null;
       if (editingId) { await api.updateOemServico(editingId, data); toast.success('Serviço atualizado'); }
@@ -70,6 +74,7 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
     setEditingId(s.id);
     const cl = s.checklist ? (typeof s.checklist === 'string' ? JSON.parse(s.checklist) : s.checklist) : [];
     setChecklist(cl);
+    setDisplayMode(cl.length > 0 ? (cl[0].displayMode || 'com_valor') : 'com_valor');
     setForm({
       tipo: s.tipo, usinaId: s.usinaId || '', clienteId: s.clienteId || '',
       prioridade: s.prioridade || 'normal', descricao: s.descricao || '',
@@ -265,46 +270,55 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
                   <ClipboardList className="w-4 h-4 text-slate-600" />
                   <h3 className="font-semibold text-sm text-slate-700">Checklist — {TIPO_LABELS[form.tipo] || form.tipo}</h3>
                 </div>
-                {checklist.length > 0 && (() => {
-                  const total = checklist.reduce((s: number, c: any) => s + (Number(c.percentual) || 0), 0);
-                  return <Badge variant="outline" className={total === 100 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}>{total}%</Badge>;
-                })()}
+                <div className="flex items-center gap-1">
+                  {checklist.length > 0 && (() => {
+                    const hasPercent = checklist.some((c: any) => c.inputMode === 'percentual' || (!c.inputMode && c.percentual));
+                    if (!hasPercent) return null;
+                    const total = checklist.filter((c: any) => !c.inputMode || c.inputMode === 'percentual').reduce((s: number, c: any) => s + (Number(c.percentual) || 0), 0);
+                    return <Badge variant="outline" className={`mr-2 ${total === 100 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>{total}%</Badge>;
+                  })()}
+                  {/* Modo de exibição GLOBAL */}
+                  <div className="flex rounded-md border border-slate-200 overflow-hidden text-xs">
+                    <button type="button" onClick={() => setDisplayMode('com_valor')} className={`px-2 py-1 transition-colors ${displayMode === 'com_valor' ? 'bg-green-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>💰 Com valor</button>
+                    <button type="button" onClick={() => setDisplayMode('sem_valor')} className={`px-2 py-1 border-x border-slate-200 transition-colors ${displayMode === 'sem_valor' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>📋 Sem valor</button>
+                    <button type="button" onClick={() => setDisplayMode('texto')} className={`px-2 py-1 transition-colors ${displayMode === 'texto' ? 'bg-purple-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>📝 Texto</button>
+                  </div>
+                </div>
               </div>
               {checklist.map((item: any, idx: number) => (
                 <div key={idx} className="flex items-center gap-2 group bg-white rounded-md p-1.5 border border-slate-100">
                   <Checkbox checked={item.checked} onCheckedChange={() => toggleCheckItem(idx)} />
                   <span className={`text-sm flex-1 min-w-0 truncate ${item.checked ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.item}</span>
+                  {/* Toggle entre % e R$ */}
+                  <button
+                    type="button"
+                    onClick={() => { const updated = [...checklist]; updated[idx] = { ...updated[idx], inputMode: item.inputMode === 'valor' ? 'percentual' : 'valor' }; setChecklist(updated); }}
+                    className="text-xs px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 hover:bg-slate-100 shrink-0 w-7 text-center font-medium text-slate-500"
+                    title={item.inputMode === 'valor' ? 'Clique para mudar para %' : 'Clique para mudar para R$'}
+                  >
+                    {item.inputMode === 'valor' ? 'R$' : '%'}
+                  </button>
                   <Input
-                    type="number" min="0" max="100" step="1"
-                    value={item.percentual ?? ''}
-                    onChange={e => { const updated = [...checklist]; updated[idx] = { ...updated[idx], percentual: Number(e.target.value) || 0 }; setChecklist(updated); }}
-                    className="w-16 h-7 text-xs text-center"
-                    title="Peso (%)"
-                    placeholder="%"
+                    type="number" min="0" step={item.inputMode === 'valor' ? '0.01' : '1'}
+                    value={item.inputMode === 'valor' ? (item.valorDireto ?? '') : (item.percentual ?? '')}
+                    onChange={e => {
+                      const updated = [...checklist];
+                      if (item.inputMode === 'valor') {
+                        updated[idx] = { ...updated[idx], valorDireto: Number(e.target.value) || 0 };
+                      } else {
+                        updated[idx] = { ...updated[idx], percentual: Number(e.target.value) || 0 };
+                      }
+                      setChecklist(updated);
+                    }}
+                    className="w-20 h-7 text-xs text-right"
+                    placeholder={item.inputMode === 'valor' ? '0,00' : '%'}
                   />
-                  <Select value={item.displayMode || 'com_valor'} onValueChange={v => { const updated = [...checklist]; updated[idx] = { ...updated[idx], displayMode: v }; setChecklist(updated); }}>
-                    <SelectTrigger className="w-[110px] h-7 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="com_valor">💰 Com valor</SelectItem>
-                      <SelectItem value="sem_valor">📋 Sem valor</SelectItem>
-                      <SelectItem value="texto">📝 Texto</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <button type="button" onClick={() => removeCheckItem(idx)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity" title="Remover item">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
               {checklist.length === 0 && <p className="text-xs text-slate-400">Nenhum item no checklist</p>}
-              {/* Legenda */}
-              {checklist.length > 0 && (
-                <div className="flex items-center gap-4 text-[10px] text-slate-400 pt-1 border-t border-slate-200">
-                  <span>💰 Exibe preço na proposta</span>
-                  <span>📋 Sem valor (só descrição)</span>
-                  <span>📝 Texto descritivo</span>
-                  <span className="ml-auto">% = Peso na distribuição do valor</span>
-                </div>
-              )}
               {/* Adicionar novo item */}
               <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
                 <Input
