@@ -36,6 +36,46 @@ export class OemController {
     @Delete('usinas/:id')
     removeUsina(@Param('id') id: string) { return this.oemService.removeUsina(id); }
 
+    // ═══ SERVIÇOS (Preventiva / Preditiva / Corretiva) ═══════════════
+    @Get('servicos')
+    findAllServicos(
+        @Query('tipo') tipo?: string,
+        @Query('status') status?: string,
+        @Query('usinaId') usinaId?: string,
+        @Query('clienteId') clienteId?: string,
+    ) {
+        return this.oemService.findAllServicos({ tipo, status, usinaId, clienteId });
+    }
+
+    @Get('servicos/checklist/:tipo')
+    getDefaultChecklist(@Param('tipo') tipo: string) {
+        return this.oemService.getChecklistEndpoint(tipo);
+    }
+
+    @Get('servicos/:id')
+    findOneServico(@Param('id') id: string) { return this.oemService.findOneServico(id); }
+
+    @Post('servicos')
+    createServico(@Body() data: any) { return this.oemService.createServico(data); }
+
+    @Put('servicos/:id')
+    updateServico(@Param('id') id: string, @Body() data: any) {
+        return this.oemService.updateServico(id, data);
+    }
+
+    @Post('servicos/:id/concluir')
+    concluirServico(@Param('id') id: string, @Body() data: any) {
+        return this.oemService.concluirServico(id, data);
+    }
+
+    @Post('servicos/:id/gerar-proposta')
+    gerarPropostaFromServico(@Param('id') id: string) {
+        return this.oemService.gerarPropostaFromServico(id);
+    }
+
+    @Delete('servicos/:id')
+    removeServico(@Param('id') id: string) { return this.oemService.removeServico(id); }
+
     // ═══ PLANOS ══════════════════════════════════════════════════════
     @Get('planos')
     findAllPlanos() { return this.oemService.findAllPlanos(); }
@@ -69,6 +109,11 @@ export class OemController {
     @Post('contratos/calculate-price')
     calculatePrice(@Body() body: { usinaId: string; planoId: string }) {
         return this.oemService.calculatePrice(body.usinaId, body.planoId);
+    }
+
+    @Post('contratos/:id/gerar-proposta')
+    gerarPropostaFromContrato(@Param('id') id: string) {
+        return this.oemService.gerarPropostaFromContrato(id);
     }
 
     @Put('contratos/:id')

@@ -2465,6 +2465,17 @@ class ApiService {
   async updateOemContrato(id: string, data: any) { return (await this.client.put(`/oem/contratos/${id}`, data)).data; }
   async deleteOemContrato(id: string) { return (await this.client.delete(`/oem/contratos/${id}`)).data; }
   async calculateOemPrice(usinaId: string, planoId: string) { return (await this.client.post('/oem/contratos/calculate-price', { usinaId, planoId })).data; }
+  async gerarPropostaContrato(id: string) { return (await this.client.post(`/oem/contratos/${id}/gerar-proposta`)).data; }
+
+  // Serviços (Preventiva / Preditiva / Corretiva)
+  async getOemServicos(filters?: { tipo?: string; status?: string; usinaId?: string; clienteId?: string }) { return (await this.client.get('/oem/servicos', { params: filters })).data; }
+  async getOemServico(id: string) { return (await this.client.get(`/oem/servicos/${id}`)).data; }
+  async createOemServico(data: any) { return (await this.client.post('/oem/servicos', data)).data; }
+  async updateOemServico(id: string, data: any) { return (await this.client.put(`/oem/servicos/${id}`, data)).data; }
+  async deleteOemServico(id: string) { return (await this.client.delete(`/oem/servicos/${id}`)).data; }
+  async concluirOemServico(id: string, data: any) { return (await this.client.post(`/oem/servicos/${id}/concluir`, data)).data; }
+  async gerarPropostaServico(id: string) { return (await this.client.post(`/oem/servicos/${id}/gerar-proposta`)).data; }
+  async getOemChecklist(tipo: string) { return (await this.client.get(`/oem/servicos/checklist/${tipo}`)).data; }
 }
 
 export const api = new ApiService();

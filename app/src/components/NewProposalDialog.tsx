@@ -1920,6 +1920,10 @@ export default function NewProposalDialog({
                                             <SelectItem value="extensao_rede">Extensão de Rede</SelectItem>
                                             <SelectItem value="energia_solar">Energia Solar</SelectItem>
                                             <SelectItem value="manutencao_eletrica">Manutenção Elétrica</SelectItem>
+                                            <SelectItem value="manutencao_preventiva">🔧 O&M Preventiva</SelectItem>
+                                            <SelectItem value="manutencao_preditiva">📊 O&M Preditiva</SelectItem>
+                                            <SelectItem value="manutencao_corretiva">⚡ O&M Corretiva</SelectItem>
+                                            <SelectItem value="plano_oem">📋 Plano O&M Recorrente</SelectItem>
                                             <SelectItem value="construcao_civil">Construção Civil</SelectItem>
                                             <SelectItem value="telecomunicacoes">Telecomunicações</SelectItem>
                                             <SelectItem value="outro">Outro</SelectItem>
