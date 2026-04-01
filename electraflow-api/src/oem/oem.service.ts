@@ -329,30 +329,40 @@ export class OemService {
         const activeItems = checklist.filter((c: any) => c.checked !== false);
         const valorTotal = Number(servico.valorEstimado || servico.valorFinal || 0);
 
-        // Calcular soma dos percentuais dos itens ativos
-        const somaPercentuais = activeItems.reduce((sum: number, c: any) => sum + (Number(c.percentual) || 0), 0);
+        // Detectar displayMode global (todos os itens compartilham o mesmo)
+        const globalDisplayMode = activeItems.length > 0 ? (activeItems[0].displayMode || 'com_valor') : 'com_valor';
+        const showPrices = globalDisplayMode === 'com_valor';
 
-        // Distribuir valor por percentual (ou igualmente se não tem percentuais)
-        let acumulado = 0;
+        // Separar itens de valor direto e de percentual
+        const directItems = activeItems.filter((c: any) => c.inputMode === 'valor');
+        const percentItems = activeItems.filter((c: any) => c.inputMode !== 'valor');
+        const somaDirectos = directItems.reduce((sum: number, c: any) => sum + (Number(c.valorDireto) || 0), 0);
+        const valorRestante = Math.max(0, valorTotal - somaDirectos);
+        const somaPercentuais = percentItems.reduce((sum: number, c: any) => sum + (Number(c.percentual) || 0), 0);
+
+        // Distribuir valor
+        let acumuladoPercent = 0;
         const items = activeItems.map((c: any, i: number) => {
             let itemPrice = 0;
-            if (valorTotal > 0) {
+
+            if (c.inputMode === 'valor') {
+                // Valor direto digitado pelo usuário
+                itemPrice = Number(c.valorDireto) || 0;
+            } else if (valorRestante > 0) {
+                // Distribuir valor restante por percentual
                 if (somaPercentuais > 0) {
                     const pct = (Number(c.percentual) || 0) / somaPercentuais;
-                    itemPrice = +(valorTotal * pct).toFixed(2);
-                } else {
-                    itemPrice = +(valorTotal / activeItems.length).toFixed(2);
+                    itemPrice = +(valorRestante * pct).toFixed(2);
+                } else if (percentItems.length > 0) {
+                    itemPrice = +(valorRestante / percentItems.length).toFixed(2);
                 }
-                acumulado += itemPrice;
-                // Último item absorve diferença de arredondamento
-                if (i === activeItems.length - 1) {
-                    itemPrice = +(itemPrice + (valorTotal - acumulado)).toFixed(2);
+                acumuladoPercent += itemPrice;
+                // Último item percentual absorve arredondamento
+                const percentIdx = percentItems.indexOf(c);
+                if (percentIdx === percentItems.length - 1 && valorRestante > 0) {
+                    itemPrice = +(itemPrice + (valorRestante - acumuladoPercent)).toFixed(2);
                 }
             }
-
-            // displayMode: com_valor, sem_valor, texto
-            const mode = c.displayMode || 'com_valor';
-            const showPrices = mode === 'com_valor';
 
             return {
                 description: c.item,
