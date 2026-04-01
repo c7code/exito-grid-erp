@@ -327,53 +327,65 @@ export class OemService {
         // Criar itens da proposta a partir do checklist
         const checklist = servico.checklist ? (typeof servico.checklist === 'string' ? JSON.parse(servico.checklist) : servico.checklist) : [];
         const activeItems = checklist.filter((c: any) => c.checked !== false);
-        const valorTotal = Number(servico.valorEstimado || servico.valorFinal || 0);
+        const valorEstimado = Number(servico.valorEstimado || servico.valorFinal || 0);
 
-        // Detectar displayMode global (todos os itens compartilham o mesmo)
+        // displayMode global — controla apenas se a coluna de preço aparece no PDF
         const globalDisplayMode = activeItems.length > 0 ? (activeItems[0].displayMode || 'com_valor') : 'com_valor';
         const showPrices = globalDisplayMode === 'com_valor';
 
-        // Separar itens de valor direto e de percentual
+        // ── Calcular preço real de cada item ──
+        // Itens com inputMode=valor usam valorDireto; os demais usam percentual do valorEstimado
         const directItems = activeItems.filter((c: any) => c.inputMode === 'valor');
         const percentItems = activeItems.filter((c: any) => c.inputMode !== 'valor');
         const somaDirectos = directItems.reduce((sum: number, c: any) => sum + (Number(c.valorDireto) || 0), 0);
-        const valorRestante = Math.max(0, valorTotal - somaDirectos);
+        const valorRestanteParaPercent = Math.max(0, valorEstimado - somaDirectos);
         const somaPercentuais = percentItems.reduce((sum: number, c: any) => sum + (Number(c.percentual) || 0), 0);
 
-        // Distribuir valor
         let acumuladoPercent = 0;
+        let somaItens = 0;
         const items = activeItems.map((c: any, i: number) => {
             let itemPrice = 0;
 
             if (c.inputMode === 'valor') {
                 // Valor direto digitado pelo usuário
                 itemPrice = Number(c.valorDireto) || 0;
-            } else if (valorRestante > 0) {
-                // Distribuir valor restante por percentual
-                if (somaPercentuais > 0) {
-                    const pct = (Number(c.percentual) || 0) / somaPercentuais;
-                    itemPrice = +(valorRestante * pct).toFixed(2);
-                } else if (percentItems.length > 0) {
-                    itemPrice = +(valorRestante / percentItems.length).toFixed(2);
-                }
+            } else if (somaPercentuais > 0 && valorEstimado > 0) {
+                // Percentual do valor estimado total
+                const pct = (Number(c.percentual) || 0) / 100;
+                itemPrice = +(valorEstimado * pct).toFixed(2);
+            } else if (percentItems.length > 0 && valorRestanteParaPercent > 0) {
+                // Sem percentuais definidos — distribuir igualmente
+                itemPrice = +(valorRestanteParaPercent / percentItems.length).toFixed(2);
+            }
+
+            // Ajuste de arredondamento no último item percentual
+            if (c.inputMode !== 'valor') {
                 acumuladoPercent += itemPrice;
-                // Último item percentual absorve arredondamento
                 const percentIdx = percentItems.indexOf(c);
-                if (percentIdx === percentItems.length - 1 && valorRestante > 0) {
-                    itemPrice = +(itemPrice + (valorRestante - acumuladoPercent)).toFixed(2);
+                if (percentIdx === percentItems.length - 1) {
+                    const somaEsperada = somaPercentuais > 0
+                        ? +(valorEstimado * (somaPercentuais / 100)).toFixed(2)
+                        : valorRestanteParaPercent;
+                    const diff = +(somaEsperada - acumuladoPercent).toFixed(2);
+                    if (Math.abs(diff) < 1) itemPrice = +(itemPrice + diff).toFixed(2);
                 }
             }
+
+            somaItens += itemPrice;
 
             return {
                 description: c.item,
                 unit: 'sv',
                 serviceType: 'service',
-                unitPrice: showPrices ? itemPrice : 0,
+                unitPrice: itemPrice,
                 quantity: 1,
-                total: showPrices ? itemPrice : 0,
+                total: itemPrice,
                 showDetailedPrices: showPrices,
             };
         });
+
+        // Total real da proposta = soma dos itens (se houver itens) ou valorEstimado
+        const totalProposta = somaItens > 0 ? +somaItens.toFixed(2) : valorEstimado;
 
         // Escopo detalhado com dados técnicos da usina
         const scope = [
@@ -408,9 +420,9 @@ export class OemService {
             `${tipoLabel[servico.tipo] || 'Manutenção'} — ${usina.nome}`,
             servico.clienteId,
             'draft',
-            valorTotal,
+            totalProposta,
             0,
-            valorTotal,
+            totalProposta,
             activityTypeMap[servico.tipo] || 'manutencao_preventiva',
             'service_only',
             scope,
