@@ -405,6 +405,17 @@ export class OemService {
             ? servico.descricao
             : `Serviço de ${tipoLabel[servico.tipo]} para usina fotovoltaica ${usina.nome}, contemplando as atividades listadas na prestação de serviços.`;
 
+        // Mapear displayMode do OeM para itemVisibilityMode do template PDF
+        // com_valor → 'grouping' (tabela com preços)
+        // sem_valor → 'summary' (resumo sem itemização)
+        // texto → 'text_only' (texto descritivo)
+        const visibilityModeMap: Record<string, string> = {
+            com_valor: 'grouping',
+            sem_valor: 'summary',
+            texto: 'text_only',
+        };
+        const itemVisibilityMode = visibilityModeMap[globalDisplayMode] || 'grouping';
+
         // Criar proposta via SQL
         const result = await this.dataSource.query(`
             INSERT INTO proposals (
@@ -412,8 +423,9 @@ export class OemService {
                 "subtotal", "discount", "total",
                 "activityType", "objectiveType", "scope",
                 "workDescription", "notes",
+                "itemVisibilityMode",
                 "createdAt", "updatedAt"
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
             RETURNING id
         `, [
             proposalNumber,
@@ -428,6 +440,7 @@ export class OemService {
             scope,
             workDescription,
             servico.observacoes || null,
+            itemVisibilityMode,
         ]);
 
         const proposalId = result[0].id;
