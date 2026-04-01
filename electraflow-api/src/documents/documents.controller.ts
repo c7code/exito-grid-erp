@@ -29,13 +29,13 @@ export class DocumentsController {
   @Get()
   @ApiOperation({ summary: 'Listar documentos' })
   async findAll(
+    @Request() req,
     @Query('workId') workId?: string,
     @Query('type') type?: DocumentType,
     @Query('folderId') folderId?: string,
     @Query('proposalId') proposalId?: string,
     @Query('contractId') contractId?: string,
     @Query('accessLevel') accessLevel?: string,
-    @Request() req?,
   ) {
     const docs = await this.documentsService.findAll({ workId, type, folderId, proposalId, contractId });
     // Filter by accessLevel if requested
