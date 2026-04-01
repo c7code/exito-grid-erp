@@ -79,6 +79,56 @@ export class OemPlano {
     @Column({ type: 'boolean', default: true })
     ativo: boolean;
 
+    // ═══ TIPO DO PLANO ═══════════════════════════════════════
+    @Column({ type: 'varchar', default: 'standard', nullable: true })
+    tipoPlano: string; // basico | standard | premium | enterprise
+
+    // ═══ SLA — ACORDO DE NÍVEL DE SERVIÇO ════════════════════
+    @Column({ type: 'int', default: 48, nullable: true })
+    tempoRespostaSlaHoras: number;
+
+    @Column({ type: 'int', default: 4, nullable: true })
+    tempoRespostaUrgenteHoras: number;
+
+    @Column({ type: 'varchar', default: 'comercial', nullable: true })
+    atendimentoHorario: string; // comercial | estendido | 24x7
+
+    // ═══ COBERTURA E LIMITES ═════════════════════════════════
+    @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+    coberturaMaxAnual: number;
+
+    @Column({ type: 'int', nullable: true })
+    limiteCorretivas: number; // máximo de corretivas/ano incluídas
+
+    @Column({ type: 'int', nullable: true })
+    abrangenciaKm: number; // raio máximo de atendimento em km
+
+    @Column({ type: 'boolean', default: false, nullable: true })
+    incluiSeguro: boolean;
+
+    // ═══ RELATÓRIOS ═══════════════════════════════════════════
+    @Column({ type: 'boolean', default: true, nullable: true })
+    incluiRelatorio: boolean;
+
+    @Column({ type: 'varchar', default: 'trimestral', nullable: true })
+    frequenciaRelatorio: string; // mensal | trimestral | semestral | anual
+
+    // ═══ TERMOS DO CONTRATO ══════════════════════════════════
+    @Column({ type: 'int', default: 12, nullable: true })
+    termosDuracaoMeses: number;
+
+    @Column({ type: 'decimal', precision: 5, scale: 2, default: 0, nullable: true })
+    descontoAnualPercent: number;
+
+    @Column({ type: 'text', nullable: true })
+    exclusoes: string; // O que NÃO está coberto
+
+    @Column({ type: 'text', nullable: true })
+    penalidades: string; // Penalidades por descumprimento de SLA
+
+    @Column({ type: 'text', nullable: true })
+    beneficios: string; // Benefícios extras do plano
+
     @CreateDateColumn()
     createdAt: Date;
 
