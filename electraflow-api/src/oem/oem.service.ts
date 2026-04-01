@@ -328,22 +328,40 @@ export class OemService {
         const checklist = servico.checklist ? (typeof servico.checklist === 'string' ? JSON.parse(servico.checklist) : servico.checklist) : [];
         const activeItems = checklist.filter((c: any) => c.checked !== false);
         const valorTotal = Number(servico.valorEstimado || servico.valorFinal || 0);
-        const valorPorItem = activeItems.length > 0 && valorTotal > 0 ? +(valorTotal / activeItems.length).toFixed(2) : 0;
 
-        // Ajustar para o último item absorver a diferença de arredondamento
+        // Calcular soma dos percentuais dos itens ativos
+        const somaPercentuais = activeItems.reduce((sum: number, c: any) => sum + (Number(c.percentual) || 0), 0);
+
+        // Distribuir valor por percentual (ou igualmente se não tem percentuais)
+        let acumulado = 0;
         const items = activeItems.map((c: any, i: number) => {
-            let itemPrice = valorPorItem;
-            if (i === activeItems.length - 1 && valorTotal > 0) {
-                itemPrice = +(valorTotal - valorPorItem * (activeItems.length - 1)).toFixed(2);
+            let itemPrice = 0;
+            if (valorTotal > 0) {
+                if (somaPercentuais > 0) {
+                    const pct = (Number(c.percentual) || 0) / somaPercentuais;
+                    itemPrice = +(valorTotal * pct).toFixed(2);
+                } else {
+                    itemPrice = +(valorTotal / activeItems.length).toFixed(2);
+                }
+                acumulado += itemPrice;
+                // Último item absorve diferença de arredondamento
+                if (i === activeItems.length - 1) {
+                    itemPrice = +(itemPrice + (valorTotal - acumulado)).toFixed(2);
+                }
             }
+
+            // displayMode: com_valor, sem_valor, texto
+            const mode = c.displayMode || 'com_valor';
+            const showPrices = mode === 'com_valor';
+
             return {
                 description: c.item,
                 unit: 'sv',
                 serviceType: 'service',
-                unitPrice: itemPrice,
+                unitPrice: showPrices ? itemPrice : 0,
                 quantity: 1,
-                total: itemPrice,
-                showDetailedPrices: true,
+                total: showPrices ? itemPrice : 0,
+                showDetailedPrices: showPrices,
             };
         });
 
@@ -356,7 +374,7 @@ export class OemService {
             `• Módulos: ${usina.qtdModulos} unidades${usina.modeloModulos ? ` — ${usina.modeloModulos}` : ''}`,
             `• Inversores: ${usina.qtdInversores || 1} unidade(s)${usina.modeloInversores ? ` — ${usina.modeloInversores}` : ''}${usina.marcaInversor ? ` (${usina.marcaInversor})` : ''}`,
             usina.tipoTelhado ? `• Tipo de telhado: ${usina.tipoTelhado}` : null,
-            usina.dataInstalacao ? `• Data de instalação: ${typeof usina.dataInstalacao === 'string' ? usina.dataInstalacao.split('T')[0] : usina.dataInstalacao}` : null,
+            usina.dataInstalacao ? `• Data de instalação: ${String(usina.dataInstalacao).split('T')[0]}` : null,
             ``,
             `Endereço: ${usina.endereco}`,
         ].filter(Boolean).join('\n');
@@ -470,43 +488,43 @@ export class OemService {
     }
 
     // ═══ CHECKLISTS PADRÃO ═══════════════════════════════════════════
-    getDefaultChecklist(tipo: string): { item: string; checked: boolean; obs?: string }[] {
-        const checklists: Record<string, { item: string; checked: boolean }[]> = {
+    getDefaultChecklist(tipo: string): { item: string; checked: boolean; percentual: number; displayMode: string }[] {
+        const checklists: Record<string, { item: string; checked: boolean; percentual: number; displayMode: string }[]> = {
             preventiva: [
-                { item: 'Limpeza dos módulos fotovoltaicos', checked: false },
-                { item: 'Inspeção visual de módulos e estrutura metálica', checked: false },
-                { item: 'Verificação de cabos e conectores MC4', checked: false },
-                { item: 'Reaperto de conexões elétricas', checked: false },
-                { item: 'Limpeza e inspeção do(s) inversor(es)', checked: false },
-                { item: 'Verificação do quadro de proteção CC/CA', checked: false },
-                { item: 'Verificação do sistema de aterramento', checked: false },
-                { item: 'Conferência do sistema de monitoramento', checked: false },
-                { item: 'Teste de funcionamento geral do sistema', checked: false },
-                { item: 'Registro fotográfico da instalação', checked: false },
+                { item: 'Limpeza dos módulos fotovoltaicos', checked: false, percentual: 15, displayMode: 'com_valor' },
+                { item: 'Inspeção visual de módulos e estrutura metálica', checked: false, percentual: 12, displayMode: 'com_valor' },
+                { item: 'Verificação de cabos e conectores MC4', checked: false, percentual: 10, displayMode: 'com_valor' },
+                { item: 'Reaperto de conexões elétricas', checked: false, percentual: 10, displayMode: 'com_valor' },
+                { item: 'Limpeza e inspeção do(s) inversor(es)', checked: false, percentual: 12, displayMode: 'com_valor' },
+                { item: 'Verificação do quadro de proteção CC/CA', checked: false, percentual: 10, displayMode: 'com_valor' },
+                { item: 'Verificação do sistema de aterramento', checked: false, percentual: 8, displayMode: 'com_valor' },
+                { item: 'Conferência do sistema de monitoramento', checked: false, percentual: 8, displayMode: 'com_valor' },
+                { item: 'Teste de funcionamento geral do sistema', checked: false, percentual: 10, displayMode: 'com_valor' },
+                { item: 'Registro fotográfico da instalação', checked: false, percentual: 5, displayMode: 'sem_valor' },
             ],
             preditiva: [
-                { item: 'Termografia infravermelha dos módulos', checked: false },
-                { item: 'Termografia dos conectores e junction boxes', checked: false },
-                { item: 'Teste de string (curva I-V)', checked: false },
-                { item: 'Medição de tensão e corrente por string', checked: false },
-                { item: 'Análise de performance ratio (PR)', checked: false },
-                { item: 'Análise de dados de monitoramento (últimos 3 meses)', checked: false },
-                { item: 'Verificação de degradação dos módulos', checked: false },
-                { item: 'Análise de sombreamento e sujidade', checked: false },
-                { item: 'Inspeção do inversor com dados de logger', checked: false },
-                { item: 'Elaboração de relatório técnico com recomendações', checked: false },
+                { item: 'Termografia infravermelha dos módulos', checked: false, percentual: 15, displayMode: 'com_valor' },
+                { item: 'Termografia dos conectores e junction boxes', checked: false, percentual: 12, displayMode: 'com_valor' },
+                { item: 'Teste de string (curva I-V)', checked: false, percentual: 15, displayMode: 'com_valor' },
+                { item: 'Medição de tensão e corrente por string', checked: false, percentual: 10, displayMode: 'com_valor' },
+                { item: 'Análise de performance ratio (PR)', checked: false, percentual: 10, displayMode: 'com_valor' },
+                { item: 'Análise de dados de monitoramento (últimos 3 meses)', checked: false, percentual: 8, displayMode: 'com_valor' },
+                { item: 'Verificação de degradação dos módulos', checked: false, percentual: 8, displayMode: 'com_valor' },
+                { item: 'Análise de sombreamento e sujidade', checked: false, percentual: 7, displayMode: 'com_valor' },
+                { item: 'Inspeção do inversor com dados de logger', checked: false, percentual: 8, displayMode: 'com_valor' },
+                { item: 'Elaboração de relatório técnico com recomendações', checked: false, percentual: 7, displayMode: 'sem_valor' },
             ],
             corretiva: [
-                { item: 'Identificação e localização do defeito', checked: false },
-                { item: 'Diagnóstico técnico detalhado', checked: false },
-                { item: 'Verificação de garantia do equipamento', checked: false },
-                { item: 'Substituição/reparo do componente defeituoso', checked: false },
-                { item: 'Teste de isolamento elétrico', checked: false },
-                { item: 'Teste de funcionamento pós-reparo', checked: false },
-                { item: 'Verificação da geração após intervenção', checked: false },
-                { item: 'Registro fotográfico antes e depois', checked: false },
-                { item: 'Elaboração de relatório técnico', checked: false },
-                { item: 'Atualização do histórico de manutenção', checked: false },
+                { item: 'Identificação e localização do defeito', checked: false, percentual: 10, displayMode: 'com_valor' },
+                { item: 'Diagnóstico técnico detalhado', checked: false, percentual: 15, displayMode: 'com_valor' },
+                { item: 'Verificação de garantia do equipamento', checked: false, percentual: 5, displayMode: 'sem_valor' },
+                { item: 'Substituição/reparo do componente defeituoso', checked: false, percentual: 25, displayMode: 'com_valor' },
+                { item: 'Teste de isolamento elétrico', checked: false, percentual: 10, displayMode: 'com_valor' },
+                { item: 'Teste de funcionamento pós-reparo', checked: false, percentual: 10, displayMode: 'com_valor' },
+                { item: 'Verificação da geração após intervenção', checked: false, percentual: 8, displayMode: 'com_valor' },
+                { item: 'Registro fotográfico antes e depois', checked: false, percentual: 5, displayMode: 'sem_valor' },
+                { item: 'Elaboração de relatório técnico', checked: false, percentual: 7, displayMode: 'sem_valor' },
+                { item: 'Atualização do histórico de manutenção', checked: false, percentual: 5, displayMode: 'sem_valor' },
             ],
         };
         return checklists[tipo] || checklists.preventiva;
