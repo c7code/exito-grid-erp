@@ -419,7 +419,7 @@ export default function AdminProposals() {
                   <TableHead>Valor</TableHead>
                   <TableHead>Simulação</TableHead>
                   <TableHead>Cadastrado por</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead className="w-[120px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -494,94 +494,114 @@ export default function AdminProposals() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => {
-                              setEditingProposal(proposal);
-                              setShowNewDialog(true);
-                            }}>
-                              <Pencil className="w-4 h-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleViewRevisions(proposal)}>
-                              <History className="w-4 h-4 mr-2" />
-                              Ver Revisões
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handlePreviewProposal(proposal)}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              Pré-visualizar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDownloadPDF(proposal)}>
-                              <Download className="w-4 h-4 mr-2" />
-                              Baixar PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleShareWhatsApp(proposal)}>
-                              <MessageCircle className="w-4 h-4 mr-2" />
-                              WhatsApp
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleShareEmail(proposal)}>
-                              <Mail className="w-4 h-4 mr-2" />
-                              Email
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {proposal.status === 'draft' && (
-                              <DropdownMenuItem onClick={() => handleSend(proposal)}>
-                                <Send className="w-4 h-4 mr-2" />
-                                Enviar
+                        <div className="flex items-center gap-1 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-blue-400 hover:text-blue-600 hover:bg-blue-50"
+                            title="Pré-visualizar"
+                            onClick={() => handlePreviewProposal(proposal)}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50"
+                            title="Baixar PDF"
+                            onClick={() => handleDownloadPDF(proposal)}
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => {
+                                setEditingProposal(proposal);
+                                setShowNewDialog(true);
+                              }}>
+                                <Pencil className="w-4 h-4 mr-2" />
+                                Editar
                               </DropdownMenuItem>
-                            )}
-                            {(proposal.status === 'sent' || proposal.status === 'viewed') && (
-                              <>
-                                <DropdownMenuItem onClick={() => handleAccept(proposal)}>
-                                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                                  Aprovar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleReject(proposal)}>
-                                  <XCircle className="w-4 h-4 mr-2" />
-                                  Rejeitar
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            {proposal.status === 'accepted' && (
-                              <DropdownMenuItem onClick={() => handleRevertAcceptance(proposal)}>
-                                <RotateCcw className="w-4 h-4 mr-2 text-amber-600" />
-                                Reverter Aprovação
+                              <DropdownMenuItem onClick={() => handleViewRevisions(proposal)}>
+                                <History className="w-4 h-4 mr-2" />
+                                Ver Revisões
                               </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            {/* ═══ ATALHOS FINANCEIROS ═══ */}
-                            <DropdownMenuItem onClick={() => navigate(`/admin/finance?tab=receipts&proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&clientId=${proposal.clientId || proposal.client?.id || ''}&total=${proposal.total || 0}&title=${encodeURIComponent(proposal.title || '')}`)}>
-                              <Receipt className="w-4 h-4 mr-2 text-emerald-600" />
-                              Gerar Recibo
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/admin/finance?tab=purchase-orders&proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&clientId=${proposal.clientId || proposal.client?.id || ''}&total=${proposal.total || 0}&title=${encodeURIComponent(proposal.title || '')}`)}>
-                              <Package className="w-4 h-4 mr-2 text-blue-600" />
-                              Pedido de Compra
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/admin/service-orders?proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&clientId=${proposal.clientId || proposal.client?.id || ''}`)}>
-                              <Wrench className="w-4 h-4 mr-2 text-orange-600" />
-                              Ordem de Serviço
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/admin/tasks?proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&title=${encodeURIComponent(proposal.title || '')}`)}>
-                              <ClipboardList className="w-4 h-4 mr-2 text-purple-600" />
-                              Criar Tarefa
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => handleDelete(proposal)}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handlePreviewProposal(proposal)}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                Pré-visualizar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDownloadPDF(proposal)}>
+                                <Download className="w-4 h-4 mr-2" />
+                                Baixar PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleShareWhatsApp(proposal)}>
+                                <MessageCircle className="w-4 h-4 mr-2" />
+                                WhatsApp
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleShareEmail(proposal)}>
+                                <Mail className="w-4 h-4 mr-2" />
+                                Email
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {proposal.status === 'draft' && (
+                                <DropdownMenuItem onClick={() => handleSend(proposal)}>
+                                  <Send className="w-4 h-4 mr-2" />
+                                  Enviar
+                                </DropdownMenuItem>
+                              )}
+                              {(proposal.status === 'sent' || proposal.status === 'viewed') && (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleAccept(proposal)}>
+                                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                                    Aprovar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleReject(proposal)}>
+                                    <XCircle className="w-4 h-4 mr-2" />
+                                    Rejeitar
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {proposal.status === 'accepted' && (
+                                <DropdownMenuItem onClick={() => handleRevertAcceptance(proposal)}>
+                                  <RotateCcw className="w-4 h-4 mr-2 text-amber-600" />
+                                  Reverter Aprovação
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              {/* ═══ ATALHOS FINANCEIROS ═══ */}
+                              <DropdownMenuItem onClick={() => navigate(`/admin/finance?tab=receipts&proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&clientId=${proposal.clientId || proposal.client?.id || ''}&total=${proposal.total || 0}&title=${encodeURIComponent(proposal.title || '')}`)}>
+                                <Receipt className="w-4 h-4 mr-2 text-emerald-600" />
+                                Gerar Recibo
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate(`/admin/finance?tab=purchase-orders&proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&clientId=${proposal.clientId || proposal.client?.id || ''}&total=${proposal.total || 0}&title=${encodeURIComponent(proposal.title || '')}`)}>
+                                <Package className="w-4 h-4 mr-2 text-blue-600" />
+                                Pedido de Compra
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate(`/admin/service-orders?proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&clientId=${proposal.clientId || proposal.client?.id || ''}`)}>
+                                <Wrench className="w-4 h-4 mr-2 text-orange-600" />
+                                Ordem de Serviço
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate(`/admin/tasks?proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&title=${encodeURIComponent(proposal.title || '')}`)}>
+                                <ClipboardList className="w-4 h-4 mr-2 text-purple-600" />
+                                Criar Tarefa
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => handleDelete(proposal)}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
