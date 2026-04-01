@@ -63,14 +63,19 @@ export default function OeM() {
 
   // ═══ USINA HANDLERS ════════════════════════════════════════════
   const handleSaveUsina = async () => {
+    if (!usinaForm.clienteId) { toast.error('Selecione um cliente'); return; }
+    if (!usinaForm.nome?.trim()) { toast.error('Informe o nome da usina'); return; }
+    if (!usinaForm.potenciaKwp) { toast.error('Informe a potência (kWp)'); return; }
+    if (!usinaForm.qtdModulos) { toast.error('Informe a quantidade de módulos'); return; }
+    if (!usinaForm.endereco?.trim()) { toast.error('Informe o endereço'); return; }
     try {
       const data = { ...usinaForm };
-      if (!data.clienteId) data.clienteId = null;
       if (!data.empresaId) data.empresaId = null;
+      if (!data.geracaoMensalEsperadaKwh) data.geracaoMensalEsperadaKwh = null;
       if (editingId) { await api.updateOemUsina(editingId, data); toast.success('Usina atualizada'); }
       else { await api.createOemUsina(data); toast.success('Usina criada'); }
       setUsinaDialogOpen(false); setEditingId(null); setUsinaForm({ ...emptyUsina }); loadAll();
-    } catch { toast.error('Erro ao salvar usina'); }
+    } catch (err: any) { toast.error(err?.response?.data?.message || 'Erro ao salvar usina'); }
   };
   const handleEditUsina = (u: any) => { setEditingId(u.id); setUsinaForm({ nome: u.nome || '', potenciaKwp: String(u.potenciaKwp || ''), qtdModulos: String(u.qtdModulos || ''), modeloModulos: u.modeloModulos || '', qtdInversores: String(u.qtdInversores || 1), modeloInversores: u.modeloInversores || '', marcaInversor: u.marcaInversor || '', dataInstalacao: u.dataInstalacao?.split('T')[0] || '', tipoTelhado: u.tipoTelhado || '', endereco: u.endereco || '', geracaoMensalEsperadaKwh: String(u.geracaoMensalEsperadaKwh || ''), clienteId: u.clienteId || '', empresaId: u.empresaId || '', status: u.status || 'ativa', observacoes: u.observacoes || '' }); setUsinaDialogOpen(true); };
   const handleDeleteUsina = async (id: string) => { if (!confirm('Excluir usina?')) return; try { await api.deleteOemUsina(id); toast.success('Usina excluída'); loadAll(); } catch { toast.error('Erro'); } };
