@@ -32,7 +32,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileText, Loader2, Plus, Trash2, Search, ChevronDown, Box, Layers, Eye, EyeOff, Building2, DollarSign, Shield, UserPlus, Upload, X, Pencil, Calculator, Database } from 'lucide-react';
+import { FileText, Loader2, Plus, Trash2, Search, ChevronDown, Box, Layers, Eye, EyeOff, Building2, DollarSign, Shield, UserPlus, Upload, X, Pencil, Calculator, Database, MessageSquareText } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { ClientDialog } from '@/components/ClientDialog';
@@ -67,6 +67,7 @@ interface ActivityItem {
     showDetailedPrices?: boolean;
     catalogItemId?: string;
     overridePrice?: string;
+    internalNote?: string;
 }
 
 const serviceTypes: Record<string, string> = {
@@ -371,6 +372,7 @@ export default function NewProposalDialog({
                         parentId: it.parentId || undefined,
                         showDetailedPrices: it.showDetailedPrices !== undefined ? it.showDetailedPrices : true,
                         overridePrice: it.overridePrice != null ? String(it.overridePrice) : '',
+                        internalNote: it.notes || '',
                     })));
                 }
             } else if (prefillData) {
@@ -639,6 +641,7 @@ export default function NewProposalDialog({
                     quantity: parsePrice(item.quantity) || 1,
                     unit: item.unit || 'UN',
                     total: getItemTotal(item),
+                    notes: item.internalNote?.trim() || null,
                 }));
 
             const payload = {
@@ -1558,16 +1561,39 @@ export default function NewProposalDialog({
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-7 w-7 text-red-400 hover:text-red-600"
-                                                            onClick={() => removeItem(index)}
-                                                            disabled={items.length <= 1}
-                                                        >
-                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                        </Button>
+                                                        <div className="flex items-center gap-0.5">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                title={item.internalNote ? `Nota: ${item.internalNote}` : 'Adicionar nota interna (oculta no PDF)'}
+                                                                className={`h-7 w-7 ${item.internalNote ? 'text-blue-500 hover:text-blue-700' : 'text-slate-300 hover:text-blue-500'}`}
+                                                                onClick={() => {
+                                                                    const note = prompt(
+                                                                        'Nota interna (visível apenas para a equipe, NÃO aparece na proposta/PDF):',
+                                                                        item.internalNote || ''
+                                                                    );
+                                                                    if (note !== null) updateItem(index, 'internalNote', note);
+                                                                }}
+                                                            >
+                                                                <MessageSquareText className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 text-red-400 hover:text-red-600"
+                                                                onClick={() => removeItem(index)}
+                                                                disabled={items.length <= 1}
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                        </div>
+                                                        {item.internalNote && (
+                                                            <div className="mt-1 text-[10px] text-blue-600 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 max-w-[150px] truncate" title={item.internalNote}>
+                                                                📝 {item.internalNote}
+                                                            </div>
+                                                        )}
                                                     </TableCell>
                                                 </TableRow>
                                             );
