@@ -1,4 +1,5 @@
 import React from "react";
+import { EXITO_GRID_LOGO } from '@/assets/exito-grid-logo-base64';
 
 interface SolarProposalPDFTemplateProps {
   proposal: any;
@@ -261,18 +262,7 @@ const Page1 = ({ data }: { data: any }) => {
       <div style={{ padding: "48px 48px 0" }}>
         {/* Logo simulado */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 56 }}>
-          <div style={{
-            width: 52, height: 52, borderRadius: 12,
-            background: `linear-gradient(135deg, ${C.green}, ${C.greenDark})`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: `0 4px 20px rgba(22,163,74,0.4)`,
-          }}>
-            <span style={{ fontSize: 28 }}>⚡</span>
-          </div>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: C.white, letterSpacing: 0.5 }}>ÊXITO GRID</div>
-            <div style={{ fontSize: 10, color: C.gold, letterSpacing: 2, textTransform: "uppercase" }}>Eficiência Elétrica & Solar</div>
-          </div>
+          <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 55, objectFit: 'contain' }} />
         </div>
 
         {/* Título principal */}
@@ -1458,8 +1448,7 @@ const Page9 = ({ data }: { data: any }) => {
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 10, color: C.gray400, marginBottom: 4 }}>CONTRATADA</div>
                 <div style={{ borderBottom: `2px solid ${C.gray800}`, height: 40, marginBottom: 8 }} />
-                <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>Êxito Grid — Eficiência Elétrica & Solar</div>
-                <div style={{ fontSize: 10, color: C.gray600 }}>Engenheiro Responsável · CREA/PE</div>
+                <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 28, objectFit: 'contain', marginBottom: 4 }} />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 10, color: C.gray400, marginBottom: 4 }}>CONTRATANTE</div>
@@ -1486,8 +1475,8 @@ const Page9 = ({ data }: { data: any }) => {
         display: "flex", justifyContent: "space-between", alignItems: "center",
         borderTop: `3px solid ${C.gold}`,
       }}>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 800, color: C.white }}>Êxito Grid Eficiência Elétrica & Solar</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 32, objectFit: 'contain' }} />
           <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>CNPJ {empresa.cnpj} · {empresa.endereco}</div>
         </div>
         <div style={{ textAlign: "center" }}>

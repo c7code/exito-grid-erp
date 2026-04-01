@@ -1,4 +1,5 @@
 import React from 'react';
+import { EXITO_GRID_LOGO } from '@/assets/exito-grid-logo-base64';
 
 interface ReceiptPDFTemplateProps {
     receipt: any;
@@ -86,11 +87,7 @@ export function ReceiptPDFTemplate({ receipt, company }: ReceiptPDFTemplateProps
             {/* ═══ HEADER ═══ */}
             <div style={s.header}>
                 <div>
-                    <div style={s.logo}>
-                        <span style={{ color: '#E8620A' }}>Êxito</span>
-                        <span style={{ color: '#2d2d2d' }}>Grid</span>
-                    </div>
-                    <div style={s.logoSub}>Eficiência Elétrica & Solar</div>
+                    <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: '45px', objectFit: 'contain' }} />
                 </div>
                 <div style={s.headerRight}>
                     <div style={{ fontWeight: 700 }}>{empresa.telefone}</div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { EXITO_GRID_LOGO } from '@/assets/exito-grid-logo-base64';
 
 interface PurchaseOrderPDFTemplateProps {
     order: any;
@@ -65,11 +66,7 @@ export function PurchaseOrderPDFTemplate({ order, company }: PurchaseOrderPDFTem
             {/* ═══ HEADER ═══ */}
             <div style={s.header}>
                 <div>
-                    <div style={s.logo}>
-                        <span style={{ color: '#1d4ed8' }}>Êxito</span>
-                        <span style={{ color: '#2d2d2d' }}>Grid</span>
-                    </div>
-                    <div style={s.logoSub}>Eficiência Elétrica & Solar</div>
+                    <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: '40px', objectFit: 'contain' }} />
                 </div>
                 <div style={s.headerRight}>
                     <div style={{ fontWeight: 700 }}>{empresa.telefone}</div>
