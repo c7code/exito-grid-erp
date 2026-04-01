@@ -113,7 +113,7 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
 
   const addCheckItem = () => {
     if (!newCheckItem.trim()) return;
-    setChecklist([...checklist, { item: newCheckItem.trim(), checked: false }]);
+    setChecklist([...checklist, { item: newCheckItem.trim(), checked: false, percentual: 0, displayMode: 'com_valor' }]);
     setNewCheckItem('');
   };
 
@@ -260,20 +260,51 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
 
             {/* Checklist */}
             <div className="bg-slate-50 border rounded-lg p-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <ClipboardList className="w-4 h-4 text-slate-600" />
-                <h3 className="font-semibold text-sm text-slate-700">Checklist — {TIPO_LABELS[form.tipo] || form.tipo}</h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-slate-600" />
+                  <h3 className="font-semibold text-sm text-slate-700">Checklist — {TIPO_LABELS[form.tipo] || form.tipo}</h3>
+                </div>
+                {checklist.length > 0 && (() => {
+                  const total = checklist.reduce((s: number, c: any) => s + (Number(c.percentual) || 0), 0);
+                  return <Badge variant="outline" className={total === 100 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}>{total}%</Badge>;
+                })()}
               </div>
               {checklist.map((item: any, idx: number) => (
-                <div key={idx} className="flex items-center gap-2 group">
+                <div key={idx} className="flex items-center gap-2 group bg-white rounded-md p-1.5 border border-slate-100">
                   <Checkbox checked={item.checked} onCheckedChange={() => toggleCheckItem(idx)} />
-                  <span className={`text-sm flex-1 ${item.checked ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.item}</span>
+                  <span className={`text-sm flex-1 min-w-0 truncate ${item.checked ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.item}</span>
+                  <Input
+                    type="number" min="0" max="100" step="1"
+                    value={item.percentual ?? ''}
+                    onChange={e => { const updated = [...checklist]; updated[idx] = { ...updated[idx], percentual: Number(e.target.value) || 0 }; setChecklist(updated); }}
+                    className="w-16 h-7 text-xs text-center"
+                    title="Peso (%)"
+                    placeholder="%"
+                  />
+                  <Select value={item.displayMode || 'com_valor'} onValueChange={v => { const updated = [...checklist]; updated[idx] = { ...updated[idx], displayMode: v }; setChecklist(updated); }}>
+                    <SelectTrigger className="w-[110px] h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="com_valor">💰 Com valor</SelectItem>
+                      <SelectItem value="sem_valor">📋 Sem valor</SelectItem>
+                      <SelectItem value="texto">📝 Texto</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <button type="button" onClick={() => removeCheckItem(idx)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity" title="Remover item">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
               {checklist.length === 0 && <p className="text-xs text-slate-400">Nenhum item no checklist</p>}
+              {/* Legenda */}
+              {checklist.length > 0 && (
+                <div className="flex items-center gap-4 text-[10px] text-slate-400 pt-1 border-t border-slate-200">
+                  <span>💰 Exibe preço na proposta</span>
+                  <span>📋 Sem valor (só descrição)</span>
+                  <span>📝 Texto descritivo</span>
+                  <span className="ml-auto">% = Peso na distribuição do valor</span>
+                </div>
+              )}
               {/* Adicionar novo item */}
               <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
                 <Input
