@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,9 @@ import {
   X,
   GripVertical,
   FolderInput,
+  Lock,
+  Unlock,
+  ShieldAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -77,6 +81,8 @@ interface FolderNode {
 }
 
 export default function AdminDocuments() {
+  const { user, hasPermission } = useAuth();
+  const canManageAccess = user?.role === 'admin' || hasPermission('documents-restricted');
   const [documents, setDocuments] = useState<any[]>([]);
   const [folders, setFolders] = useState<FolderNode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -212,6 +218,17 @@ export default function AdminDocuments() {
       console.error('Download error:', err);
       // Fallback to simple link if fetch fails (e.g. CORS)
       window.open(doc.url, '_blank');
+    }
+  };
+
+  const handleChangeAccessLevel = async (docId: string, level: 'public' | 'view_only' | 'hidden') => {
+    try {
+      await api.changeDocumentAccessLevel(docId, level);
+      const labels = { public: 'Livre', view_only: 'Somente Visualizar', hidden: 'Oculto' };
+      toast.success(`Nível de acesso alterado para: ${labels[level]}`);
+      loadData();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Erro ao alterar nível de acesso.');
     }
   };
 
@@ -578,9 +595,21 @@ export default function AdminDocuments() {
                                   <GripVertical className="w-4 h-4 text-slate-300 cursor-grab" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-sm truncate" title={doc.name}>
-                                    {doc.name}
-                                  </p>
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="font-medium text-sm truncate" title={doc.name}>
+                                      {doc.name}
+                                    </p>
+                                    {(doc.accessLevel === 'view_only') && (
+                                      <span title="Somente visualiza\u00e7\u00e3o — download bloqueado" className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                                        <Lock className="w-2.5 h-2.5" /> Restrito
+                                      </span>
+                                    )}
+                                    {(doc.accessLevel === 'hidden') && (
+                                      <span title="Oculto — vis\u00edvel apenas para administra\u00e7\u00e3o" className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700 border border-red-200">
+                                        <ShieldAlert className="w-2.5 h-2.5" /> Oculto
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-2 mt-1">
                                     <Badge variant="outline" className="text-xs">
                                       {cat.label}
@@ -610,15 +639,73 @@ export default function AdminDocuments() {
                                 </div>
                               </div>
                               <div className="flex gap-2 mt-3">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1 h-8 text-xs"
-                                  onClick={() => handleDownload(doc)}
-                                >
-                                  <Download className="w-3.5 h-3.5 mr-1" />
-                                  Download
-                                </Button>
+                                {/* Download: blocked for view_only/hidden unless admin */}
+                                {((doc.accessLevel || 'public') === 'public' || canManageAccess) ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1 h-8 text-xs"
+                                    onClick={() => handleDownload(doc)}
+                                  >
+                                    <Download className="w-3.5 h-3.5 mr-1" />
+                                    Download
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1 h-8 text-xs opacity-50 cursor-not-allowed"
+                                    disabled
+                                    title="Download bloqueado — documento restrito"
+                                  >
+                                    <Lock className="w-3.5 h-3.5 mr-1" />
+                                    Bloqueado
+                                  </Button>
+                                )}
+                                {/* Access Level Control — only for admin/authorized */}
+                                {canManageAccess && (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className={`h-8 w-8 ${
+                                          doc.accessLevel === 'hidden' ? 'text-red-500 hover:text-red-700' :
+                                          doc.accessLevel === 'view_only' ? 'text-amber-500 hover:text-amber-700' :
+                                          'text-slate-300 hover:text-slate-500'
+                                        }`}
+                                        title="Alterar n\u00edvel de acesso"
+                                      >
+                                        {doc.accessLevel === 'hidden' ? <ShieldAlert className="w-3.5 h-3.5" /> :
+                                         doc.accessLevel === 'view_only' ? <Lock className="w-3.5 h-3.5" /> :
+                                         <Unlock className="w-3.5 h-3.5" />}
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem
+                                        onClick={() => handleChangeAccessLevel(doc.id, 'public')}
+                                        className={doc.accessLevel === 'public' || !doc.accessLevel ? 'bg-emerald-50 font-medium' : ''}
+                                      >
+                                        <Unlock className="w-4 h-4 mr-2 text-emerald-500" />
+                                        🔓 Livre — todos acessam
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => handleChangeAccessLevel(doc.id, 'view_only')}
+                                        className={doc.accessLevel === 'view_only' ? 'bg-amber-50 font-medium' : ''}
+                                      >
+                                        <Lock className="w-4 h-4 mr-2 text-amber-500" />
+                                        🔒 Somente visualizar
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => handleChangeAccessLevel(doc.id, 'hidden')}
+                                        className={doc.accessLevel === 'hidden' ? 'bg-red-50 font-medium' : ''}
+                                      >
+                                        <ShieldAlert className="w-4 h-4 mr-2 text-red-500" />
+                                        🚫 Oculto total
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                )}
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button
@@ -650,14 +737,17 @@ export default function AdminDocuments() {
                                     )}
                                   </DropdownMenuContent>
                                 </DropdownMenu>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-red-400 hover:text-red-600"
-                                  onClick={() => handleDeleteDocument(doc.id)}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
+                                {/* Delete: blocked for restricted docs unless admin */}
+                                {((doc.accessLevel || 'public') === 'public' || canManageAccess) ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-red-400 hover:text-red-600"
+                                    onClick={() => handleDeleteDocument(doc.id)}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                ) : null}
                               </div>
                             </CardContent>
                           </Card>

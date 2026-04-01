@@ -489,6 +489,11 @@ class ApiService {
     return response.data;
   }
 
+  async changeDocumentAccessLevel(id: string, accessLevel: 'public' | 'view_only' | 'hidden') {
+    const response = await this.client.patch(`/documents/${id}/access-level`, { accessLevel });
+    return response.data;
+  }
+
   // Document Folders
   async getDocumentFolders(workId?: string) {
     const params = workId ? { workId } : {};

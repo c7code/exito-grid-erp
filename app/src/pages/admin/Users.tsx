@@ -83,6 +83,7 @@ const AVAILABLE_MODULES = [
     { id: 'quotations', label: 'Cotações' },
     { id: 'price-history', label: 'Histórico de Preços' },
     { id: 'documents', label: 'Documentos' },
+    { id: 'documents-restricted', label: 'Documentos Restritos (Gerencial)' },
     { id: 'finance', label: 'Financeiro' },
     { id: 'fiscal', label: 'Fiscal / NF-e' },
     { id: 'compliance', label: 'Compliance' },
