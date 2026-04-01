@@ -176,6 +176,19 @@ export class Document {
   @Column({ nullable: true })
   sourceOrganization: string;       // Origem: "ABNT", "Neoenergia", "CEMIG", nome do fornecedor
 
+  // ═══════════════════════════════════════════════════════════════
+  // CONTROLE DE ACESSO — Bloqueio gerencial
+  // 'public'    = Livre: todos veem, baixam e editam
+  // 'view_only' = Somente visualizar: vê na lista mas NÃO pode baixar/editar
+  // 'hidden'    = Oculto total: NÃO aparece para quem não tem permissão
+  // ═══════════════════════════════════════════════════════════════
+
+  @Column({ nullable: true, default: 'public' })
+  accessLevel: string;              // 'public' | 'view_only' | 'hidden'
+
+  @Column({ nullable: true })
+  accessChangedById: string;        // Quem alterou o nível de acesso
+
   // ── Audit Trail ──
   @Column({ nullable: true })
   createdById: string;

@@ -1,6 +1,6 @@
 import {
-  Controller, Get, Post, Put, Delete, Body, Param, Query,
-  UseGuards, UseInterceptors, UploadedFile, Res, NotFoundException, Request,
+  Controller, Get, Post, Put, Patch, Delete, Body, Param, Query,
+  UseGuards, UseInterceptors, UploadedFile, Res, NotFoundException, ForbiddenException, Request,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -34,8 +34,23 @@ export class DocumentsController {
     @Query('folderId') folderId?: string,
     @Query('proposalId') proposalId?: string,
     @Query('contractId') contractId?: string,
+    @Query('accessLevel') accessLevel?: string,
+    @Request() req?,
   ) {
-    return this.documentsService.findAll({ workId, type, folderId, proposalId, contractId });
+    const docs = await this.documentsService.findAll({ workId, type, folderId, proposalId, contractId });
+    // Filter by accessLevel if requested
+    let filtered = docs;
+    if (accessLevel) {
+      filtered = filtered.filter(d => (d.accessLevel || 'public') === accessLevel);
+    }
+    // Hide 'hidden' docs from non-admin users
+    const userRole = req?.user?.role;
+    const userPermissions: string[] = req?.user?.permissions || [];
+    const canSeeRestricted = userRole === 'admin' || userPermissions.includes('documents-restricted');
+    if (!canSeeRestricted) {
+      filtered = filtered.filter(d => (d.accessLevel || 'public') !== 'hidden');
+    }
+    return filtered;
   }
 
   @Get('by-work/:workId')
@@ -110,7 +125,7 @@ export class DocumentsController {
 
   @Get(':fileNameOrId/file')
   @ApiOperation({ summary: 'Download de arquivo' })
-  async downloadFile(@Param('fileNameOrId') fileNameOrId: string, @Res() res: Response) {
+  async downloadFile(@Param('fileNameOrId') fileNameOrId: string, @Res() res: Response, @Request() req) {
     let doc: Document | null = null;
 
     try {
@@ -121,6 +136,17 @@ export class DocumentsController {
 
     if (!doc) {
       throw new NotFoundException('Arquivo não encontrado');
+    }
+
+    // Block download for view_only or hidden docs (unless admin/authorized)
+    const docAccess = doc.accessLevel || 'public';
+    if (docAccess !== 'public') {
+      const userRole = req?.user?.role;
+      const userPermissions: string[] = req?.user?.permissions || [];
+      const canAccess = userRole === 'admin' || userPermissions.includes('documents-restricted');
+      if (!canAccess) {
+        throw new ForbiddenException('Você não tem permissão para baixar este documento.');
+      }
     }
 
     // Se a URL é do Supabase (https://...), redireciona
@@ -159,8 +185,19 @@ export class DocumentsController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Remover documento' })
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @Request() req) {
     const doc = await this.documentsService.findOne(id);
+
+    // Block delete for restricted docs if not admin
+    const docAccess = doc.accessLevel || 'public';
+    if (docAccess !== 'public') {
+      const userRole = req?.user?.role;
+      const userPermissions: string[] = req?.user?.permissions || [];
+      const canAccess = userRole === 'admin' || userPermissions.includes('documents-restricted');
+      if (!canAccess) {
+        throw new ForbiddenException('Você não tem permissão para excluir este documento.');
+      }
+    }
 
     // Limpar do Supabase Storage se o filePath parece ser um path de storage (não absoluto)
     if (doc.filePath && !path.isAbsolute(doc.filePath)) {
@@ -173,6 +210,34 @@ export class DocumentsController {
 
     await this.documentsService.remove(id);
     return { message: 'Documento removido com sucesso' };
+  }
+
+  // ========== CONTROLE DE ACESSO ==========
+
+  @Patch(':id/access-level')
+  @ApiOperation({ summary: 'Alterar nível de acesso do documento' })
+  async changeAccessLevel(
+    @Param('id') id: string,
+    @Body() body: { accessLevel: string },
+    @Request() req,
+  ) {
+    // Only admin or users with documents-restricted permission can change access levels
+    const userRole = req?.user?.role;
+    const userPermissions: string[] = req?.user?.permissions || [];
+    const canManage = userRole === 'admin' || userPermissions.includes('documents-restricted');
+    if (!canManage) {
+      throw new ForbiddenException('Apenas administradores podem alterar o nível de acesso.');
+    }
+
+    const validLevels = ['public', 'view_only', 'hidden'];
+    if (!validLevels.includes(body.accessLevel)) {
+      throw new ForbiddenException(`Nível de acesso inválido. Use: ${validLevels.join(', ')}`);
+    }
+
+    return this.documentsService.update(id, {
+      accessLevel: body.accessLevel,
+      accessChangedById: req.user?.userId || req.user?.id,
+    });
   }
 
   // ========== PASTAS ==========
