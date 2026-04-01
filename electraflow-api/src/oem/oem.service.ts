@@ -80,6 +80,27 @@ export class OemService {
                     "updatedAt" TIMESTAMP DEFAULT NOW()
                 )
             `);
+            // ── Colunas adicionais para oem_planos (migração incremental) ──
+            const planoColumns = [
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "tipoPlano" VARCHAR DEFAULT 'standard'`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "tempoRespostaSlaHoras" INTEGER DEFAULT 48`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "tempoRespostaUrgenteHoras" INTEGER DEFAULT 4`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "atendimentoHorario" VARCHAR DEFAULT 'comercial'`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "coberturaMaxAnual" DECIMAL(10,2)`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "limiteCorretivas" INTEGER`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "abrangenciaKm" INTEGER`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "incluiSeguro" BOOLEAN DEFAULT false`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "incluiRelatorio" BOOLEAN DEFAULT true`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "frequenciaRelatorio" VARCHAR DEFAULT 'trimestral'`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "termosDuracaoMeses" INTEGER DEFAULT 12`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "descontoAnualPercent" DECIMAL(5,2) DEFAULT 0`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "exclusoes" TEXT`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "penalidades" TEXT`,
+                `ALTER TABLE oem_planos ADD COLUMN IF NOT EXISTS "beneficios" TEXT`,
+            ];
+            for (const sql of planoColumns) {
+                try { await this.dataSource.query(sql); } catch { /* column may already exist */ }
+            }
             await this.dataSource.query(`
                 CREATE TABLE IF NOT EXISTS oem_contratos (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -17,8 +17,9 @@ import {
   AlertTriangle, Clock,
 } from 'lucide-react';
 import OeMServicos from './OeM_Servicos';
+import PlanoWizardDialog from './PlanoWizardDialog';
 import {
-  emptyUsina, emptyPlano, emptyContrato, fmt,
+  emptyUsina, emptyContrato, fmt,
   TIPO_LABELS, TIPO_ICONS, STATUS_COLORS, STATUS_LABELS,
 } from './OeM_handlers';
 
@@ -34,12 +35,12 @@ export default function OeM() {
 
   const [usinaDialogOpen, setUsinaDialogOpen] = useState(false);
   const [planoDialogOpen, setPlanoDialogOpen] = useState(false);
+  const [planoEditData, setPlanoEditData] = useState<any>(null);
   const [contratoDialogOpen, setContratoDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [usinaForm, setUsinaForm] = useState<any>({ ...emptyUsina });
-  const [planoForm, setPlanoForm] = useState<any>({ ...emptyPlano });
   const [contratoForm, setContratoForm] = useState<any>({ ...emptyContrato });
   const [priceCalc, setPriceCalc] = useState<any>(null);
 
@@ -77,14 +78,28 @@ export default function OeM() {
   const handleImportFromSolar = async (pid: string) => { try { await api.importOemUsinaFromSolar(pid); toast.success('Usina importada!'); setImportDialogOpen(false); loadAll(); } catch { toast.error('Erro ao importar'); } };
 
   // ═══ PLANO HANDLERS ════════════════════════════════════════════
-  const handleSavePlano = async () => {
-    try {
-      if (editingId) { await api.updateOemPlano(editingId, planoForm); toast.success('Plano atualizado'); }
-      else { await api.createOemPlano(planoForm); toast.success('Plano criado'); }
-      setPlanoDialogOpen(false); setEditingId(null); setPlanoForm({ ...emptyPlano }); loadAll();
-    } catch { toast.error('Erro ao salvar plano'); }
+  const handleEditPlano = (p: any) => {
+    setEditingId(p.id);
+    setPlanoEditData({
+      nome: p.nome || '', descricao: p.descricao || '', tipoPlano: p.tipoPlano || 'standard',
+      incluiLimpeza: p.incluiLimpeza ?? true, incluiInspecaoVisual: p.incluiInspecaoVisual ?? true,
+      incluiTermografia: p.incluiTermografia ?? false, incluiTesteString: p.incluiTesteString ?? false,
+      incluiMonitoramentoRemoto: p.incluiMonitoramentoRemoto ?? false, incluiCorretivaPrioritaria: p.incluiCorretivaPrioritaria ?? false,
+      incluiSeguro: p.incluiSeguro ?? false, incluiRelatorio: p.incluiRelatorio ?? true,
+      garantiaPerformancePr: String(p.garantiaPerformancePr || ''),
+      frequenciaPreventiva: p.frequenciaPreventiva || 'semestral', frequenciaRelatorio: p.frequenciaRelatorio || 'trimestral',
+      precoBaseMensal: String(p.precoBaseMensal || ''), kwpLimiteBase: String(p.kwpLimiteBase || 10),
+      precoKwpExcedente: String(p.precoKwpExcedente || ''), unidadeCobranca: p.unidadeCobranca || 'kWp',
+      custoMobilizacao: String(p.custoMobilizacao || 0),
+      tempoRespostaSlaHoras: String(p.tempoRespostaSlaHoras || 48), tempoRespostaUrgenteHoras: String(p.tempoRespostaUrgenteHoras || 4),
+      atendimentoHorario: p.atendimentoHorario || 'comercial',
+      coberturaMaxAnual: String(p.coberturaMaxAnual || ''), limiteCorretivas: String(p.limiteCorretivas || ''),
+      abrangenciaKm: String(p.abrangenciaKm || ''), termosDuracaoMeses: String(p.termosDuracaoMeses || 12),
+      descontoAnualPercent: String(p.descontoAnualPercent || 0), exclusoes: p.exclusoes || '',
+      penalidades: p.penalidades || '', beneficios: p.beneficios || '', ativo: p.ativo ?? true,
+    });
+    setPlanoDialogOpen(true);
   };
-  const handleEditPlano = (p: any) => { setEditingId(p.id); setPlanoForm({ nome: p.nome || '', descricao: p.descricao || '', tipoPlano: p.tipoPlano || 'standard', incluiLimpeza: p.incluiLimpeza ?? true, incluiInspecaoVisual: p.incluiInspecaoVisual ?? true, incluiTermografia: p.incluiTermografia ?? false, incluiTesteString: p.incluiTesteString ?? false, incluiMonitoramentoRemoto: p.incluiMonitoramentoRemoto ?? false, incluiCorretivaPrioritaria: p.incluiCorretivaPrioritaria ?? false, incluiSeguro: p.incluiSeguro ?? false, incluiRelatorio: p.incluiRelatorio ?? true, garantiaPerformancePr: String(p.garantiaPerformancePr || ''), frequenciaPreventiva: p.frequenciaPreventiva || 'semestral', frequenciaRelatorio: p.frequenciaRelatorio || 'trimestral', precoBaseMensal: String(p.precoBaseMensal || ''), kwpLimiteBase: String(p.kwpLimiteBase || 10), precoKwpExcedente: String(p.precoKwpExcedente || ''), unidadeCobranca: p.unidadeCobranca || 'kWp', custoMobilizacao: String(p.custoMobilizacao || 0), tempoRespostaSlaHoras: String(p.tempoRespostaSlaHoras || 48), tempoRespostaUrgenteHoras: String(p.tempoRespostaUrgenteHoras || 4), atendimentoHorario: p.atendimentoHorario || 'comercial', coberturaMaxAnual: String(p.coberturaMaxAnual || ''), limiteCorretivas: String(p.limiteCorretivas || ''), abrangenciaKm: String(p.abrangenciaKm || ''), termosDuracaoMeses: String(p.termosDuracaoMeses || 12), descontoAnualPercent: String(p.descontoAnualPercent || 0), exclusoes: p.exclusoes || '', penalidades: p.penalidades || '', beneficios: p.beneficios || '', ativo: p.ativo ?? true }); setPlanoDialogOpen(true); };
   const handleDeletePlano = async (id: string) => { if (!confirm('Excluir plano?')) return; try { await api.deleteOemPlano(id); toast.success('Excluído'); loadAll(); } catch { toast.error('Erro'); } };
 
   // ═══ CONTRATO HANDLERS ═════════════════════════════════════════
@@ -194,7 +209,7 @@ export default function OeM() {
 
         {/* ═══ PLANOS ═══ */}
         <TabsContent value="planos" className="space-y-4">
-          <Button onClick={() => { setEditingId(null); setPlanoForm({ ...emptyPlano }); setPlanoDialogOpen(true); }}><Plus className="w-4 h-4 mr-1" /> Novo Plano</Button>
+          <Button onClick={() => { setEditingId(null); setPlanoEditData(null); setPlanoDialogOpen(true); }}><Plus className="w-4 h-4 mr-1" /> Novo Plano</Button>
           <div className="grid md:grid-cols-3 gap-4">
             {planos.length === 0 && <p className="text-slate-400 text-center py-8 col-span-3">Nenhum plano cadastrado</p>}
             {planos.map((p: any) => (
@@ -293,142 +308,14 @@ export default function OeM() {
         </DialogContent>
       </Dialog>
 
-      {/* ═══ PLANO DIALOG — PREMIUM ═══ */}
-      <Dialog open={planoDialogOpen} onOpenChange={(o) => { if (!o) { setPlanoDialogOpen(false); setEditingId(null); } }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl flex items-center gap-2">
-              {editingId ? '✏️ Editar Plano de Manutenção' : '🆕 Novo Plano de Manutenção'}
-            </DialogTitle>
-            <p className="text-sm text-slate-500">Configure todos os parâmetros do plano de O&M recorrente</p>
-          </DialogHeader>
-
-          <div className="space-y-5">
-            {/* ── SEÇÃO 1: IDENTIFICAÇÃO ── */}
-            <div className="bg-slate-50 border rounded-lg p-4 space-y-3">
-              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">📋 Identificação do Plano</h3>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2 space-y-1"><Label>Nome do Plano *</Label><Input value={planoForm.nome} onChange={e => setPlanoForm({ ...planoForm, nome: e.target.value })} placeholder="Ex: Premium Solar, Básico Residencial..." /></div>
-                <div className="space-y-1">
-                  <Label>Categoria</Label>
-                  <Select value={planoForm.tipoPlano} onValueChange={v => setPlanoForm({ ...planoForm, tipoPlano: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="basico">🥉 Básico</SelectItem>
-                      <SelectItem value="standard">🥈 Standard</SelectItem>
-                      <SelectItem value="premium">🥇 Premium</SelectItem>
-                      <SelectItem value="enterprise">💎 Enterprise</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-1"><Label>Descrição Comercial</Label><Textarea value={planoForm.descricao} onChange={e => setPlanoForm({ ...planoForm, descricao: e.target.value })} rows={2} placeholder="Descreva os diferenciais e o público-alvo deste plano..." /></div>
-              <div className="space-y-1"><Label>Benefícios Destacados</Label><Textarea value={planoForm.beneficios} onChange={e => setPlanoForm({ ...planoForm, beneficios: e.target.value })} rows={2} placeholder="Lista de benefícios para o cliente (usado na proposta)..." /></div>
-            </div>
-
-            {/* ── SEÇÃO 2: SERVIÇOS INCLUÍDOS ── */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
-              <h3 className="font-bold text-green-800 text-sm flex items-center gap-2">✅ Serviços Incluídos</h3>
-              <div className="grid grid-cols-2 gap-y-3 gap-x-6">
-                {[
-                  { key: 'incluiLimpeza', label: 'Limpeza dos Módulos', desc: 'Lavagem com água deionizada' },
-                  { key: 'incluiInspecaoVisual', label: 'Inspeção Visual Completa', desc: 'Módulos, estrutura, cabos' },
-                  { key: 'incluiTermografia', label: '🌡️ Termografia Infravermelha', desc: 'Detecção de hotspots' },
-                  { key: 'incluiTesteString', label: '📊 Teste de String (I-V)', desc: 'Curva I-V dos módulos' },
-                  { key: 'incluiMonitoramentoRemoto', label: '📡 Monitoramento Remoto', desc: 'Acompanhamento em tempo real' },
-                  { key: 'incluiCorretivaPrioritaria', label: '⚡ Corretiva Prioritária', desc: 'Atendimento com prioridade' },
-                  { key: 'incluiRelatorio', label: '📄 Relatório de Performance', desc: 'Análise detalhada periódica' },
-                  { key: 'incluiSeguro', label: '🛡️ Seguro Contra Danos', desc: 'Cobertura para sinistros' },
-                ].map(({ key, label, desc }) => (
-                  <div key={key} className="flex items-start gap-3 bg-white rounded-md p-2 border border-green-100">
-                    <Switch checked={planoForm[key]} onCheckedChange={v => setPlanoForm({ ...planoForm, [key]: v })} className="mt-0.5" />
-                    <div><p className="text-sm font-medium">{label}</p><p className="text-xs text-slate-400">{desc}</p></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* ── SEÇÃO 3: SLA — ACORDO DE NÍVEL DE SERVIÇO ── */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-              <h3 className="font-bold text-blue-800 text-sm flex items-center gap-2">⏱️ SLA — Acordo de Nível de Serviço</h3>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1"><Label className="text-sm">Resposta Normal (horas)</Label><Input value={planoForm.tempoRespostaSlaHoras} onChange={e => setPlanoForm({ ...planoForm, tempoRespostaSlaHoras: e.target.value })} type="number" placeholder="48" /></div>
-                <div className="space-y-1"><Label className="text-sm">Resposta Urgente (horas)</Label><Input value={planoForm.tempoRespostaUrgenteHoras} onChange={e => setPlanoForm({ ...planoForm, tempoRespostaUrgenteHoras: e.target.value })} type="number" placeholder="4" /></div>
-                <div className="space-y-1">
-                  <Label className="text-sm">Horário de Atendimento</Label>
-                  <Select value={planoForm.atendimentoHorario} onValueChange={v => setPlanoForm({ ...planoForm, atendimentoHorario: v })}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="comercial">Comercial (8h-18h)</SelectItem>
-                      <SelectItem value="estendido">Estendido (7h-22h)</SelectItem>
-                      <SelectItem value="24x7">24x7 (24 horas)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1"><Label className="text-sm">Frequência Manutenção Preventiva</Label>
-                  <Select value={planoForm.frequenciaPreventiva} onValueChange={v => setPlanoForm({ ...planoForm, frequenciaPreventiva: v })}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="mensal">Mensal</SelectItem><SelectItem value="trimestral">Trimestral</SelectItem><SelectItem value="semestral">Semestral</SelectItem><SelectItem value="anual">Anual</SelectItem></SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1"><Label className="text-sm">Frequência Relatório</Label>
-                  <Select value={planoForm.frequenciaRelatorio} onValueChange={v => setPlanoForm({ ...planoForm, frequenciaRelatorio: v })}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="mensal">Mensal</SelectItem><SelectItem value="trimestral">Trimestral</SelectItem><SelectItem value="semestral">Semestral</SelectItem><SelectItem value="anual">Anual</SelectItem></SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-1"><Label className="text-sm">Penalidades por Descumprimento de SLA</Label><Textarea value={planoForm.penalidades} onChange={e => setPlanoForm({ ...planoForm, penalidades: e.target.value })} rows={2} placeholder="Ex: Desconto de 5% no valor mensal para cada dia de atraso..." /></div>
-            </div>
-
-            {/* ── SEÇÃO 4: PRECIFICAÇÃO ── */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
-              <h3 className="font-bold text-amber-800 text-sm flex items-center gap-2">💰 Precificação</h3>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1"><Label className="text-sm">Preço Base Mensal *</Label><Input value={planoForm.precoBaseMensal} onChange={e => setPlanoForm({ ...planoForm, precoBaseMensal: e.target.value })} type="number" step="0.01" /></div>
-                <div className="space-y-1"><Label className="text-sm">Limite kWp (base)</Label><Input value={planoForm.kwpLimiteBase} onChange={e => setPlanoForm({ ...planoForm, kwpLimiteBase: e.target.value })} type="number" step="0.01" /></div>
-                <div className="space-y-1"><Label className="text-sm">Preço kWp Excedente</Label><Input value={planoForm.precoKwpExcedente} onChange={e => setPlanoForm({ ...planoForm, precoKwpExcedente: e.target.value })} type="number" step="0.01" /></div>
-                <div className="space-y-1"><Label className="text-sm">Unidade de Cobrança</Label>
-                  <Select value={planoForm.unidadeCobranca} onValueChange={v => setPlanoForm({ ...planoForm, unidadeCobranca: v })}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="kWp">kWp</SelectItem><SelectItem value="módulo">Módulo</SelectItem><SelectItem value="Wp">Wp</SelectItem><SelectItem value="visita">Visita</SelectItem></SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1"><Label className="text-sm">Custo Mobilização</Label><Input value={planoForm.custoMobilizacao} onChange={e => setPlanoForm({ ...planoForm, custoMobilizacao: e.target.value })} type="number" step="0.01" /></div>
-                <div className="space-y-1"><Label className="text-sm">Desconto Anual (%)</Label><Input value={planoForm.descontoAnualPercent} onChange={e => setPlanoForm({ ...planoForm, descontoAnualPercent: e.target.value })} type="number" step="0.1" placeholder="Ex: 10" /></div>
-              </div>
-              <div className="space-y-1"><Label className="text-sm">Garantia Performance (PR %)</Label><Input value={planoForm.garantiaPerformancePr} onChange={e => setPlanoForm({ ...planoForm, garantiaPerformancePr: e.target.value })} type="number" step="0.01" placeholder="Ex: 75" className="max-w-xs" /></div>
-            </div>
-
-            {/* ── SEÇÃO 5: COBERTURA E LIMITES ── */}
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-3">
-              <h3 className="font-bold text-purple-800 text-sm flex items-center gap-2">🛡️ Cobertura e Limites</h3>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1"><Label className="text-sm">Cobertura Máx. Anual (R$)</Label><Input value={planoForm.coberturaMaxAnual} onChange={e => setPlanoForm({ ...planoForm, coberturaMaxAnual: e.target.value })} type="number" step="0.01" placeholder="Sem limite" /></div>
-                <div className="space-y-1"><Label className="text-sm">Limite Corretivas/Ano</Label><Input value={planoForm.limiteCorretivas} onChange={e => setPlanoForm({ ...planoForm, limiteCorretivas: e.target.value })} type="number" placeholder="Ilimitado" /></div>
-                <div className="space-y-1"><Label className="text-sm">Abrangência (km)</Label><Input value={planoForm.abrangenciaKm} onChange={e => setPlanoForm({ ...planoForm, abrangenciaKm: e.target.value })} type="number" placeholder="Raio de atendimento" /></div>
-              </div>
-              <div className="space-y-1"><Label className="text-sm">Exclusões (o que NÃO está coberto)</Label><Textarea value={planoForm.exclusoes} onChange={e => setPlanoForm({ ...planoForm, exclusoes: e.target.value })} rows={2} placeholder="Ex: Danos por vandalismo, fenômenos naturais, desgaste normal dos módulos..." /></div>
-            </div>
-
-            {/* ── SEÇÃO 6: TERMOS DO CONTRATO ── */}
-            <div className="bg-slate-50 border rounded-lg p-4 space-y-3">
-              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">📜 Termos do Contrato</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1"><Label className="text-sm">Duração Mínima (meses)</Label><Input value={planoForm.termosDuracaoMeses} onChange={e => setPlanoForm({ ...planoForm, termosDuracaoMeses: e.target.value })} type="number" placeholder="12" /></div>
-                <div className="flex items-center gap-2 pt-5"><Switch checked={planoForm.ativo} onCheckedChange={v => setPlanoForm({ ...planoForm, ativo: v })} /><Label className="text-sm">Plano Ativo (disponível para contratação)</Label></div>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="pt-4 border-t">
-            <Button variant="outline" onClick={() => { setPlanoDialogOpen(false); setEditingId(null); }}>Cancelar</Button>
-            <Button onClick={handleSavePlano} className="bg-green-600 hover:bg-green-700">💾 Salvar Plano</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* ═══ PLANO WIZARD DIALOG ═══ */}
+      <PlanoWizardDialog
+        open={planoDialogOpen}
+        onOpenChange={(o) => { setPlanoDialogOpen(o); if (!o) { setEditingId(null); setPlanoEditData(null); } }}
+        editingId={editingId}
+        initialData={planoEditData}
+        onSaved={loadAll}
+      />
 
       {/* ═══ CONTRATO DIALOG ═══ */}
       <Dialog open={contratoDialogOpen} onOpenChange={(o) => { if (!o) { setContratoDialogOpen(false); setEditingId(null); setPriceCalc(null); } }}>

@@ -55,6 +55,7 @@ import { api } from '@/api';
 import NewProposalDialog from '@/components/NewProposalDialog';
 import { ProposalPDFTemplate } from '@/components/ProposalPDFTemplate';
 import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate';
+import { OeMProposalPDFTemplate } from '@/components/OeMProposalPDFTemplate';
 import html2pdf from 'html2pdf.js';
 import { Download, MessageCircle, Mail, ExternalLink } from 'lucide-react';
 
@@ -960,12 +961,14 @@ export default function AdminProposals() {
           <div className="flex-1 overflow-y-auto bg-slate-200/60 p-6">
             <div className="mx-auto shadow-xl rounded-lg overflow-hidden" style={{ maxWidth: 794 }}>
               {previewProposalData && (
-                <ProposalPDFTemplate
-                  proposal={previewProposalData}
-                  client={previewProposalData.client || previewProposalData.opportunity?.client}
-                  company={companyData}
-                  hideFinancialValues={hideFinancialValues}
-                />
+                previewProposalData.activityType === 'plano_oem'
+                  ? <OeMProposalPDFTemplate proposal={previewProposalData} company={companyData} />
+                  : <ProposalPDFTemplate
+                      proposal={previewProposalData}
+                      client={previewProposalData.client || previewProposalData.opportunity?.client}
+                      company={companyData}
+                      hideFinancialValues={hideFinancialValues}
+                    />
               )}
             </div>
           </div>
@@ -977,7 +980,9 @@ export default function AdminProposals() {
         {proposalToPrint && (
           proposalToPrint.activityType === 'energia_solar' && solarProjectData
             ? <SolarProposalPDFTemplate proposal={proposalToPrint} solarProject={solarProjectData} company={companyData} />
-            : <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} company={companyData} hideFinancialValues={hideFinancialValues} />
+            : proposalToPrint.activityType === 'plano_oem'
+              ? <OeMProposalPDFTemplate proposal={proposalToPrint} company={companyData} />
+              : <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} company={companyData} hideFinancialValues={hideFinancialValues} />
         )}
       </div>
     </div>
