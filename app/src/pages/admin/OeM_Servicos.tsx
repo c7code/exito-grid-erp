@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { api } from '@/api';
-import { Plus, Pencil, Trash2, FileSignature, CheckCircle2, ClipboardList, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, FileSignature, CheckCircle2, ClipboardList } from 'lucide-react';
 import {
   TIPO_LABELS, TIPO_COLORS, TIPO_ICONS,
   STATUS_LABELS, STATUS_COLORS,
