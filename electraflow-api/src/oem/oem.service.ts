@@ -326,19 +326,46 @@ export class OemService {
 
         // Criar itens da proposta a partir do checklist
         const checklist = servico.checklist ? (typeof servico.checklist === 'string' ? JSON.parse(servico.checklist) : servico.checklist) : [];
-        const items = checklist
-            .filter((c: any) => c.checked !== false)
-            .map((c: any, i: number) => ({
+        const activeItems = checklist.filter((c: any) => c.checked !== false);
+        const valorTotal = Number(servico.valorEstimado || servico.valorFinal || 0);
+        const valorPorItem = activeItems.length > 0 && valorTotal > 0 ? +(valorTotal / activeItems.length).toFixed(2) : 0;
+
+        // Ajustar para o último item absorver a diferença de arredondamento
+        const items = activeItems.map((c: any, i: number) => {
+            let itemPrice = valorPorItem;
+            if (i === activeItems.length - 1 && valorTotal > 0) {
+                itemPrice = +(valorTotal - valorPorItem * (activeItems.length - 1)).toFixed(2);
+            }
+            return {
                 description: c.item,
                 unit: 'sv',
                 serviceType: 'service',
-                unitPrice: 0,
+                unitPrice: itemPrice,
                 quantity: 1,
-                total: 0,
+                total: itemPrice,
                 showDetailedPrices: true,
-            }));
+            };
+        });
 
-        // Criar proposta via SQL (para não depender de circular import)
+        // Escopo detalhado com dados técnicos da usina
+        const scope = [
+            `${tipoLabel[servico.tipo]} para usina ${usina.nome} (${usina.potenciaKwp} kWp).`,
+            ``,
+            `DADOS TÉCNICOS DO SISTEMA:`,
+            `• Potência: ${usina.potenciaKwp} kWp`,
+            `• Módulos: ${usina.qtdModulos} unidades${usina.modeloModulos ? ` — ${usina.modeloModulos}` : ''}`,
+            `• Inversores: ${usina.qtdInversores || 1} unidade(s)${usina.modeloInversores ? ` — ${usina.modeloInversores}` : ''}${usina.marcaInversor ? ` (${usina.marcaInversor})` : ''}`,
+            usina.tipoTelhado ? `• Tipo de telhado: ${usina.tipoTelhado}` : null,
+            usina.dataInstalacao ? `• Data de instalação: ${typeof usina.dataInstalacao === 'string' ? usina.dataInstalacao.split('T')[0] : usina.dataInstalacao}` : null,
+            ``,
+            `Endereço: ${usina.endereco}`,
+        ].filter(Boolean).join('\n');
+
+        const workDescription = servico.descricao
+            ? servico.descricao
+            : `Serviço de ${tipoLabel[servico.tipo]} para usina fotovoltaica ${usina.nome}, contemplando as atividades listadas na prestação de serviços.`;
+
+        // Criar proposta via SQL
         const result = await this.dataSource.query(`
             INSERT INTO proposals (
                 "proposalNumber", "title", "clientId", "status",
@@ -353,13 +380,13 @@ export class OemService {
             `${tipoLabel[servico.tipo] || 'Manutenção'} — ${usina.nome}`,
             servico.clienteId,
             'draft',
-            servico.valorEstimado || 0,
+            valorTotal,
             0,
-            servico.valorEstimado || 0,
+            valorTotal,
             activityTypeMap[servico.tipo] || 'manutencao_preventiva',
             'service_only',
-            `${tipoLabel[servico.tipo]} para usina ${usina.nome} (${usina.potenciaKwp} kWp, ${usina.qtdModulos} módulos).\nEndereço: ${usina.endereco}`,
-            servico.descricao || `Serviço de ${tipoLabel[servico.tipo]} para usina fotovoltaica`,
+            scope,
+            workDescription,
             servico.observacoes || null,
         ]);
 
