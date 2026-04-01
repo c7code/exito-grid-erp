@@ -34,6 +34,7 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
   const [concluirId, setConcluirId] = useState<string | null>(null);
   const [filterTipo, setFilterTipo] = useState('todos');
   const [checklist, setChecklist] = useState<any[]>([]);
+  const [newCheckItem, setNewCheckItem] = useState('');
 
   const getClientName = (id: string) => { const c = clients.find((c: any) => c.id === id); return c?.name || c?.razaoSocial || '—'; };
 
@@ -108,6 +109,16 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
     const updated = [...checklist];
     updated[idx] = { ...updated[idx], checked: !updated[idx].checked };
     setChecklist(updated);
+  };
+
+  const addCheckItem = () => {
+    if (!newCheckItem.trim()) return;
+    setChecklist([...checklist, { item: newCheckItem.trim(), checked: false }]);
+    setNewCheckItem('');
+  };
+
+  const removeCheckItem = (idx: number) => {
+    setChecklist(checklist.filter((_, i) => i !== idx));
   };
 
   const filtered = filterTipo === 'todos' ? servicos : servicos.filter((s: any) => s.tipo === filterTipo);
@@ -225,15 +236,31 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
             <div className="bg-slate-50 border rounded-lg p-3 space-y-2">
               <div className="flex items-center gap-2">
                 <ClipboardList className="w-4 h-4 text-slate-600" />
-                <h3 className="font-semibold text-sm text-slate-700">Checklist — {TIPO_LABELS[form.tipo]}</h3>
+                <h3 className="font-semibold text-sm text-slate-700">Checklist — {TIPO_LABELS[form.tipo] || form.tipo}</h3>
               </div>
               {checklist.map((item: any, idx: number) => (
-                <div key={idx} className="flex items-center gap-2">
+                <div key={idx} className="flex items-center gap-2 group">
                   <Checkbox checked={item.checked} onCheckedChange={() => toggleCheckItem(idx)} />
-                  <span className={`text-sm ${item.checked ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.item}</span>
+                  <span className={`text-sm flex-1 ${item.checked ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.item}</span>
+                  <button type="button" onClick={() => removeCheckItem(idx)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity" title="Remover item">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               ))}
               {checklist.length === 0 && <p className="text-xs text-slate-400">Nenhum item no checklist</p>}
+              {/* Adicionar novo item */}
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+                <Input
+                  value={newCheckItem}
+                  onChange={e => setNewCheckItem(e.target.value)}
+                  placeholder="Adicionar nova atividade..."
+                  className="text-sm h-8"
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCheckItem(); } }}
+                />
+                <Button type="button" variant="outline" size="sm" onClick={addCheckItem} className="shrink-0 h-8">
+                  <Plus className="w-3.5 h-3.5 mr-1" />Adicionar
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-1"><Label>Observações</Label><Textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} rows={2} /></div>
