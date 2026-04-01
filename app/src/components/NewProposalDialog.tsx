@@ -2286,7 +2286,78 @@ export default function NewProposalDialog({
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Dados Bancários</Label>
+                                    <div className="flex items-center justify-between">
+                                        <Label>Dados Bancários</Label>
+                                        <div className="flex items-center gap-1">
+                                            {formData.paymentBank.trim() && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 text-[10px] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 gap-1 px-2"
+                                                    onClick={() => {
+                                                        const label = prompt('Nome para esta conta (Ex: Banco do Brasil PJ, Caixa PF):');
+                                                        if (!label?.trim()) return;
+                                                        const saved = JSON.parse(localStorage.getItem('electraflow_bank_accounts') || '[]');
+                                                        saved.push({ label: label.trim(), value: formData.paymentBank.trim() });
+                                                        localStorage.setItem('electraflow_bank_accounts', JSON.stringify(saved));
+                                                        toast.success(`Conta "${label.trim()}" salva!`);
+                                                    }}
+                                                >
+                                                    💾 Salvar atual
+                                                </Button>
+                                            )}
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-6 text-[10px] gap-1 px-2 border-amber-300 text-amber-700 hover:bg-amber-50"
+                                                    >
+                                                        ⚡ Contas Salvas
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-72 max-h-64 overflow-y-auto">
+                                                    {(() => {
+                                                        const saved = JSON.parse(localStorage.getItem('electraflow_bank_accounts') || '[]') as { label: string; value: string }[];
+                                                        if (saved.length === 0) {
+                                                            return (
+                                                                <DropdownMenuItem disabled className="text-xs text-slate-400">
+                                                                    Nenhuma conta salva. Preencha e clique em "💾 Salvar atual"
+                                                                </DropdownMenuItem>
+                                                            );
+                                                        }
+                                                        return saved.map((acc: { label: string; value: string }, i: number) => (
+                                                            <DropdownMenuItem
+                                                                key={i}
+                                                                className="flex items-center justify-between text-xs"
+                                                                onClick={() => setFormData({ ...formData, paymentBank: acc.value })}
+                                                            >
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="font-medium truncate">🏦 {acc.label}</p>
+                                                                    <p className="text-[10px] text-slate-400 truncate">{acc.value.substring(0, 50)}...</p>
+                                                                </div>
+                                                                <button
+                                                                    className="ml-2 p-0.5 text-red-300 hover:text-red-600 shrink-0"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (!confirm(`Remover "${acc.label}" das contas salvas?`)) return;
+                                                                        const updated = saved.filter((_: any, idx: number) => idx !== i);
+                                                                        localStorage.setItem('electraflow_bank_accounts', JSON.stringify(updated));
+                                                                        toast.success(`Conta "${acc.label}" removida.`);
+                                                                    }}
+                                                                    title="Remover"
+                                                                >
+                                                                    <Trash2 className="w-3 h-3" />
+                                                                </button>
+                                                            </DropdownMenuItem>
+                                                        ));
+                                                    })()}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                    </div>
                                     <Textarea
                                         rows={3}
                                         placeholder="Banco, Agência, Conta, PIX..."
