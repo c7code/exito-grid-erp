@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { api } from '@/api';
-import { Plus, Pencil, Trash2, FileSignature, CheckCircle2, ClipboardList } from 'lucide-react';
+import { Plus, Pencil, Trash2, FileSignature, CheckCircle2, ClipboardList, Calculator, DollarSign } from 'lucide-react';
 import {
   TIPO_LABELS, TIPO_COLORS, TIPO_ICONS,
   STATUS_LABELS, STATUS_COLORS,
@@ -37,6 +37,11 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
   const [newCheckItem, setNewCheckItem] = useState('');
   const [displayMode, setDisplayMode] = useState<'com_valor' | 'sem_valor' | 'texto'>('com_valor');
 
+  // ── Precificação inteligente ──
+  const [baseManutencao, setBaseManutencao] = useState(0);
+  const [valorUsina, setValorUsina] = useState(0);
+  const [pctManutencao, setPctManutencao] = useState(10);
+
   const getClientName = (id: string) => { const c = clients.find((c: any) => c.id === id); return c?.name || c?.razaoSocial || '—'; };
 
   const loadChecklist = async (tipo: string) => {
@@ -51,6 +56,9 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
     setEditingId(null);
     setForm({ ...emptyServico, tipo });
     setDisplayMode('com_valor');
+    setBaseManutencao(0);
+    setValorUsina(0);
+    setPctManutencao(10);
     loadChecklist(tipo);
     setDialogOpen(true);
   };
@@ -82,6 +90,17 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
       tecnicoResponsavel: s.tecnicoResponsavel || '', observacoes: s.observacoes || '',
       checklist: JSON.stringify(cl),
     });
+    // Carregar dados de precificação da usina
+    if (s.usinaId) {
+      const u = usinas.find((u: any) => u.id === s.usinaId);
+      if (u) {
+        const vUsina = Number(u.valorEstimadoUsina || 0);
+        const pct = Number(u.percentualManutencao || 10);
+        setValorUsina(vUsina);
+        setPctManutencao(pct);
+        setBaseManutencao(vUsina * pct / 100);
+      }
+    }
     setDialogOpen(true);
   };
 
@@ -125,6 +144,35 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
   const removeCheckItem = (idx: number) => {
     setChecklist(checklist.filter((_, i) => i !== idx));
   };
+
+  // ── Seleção de usina com auto-preenchimento da precificação ──
+  const handleSelectUsina = (usinaId: string) => {
+    const u = usinas.find((u: any) => u.id === usinaId);
+    const vUsina = Number(u?.valorEstimadoUsina || 0);
+    const pct = Number(u?.percentualManutencao || 10);
+    const base = vUsina * pct / 100;
+    setValorUsina(vUsina);
+    setPctManutencao(pct);
+    setBaseManutencao(base);
+    setForm((f: any) => ({
+      ...f,
+      usinaId,
+      clienteId: u?.clienteId || f.clienteId,
+      valorEstimado: base > 0 ? String(base) : f.valorEstimado,
+    }));
+  };
+
+  // ── Cálculo do valor de cada item do checklist ──
+  const calcItemValue = (item: any): number => {
+    const valorEstimado = Number(form.valorEstimado || 0);
+    if (item.inputMode === 'valor') return Number(item.valorDireto) || 0;
+    if (Number(item.percentual) > 0 && valorEstimado > 0) {
+      return +(valorEstimado * (Number(item.percentual) / 100)).toFixed(2);
+    }
+    return 0;
+  };
+
+  const totalChecklist = checklist.reduce((sum, item) => sum + calcItemValue(item), 0);
 
   const filtered = filterTipo === 'todos' ? servicos : servicos.filter((s: any) => s.tipo === filterTipo);
 
@@ -190,7 +238,7 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
 
       {/* ═══ NOVO/EDITAR SERVIÇO ═══ */}
       <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) { setDialogOpen(false); setEditingId(null); } }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingId ? 'Editar Serviço' : `Novo Serviço — ${TIPO_LABELS[form.tipo]}`}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -219,7 +267,7 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
               </div>
               <div className="space-y-1">
                 <Label>Usina *</Label>
-                <Select value={form.usinaId} onValueChange={v => { const u = usinas.find((u: any) => u.id === v); setForm({ ...form, usinaId: v, clienteId: u?.clienteId || form.clienteId }); }}>
+                <Select value={form.usinaId} onValueChange={handleSelectUsina}>
                   <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
                   <SelectContent>{usinas.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.nome} ({Number(u.potenciaKwp).toFixed(1)} kWp)</SelectItem>)}</SelectContent>
                 </Select>
@@ -256,14 +304,77 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
               );
             })()}
 
+            {/* ═══ BLOCO DE PRECIFICAÇÃO INTELIGENTE ═══ */}
+            <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Calculator className="w-5 h-5 text-amber-400" />
+                <h3 className="font-bold text-white text-sm">Engenharia de Precificação</h3>
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-400">Valor da Usina (R$)</Label>
+                  <Input
+                    type="number" step="0.01"
+                    value={valorUsina || ''}
+                    onChange={e => {
+                      const v = Number(e.target.value) || 0;
+                      setValorUsina(v);
+                      const base = v * pctManutencao / 100;
+                      setBaseManutencao(base);
+                      setForm((f: any) => ({ ...f, valorEstimado: base > 0 ? String(base) : f.valorEstimado }));
+                    }}
+                    className="bg-slate-800 border-slate-700 text-white h-9 text-sm"
+                    placeholder="100.000"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-400">% Manutenção</Label>
+                  <div className="relative">
+                    <Input
+                      type="number" step="0.1"
+                      value={pctManutencao || ''}
+                      onChange={e => {
+                        const p = Number(e.target.value) || 0;
+                        setPctManutencao(p);
+                        const base = valorUsina * p / 100;
+                        setBaseManutencao(base);
+                        setForm((f: any) => ({ ...f, valorEstimado: base > 0 ? String(base) : f.valorEstimado }));
+                      }}
+                      className="bg-slate-800 border-slate-700 text-white h-9 text-sm pr-8"
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-500">%</span>
+                  </div>
+                </div>
+                <div className="bg-amber-500/20 border border-amber-500/40 rounded-lg p-2 text-center">
+                  <p className="text-[10px] text-amber-400/80 font-medium uppercase tracking-wider">Base Calculada</p>
+                  <p className="text-base font-bold text-amber-400">
+                    {baseManutencao > 0 ? fmt(baseManutencao) : '—'}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-400">Valor Manutenção (R$)</Label>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-500">R$</span>
+                    <Input
+                      type="number" step="0.01"
+                      value={form.valorEstimado}
+                      onChange={e => setForm({ ...form, valorEstimado: e.target.value })}
+                      className="bg-slate-800 border-slate-700 text-white h-9 text-sm pl-8 font-bold"
+                      placeholder="Valor total"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-500">Editável — base para os %</p>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1"><Label>Data Agendada</Label><Input type="date" value={form.dataAgendada} onChange={e => setForm({ ...form, dataAgendada: e.target.value })} /></div>
-              <div className="space-y-1"><Label>Valor Estimado (R$)</Label><Input type="number" step="0.01" value={form.valorEstimado} onChange={e => setForm({ ...form, valorEstimado: e.target.value })} /></div>
-              <div className="col-span-2 space-y-1"><Label>Técnico Responsável</Label><Input value={form.tecnicoResponsavel} onChange={e => setForm({ ...form, tecnicoResponsavel: e.target.value })} /></div>
+              <div className="space-y-1"><Label>Técnico Responsável</Label><Input value={form.tecnicoResponsavel} onChange={e => setForm({ ...form, tecnicoResponsavel: e.target.value })} /></div>
               <div className="col-span-2 space-y-1"><Label>Descrição</Label><Textarea value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} rows={2} placeholder="Descreva o serviço a ser realizado..." /></div>
             </div>
 
-            {/* Checklist */}
+            {/* ═══ CHECKLIST COM PREVIEW DE VALORES ═══ */}
             <div className="bg-slate-50 border rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -285,39 +396,51 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
                   </div>
                 </div>
               </div>
-              {checklist.map((item: any, idx: number) => (
-                <div key={idx} className="flex items-center gap-2 group bg-white rounded-md p-1.5 border border-slate-100">
-                  <Checkbox checked={item.checked} onCheckedChange={() => toggleCheckItem(idx)} />
-                  <span className={`text-sm flex-1 min-w-0 truncate ${item.checked ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.item}</span>
-                  {/* Toggle entre % e R$ */}
-                  <button
-                    type="button"
-                    onClick={() => { const updated = [...checklist]; updated[idx] = { ...updated[idx], inputMode: item.inputMode === 'valor' ? 'percentual' : 'valor' }; setChecklist(updated); }}
-                    className="text-xs px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 hover:bg-slate-100 shrink-0 w-7 text-center font-medium text-slate-500"
-                    title={item.inputMode === 'valor' ? 'Clique para mudar para %' : 'Clique para mudar para R$'}
-                  >
-                    {item.inputMode === 'valor' ? 'R$' : '%'}
-                  </button>
-                  <Input
-                    type="number" min="0" step={item.inputMode === 'valor' ? '0.01' : '1'}
-                    value={item.inputMode === 'valor' ? (item.valorDireto ?? '') : (item.percentual ?? '')}
-                    onChange={e => {
-                      const updated = [...checklist];
-                      if (item.inputMode === 'valor') {
-                        updated[idx] = { ...updated[idx], valorDireto: Number(e.target.value) || 0 };
-                      } else {
-                        updated[idx] = { ...updated[idx], percentual: Number(e.target.value) || 0 };
-                      }
-                      setChecklist(updated);
-                    }}
-                    className="w-20 h-7 text-xs text-right"
-                    placeholder={item.inputMode === 'valor' ? '0,00' : '%'}
-                  />
-                  <button type="button" onClick={() => removeCheckItem(idx)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity" title="Remover item">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+              {checklist.map((item: any, idx: number) => {
+                const itemVal = calcItemValue(item);
+                return (
+                  <div key={idx} className="flex items-center gap-2 group bg-white rounded-md p-1.5 border border-slate-100">
+                    <Checkbox checked={item.checked} onCheckedChange={() => toggleCheckItem(idx)} />
+                    <span className={`text-sm flex-1 min-w-0 truncate ${item.checked ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.item}</span>
+                    {/* Toggle entre % e R$ */}
+                    <button
+                      type="button"
+                      onClick={() => { const updated = [...checklist]; updated[idx] = { ...updated[idx], inputMode: item.inputMode === 'valor' ? 'percentual' : 'valor' }; setChecklist(updated); }}
+                      className="text-xs px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 hover:bg-slate-100 shrink-0 w-7 text-center font-medium text-slate-500"
+                      title={item.inputMode === 'valor' ? 'Clique para mudar para %' : 'Clique para mudar para R$'}
+                    >
+                      {item.inputMode === 'valor' ? 'R$' : '%'}
+                    </button>
+                    <Input
+                      type="number" min="0" step={item.inputMode === 'valor' ? '0.01' : '1'}
+                      value={item.inputMode === 'valor' ? (item.valorDireto ?? '') : (item.percentual ?? '')}
+                      onChange={e => {
+                        const updated = [...checklist];
+                        if (item.inputMode === 'valor') {
+                          updated[idx] = { ...updated[idx], valorDireto: Number(e.target.value) || 0 };
+                        } else {
+                          updated[idx] = { ...updated[idx], percentual: Number(e.target.value) || 0 };
+                        }
+                        setChecklist(updated);
+                      }}
+                      className="w-20 h-7 text-xs text-right"
+                      placeholder={item.inputMode === 'valor' ? '0,00' : '%'}
+                    />
+                    {/* ── Preview do valor calculado ── */}
+                    {itemVal > 0 && (
+                      <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-md whitespace-nowrap min-w-[70px] text-right">
+                        {fmt(itemVal)}
+                      </span>
+                    )}
+                    {itemVal === 0 && item.inputMode !== 'valor' && (
+                      <span className="text-xs text-slate-300 min-w-[70px] text-right">—</span>
+                    )}
+                    <button type="button" onClick={() => removeCheckItem(idx)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity" title="Remover item">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
               {checklist.length === 0 && <p className="text-xs text-slate-400">Nenhum item no checklist</p>}
               {/* Adicionar novo item */}
               <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
@@ -332,6 +455,17 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
                   <Plus className="w-3.5 h-3.5 mr-1" />Adicionar
                 </Button>
               </div>
+
+              {/* ── TOTAL DA PRECIFICAÇÃO ── */}
+              {totalChecklist > 0 && (
+                <div className="flex items-center justify-between bg-slate-900 text-white rounded-lg px-4 py-2.5 mt-2">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm font-medium">Total dos itens do checklist</span>
+                  </div>
+                  <span className="text-lg font-bold text-amber-400">{fmt(totalChecklist)}</span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1"><Label>Observações</Label><Textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} rows={2} /></div>

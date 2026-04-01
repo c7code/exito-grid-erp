@@ -89,6 +89,12 @@ export class OemUsina {
     @Column({ type: 'varchar', default: 'ativa' })
     status: string; // ativa | inativa | descomissionada
 
+    @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
+    valorEstimadoUsina: number;
+
+    @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true, default: 10 })
+    percentualManutencao: number;
+
     @Column({ type: 'text', nullable: true })
     observacoes: string;
 

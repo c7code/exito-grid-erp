@@ -68,12 +68,14 @@ export default function OeM() {
       const data = { ...usinaForm };
       if (!data.empresaId) data.empresaId = null;
       if (!data.geracaoMensalEsperadaKwh) data.geracaoMensalEsperadaKwh = null;
+      if (!data.valorEstimadoUsina) data.valorEstimadoUsina = null;
+      if (!data.percentualManutencao) data.percentualManutencao = 10;
       if (editingId) { await api.updateOemUsina(editingId, data); toast.success('Usina atualizada'); }
       else { await api.createOemUsina(data); toast.success('Usina criada'); }
       setUsinaDialogOpen(false); setEditingId(null); setUsinaForm({ ...emptyUsina }); loadAll();
     } catch (err: any) { toast.error(err?.response?.data?.message || 'Erro ao salvar usina'); }
   };
-  const handleEditUsina = (u: any) => { setEditingId(u.id); setUsinaForm({ nome: u.nome || '', potenciaKwp: String(u.potenciaKwp || ''), qtdModulos: String(u.qtdModulos || ''), modeloModulos: u.modeloModulos || '', qtdInversores: String(u.qtdInversores || 1), modeloInversores: u.modeloInversores || '', marcaInversor: u.marcaInversor || '', dataInstalacao: u.dataInstalacao?.split('T')[0] || '', tipoTelhado: u.tipoTelhado || '', endereco: u.endereco || '', geracaoMensalEsperadaKwh: String(u.geracaoMensalEsperadaKwh || ''), clienteId: u.clienteId || '', empresaId: u.empresaId || '', status: u.status || 'ativa', observacoes: u.observacoes || '' }); setUsinaDialogOpen(true); };
+  const handleEditUsina = (u: any) => { setEditingId(u.id); setUsinaForm({ nome: u.nome || '', potenciaKwp: String(u.potenciaKwp || ''), qtdModulos: String(u.qtdModulos || ''), modeloModulos: u.modeloModulos || '', qtdInversores: String(u.qtdInversores || 1), modeloInversores: u.modeloInversores || '', marcaInversor: u.marcaInversor || '', dataInstalacao: u.dataInstalacao?.split('T')[0] || '', tipoTelhado: u.tipoTelhado || '', endereco: u.endereco || '', geracaoMensalEsperadaKwh: String(u.geracaoMensalEsperadaKwh || ''), clienteId: u.clienteId || '', empresaId: u.empresaId || '', status: u.status || 'ativa', valorEstimadoUsina: String(u.valorEstimadoUsina || ''), percentualManutencao: String(u.percentualManutencao || 10), observacoes: u.observacoes || '' }); setUsinaDialogOpen(true); };
   const handleDeleteUsina = async (id: string) => { if (!confirm('Excluir usina?')) return; try { await api.deleteOemUsina(id); toast.success('Excluída'); loadAll(); } catch { toast.error('Erro'); } };
   const handleImportFromSolar = async (pid: string) => { try { await api.importOemUsinaFromSolar(pid); toast.success('Usina importada!'); setImportDialogOpen(false); loadAll(); } catch { toast.error('Erro ao importar'); } };
 
@@ -285,6 +287,32 @@ export default function OeM() {
               <div className="space-y-1"><Label>Tipo Telhado</Label><Input value={usinaForm.tipoTelhado} onChange={e => setUsinaForm({ ...usinaForm, tipoTelhado: e.target.value })} placeholder="Cerâmico, metálico..." /></div>
               <div className="col-span-2 space-y-1"><Label>Endereço *</Label><Input value={usinaForm.endereco} onChange={e => setUsinaForm({ ...usinaForm, endereco: e.target.value })} /></div>
               <div className="space-y-1"><Label>Geração Mensal (kWh)</Label><Input value={usinaForm.geracaoMensalEsperadaKwh} onChange={e => setUsinaForm({ ...usinaForm, geracaoMensalEsperadaKwh: e.target.value })} type="number" /></div>
+            </div>
+            {/* ── PRECIFICAÇÃO DA USINA ── */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-3">
+              <h3 className="font-semibold text-green-800 text-sm">💰 Precificação (uso interno)</h3>
+              <p className="text-xs text-green-600">Estes valores são usados para calcular automaticamente os custos de manutenção ao criar serviços para esta usina.</p>
+              <div className="grid grid-cols-3 gap-3 items-end">
+                <div className="space-y-1">
+                  <Label className="text-sm">Valor Estimado da Usina (R$)</Label>
+                  <Input value={usinaForm.valorEstimadoUsina} onChange={e => setUsinaForm({ ...usinaForm, valorEstimadoUsina: e.target.value })} type="number" step="0.01" placeholder="Ex: 100000" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">% Manutenção</Label>
+                  <div className="relative">
+                    <Input value={usinaForm.percentualManutencao} onChange={e => setUsinaForm({ ...usinaForm, percentualManutencao: e.target.value })} type="number" step="0.1" className="pr-8" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
+                  </div>
+                </div>
+                <div className="bg-white border border-green-300 rounded-lg p-2.5 text-center">
+                  <p className="text-[10px] text-green-600 font-medium uppercase tracking-wider">Base Manutenção</p>
+                  <p className="text-lg font-bold text-green-700">
+                    {Number(usinaForm.valorEstimadoUsina || 0) > 0
+                      ? fmt(Number(usinaForm.valorEstimadoUsina) * (Number(usinaForm.percentualManutencao || 10) / 100))
+                      : '—'}
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="space-y-1"><Label>Observações</Label><Textarea value={usinaForm.observacoes} onChange={e => setUsinaForm({ ...usinaForm, observacoes: e.target.value })} rows={2} /></div>
           </div>

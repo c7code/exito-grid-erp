@@ -55,6 +55,9 @@ export class OemService {
                     "deletedAt" TIMESTAMP
                 )
             `);
+            // ── Colunas de precificação para oem_usinas ──
+            try { await this.dataSource.query(`ALTER TABLE oem_usinas ADD COLUMN IF NOT EXISTS "valorEstimadoUsina" DECIMAL(14,2)`); } catch { /* exists */ }
+            try { await this.dataSource.query(`ALTER TABLE oem_usinas ADD COLUMN IF NOT EXISTS "percentualManutencao" DECIMAL(5,2) DEFAULT 10`); } catch { /* exists */ }
             await this.dataSource.query(`
                 CREATE TABLE IF NOT EXISTS oem_planos (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -335,9 +338,9 @@ export class OemService {
         };
 
         const activityTypeMap: Record<string, string> = {
-            preventiva: 'manutencao_preventiva',
-            preditiva: 'manutencao_preditiva',
-            corretiva: 'manutencao_corretiva',
+            preventiva: 'plano_oem',
+            preditiva: 'plano_oem',
+            corretiva: 'plano_oem',
         };
 
         // Gerar número da proposta

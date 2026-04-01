@@ -29,6 +29,9 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
     const dateStr = today.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
     const total = Number(proposal.total || 0);
 
+    // Display mode: grouping (com_valor), summary (sem_valor), text_only (texto)
+    const visibilityMode = proposal.itemVisibilityMode || 'grouping';
+
     // Parse scope for usina data
     const scope = proposal.scope || '';
     const scopeLines = scope.split('\n');
@@ -202,21 +205,36 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
                 <p style={s.para}>
                     {proposal.workDescription || 'O plano de O&M contempla as seguintes atividades técnicas, executadas por equipe especializada e certificada:'}
                 </p>
-                {allServices.map((svc, i) => {
-                    const isIncluded = activeServices.some((as: string) =>
-                        as.toLowerCase().includes(svc.label.split(' ')[0].toLowerCase()) ||
-                        svc.label.toLowerCase().includes(as.split(' ')[0].toLowerCase())
-                    );
-                    return (
-                        <div key={i} style={isIncluded ? s.serviceRow : s.serviceInactive}>
-                            <span style={{ fontSize: '14px', lineHeight: 1 }}>{isIncluded ? '✅' : '⬜'}</span>
-                            <div>
-                                <p style={{ fontSize: '10px', fontWeight: 700, color: isIncluded ? '#166534' : '#94a3b8', margin: 0 }}>{svc.label}</p>
-                                <p style={{ fontSize: '9px', color: isIncluded ? '#4ade80' : '#cbd5e1', margin: '2px 0 0' }}>{svc.desc}</p>
+                {/* Se tiver itens de proposta, usa eles como lista de serviços */}
+                {items.length > 0 ? (
+                    items.map((item: any, i: number) => (
+                        <div key={i} style={s.serviceRow}>
+                            <span style={{ fontSize: '14px', lineHeight: 1 }}>✅</span>
+                            <div style={{ flex: 1 }}>
+                                <p style={{ fontSize: '10px', fontWeight: 700, color: '#166534', margin: 0 }}>{item.description}</p>
                             </div>
+                            {visibilityMode === 'grouping' && item.showDetailedPrices !== false && (
+                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#166534' }}>{fmtCurrency(item.total || item.unitPrice)}</span>
+                            )}
                         </div>
-                    );
-                })}
+                    ))
+                ) : (
+                    allServices.map((svc, i) => {
+                        const isIncluded = activeServices.some((as: string) =>
+                            as.toLowerCase().includes(svc.label.split(' ')[0].toLowerCase()) ||
+                            svc.label.toLowerCase().includes(as.split(' ')[0].toLowerCase())
+                        );
+                        return (
+                            <div key={i} style={isIncluded ? s.serviceRow : s.serviceInactive}>
+                                <span style={{ fontSize: '14px', lineHeight: 1 }}>{isIncluded ? '✅' : '⬜'}</span>
+                                <div>
+                                    <p style={{ fontSize: '10px', fontWeight: 700, color: isIncluded ? '#166534' : '#94a3b8', margin: 0 }}>{svc.label}</p>
+                                    <p style={{ fontSize: '9px', color: isIncluded ? '#4ade80' : '#cbd5e1', margin: '2px 0 0' }}>{svc.desc}</p>
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
 
                 {/* ─── SLA ─── */}
                 <div className="pdf-section-title" style={s.sectionTitle}>
@@ -270,34 +288,75 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
                     <div style={{ ...s.sectionIcon, background: '#f59e0b' }}>💰</div>
                     {benefits.length > 0 ? '8' : '7'}. Investimento
                 </div>
-                <div className="pdf-keep-together" style={s.priceHighlight}>
-                    <p style={{ fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600, marginBottom: '12px' }}>
-                        Detalhamento do Investimento
-                    </p>
-                    {items.length > 0 && items.map((item: any, i: number) => (
-                        <div key={i} style={s.priceRow}>
-                            <span>{item.description}</span>
-                            <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{fmtCurrency(item.total || item.unitPrice)}</span>
+
+                {/* MODO: DETALHADO (grouping / com_valor) */}
+                {visibilityMode === 'grouping' && (
+                    <div className="pdf-keep-together" style={s.priceHighlight}>
+                        <p style={{ fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600, marginBottom: '12px' }}>
+                            Detalhamento do Investimento
+                        </p>
+                        {items.length > 0 && items.map((item: any, i: number) => (
+                            <div key={i} style={s.priceRow}>
+                                <span>{item.description}</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{fmtCurrency(item.total || item.unitPrice)}</span>
+                            </div>
+                        ))}
+                        {items.length === 0 && (
+                            <div style={s.priceRow}>
+                                <span>Serviço de O&M Completo</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{fmtCurrency(total)}</span>
+                            </div>
+                        )}
+                        <div style={s.priceTotalRow}>
+                            <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                Valor Total
+                            </span>
+                            <span style={{ fontSize: '20px', fontWeight: 900, color: '#f59e0b' }}>
+                                {fmtCurrency(total)}
+                            </span>
                         </div>
-                    ))}
-                    {items.length === 0 && (
-                        <div style={s.priceRow}>
-                            <span>Plano de O&M Completo</span>
-                            <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{fmtCurrency(total)}</span>
-                        </div>
-                    )}
-                    <div style={s.priceTotalRow}>
-                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            Valor Mensal
-                        </span>
-                        <span style={{ fontSize: '20px', fontWeight: 900, color: '#f59e0b' }}>
-                            {fmtCurrency(total)}
-                        </span>
                     </div>
-                    <p style={{ fontSize: '9px', color: '#64748b', textAlign: 'center', marginTop: '6px' }}>
-                        Valor anual: {fmtCurrency(total * 12)}
-                    </p>
-                </div>
+                )}
+
+                {/* MODO: RESUMO (summary / sem_valor) — descrições sem preço individual */}
+                {visibilityMode === 'summary' && (
+                    <div className="pdf-keep-together">
+                        <p style={s.para}>O investimento contempla as seguintes atividades técnicas:</p>
+                        {items.length > 0 && items.map((item: any, i: number) => (
+                            <div key={i} style={{ ...s.serviceRow, margin: '3px 0' }}>
+                                <span style={{ fontSize: '12px', lineHeight: 1 }}>▸</span>
+                                <span style={{ fontSize: '10px', color: '#334155', fontWeight: 500 }}>{item.description}</span>
+                            </div>
+                        ))}
+                        <div style={{ ...s.priceHighlight, marginTop: '12px' }}>
+                            <div style={s.priceTotalRow}>
+                                <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    Valor Total do Serviço
+                                </span>
+                                <span style={{ fontSize: '20px', fontWeight: 900, color: '#f59e0b' }}>
+                                    {fmtCurrency(total)}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* MODO: TEXTO COMERCIAL (text_only / texto) */}
+                {visibilityMode === 'text_only' && (
+                    <div className="pdf-keep-together">
+                        <p style={s.para}>
+                            Para a execução completa dos serviços de {proposal.title || 'Operação & Manutenção'}, contemplando {items.length > 0 ? items.map((it: any) => it.description).join(', ') : 'todas as atividades técnicas necessárias'}, o investimento total é de:
+                        </p>
+                        <div style={{ ...s.priceHighlight, textAlign: 'center' }}>
+                            <p style={{ fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600, marginBottom: '8px' }}>
+                                Investimento Total
+                            </p>
+                            <span style={{ fontSize: '28px', fontWeight: 900, color: '#f59e0b' }}>
+                                {fmtCurrency(total)}
+                            </span>
+                        </div>
+                    </div>
+                )}
 
                 {/* ─── CONDIÇÕES ─── */}
                 <div className="pdf-section-title" style={s.sectionTitle}>
