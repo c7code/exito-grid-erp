@@ -226,6 +226,32 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
                   <SelectContent>{clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name || c.razaoSocial}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Dados técnicos da usina selecionada */}
+            {form.usinaId && (() => {
+              const u = usinas.find((u: any) => u.id === form.usinaId);
+              if (!u) return null;
+              return (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+                  <h3 className="font-bold text-amber-800 text-sm flex items-center gap-2">⚡ Dados Técnicos da Usina — {u.nome}</h3>
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-sm">
+                    <div className="flex justify-between"><span className="text-slate-500">Potência:</span><span className="font-semibold">{Number(u.potenciaKwp || 0).toFixed(1)} kWp</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Módulos:</span><span className="font-semibold">{u.qtdModulos || '—'} un</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Inversores:</span><span className="font-semibold">{u.qtdInversores || 1} un</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Modelo Módulo:</span><span className="font-medium">{u.modeloModulos || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Modelo Inversor:</span><span className="font-medium">{u.modeloInversores || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Marca Inversor:</span><span className="font-medium">{u.marcaInversor || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Tipo Telhado:</span><span className="font-medium">{u.tipoTelhado || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Instalação:</span><span className="font-medium">{u.dataInstalacao?.split('T')[0] || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Geração Esp.:</span><span className="font-medium">{u.geracaoMensalEsperadaKwh ? `${Number(u.geracaoMensalEsperadaKwh).toFixed(0)} kWh/mês` : '—'}</span></div>
+                    <div className="col-span-3 flex justify-between"><span className="text-slate-500">Endereço:</span><span className="font-medium">{u.endereco || '—'}</span></div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1"><Label>Data Agendada</Label><Input type="date" value={form.dataAgendada} onChange={e => setForm({ ...form, dataAgendada: e.target.value })} /></div>
               <div className="space-y-1"><Label>Valor Estimado (R$)</Label><Input type="number" step="0.01" value={form.valorEstimado} onChange={e => setForm({ ...form, valorEstimado: e.target.value })} /></div>
               <div className="col-span-2 space-y-1"><Label>Técnico Responsável</Label><Input value={form.tecnicoResponsavel} onChange={e => setForm({ ...form, tecnicoResponsavel: e.target.value })} /></div>
