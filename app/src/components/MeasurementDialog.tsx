@@ -91,7 +91,7 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
             setMeasurements(Array.isArray(meas) ? meas : (meas?.data ?? []));
             setBalance(bal);
             const workProposals = (Array.isArray(props) ? props : (props?.data ?? []))
-                .filter((p: any) => p.workId === workId || p.work?.id === workId);
+                .filter((p: any) => p.workId === workId || p.work?.id === workId || (work?.opportunityId && p.opportunityId === work.opportunityId));
             setProposals(workProposals);
         } catch { }
         setLoading(false);

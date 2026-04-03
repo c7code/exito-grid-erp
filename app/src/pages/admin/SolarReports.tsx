@@ -260,17 +260,17 @@ export default function SolarReports() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Buscar por usina ou cliente..." className="pl-9" />
         </div>
-        <Select value={filterUsina} onValueChange={setFilterUsina}>
+        <Select value={filterUsina || 'all'} onValueChange={v => setFilterUsina(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-56"><SelectValue placeholder="Todas as usinas" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todas</SelectItem>
+            <SelectItem value="all">Todas</SelectItem>
             {usinas.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
+        <Select value={filterStatus || 'all'} onValueChange={v => setFilterStatus(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos</SelectItem>
+            <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="rascunho">Rascunho</SelectItem>
             <SelectItem value="publicado">Publicado</SelectItem>
             <SelectItem value="enviado">Enviado</SelectItem>

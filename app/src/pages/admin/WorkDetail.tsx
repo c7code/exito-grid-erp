@@ -961,7 +961,7 @@ export default function AdminWorkDetail() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center justify-between w-full">
-                  <div className="flex items-center gap-2"><Package className="w-5 h-5" />Medições</div>
+                  <div className="flex items-center gap-2"><Package className="w-5 h-5" />Medições ({measurements.length})</div>
                   <Button variant="outline" size="sm" onClick={() => setIsMeasurementDialogOpen(true)}><Plus className="w-4 h-4 mr-1" />Nova Medição</Button>
                 </CardTitle>
               </CardHeader>
@@ -970,15 +970,39 @@ export default function AdminWorkDetail() {
                   <p className="text-slate-400 text-center py-4">Nenhuma medição registrada.</p>
                 ) : (
                   <div className="space-y-3">
-                    {measurements.map((m: any) => (
-                      <div key={m.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                        <div>
-                          <p className="font-medium text-sm">{m.description || `Medição #${m.number || m.id?.slice(0, 6)}`}</p>
-                          <p className="text-xs text-slate-500">{fmtDate(m.date || m.createdAt)}</p>
+                    {measurements.map((m: any) => {
+                      const statusLabel: Record<string, { label: string; color: string }> = {
+                        draft: { label: 'Rascunho', color: 'bg-amber-100 text-amber-700' },
+                        pending: { label: 'Pendente', color: 'bg-blue-100 text-blue-700' },
+                        approved: { label: 'Aprovado', color: 'bg-green-100 text-green-700' },
+                        billed: { label: 'Faturado', color: 'bg-purple-100 text-purple-700' },
+                        paid: { label: 'Pago', color: 'bg-emerald-100 text-emerald-700' },
+                      };
+                      const st = statusLabel[m.status] || statusLabel.draft;
+                      return (
+                        <div key={m.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition cursor-pointer border border-slate-200"
+                          onClick={() => setIsMeasurementDialogOpen(true)}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">
+                              <span className="text-xs font-bold text-orange-600">#{m.number || '-'}</span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-sm">{m.description || `Medição #${m.number || m.id?.slice(0, 6)}`}</p>
+                              <div className="flex items-center gap-2 text-xs text-slate-500">
+                                <span>{fmtDate(m.startDate || m.createdAt)}</span>
+                                {m.endDate && <><span>→</span><span>{fmtDate(m.endDate)}</span></>}
+                                <span>•</span>
+                                <span>{Number(m.executedPercentage || 0).toFixed(1)}%</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge className={st.color + ' text-[10px]'}>{st.label}</Badge>
+                            <p className="font-mono font-bold text-sm">R$ {fmt(m.totalAmount || m.netAmount || m.value || m.amount || 0)}</p>
+                          </div>
                         </div>
-                        <p className="font-mono font-bold">R$ {fmt(m.value || m.amount)}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
