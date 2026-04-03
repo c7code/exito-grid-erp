@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,9 +23,10 @@ interface Props {
   usinas: any[];
   clients: any[];
   onReload: () => void;
+  editServiceId?: string;
 }
 
-export default function OeMServicos({ servicos, usinas, clients, onReload }: Props) {
+export default function OeMServicos({ servicos, usinas, clients, onReload, editServiceId }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [concluirOpen, setConcluirOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -41,6 +42,14 @@ export default function OeMServicos({ servicos, usinas, clients, onReload }: Pro
   const [baseManutencao, setBaseManutencao] = useState(0);
   const [valorUsina, setValorUsina] = useState(0);
   const [pctManutencao, setPctManutencao] = useState(10);
+
+  // ── Auto-abrir edição quando vem do redirect de Propostas ──
+  useEffect(() => {
+    if (editServiceId && servicos.length > 0) {
+      const s = servicos.find((sv: any) => sv.id === editServiceId);
+      if (s) handleEdit(s);
+    }
+  }, [editServiceId, servicos.length]);
 
   const getClientName = (id: string) => { const c = clients.find((c: any) => c.id === id); return c?.name || c?.razaoSocial || '—'; };
 

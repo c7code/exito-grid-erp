@@ -80,6 +80,12 @@ export class OemUsina {
     @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
     geracaoMensalEsperadaKwh: number;
 
+    @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+    geracaoMensalAtualKwh: number;         // Geração REAL mensal atual (para cálculo de perda)
+
+    @Column({ type: 'decimal', precision: 8, scale: 4, nullable: true })
+    tarifaEnergiaRsKwh: number;            // Tarifa local de energia R$/kWh (para perda financeira)
+
     @Column({ nullable: true })
     apiMonitoramentoTipo: string; // growatt | sungrow | fronius | huawei
 

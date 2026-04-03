@@ -525,6 +525,28 @@ export class OemService {
         // ── Deadline textual ──
         const deadline = `${workDeadlineDays} dias úteis`;
 
+        // ── PRICING ENGINE DATA (snapshot para o template) ──
+        const geracaoEsperada = Number(usina.geracaoMensalEsperadaKwh || 0);
+        const geracaoAtual = Number(usina.geracaoMensalAtualKwh || 0);
+        const tarifaEnergia = Number(usina.tarifaEnergiaRsKwh || 0.60);
+        const perdaKwh = geracaoEsperada > 0 && geracaoAtual > 0 ? +(geracaoEsperada - geracaoAtual).toFixed(2) : 0;
+        const perdaPercentual = geracaoEsperada > 0 && geracaoAtual > 0 ? +((perdaKwh / geracaoEsperada) * 100).toFixed(1) : 0;
+        const perdaFinanceiraEstimada = perdaKwh > 0 ? +(perdaKwh * tarifaEnergia).toFixed(2) : 0;
+
+        const pricingEngineData = JSON.stringify({
+            valorEstimadoUsina,
+            percentualManutencao,
+            valorBaseManutencao,
+            geracaoEsperadaKwh: geracaoEsperada || null,
+            geracaoAtualKwh: geracaoAtual || null,
+            tarifaEnergiaRsKwh: tarifaEnergia,
+            perdaKwh: perdaKwh || null,
+            perdaPercentual: perdaPercentual || null,
+            perdaFinanceiraEstimada: perdaFinanceiraEstimada || null,
+            totalServico: totalProposta,
+            itensPrecificados: items.map(it => ({ descricao: it.description, valor: it.total })),
+        });
+
         // Criar proposta via SQL — agora com todos os campos enriquecidos
         const result = await this.dataSource.query(`
             INSERT INTO proposals (
@@ -537,9 +559,9 @@ export class OemService {
                 "generalProvisions", "complianceText",
                 "validUntil", "deadline", "workAddress",
                 "workDeadlineDays", "workDeadlineText",
-                "paymentBank",
+                "paymentBank", "pricingEngineData",
                 "createdAt", "updatedAt"
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, NOW(), NOW())
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, NOW(), NOW())
             RETURNING id
         `, [
             proposalNumber,
@@ -566,6 +588,7 @@ export class OemService {
             workDeadlineDays,
             workDeadlineText,
             paymentBank,
+            pricingEngineData,
         ]);
 
         const proposalId = result[0].id;
@@ -588,6 +611,15 @@ export class OemService {
         await this.servicoRepo.save(servico);
 
         return { proposalId, proposalNumber, message: 'Proposta gerada com sucesso!' };
+    }
+
+    // ═══ LOOKUP REVERSO: serviço → proposta ═══════════════════════════
+    async findServicoByProposalId(proposalId: string): Promise<any> {
+        const servico = await this.servicoRepo.findOne({
+            where: { proposalId },
+            relations: ['usina', 'cliente'],
+        });
+        return servico || null;
     }
 
     // Gerar proposta a partir de um contrato/plano recorrente

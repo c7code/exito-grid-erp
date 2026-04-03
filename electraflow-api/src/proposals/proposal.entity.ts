@@ -288,6 +288,13 @@ export class Proposal {
   @Column({ nullable: true })
   signatureVerificationCode: string;   // Código de verificação (6 dígitos)
 
+  // ═══════════════════════════════════════════════════════════════
+  // Dados da Engenharia de Precificação (OeM)
+  // JSON com snapshot: valorUsina, baseManutencao, geração, perdas, itens
+  // ═══════════════════════════════════════════════════════════════
+  @Column({ type: 'text', nullable: true })
+  pricingEngineData: string;             // JSON snapshot da precificação OeM
+
   @Column({ type: 'int', default: 1 })
   revisionNumber: number;
 

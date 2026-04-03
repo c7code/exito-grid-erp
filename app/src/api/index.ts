@@ -2476,6 +2476,7 @@ class ApiService {
   async concluirOemServico(id: string, data: any) { return (await this.client.post(`/oem/servicos/${id}/concluir`, data)).data; }
   async gerarPropostaServico(id: string) { return (await this.client.post(`/oem/servicos/${id}/gerar-proposta`)).data; }
   async getOemChecklist(tipo: string) { return (await this.client.get(`/oem/servicos/checklist/${tipo}`)).data; }
+  async findOemServicoByProposal(proposalId: string) { return (await this.client.get(`/oem/servico-by-proposal/${proposalId}`)).data; }
 }
 
 export const api = new ApiService();

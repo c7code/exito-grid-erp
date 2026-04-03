@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,7 +25,10 @@ import {
 } from './OeM_handlers';
 
 export default function OeM() {
-  const [tab, setTab] = useState('dashboard');
+  const [searchParams] = useSearchParams();
+  const urlTab = searchParams.get('tab');
+  const urlEditServiceId = searchParams.get('editServiceId');
+  const [tab, setTab] = useState(urlTab || 'dashboard');
   const [dashboard, setDashboard] = useState<any>(null);
   const [usinas, setUsinas] = useState<any[]>([]);
   const [planos, setPlanos] = useState<any[]>([]);
@@ -68,6 +72,8 @@ export default function OeM() {
       const data = { ...usinaForm };
       if (!data.empresaId) data.empresaId = null;
       if (!data.geracaoMensalEsperadaKwh) data.geracaoMensalEsperadaKwh = null;
+      if (!data.geracaoMensalAtualKwh) data.geracaoMensalAtualKwh = null;
+      if (!data.tarifaEnergiaRsKwh) data.tarifaEnergiaRsKwh = null;
       if (!data.valorEstimadoUsina) data.valorEstimadoUsina = null;
       if (!data.percentualManutencao) data.percentualManutencao = 10;
       if (editingId) { await api.updateOemUsina(editingId, data); toast.success('Usina atualizada'); }
@@ -75,7 +81,7 @@ export default function OeM() {
       setUsinaDialogOpen(false); setEditingId(null); setUsinaForm({ ...emptyUsina }); loadAll();
     } catch (err: any) { toast.error(err?.response?.data?.message || 'Erro ao salvar usina'); }
   };
-  const handleEditUsina = (u: any) => { setEditingId(u.id); setUsinaForm({ nome: u.nome || '', potenciaKwp: String(u.potenciaKwp || ''), qtdModulos: String(u.qtdModulos || ''), modeloModulos: u.modeloModulos || '', qtdInversores: String(u.qtdInversores || 1), modeloInversores: u.modeloInversores || '', marcaInversor: u.marcaInversor || '', dataInstalacao: u.dataInstalacao?.split('T')[0] || '', tipoTelhado: u.tipoTelhado || '', endereco: u.endereco || '', geracaoMensalEsperadaKwh: String(u.geracaoMensalEsperadaKwh || ''), clienteId: u.clienteId || '', empresaId: u.empresaId || '', status: u.status || 'ativa', valorEstimadoUsina: String(u.valorEstimadoUsina || ''), percentualManutencao: String(u.percentualManutencao || 10), observacoes: u.observacoes || '' }); setUsinaDialogOpen(true); };
+  const handleEditUsina = (u: any) => { setEditingId(u.id); setUsinaForm({ nome: u.nome || '', potenciaKwp: String(u.potenciaKwp || ''), qtdModulos: String(u.qtdModulos || ''), modeloModulos: u.modeloModulos || '', qtdInversores: String(u.qtdInversores || 1), modeloInversores: u.modeloInversores || '', marcaInversor: u.marcaInversor || '', dataInstalacao: u.dataInstalacao?.split('T')[0] || '', tipoTelhado: u.tipoTelhado || '', endereco: u.endereco || '', geracaoMensalEsperadaKwh: String(u.geracaoMensalEsperadaKwh || ''), geracaoMensalAtualKwh: String(u.geracaoMensalAtualKwh || ''), tarifaEnergiaRsKwh: String(u.tarifaEnergiaRsKwh || ''), clienteId: u.clienteId || '', empresaId: u.empresaId || '', status: u.status || 'ativa', valorEstimadoUsina: String(u.valorEstimadoUsina || ''), percentualManutencao: String(u.percentualManutencao || 10), observacoes: u.observacoes || '' }); setUsinaDialogOpen(true); };
   const handleDeleteUsina = async (id: string) => { if (!confirm('Excluir usina?')) return; try { await api.deleteOemUsina(id); toast.success('Excluída'); loadAll(); } catch { toast.error('Erro'); } };
   const handleImportFromSolar = async (pid: string) => { try { await api.importOemUsinaFromSolar(pid); toast.success('Usina importada!'); setImportDialogOpen(false); loadAll(); } catch { toast.error('Erro ao importar'); } };
 
@@ -206,7 +212,7 @@ export default function OeM() {
 
         {/* ═══ SERVIÇOS ═══ */}
         <TabsContent value="servicos">
-          <OeMServicos servicos={servicos} usinas={usinas} clients={clients} onReload={loadAll} />
+          <OeMServicos servicos={servicos} usinas={usinas} clients={clients} onReload={loadAll} editServiceId={urlEditServiceId || undefined} />
         </TabsContent>
 
         {/* ═══ PLANOS ═══ */}
@@ -286,7 +292,9 @@ export default function OeM() {
               <div className="space-y-1"><Label>Data Instalação *</Label><Input type="date" value={usinaForm.dataInstalacao} onChange={e => setUsinaForm({ ...usinaForm, dataInstalacao: e.target.value })} /></div>
               <div className="space-y-1"><Label>Tipo Telhado</Label><Input value={usinaForm.tipoTelhado} onChange={e => setUsinaForm({ ...usinaForm, tipoTelhado: e.target.value })} placeholder="Cerâmico, metálico..." /></div>
               <div className="col-span-2 space-y-1"><Label>Endereço *</Label><Input value={usinaForm.endereco} onChange={e => setUsinaForm({ ...usinaForm, endereco: e.target.value })} /></div>
-              <div className="space-y-1"><Label>Geração Mensal (kWh)</Label><Input value={usinaForm.geracaoMensalEsperadaKwh} onChange={e => setUsinaForm({ ...usinaForm, geracaoMensalEsperadaKwh: e.target.value })} type="number" /></div>
+              <div className="space-y-1"><Label>Geração Esperada (kWh/mês)</Label><Input value={usinaForm.geracaoMensalEsperadaKwh} onChange={e => setUsinaForm({ ...usinaForm, geracaoMensalEsperadaKwh: e.target.value })} type="number" placeholder="Ex: 1200" /></div>
+              <div className="space-y-1"><Label>Geração Atual (kWh/mês)</Label><Input value={usinaForm.geracaoMensalAtualKwh} onChange={e => setUsinaForm({ ...usinaForm, geracaoMensalAtualKwh: e.target.value })} type="number" placeholder="Geração real medida" /></div>
+              <div className="space-y-1"><Label>Tarifa Energia (R$/kWh)</Label><Input value={usinaForm.tarifaEnergiaRsKwh} onChange={e => setUsinaForm({ ...usinaForm, tarifaEnergiaRsKwh: e.target.value })} type="number" step="0.01" placeholder="Ex: 0.85" /></div>
             </div>
             {/* ── PRECIFICAÇÃO DA USINA ── */}
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-3">

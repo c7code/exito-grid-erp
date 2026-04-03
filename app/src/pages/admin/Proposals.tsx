@@ -521,7 +521,20 @@ export default function AdminProposals() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => {
+                              <DropdownMenuItem onClick={async () => {
+                                // Se for proposta OeM, redirecionar para o módulo O&M
+                                if (proposal.activityType === 'plano_oem' || proposal.activityType?.startsWith('manutencao_')) {
+                                  try {
+                                    const servico = await api.findOemServicoByProposal(proposal.id);
+                                    if (servico?.id) {
+                                      navigate(`/admin/oem?tab=servicos&editServiceId=${servico.id}`);
+                                      return;
+                                    }
+                                  } catch { /* fallback to normal edit */ }
+                                  toast.info('Redirecionando para O&M...');
+                                  navigate('/admin/oem?tab=servicos');
+                                  return;
+                                }
                                 setEditingProposal(proposal);
                                 setShowNewDialog(true);
                               }}>

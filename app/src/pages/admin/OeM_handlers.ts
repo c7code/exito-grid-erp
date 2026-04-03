@@ -48,7 +48,7 @@ export const PRIORIDADE_COLORS: Record<string, string> = {
   urgente: 'bg-red-100 text-red-600',
 };
 
-export const emptyUsina = { nome: '', potenciaKwp: '', qtdModulos: '', modeloModulos: '', qtdInversores: '1', modeloInversores: '', marcaInversor: '', dataInstalacao: new Date().toISOString().split('T')[0], tipoTelhado: '', endereco: '', geracaoMensalEsperadaKwh: '', clienteId: '', empresaId: '', status: 'ativa', valorEstimadoUsina: '', percentualManutencao: '10', observacoes: '' };
+export const emptyUsina = { nome: '', potenciaKwp: '', qtdModulos: '', modeloModulos: '', qtdInversores: '1', modeloInversores: '', marcaInversor: '', dataInstalacao: new Date().toISOString().split('T')[0], tipoTelhado: '', endereco: '', geracaoMensalEsperadaKwh: '', geracaoMensalAtualKwh: '', tarifaEnergiaRsKwh: '', clienteId: '', empresaId: '', status: 'ativa', valorEstimadoUsina: '', percentualManutencao: '10', observacoes: '' };
 
 export const emptyPlano = { nome: '', descricao: '', tipoPlano: 'standard', incluiLimpeza: true, incluiInspecaoVisual: true, incluiTermografia: false, incluiTesteString: false, incluiMonitoramentoRemoto: false, incluiCorretivaPrioritaria: false, incluiSeguro: false, incluiRelatorio: true, garantiaPerformancePr: '', frequenciaPreventiva: 'semestral', frequenciaRelatorio: 'trimestral', precoBaseMensal: '', kwpLimiteBase: '10', precoKwpExcedente: '', unidadeCobranca: 'kWp', custoMobilizacao: '0', tempoRespostaSlaHoras: '48', tempoRespostaUrgenteHoras: '4', atendimentoHorario: 'comercial', coberturaMaxAnual: '', limiteCorretivas: '', abrangenciaKm: '', termosDuracaoMeses: '12', descontoAnualPercent: '0', exclusoes: '', penalidades: '', beneficios: '', ativo: true };
 

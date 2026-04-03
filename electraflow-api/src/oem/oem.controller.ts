@@ -76,6 +76,12 @@ export class OemController {
     @Delete('servicos/:id')
     removeServico(@Param('id') id: string) { return this.oemService.removeServico(id); }
 
+    // ── Lookup reverso: encontrar serviço pela proposta vinculada ──
+    @Get('servico-by-proposal/:proposalId')
+    findServicoByProposalId(@Param('proposalId') proposalId: string) {
+        return this.oemService.findServicoByProposalId(proposalId);
+    }
+
     // ═══ PLANOS ══════════════════════════════════════════════════════
     @Get('planos')
     findAllPlanos() { return this.oemService.findAllPlanos(); }
