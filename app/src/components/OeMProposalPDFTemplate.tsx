@@ -295,20 +295,12 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
                                 </div>
                             )}
 
-                            {/* Itemized Pricing Breakdown */}
-                            {pe.itensPrecificados?.length > 0 && (
-                                <div style={{ margin: '12px 0' }}>
-                                    <p style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '1.5px', marginBottom: '8px' }}>Detalhamento da Precificação</p>
-                                    {pe.itensPrecificados.map((item: any, idx: number) => (
-                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', background: idx % 2 === 0 ? '#f8fafc' : '#fff', borderRadius: '6px', margin: '2px 0' }}>
-                                            <span style={{ fontSize: '11px', color: '#334155' }}>▸ {item.descricao}</span>
-                                            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a' }}>{fmtCurrency(item.valor)}</span>
-                                        </div>
-                                    ))}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderTop: '2px solid #f59e0b', marginTop: '6px' }}>
-                                        <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' as const }}>Total Manutenção</span>
-                                        <span style={{ fontSize: '15px', fontWeight: 800, color: '#f59e0b' }}>{fmtCurrency(pe.totalServico || 0)}</span>
-                                    </div>
+                            {/* Mensagem de reforço — sempre visível quando há dados de geração */}
+                            {hasGenData && (
+                                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '14px 18px', margin: '12px 0' }}>
+                                    <p style={{ fontSize: '10.5px', color: '#92400e', lineHeight: 1.7 }}>
+                                        <strong>Por que investir em manutenção?</strong> A manutenção periódica é o principal fator para preservar o retorno sobre o investimento da sua usina. Equipamentos sem acompanhamento técnico degradam mais rapidamente, elevando custos de reparo e reduzindo a vida útil do sistema. O plano proposto visa garantir a máxima eficiência da geração e proteger o patrimônio do contratante.
+                                    </p>
                                 </div>
                             )}
                         </>
