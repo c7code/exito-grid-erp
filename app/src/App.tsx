@@ -50,6 +50,7 @@ import AdminExamReferrals from './pages/admin/ExamReferrals';
 import AdminOeM from './pages/admin/OeM';
 import AdminSinapiAdmin from './pages/admin/SinapiAdmin';
 import AdminBudgets from './pages/admin/Budgets';
+import AdminSolarReports from './pages/admin/SolarReports';
 
 // Employee Pages (no longer used — employees redirect to admin layout)
 
@@ -138,6 +139,7 @@ function App() {
               <Route path="/admin/oem" element={<AdminOeM />} />
               <Route path="/admin/structures" element={<AdminStructureTemplates />} />
               <Route path="/admin/orcamentos" element={<AdminBudgets />} />
+              <Route path="/admin/solar-reports" element={<AdminSolarReports />} />
 
               <Route path="/admin/employees" element={<AdminEmployees />} />
               <Route path="/admin/employees/:id/compliance" element={<AdminEmployeeCompliance />} />

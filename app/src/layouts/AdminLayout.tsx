@@ -45,6 +45,7 @@ import {
   Shield,
   Stethoscope,
   Database,
+  BarChart3,
 } from 'lucide-react';
 
 type NavItem = { path: string; label: string; icon: any; module: string; roles: string[] };
@@ -72,6 +73,7 @@ const navSections: NavSection[] = [
     items: [
       { path: '/admin/solar', label: 'Energia Solar', icon: Sun, module: 'solar', roles: ['admin', 'commercial', 'engineer', 'employee'] },
       { path: '/admin/oem', label: 'O&M Solar', icon: Wrench, module: 'solar', roles: ['admin', 'commercial', 'engineer', 'employee'] },
+      { path: '/admin/solar-reports', label: 'Relatórios Solar', icon: BarChart3, module: 'solar', roles: ['admin', 'commercial', 'engineer', 'employee'] },
     ],
   },
   {

@@ -2477,6 +2477,26 @@ class ApiService {
   async gerarPropostaServico(id: string) { return (await this.client.post(`/oem/servicos/${id}/gerar-proposta`)).data; }
   async getOemChecklist(tipo: string) { return (await this.client.get(`/oem/servicos/checklist/${tipo}`)).data; }
   async findOemServicoByProposal(proposalId: string) { return (await this.client.get(`/oem/servico-by-proposal/${proposalId}`)).data; }
+
+  // ═══ SOLAR REPORTS ═══
+  async getSolarReports(filters?: { usinaId?: string; clienteId?: string; status?: string }) { return (await this.client.get('/solar-reports', { params: filters })).data; }
+  async getSolarReport(id: string) { return (await this.client.get(`/solar-reports/${id}`)).data; }
+  async createSolarReport(data: any) { return (await this.client.post('/solar-reports', data)).data; }
+  async updateSolarReport(id: string, data: any) { return (await this.client.put(`/solar-reports/${id}`, data)).data; }
+  async deleteSolarReport(id: string) { return (await this.client.delete(`/solar-reports/${id}`)).data; }
+  async calculateSolarReport(id: string) { return (await this.client.post(`/solar-reports/${id}/calculate`)).data; }
+  async publishSolarReport(id: string) { return (await this.client.post(`/solar-reports/${id}/publish`)).data; }
+  async getSolarReportHistory(usinaId: string, limit = 12) { return (await this.client.get(`/solar-reports/usina/${usinaId}/history`, { params: { limit } })).data; }
+  async parseSolarReportGeneration(id: string, file: File) {
+    const fd = new FormData();
+    fd.append('file', file);
+    return (await this.client.post(`/solar-reports/${id}/parse-generation`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
+  }
+  async parseSolarReportBill(id: string, file: File) {
+    const fd = new FormData();
+    fd.append('file', file);
+    return (await this.client.post(`/solar-reports/${id}/parse-bill`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
+  }
 }
 
 export const api = new ApiService();
