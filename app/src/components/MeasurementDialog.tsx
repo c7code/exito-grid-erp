@@ -152,7 +152,7 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
 
     const removeStage = (idx: number) => setStages(prev => prev.filter((_, i) => i !== idx));
 
-    /* ─── Import from Proposal ──────────────────────────────────────────────── */
+    /* ─── Import from Proposal (faturamento direto) ─────────────────────────── */
     const importFromProposal = async (proposalId: string) => {
         if (!proposalId) return;
         try {
@@ -172,6 +172,53 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                 } else toast.info('Proposta não possui itens de faturamento direto');
             } else toast.info('Proposta não possui itens de faturamento direto');
         } catch { toast.error('Erro ao importar da proposta'); }
+    };
+
+    /* ─── Import STAGES from Proposal Items (nova funcionalidade) ─────────── */
+    const importStagesFromProposal = async (proposalId: string) => {
+        if (!proposalId) return;
+        try {
+            const proposal = await api.getProposal(proposalId);
+            const items = proposal.items || [];
+            if (items.length === 0) {
+                toast.info('Proposta não possui itens/serviços');
+                return;
+            }
+
+            // Filtrar apenas itens regulares (não filhos de kit) e sem deletedAt
+            const regularItems = items.filter((it: any) => !it.parentId && !it.deletedAt);
+            if (regularItems.length === 0) {
+                toast.info('Nenhum item encontrado na proposta');
+                return;
+            }
+
+            // Calcular o total da proposta para proporção
+            const totalProposta = regularItems.reduce((s: number, it: any) => s + Number(it.total || 0), 0);
+
+            // Converter cada item da proposta em uma etapa de medição
+            const newStages: MeasurementStage[] = regularItems.map((it: any) => {
+                const itemTotal = Number(it.total || 0);
+                const pct = baseValue > 0 ? (itemTotal / baseValue) * 100 : (totalProposta > 0 ? (itemTotal / totalProposta) * 100 : 0);
+                return {
+                    description: `${it.description || 'Item'}${Number(it.quantity) > 1 ? ` (${Number(it.quantity).toFixed(it.quantity % 1 === 0 ? 0 : 2)} ${it.unit || 'un'})` : ''}`,
+                    inputMode: 'value' as const,
+                    percentage: pct.toFixed(2),
+                    value: itemTotal.toFixed(2),
+                };
+            });
+
+            setStages(newStages);
+
+            // Auto-preencher valor do contrato se vazio
+            if (!contractValue || parsePrice(contractValue) === 0) {
+                setContractValue(totalProposta.toFixed(2));
+            }
+
+            toast.success(`${newStages.length} etapa(s) importada(s) da proposta — medição de 100%`);
+        } catch (err) {
+            console.error(err);
+            toast.error('Erro ao importar itens da proposta');
+        }
     };
 
     /* ─── Save ──────────────────────────────────────────────────────────────── */
@@ -559,15 +606,23 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
 
                         {/* Proposal import */}
                         {proposals.length > 0 && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                <div className="flex items-center gap-2 mb-2"><FileText className="w-4 h-4 text-blue-600" /><span className="text-xs font-semibold text-blue-700">Importar Faturamento Direto de Proposta</span></div>
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-3">
+                                <div className="flex items-center gap-2"><FileText className="w-4 h-4 text-blue-600" /><span className="text-xs font-semibold text-blue-700">Importar da Proposta Vinculada</span></div>
                                 <div className="flex gap-2">
                                     <Select value={selectedProposalId} onValueChange={setSelectedProposalId}>
                                         <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue placeholder="Selecione a proposta" /></SelectTrigger>
-                                        <SelectContent>{proposals.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.proposalNumber || p.id.slice(0, 8)} — {p.title || 'Proposta'}</SelectItem>)}</SelectContent>
+                                        <SelectContent>{proposals.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.proposalNumber || p.id.slice(0, 8)} — {p.title || 'Proposta'} (R$ {fmt(Number(p.totalValue || 0))})</SelectItem>)}</SelectContent>
                                     </Select>
-                                    <Button size="sm" variant="outline" className="h-8 text-xs" disabled={!selectedProposalId} onClick={() => importFromProposal(selectedProposalId)}>Importar</Button>
                                 </div>
+                                <div className="flex gap-2">
+                                    <Button size="sm" className="h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white flex-1" disabled={!selectedProposalId} onClick={() => importStagesFromProposal(selectedProposalId)}>
+                                        <ClipboardList className="w-3.5 h-3.5 mr-1" /> Importar Itens como Etapas de Medição (100%)
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="h-8 text-xs" disabled={!selectedProposalId} onClick={() => importFromProposal(selectedProposalId)}>
+                                        <Building2 className="w-3.5 h-3.5 mr-1" /> Fat. Direto
+                                    </Button>
+                                </div>
+                                <p className="text-[10px] text-blue-500">💡 "Importar Itens" converte cada item/serviço da proposta em uma etapa de medição a 100%, pronto para emissão.</p>
                             </div>
                         )}
 

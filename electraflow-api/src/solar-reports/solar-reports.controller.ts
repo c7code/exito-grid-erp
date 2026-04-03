@@ -81,18 +81,52 @@ export class SolarReportsController {
         
         let text = '';
         try {
-            // Use pdfjs-dist (pure JS, no native canvas dependency)
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
-            const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(file.buffer) });
-            const pdfDoc = await loadingTask.promise;
-            const textParts: string[] = [];
-            for (let i = 1; i <= pdfDoc.numPages; i++) {
-                const page = await pdfDoc.getPage(i);
-                const content = await page.getTextContent();
-                textParts.push(content.items.map((item: any) => item.str).join(' '));
+            // Zero-dependency PDF text extraction
+            // Extracts text content from PDF streams without any native bindings
+            const raw = file.buffer.toString('latin1');
+            const textChunks: string[] = [];
+
+            // Method 1: Extract text from BT...ET blocks (standard PDF text objects)
+            const btEtRegex = /BT\s([\s\S]*?)ET/g;
+            let btMatch: RegExpExecArray | null;
+            while ((btMatch = btEtRegex.exec(raw)) !== null) {
+                const block = btMatch[1];
+                // Extract TJ arrays and Tj strings
+                const tjRegex = /\(([^)]*)\)\s*Tj|\[([^\]]*)\]\s*TJ/g;
+                let tjMatch: RegExpExecArray | null;
+                while ((tjMatch = tjRegex.exec(block)) !== null) {
+                    if (tjMatch[1]) {
+                        textChunks.push(tjMatch[1]);
+                    } else if (tjMatch[2]) {
+                        const arr = tjMatch[2];
+                        const innerRegex = /\(([^)]*)\)/g;
+                        let innerMatch: RegExpExecArray | null;
+                        while ((innerMatch = innerRegex.exec(arr)) !== null) {
+                            textChunks.push(innerMatch[1]);
+                        }
+                    }
+                }
             }
-            text = textParts.join('\n');
+
+            // Method 2: fallback — extract any parenthesized text near Tj/TJ operators
+            if (textChunks.length === 0) {
+                const fallbackRegex = /\(([^)]{2,})\)/g;
+                let fbMatch: RegExpExecArray | null;
+                while ((fbMatch = fallbackRegex.exec(raw)) !== null) {
+                    const txt = fbMatch[1];
+                    // Filter out binary/control sequences
+                    if (/[a-zA-Z0-9À-ú]{2,}/.test(txt)) {
+                        textChunks.push(txt);
+                    }
+                }
+            }
+
+            text = textChunks.join(' ')
+                .replace(/\\n/g, '\n')
+                .replace(/\\r/g, '')
+                .replace(/\\\(/g, '(')
+                .replace(/\\\)/g, ')')
+                .replace(/\s{2,}/g, ' ');
         } catch (e) {
             throw new BadRequestException('Não foi possível ler o PDF. Verifique se o arquivo é um PDF válido.');
         }
