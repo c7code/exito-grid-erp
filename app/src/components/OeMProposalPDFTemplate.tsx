@@ -9,6 +9,35 @@ interface OeMProposalPDFTemplateProps {
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtCurrency = (v: number) => `R$ ${fmt(v)}`;
 
+// ═══ PARSER DE TEXTO ESTRUTURADO (inline — sem dependência externa) ═══
+function renderStructuredText(text: string | undefined | null, baseStyle: React.CSSProperties): React.ReactNode {
+    if (!text) return null;
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length === 0) return null;
+    if (lines.length === 1) return <p style={{ ...baseStyle, whiteSpace: 'pre-line' }}>{text}</p>;
+    return (
+        <div>
+            {lines.map((line, i) => {
+                const trimmed = line.trim();
+                const isNumbered = /^\d+[\.\)]\s/.test(trimmed);
+                const isBullet = /^[•▸\-—–]\s/.test(trimmed);
+                const isHeader = /^[A-ZÁÉÍÓÚÂÊÔÃ][A-ZÁÉÍÓÚÂÊÔÃ\s:]+:?\s*$/.test(trimmed);
+                const indent = isNumbered ? 8 : isBullet ? 12 : 0;
+                return (
+                    <div key={i} style={{
+                        ...baseStyle,
+                        paddingLeft: `${indent}px`,
+                        fontWeight: isHeader ? 700 : undefined,
+                        margin: isHeader ? '10px 0 4px' : '2px 0',
+                    }}>
+                        {trimmed}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemplateProps) {
     const items = proposal.items || [];
     const co = company || {};
@@ -24,6 +53,8 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
     const clientName = proposal.client?.name || proposal.clientName || '—';
     const clientDoc = proposal.client?.document || proposal.clientDocument || '—';
     const clientAddress = proposal.client?.address || proposal.clientAddress || '—';
+    const clientPhone = proposal.client?.phone || proposal.clientPhone || '';
+    const clientEmail = proposal.client?.email || proposal.clientEmail || '';
 
     const today = new Date();
     const dateStr = today.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -36,63 +67,80 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
     const scope = proposal.scope || '';
     const scopeLines = scope.split('\n');
 
-    // Parse benefits from notes or scope
+    // Parse benefits from notes
     const benefitsRaw = proposal.notes || '';
     const benefits = benefitsRaw ? benefitsRaw.split('\n').filter((l: string) => l.trim()) : [];
 
-    // ═══ STYLES ═══
+    // ── Dynamic fields with SAFE FALLBACK (backward compat) ──
+    const paymentConditions = proposal.paymentConditions || 'O pagamento será realizado mensalmente, por meio de boleto bancário ou PIX, até o dia 10 de cada mês subsequente ao da prestação dos serviços.';
+    const contractorObligations = proposal.contractorObligations || null;
+    const clientObligations = proposal.clientObligations || null;
+    const generalProvisions = proposal.generalProvisions || null;
+    const complianceText = proposal.complianceText || null;
+    const workDeadlineText = proposal.workDeadlineText || null;
+    const validUntilStr = proposal.validUntil ? new Date(proposal.validUntil).toLocaleDateString('pt-BR') : '30 dias';
+    const deadlineStr = proposal.deadline || null;
+
+    // ── Auto-numbering sections ──
+    let sectionIndex = 0;
+    const nextSection = () => ++sectionIndex;
+
+    // ═══ STYLES — Premium OeM Layout ═══
     const s = {
         page: { fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif", fontSize: '10pt', color: '#1a1a1a', lineHeight: '1.55', maxWidth: 800, margin: '0 auto', background: '#fff' } as React.CSSProperties,
-        // Hero header - dark gradient
-        heroHeader: { background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)', padding: '36px 40px', position: 'relative' as const, overflow: 'hidden' as const } as React.CSSProperties,
-        heroOverlay: { position: 'absolute' as const, top: 0, right: 0, width: '300px', height: '100%', background: 'linear-gradient(135deg, transparent, rgba(245, 158, 11, 0.15))', borderRadius: '0 0 0 200px' } as React.CSSProperties,
+        // Hero
+        heroHeader: { background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)', padding: '38px 44px 32px', position: 'relative' as const, overflow: 'hidden' as const } as React.CSSProperties,
+        heroOverlay: { position: 'absolute' as const, top: 0, right: 0, width: '320px', height: '100%', background: 'linear-gradient(135deg, transparent 30%, rgba(245, 158, 11, 0.12))', borderRadius: '0 0 0 200px' } as React.CSSProperties,
         heroTitle: { fontSize: '22px', fontWeight: 800, color: '#fff', letterSpacing: '-0.5px', marginBottom: '4px', position: 'relative' as const, zIndex: 1 } as React.CSSProperties,
-        heroSubtitle: { fontSize: '11px', color: '#94a3b8', letterSpacing: '3px', textTransform: 'uppercase' as const, fontWeight: 600, position: 'relative' as const, zIndex: 1 } as React.CSSProperties,
-        heroRef: { fontSize: '9px', color: '#64748b', position: 'relative' as const, zIndex: 1, marginTop: '12px' } as React.CSSProperties,
-        // Accent bar
-        accentBar: { height: '4px', background: 'linear-gradient(90deg, #f59e0b, #ef4444, #8b5cf6)' } as React.CSSProperties,
-        body: { padding: '32px 40px' } as React.CSSProperties,
-        // Section headers
-        sectionTitle: { fontSize: '13px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '2px', borderBottom: '3px solid #f59e0b', paddingBottom: '8px', marginTop: '32px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' } as React.CSSProperties,
-        sectionIcon: { width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', fontWeight: 700 } as React.CSSProperties,
-        para: { fontSize: '10px', textAlign: 'justify' as const, margin: '6px 0', color: '#334155', lineHeight: '1.65' } as React.CSSProperties,
-        // Benefit card
-        benefitCard: { display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 14px', background: '#fefce8', borderLeft: '3px solid #f59e0b', borderRadius: '0 6px 6px 0', margin: '6px 0' } as React.CSSProperties,
-        // Service row
-        serviceRow: { display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', background: '#f8fafc', borderRadius: '8px', margin: '4px 0', borderLeft: '3px solid #22c55e' } as React.CSSProperties,
-        serviceInactive: { display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 16px', background: '#f1f5f9', borderRadius: '8px', margin: '3px 0', opacity: 0.5, borderLeft: '3px solid #cbd5e1' } as React.CSSProperties,
-        // SLA badge
-        slaBox: { display: 'inline-flex', flexDirection: 'column' as const, alignItems: 'center', padding: '14px 20px', background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', borderRadius: '10px', border: '1px solid #93c5fd', minWidth: '120px' } as React.CSSProperties,
-        slaValue: { fontSize: '20px', fontWeight: 800, color: '#1d4ed8' } as React.CSSProperties,
-        slaLabel: { fontSize: '8px', color: '#3b82f6', textTransform: 'uppercase' as const, letterSpacing: '1px', fontWeight: 600, marginTop: '4px' } as React.CSSProperties,
-        // Pricing
-        priceHighlight: { background: 'linear-gradient(135deg, #0f172a, #1e293b)', borderRadius: '12px', padding: '24px', color: '#fff', margin: '20px 0' } as React.CSSProperties,
-        priceRow: { display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '10px', color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)' } as React.CSSProperties,
-        priceTotalRow: { display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderTop: '2px solid #f59e0b', marginTop: '10px' } as React.CSSProperties,
+        heroSubtitle: { fontSize: '10px', color: '#94a3b8', letterSpacing: '3.5px', textTransform: 'uppercase' as const, fontWeight: 600, position: 'relative' as const, zIndex: 1 } as React.CSSProperties,
+        heroRef: { fontSize: '9px', color: '#64748b', position: 'relative' as const, zIndex: 1, marginTop: '14px', display: 'flex', gap: '16px', flexWrap: 'wrap' as const } as React.CSSProperties,
+        heroBadge: { background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '2px 10px', borderRadius: '4px', fontSize: '8px', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' as const } as React.CSSProperties,
+        // Accent
+        accentBar: { height: '4px', background: 'linear-gradient(90deg, #f59e0b 0%, #ef4444 45%, #8b5cf6 100%)' } as React.CSSProperties,
+        body: { padding: '32px 44px' } as React.CSSProperties,
+        // Sections
+        sectionTitle: { fontSize: '12px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '2px', borderBottom: '3px solid #f59e0b', paddingBottom: '10px', marginTop: '34px', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '12px', breakInside: 'avoid' as const, breakAfter: 'avoid' as const } as React.CSSProperties,
+        sectionIcon: { width: '30px', height: '30px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', fontWeight: 700, flexShrink: 0 } as React.CSSProperties,
+        sectionNum: { fontSize: '10px', fontWeight: 800, color: '#f59e0b', minWidth: '18px' } as React.CSSProperties,
+        para: { fontSize: '10px', textAlign: 'justify' as const, margin: '6px 0', color: '#334155', lineHeight: '1.7' } as React.CSSProperties,
+        // Cards
+        idCard: { flex: 1, padding: '16px 20px', borderRadius: '10px', border: '1px solid' } as React.CSSProperties,
+        idLabel: { fontSize: '7.5px', textTransform: 'uppercase' as const, letterSpacing: '1.5px', fontWeight: 700, marginBottom: '6px' } as React.CSSProperties,
+        idName: { fontSize: '10.5px', fontWeight: 700, color: '#0f172a', marginBottom: '3px' } as React.CSSProperties,
+        idDetail: { fontSize: '9px', color: '#475569', margin: '1px 0' } as React.CSSProperties,
+        // Benefits
+        benefitCard: { display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 14px', background: '#fefce8', borderLeft: '3px solid #f59e0b', borderRadius: '0 8px 8px 0', margin: '5px 0' } as React.CSSProperties,
+        // Services
+        serviceRow: { display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 16px', background: '#f8fafc', borderRadius: '8px', margin: '4px 0', borderLeft: '4px solid #22c55e' } as React.CSSProperties,
+        // SLA
+        slaBox: { display: 'inline-flex', flexDirection: 'column' as const, alignItems: 'center', padding: '16px 22px', borderRadius: '12px', border: '1px solid', minWidth: '130px' } as React.CSSProperties,
+        slaValue: { fontSize: '22px', fontWeight: 800, letterSpacing: '-0.5px' } as React.CSSProperties,
+        slaLabel: { fontSize: '7.5px', textTransform: 'uppercase' as const, letterSpacing: '1.5px', fontWeight: 700, marginTop: '5px' } as React.CSSProperties,
+        // Price
+        priceHighlight: { background: 'linear-gradient(135deg, #0f172a, #1e293b)', borderRadius: '14px', padding: '26px 28px', color: '#fff', margin: '20px 0' } as React.CSSProperties,
+        priceRow: { display: 'flex', justifyContent: 'space-between', padding: '7px 0', fontSize: '10px', color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.06)' } as React.CSSProperties,
+        priceTotalRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderTop: '2px solid #f59e0b', marginTop: '12px' } as React.CSSProperties,
+        // Obligation card
+        oblCard: { background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px 22px', margin: '10px 0' } as React.CSSProperties,
+        oblTitle: { fontSize: '10px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '1px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' } as React.CSSProperties,
         // Guarantee
-        guaranteeBox: { background: '#f0fdf4', border: '2px solid #22c55e', borderRadius: '10px', padding: '18px 24px', margin: '14px 0' } as React.CSSProperties,
+        guaranteeBox: { background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)', border: '2px solid #22c55e', borderRadius: '12px', padding: '20px 24px', margin: '14px 0' } as React.CSSProperties,
+        // General provisions
+        provisionBox: { background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '10px', padding: '18px 22px', margin: '10px 0' } as React.CSSProperties,
         // Signature
         sigArea: { display: 'flex', justifyContent: 'space-between', gap: '60px', marginTop: '40px', paddingTop: '20px', breakInside: 'avoid' as const } as React.CSSProperties,
         sigBox: { flex: 1, textAlign: 'center' as const } as React.CSSProperties,
-        sigLine: { borderTop: '1px solid #333', marginTop: '50px', paddingTop: '8px', fontSize: '9px', fontWeight: 600 } as React.CSSProperties,
-        sigSub: { fontSize: '8px', color: '#777' },
-        footer: { background: '#0f172a', padding: '16px 40px', textAlign: 'center' as const, marginTop: '30px', breakInside: 'avoid' as const } as React.CSSProperties,
-        footerText: { fontSize: '8px', color: '#64748b', letterSpacing: '1px' },
+        sigLine: { borderTop: '1.5px solid #1e293b', marginTop: '50px', paddingTop: '10px', fontSize: '9px', fontWeight: 700, color: '#0f172a' } as React.CSSProperties,
+        sigSub: { fontSize: '8px', color: '#64748b', marginTop: '2px' } as React.CSSProperties,
+        footer: { background: '#0f172a', padding: '18px 44px', textAlign: 'center' as const, marginTop: '30px', breakInside: 'avoid' as const } as React.CSSProperties,
+        footerText: { fontSize: '8px', color: '#64748b', letterSpacing: '1px' } as React.CSSProperties,
     };
 
-    // Parse serviços from items
-    const allServices = [
-        { key: 'limpeza', label: 'Limpeza dos Módulos Fotovoltaicos', desc: 'Lavagem com água deionizada e escova macia para remoção de sujidades acumuladas' },
-        { key: 'inspecao', label: 'Inspeção Visual Completa', desc: 'Verificação de módulos, estrutura metálica, cabos, conectores MC4 e quadros' },
-        { key: 'termografia', label: 'Termografia Infravermelha', desc: 'Detecção de hotspots e pontos de aquecimento anormal nos módulos e conexões' },
-        { key: 'teste', label: 'Teste de String (Curva I-V)', desc: 'Análise da curva de corrente-tensão para identificação de degradação' },
-        { key: 'monitoramento', label: 'Monitoramento Remoto 24/7', desc: 'Acompanhamento contínuo da geração e alerta automático de anomalias' },
-        { key: 'corretiva', label: 'Manutenção Corretiva Prioritária', desc: 'Atendimento emergencial com prioridade no tempo de resposta' },
-    ];
-
-    const activeServices = items.length > 0
-        ? items.map((it: any) => it.description)
-        : allServices.map(s => s.label);
+    // Parse SLA from scope (extraído do backend no scope se disponível)
+    const slaFromScope = scope.match(/resposta normal:\s*(\d+)h/i);
+    const slaUrgenteFromScope = scope.match(/resposta urgente:\s*(\d+)h/i);
+    const slaHoras = slaFromScope ? slaFromScope[1] : '48';
+    const slaUrgente = slaUrgenteFromScope ? slaUrgenteFromScope[1] : '4';
 
     return (
         <div id="proposal-pdf-content" className="pdf-section" style={s.page}>
@@ -109,73 +157,82 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
                 <div style={s.heroOverlay} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' as const, zIndex: 1 }}>
                     <div>
-                        <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: '45px', objectFit: 'contain', marginBottom: '16px', filter: 'brightness(0) invert(1)' }} />
+                        <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: '48px', objectFit: 'contain', marginBottom: '18px', filter: 'brightness(0) invert(1)' }} />
                         <div style={s.heroSubtitle}>Proposta de Operação & Manutenção</div>
                         <div style={s.heroTitle}>{proposal.title || 'Plano de O&M Solar'}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '9px', color: '#94a3b8', lineHeight: 1.8 }}>
-                            <div style={{ fontWeight: 700, color: '#f59e0b' }}>{empresa.telefone}</div>
+                        <div style={{ fontSize: '9px', color: '#94a3b8', lineHeight: 1.9 }}>
+                            <div style={{ fontWeight: 700, color: '#f59e0b', fontSize: '10px' }}>{empresa.telefone}</div>
                             <div>{empresa.email}</div>
                             <div>{empresa.site}</div>
                         </div>
                     </div>
                 </div>
-                <div style={s.heroRef}>
-                    Ref: {proposal.proposalNumber || '—'} | {dateStr}
+                <div style={s.heroRef as any}>
+                    <span>Ref: {proposal.proposalNumber || '—'}</span>
+                    <span>{dateStr}</span>
+                    <span style={s.heroBadge}>Válida até {validUntilStr}</span>
                 </div>
             </div>
-
-            {/* Accent bar */}
             <div style={s.accentBar} />
 
             {/* ═══ BODY ═══ */}
             <div style={s.body}>
 
-                {/* ─── IDENTIFICAÇÃO ─── */}
-                <div style={s.sectionTitle}>
+                {/* ─── 1. IDENTIFICAÇÃO ─── */}
+                <div className="pdf-section-title" style={s.sectionTitle}>
                     <div style={{ ...s.sectionIcon, background: '#3b82f6' }}>👤</div>
-                    1. Identificação
+                    <span style={s.sectionNum}>{nextSection()}.</span>
+                    Identificação das Partes
                 </div>
-                <div style={{ display: 'flex', gap: '20px', margin: '10px 0' }}>
-                    <div style={{ flex: 1, background: '#f8fafc', padding: '14px 18px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                        <p style={{ fontSize: '8px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '4px' }}>Contratada</p>
-                        <p style={{ fontSize: '10px', fontWeight: 700, color: '#0f172a' }}>{empresa.nome}</p>
-                        <p style={{ fontSize: '9px', color: '#475569' }}>CNPJ: {empresa.cnpj}</p>
-                        <p style={{ fontSize: '9px', color: '#475569' }}>{empresa.endereco}</p>
+                <div style={{ display: 'flex', gap: '16px', margin: '10px 0' }}>
+                    <div style={{ ...s.idCard, background: '#f8fafc', borderColor: '#e2e8f0' }}>
+                        <p style={{ ...s.idLabel, color: '#64748b' }}>Contratada</p>
+                        <p style={s.idName}>{empresa.nome}</p>
+                        <p style={s.idDetail}>CNPJ: {empresa.cnpj}</p>
+                        <p style={s.idDetail}>{empresa.endereco}</p>
+                        <p style={s.idDetail}>{empresa.telefone} | {empresa.email}</p>
                     </div>
-                    <div style={{ flex: 1, background: '#fffbeb', padding: '14px 18px', borderRadius: '8px', border: '1px solid #fde68a' }}>
-                        <p style={{ fontSize: '8px', color: '#92400e', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '4px' }}>Contratante</p>
-                        <p style={{ fontSize: '10px', fontWeight: 700, color: '#0f172a' }}>{clientName}</p>
-                        <p style={{ fontSize: '9px', color: '#475569' }}>CPF/CNPJ: {clientDoc}</p>
-                        <p style={{ fontSize: '9px', color: '#475569' }}>{clientAddress}</p>
+                    <div style={{ ...s.idCard, background: '#fffbeb', borderColor: '#fde68a' }}>
+                        <p style={{ ...s.idLabel, color: '#92400e' }}>Contratante</p>
+                        <p style={s.idName}>{clientName}</p>
+                        <p style={s.idDetail}>CPF/CNPJ: {clientDoc}</p>
+                        <p style={s.idDetail}>{clientAddress}</p>
+                        {(clientPhone || clientEmail) && (
+                            <p style={s.idDetail}>{[clientPhone, clientEmail].filter(Boolean).join(' | ')}</p>
+                        )}
                     </div>
                 </div>
 
-                {/* ─── POR QUE O&M? (IMPORTÂNCIA) ─── */}
-                <div style={s.sectionTitle}>
+                {/* ─── 2. IMPORTÂNCIA DA MANUTENÇÃO ─── */}
+                <div className="pdf-section-title" style={s.sectionTitle}>
                     <div style={{ ...s.sectionIcon, background: '#f59e0b' }}>☀️</div>
-                    2. A Importância da Manutenção Solar
+                    <span style={s.sectionNum}>{nextSection()}.</span>
+                    A Importância da Manutenção Solar
                 </div>
-                <p style={s.para}>
-                    Sistemas fotovoltaicos são projetados para operar por mais de 25 anos, porém a ausência de manutenção adequada pode resultar em perdas de geração de até <strong>25% ao ano</strong>, além de comprometer a segurança da instalação e a validade das garantias dos equipamentos.
-                </p>
-                <p style={s.para}>
-                    A contratação de um plano de Operação & Manutenção (O&M) profissional garante a <strong>maximização da geração de energia</strong>, a <strong>preservação do investimento</strong>, o cumprimento das normas técnicas vigentes e a <strong>identificação preventiva de falhas</strong> antes que causem danos significativos ao sistema.
-                </p>
+                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '18px 22px' }}>
+                    <p style={{ ...s.para, color: '#92400e' }}>
+                        Sistemas fotovoltaicos são projetados para operar por mais de 25 anos, porém a ausência de manutenção adequada pode resultar em perdas de geração de até <strong>25% ao ano</strong>, além de comprometer a segurança da instalação e a validade das garantias dos equipamentos.
+                    </p>
+                    <p style={{ ...s.para, color: '#92400e', marginTop: '8px' }}>
+                        A contratação de um plano de Operação & Manutenção (O&M) profissional garante a <strong>maximização da geração de energia</strong>, a <strong>preservação do investimento</strong>, o cumprimento das normas técnicas vigentes e a <strong>identificação preventiva de falhas</strong> antes que causem danos significativos ao sistema.
+                    </p>
+                </div>
 
-                {/* ─── BENEFÍCIOS ─── */}
+                {/* ─── BENEFÍCIOS (condicional) ─── */}
                 {benefits.length > 0 && (
                     <>
-                        <div style={s.sectionTitle}>
+                        <div className="pdf-section-title" style={s.sectionTitle}>
                             <div style={{ ...s.sectionIcon, background: '#22c55e' }}>✨</div>
-                            3. Benefícios do Plano
+                            <span style={s.sectionNum}>{nextSection()}.</span>
+                            Benefícios do Plano
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                             {benefits.map((b: string, i: number) => (
                                 <div key={i} style={s.benefitCard}>
-                                    <span style={{ fontSize: '14px', lineHeight: 1, shrinkFlex: 0 } as any}>✓</span>
-                                    <span style={{ fontSize: '10px', color: '#713f12', lineHeight: 1.5 }}>{b.replace(/^[•▸\-]\s*/, '')}</span>
+                                    <span style={{ fontSize: '13px', lineHeight: 1, color: '#f59e0b', fontWeight: 700, flexShrink: 0 }}>✓</span>
+                                    <span style={{ fontSize: '9.5px', color: '#713f12', lineHeight: 1.55 }}>{b.replace(/^[•▸\-]\s*/, '')}</span>
                                 </div>
                             ))}
                         </div>
@@ -185,27 +242,40 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
                 {/* ─── ESCOPO TÉCNICO ─── */}
                 <div className="pdf-section-title" style={s.sectionTitle}>
                     <div style={{ ...s.sectionIcon, background: '#8b5cf6' }}>🔧</div>
-                    {benefits.length > 0 ? '4' : '3'}. Escopo Técnico & Dados do Sistema
+                    <span style={s.sectionNum}>{nextSection()}.</span>
+                    Escopo Técnico & Dados do Sistema
                 </div>
                 {scope && (
-                    <div style={{ background: '#faf5ff', padding: '16px 20px', borderRadius: '8px', border: '1px solid #e9d5ff', marginBottom: '16px' }}>
-                        {scopeLines.map((line: string, i: number) => (
-                            <p key={i} style={{ fontSize: '10px', color: '#581c87', margin: '3px 0', fontWeight: line.includes(':') && !line.includes('•') ? 700 : 400 }}>
-                                {line}
-                            </p>
-                        ))}
+                    <div style={{ background: '#faf5ff', padding: '18px 22px', borderRadius: '10px', border: '1px solid #e9d5ff', marginBottom: '16px' }}>
+                        {scopeLines.map((line: string, i: number) => {
+                            const isHeader = line.trim().endsWith(':') && !line.trim().startsWith('•');
+                            const isBullet = line.trim().startsWith('•');
+                            return (
+                                <p key={i} style={{
+                                    fontSize: isHeader ? '10px' : '9.5px',
+                                    color: '#581c87',
+                                    margin: isHeader ? '10px 0 4px' : '2px 0',
+                                    fontWeight: isHeader ? 800 : 400,
+                                    paddingLeft: isBullet ? '8px' : '0',
+                                    letterSpacing: isHeader ? '1px' : undefined,
+                                    textTransform: isHeader ? 'uppercase' as const : undefined,
+                                }}>
+                                    {line}
+                                </p>
+                            );
+                        })}
                     </div>
                 )}
 
                 {/* ─── SERVIÇOS INCLUÍDOS ─── */}
                 <div className="pdf-section-title" style={s.sectionTitle}>
                     <div style={{ ...s.sectionIcon, background: '#22c55e' }}>🛠️</div>
-                    {benefits.length > 0 ? '5' : '4'}. Serviços Incluídos
+                    <span style={s.sectionNum}>{nextSection()}.</span>
+                    Serviços Incluídos
                 </div>
                 <p style={s.para}>
                     {proposal.workDescription || 'O plano de O&M contempla as seguintes atividades técnicas, executadas por equipe especializada e certificada:'}
                 </p>
-                {/* Se tiver itens de proposta, usa eles como lista de serviços */}
                 {items.length > 0 ? (
                     items.map((item: any, i: number) => (
                         <div key={i} style={s.serviceRow}>
@@ -219,121 +289,134 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
                         </div>
                     ))
                 ) : (
-                    allServices.map((svc, i) => {
-                        const isIncluded = activeServices.some((as: string) =>
-                            as.toLowerCase().includes(svc.label.split(' ')[0].toLowerCase()) ||
-                            svc.label.toLowerCase().includes(as.split(' ')[0].toLowerCase())
-                        );
-                        return (
-                            <div key={i} style={isIncluded ? s.serviceRow : s.serviceInactive}>
-                                <span style={{ fontSize: '14px', lineHeight: 1 }}>{isIncluded ? '✅' : '⬜'}</span>
-                                <div>
-                                    <p style={{ fontSize: '10px', fontWeight: 700, color: isIncluded ? '#166534' : '#94a3b8', margin: 0 }}>{svc.label}</p>
-                                    <p style={{ fontSize: '9px', color: isIncluded ? '#4ade80' : '#cbd5e1', margin: '2px 0 0' }}>{svc.desc}</p>
-                                </div>
-                            </div>
-                        );
-                    })
+                    <div style={s.serviceRow}>
+                        <span style={{ fontSize: '14px', lineHeight: 1 }}>✅</span>
+                        <p style={{ fontSize: '10px', fontWeight: 700, color: '#166534', margin: 0 }}>Serviço de O&M Completo</p>
+                    </div>
+                )}
+
+                {/* ─── PRAZO DE EXECUÇÃO (se disponível) ─── */}
+                {(workDeadlineText || deadlineStr) && (
+                    <>
+                        <div className="pdf-section-title" style={s.sectionTitle}>
+                            <div style={{ ...s.sectionIcon, background: '#0ea5e9' }}>📅</div>
+                            <span style={s.sectionNum}>{nextSection()}.</span>
+                            Prazo de Execução
+                        </div>
+                        <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '10px', padding: '16px 22px' }}>
+                            <p style={{ ...s.para, color: '#0c4a6e' }}>
+                                {workDeadlineText || `Prazo de execução: ${deadlineStr}.`}
+                            </p>
+                        </div>
+                    </>
                 )}
 
                 {/* ─── SLA ─── */}
                 <div className="pdf-section-title" style={s.sectionTitle}>
                     <div style={{ ...s.sectionIcon, background: '#3b82f6' }}>⏱️</div>
-                    {benefits.length > 0 ? '6' : '5'}. Acordo de Nível de Serviço (SLA)
+                    <span style={s.sectionNum}>{nextSection()}.</span>
+                    Acordo de Nível de Serviço (SLA)
                 </div>
-                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', margin: '16px 0' }}>
-                    <div style={s.slaBox}>
-                        <span style={s.slaValue}>48h</span>
-                        <span style={s.slaLabel}>Resposta Normal</span>
+                <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', margin: '18px 0' }}>
+                    <div style={{ ...s.slaBox, background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', borderColor: '#93c5fd' }}>
+                        <span style={{ ...s.slaValue, color: '#1d4ed8' }}>{slaHoras}h</span>
+                        <span style={{ ...s.slaLabel, color: '#3b82f6' }}>Resposta Normal</span>
                     </div>
-                    <div style={{ ...s.slaBox, background: 'linear-gradient(135deg, #fef3c7, #fde68a)', border: '1px solid #f59e0b' }}>
-                        <span style={{ ...s.slaValue, color: '#d97706' }}>4h</span>
+                    <div style={{ ...s.slaBox, background: 'linear-gradient(135deg, #fef3c7, #fde68a)', borderColor: '#f59e0b' }}>
+                        <span style={{ ...s.slaValue, color: '#d97706' }}>{slaUrgente}h</span>
                         <span style={{ ...s.slaLabel, color: '#b45309' }}>Resp. Urgente</span>
                     </div>
-                    <div style={{ ...s.slaBox, background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '1px solid #4ade80' }}>
+                    <div style={{ ...s.slaBox, background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', borderColor: '#4ade80' }}>
                         <span style={{ ...s.slaValue, color: '#16a34a' }}>24/7</span>
                         <span style={{ ...s.slaLabel, color: '#15803d' }}>Monitoramento</span>
                     </div>
                 </div>
-                <p style={{ ...s.para, textAlign: 'center', fontStyle: 'italic', fontSize: '9px', color: '#64748b' }}>
+                <p style={{ ...s.para, textAlign: 'center', fontStyle: 'italic', fontSize: '8.5px', color: '#64748b' }}>
                     Tempos de resposta contados a partir da abertura do chamado técnico.
                 </p>
 
-                {/* ─── GARANTIAS ─── */}
+                {/* ─── GARANTIAS / CONFORMIDADE (dinâmico com fallback) ─── */}
                 <div className="pdf-section-title" style={s.sectionTitle}>
                     <div style={{ ...s.sectionIcon, background: '#059669' }}>🛡️</div>
-                    {benefits.length > 0 ? '7' : '6'}. Garantias
+                    <span style={s.sectionNum}>{nextSection()}.</span>
+                    Garantias & Conformidade Normativa
                 </div>
                 <div style={s.guaranteeBox}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                         <span style={{ fontSize: '18px' }}>✓</span>
-                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#166534', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#166534', textTransform: 'uppercase', letterSpacing: '1.5px' }}>
                             Garantia de Qualidade Técnica
                         </span>
                     </div>
-                    <p style={{ ...s.para, color: '#166534', fontSize: '10px' }}>
-                        A CONTRATADA garante a qualidade técnica de todos os serviços prestados, comprometendo-se a executar as atividades de acordo com as melhores práticas do setor fotovoltaico e em conformidade com as seguintes normas:
-                    </p>
-                    <div style={{ margin: '8px 0 0 12px', fontSize: '9.5px', color: '#166534', lineHeight: 1.8 }}>
-                        <div>▸ <strong>NBR 16690</strong> — Instalações elétricas de arranjos fotovoltaicos</div>
-                        <div>▸ <strong>NR-10</strong> — Segurança em Instalações e Serviços em Eletricidade</div>
-                        <div>▸ <strong>NR-35</strong> — Trabalho em Altura</div>
-                        <div>▸ <strong>IEC 62446</strong> — Comissionamento e inspeção de sistemas FV</div>
-                        <div>▸ Garantia de <strong>performance mínima</strong> conforme especificações do plano contratado</div>
-                    </div>
+                    {complianceText ? (
+                        renderStructuredText(complianceText, { fontSize: '9.5px', color: '#166534', lineHeight: '1.8' })
+                    ) : (
+                        <>
+                            <p style={{ ...s.para, color: '#166534', fontSize: '9.5px' }}>
+                                A CONTRATADA garante a qualidade técnica de todos os serviços prestados, comprometendo-se a executar as atividades em conformidade com as normas:
+                            </p>
+                            <div style={{ margin: '8px 0 0 12px', fontSize: '9.5px', color: '#166534', lineHeight: 1.8 }}>
+                                <div>▸ <strong>NBR 16690</strong> — Instalações elétricas de arranjos fotovoltaicos</div>
+                                <div>▸ <strong>NR-10</strong> — Segurança em Instalações e Serviços em Eletricidade</div>
+                                <div>▸ <strong>NR-35</strong> — Trabalho em Altura</div>
+                                <div>▸ <strong>IEC 62446</strong> — Comissionamento e inspeção de sistemas FV</div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* ─── INVESTIMENTO ─── */}
                 <div className="pdf-section-title" style={s.sectionTitle}>
                     <div style={{ ...s.sectionIcon, background: '#f59e0b' }}>💰</div>
-                    {benefits.length > 0 ? '8' : '7'}. Investimento
+                    <span style={s.sectionNum}>{nextSection()}.</span>
+                    Investimento
                 </div>
 
-                {/* MODO: DETALHADO (grouping / com_valor) */}
+                {/* MODO: DETALHADO */}
                 {visibilityMode === 'grouping' && (
                     <div className="pdf-keep-together" style={s.priceHighlight}>
-                        <p style={{ fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600, marginBottom: '12px' }}>
+                        <p style={{ fontSize: '8px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2.5px', fontWeight: 700, marginBottom: '14px' }}>
                             Detalhamento do Investimento
                         </p>
                         {items.length > 0 && items.map((item: any, i: number) => (
                             <div key={i} style={s.priceRow}>
                                 <span>{item.description}</span>
-                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{fmtCurrency(item.total || item.unitPrice)}</span>
+                                <span style={{ fontWeight: 700, color: '#e2e8f0' }}>{fmtCurrency(item.total || item.unitPrice)}</span>
                             </div>
                         ))}
                         {items.length === 0 && (
                             <div style={s.priceRow}>
                                 <span>Serviço de O&M Completo</span>
-                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{fmtCurrency(total)}</span>
+                                <span style={{ fontWeight: 700, color: '#e2e8f0' }}>{fmtCurrency(total)}</span>
                             </div>
                         )}
                         <div style={s.priceTotalRow}>
-                            <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1.5px' }}>
                                 Valor Total
                             </span>
-                            <span style={{ fontSize: '20px', fontWeight: 900, color: '#f59e0b' }}>
+                            <span style={{ fontSize: '22px', fontWeight: 900, color: '#f59e0b' }}>
                                 {fmtCurrency(total)}
                             </span>
                         </div>
                     </div>
                 )}
 
-                {/* MODO: RESUMO (summary / sem_valor) — descrições sem preço individual */}
+                {/* MODO: RESUMO */}
                 {visibilityMode === 'summary' && (
                     <div className="pdf-keep-together">
                         <p style={s.para}>O investimento contempla as seguintes atividades técnicas:</p>
                         {items.length > 0 && items.map((item: any, i: number) => (
-                            <div key={i} style={{ ...s.serviceRow, margin: '3px 0' }}>
-                                <span style={{ fontSize: '12px', lineHeight: 1 }}>▸</span>
+                            <div key={i} style={{ ...s.serviceRow, margin: '3px 0', borderLeftColor: '#8b5cf6' }}>
+                                <span style={{ fontSize: '12px', lineHeight: 1, color: '#8b5cf6' }}>▸</span>
                                 <span style={{ fontSize: '10px', color: '#334155', fontWeight: 500 }}>{item.description}</span>
                             </div>
                         ))}
-                        <div style={{ ...s.priceHighlight, marginTop: '12px' }}>
+                        <div style={{ ...s.priceHighlight, marginTop: '14px' }}>
                             <div style={s.priceTotalRow}>
-                                <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1.5px' }}>
                                     Valor Total do Serviço
                                 </span>
-                                <span style={{ fontSize: '20px', fontWeight: 900, color: '#f59e0b' }}>
+                                <span style={{ fontSize: '22px', fontWeight: 900, color: '#f59e0b' }}>
                                     {fmtCurrency(total)}
                                 </span>
                             </div>
@@ -341,59 +424,106 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
                     </div>
                 )}
 
-                {/* MODO: TEXTO COMERCIAL (text_only / texto) */}
+                {/* MODO: TEXTO COMERCIAL */}
                 {visibilityMode === 'text_only' && (
                     <div className="pdf-keep-together">
                         <p style={s.para}>
                             Para a execução completa dos serviços de {proposal.title || 'Operação & Manutenção'}, contemplando {items.length > 0 ? items.map((it: any) => it.description).join(', ') : 'todas as atividades técnicas necessárias'}, o investimento total é de:
                         </p>
                         <div style={{ ...s.priceHighlight, textAlign: 'center' }}>
-                            <p style={{ fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600, marginBottom: '8px' }}>
+                            <p style={{ fontSize: '8px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2.5px', fontWeight: 700, marginBottom: '10px' }}>
                                 Investimento Total
                             </p>
-                            <span style={{ fontSize: '28px', fontWeight: 900, color: '#f59e0b' }}>
+                            <span style={{ fontSize: '30px', fontWeight: 900, color: '#f59e0b' }}>
                                 {fmtCurrency(total)}
                             </span>
                         </div>
                     </div>
                 )}
 
-                {/* ─── CONDIÇÕES ─── */}
+                {/* ─── CONDIÇÕES DE PAGAMENTO ─── */}
                 <div className="pdf-section-title" style={s.sectionTitle}>
                     <div style={{ ...s.sectionIcon, background: '#6366f1' }}>📋</div>
-                    {benefits.length > 0 ? '9' : '8'}. Condições Gerais
+                    <span style={s.sectionNum}>{nextSection()}.</span>
+                    Condições de Pagamento
                 </div>
-                <p style={s.para}>
-                    {proposal.paymentConditions || 'O pagamento será realizado mensalmente, por meio de boleto bancário ou PIX, até o dia 10 de cada mês subsequente ao da prestação dos serviços.'}
-                </p>
-                <div style={{ margin: '10px 0', fontSize: '9.5px', color: '#334155', lineHeight: 2 }}>
-                    <div>▸ Vigência mínima de <strong>12 meses</strong> a contar da data de assinatura</div>
-                    <div>▸ Renovação automática por períodos iguais, salvo manifestação em contrário com 30 dias de antecedência</div>
-                    <div>▸ Reajuste anual pelo índice <strong>IGPM</strong></div>
-                    <div>▸ Esta proposta tem validade de <strong>{proposal.validUntil ? new Date(proposal.validUntil).toLocaleDateString('pt-BR') : '30 dias'}</strong></div>
+                <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '10px', padding: '16px 22px' }}>
+                    <p style={{ ...s.para, color: '#3730a3' }}>{paymentConditions}</p>
                 </div>
+                <div style={{ margin: '12px 0', fontSize: '9px', color: '#334155', lineHeight: 2 }}>
+                    <div>▸ Esta proposta tem validade de <strong>{validUntilStr}</strong></div>
+                    {proposal.paymentBank && (
+                        <div>▸ <strong>Pagamento:</strong> {proposal.paymentBank}</div>
+                    )}
+                </div>
+
+                {/* ─── OBRIGAÇÕES (quando preenchidas — dinâmico com fallback) ─── */}
+                {(contractorObligations || clientObligations) && (
+                    <>
+                        <div className="pdf-section-title" style={s.sectionTitle}>
+                            <div style={{ ...s.sectionIcon, background: '#0891b2' }}>⚖️</div>
+                            <span style={s.sectionNum}>{nextSection()}.</span>
+                            Obrigações das Partes
+                        </div>
+                        <div style={{ display: 'flex', gap: '14px' }}>
+                            {contractorObligations && (
+                                <div style={{ ...s.oblCard, flex: 1 }}>
+                                    <div style={s.oblTitle}>
+                                        <span style={{ fontSize: '12px' }}>🏢</span>
+                                        Contratada
+                                    </div>
+                                    {renderStructuredText(contractorObligations, { fontSize: '9px', color: '#334155', lineHeight: '1.75' })}
+                                </div>
+                            )}
+                            {clientObligations && (
+                                <div style={{ ...s.oblCard, flex: 1, background: '#fffbeb', borderColor: '#fde68a' }}>
+                                    <div style={{ ...s.oblTitle, color: '#92400e' }}>
+                                        <span style={{ fontSize: '12px' }}>👤</span>
+                                        Contratante
+                                    </div>
+                                    {renderStructuredText(clientObligations, { fontSize: '9px', color: '#78350f', lineHeight: '1.75' })}
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
+
+                {/* ─── DISPOSIÇÕES GERAIS (quando preenchidas) ─── */}
+                {generalProvisions && (
+                    <>
+                        <div className="pdf-section-title" style={s.sectionTitle}>
+                            <div style={{ ...s.sectionIcon, background: '#7c3aed' }}>📜</div>
+                            <span style={s.sectionNum}>{nextSection()}.</span>
+                            Disposições Gerais
+                        </div>
+                        <div style={s.provisionBox}>
+                            {renderStructuredText(generalProvisions, { fontSize: '9.5px', color: '#581c87', lineHeight: '1.8' })}
+                        </div>
+                    </>
+                )}
 
                 {/* ─── ASSINATURA DIGITAL ─── */}
                 {proposal.signedAt && (
-                    <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '8px', padding: '16px 20px', margin: '20px 0' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#1e40af', marginBottom: 6 }}>
-                            ✓ PROPOSTA ASSINADA DIGITALMENTE
+                    <div style={{ background: '#eff6ff', border: '2px solid #93c5fd', borderRadius: '10px', padding: '18px 22px', margin: '24px 0' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 800, color: '#1e40af', marginBottom: 8, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '16px' }}>✓</span>
+                            PROPOSTA ASSINADA DIGITALMENTE
                         </div>
-                        <div style={{ fontSize: '9px', color: '#333', lineHeight: 1.7 }}>
+                        <div style={{ fontSize: '9px', color: '#333', lineHeight: 1.8 }}>
                             <div><strong>Assinado por:</strong> {proposal.signedByName}</div>
                             <div><strong>Documento:</strong> {proposal.signedByDocument}</div>
                             <div><strong>Data/Hora:</strong> {new Date(proposal.signedAt).toLocaleString('pt-BR')}</div>
                             <div><strong>IP:</strong> {proposal.signedByIP}</div>
                             {proposal.signatureVerificationCode && (
-                                <div><strong>Código de verificação:</strong> {proposal.signatureVerificationCode}</div>
+                                <div><strong>Código de verificação:</strong> <span style={{ background: '#22c55e', color: '#fff', padding: '1px 8px', borderRadius: '4px', fontWeight: 700, letterSpacing: '2px' }}>{proposal.signatureVerificationCode}</span></div>
                             )}
                         </div>
                     </div>
                 )}
 
                 {/* ─── ASSINATURAS ─── */}
-                <div style={{ marginTop: '10px' }}>
-                    <p style={{ ...s.para, textAlign: 'center', fontStyle: 'italic', color: '#555' }}>
+                <div style={{ marginTop: '16px' }}>
+                    <p style={{ ...s.para, textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '9px' }}>
                         Recife/PE, {dateStr}.
                     </p>
                 </div>
@@ -402,12 +532,12 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
                     <div style={s.sigBox}>
                         <div style={s.sigLine}>{empresa.nome}</div>
                         <div style={s.sigSub}>CNPJ: {empresa.cnpj}</div>
-                        <div style={{ ...s.sigSub, fontWeight: 600 }}>CONTRATADA</div>
+                        <div style={{ ...s.sigSub, fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>CONTRATADA</div>
                     </div>
                     <div style={s.sigBox}>
                         <div style={s.sigLine}>{clientName}</div>
                         <div style={s.sigSub}>CPF/CNPJ: {clientDoc}</div>
-                        <div style={{ ...s.sigSub, fontWeight: 600 }}>CONTRATANTE</div>
+                        <div style={{ ...s.sigSub, fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>CONTRATANTE</div>
                     </div>
                 </div>
             </div>
@@ -415,8 +545,11 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
             {/* ═══ FOOTER ═══ */}
             <div style={s.footer}>
                 <div style={s.footerText}>
-                    <span style={{ color: '#f59e0b', fontWeight: 700 }}>EXITO GRID</span>
+                    <span style={{ color: '#f59e0b', fontWeight: 800 }}>EXITO GRID</span>
                     {' '} — Especialistas em O&M Solar | {empresa.nome} | CNPJ: {empresa.cnpj}
+                </div>
+                <div style={{ ...s.footerText, marginTop: '4px', fontSize: '7px' }}>
+                    {empresa.endereco} | {empresa.telefone} | {empresa.email}
                 </div>
             </div>
         </div>

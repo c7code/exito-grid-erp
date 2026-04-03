@@ -411,7 +411,7 @@ export class OemService {
         // Total real da proposta = soma dos itens (se houver itens) ou valorEstimado
         const totalProposta = somaItens > 0 ? +somaItens.toFixed(2) : valorEstimado;
 
-        // Escopo detalhado com dados técnicos da usina
+        // ── Escopo detalhado com dados técnicos da usina ──
         const scope = [
             `${tipoLabel[servico.tipo]} para usina ${usina.nome} (${usina.potenciaKwp} kWp).`,
             ``,
@@ -421,8 +421,10 @@ export class OemService {
             `• Inversores: ${usina.qtdInversores || 1} unidade(s)${usina.modeloInversores ? ` — ${usina.modeloInversores}` : ''}${usina.marcaInversor ? ` (${usina.marcaInversor})` : ''}`,
             usina.tipoTelhado ? `• Tipo de telhado: ${usina.tipoTelhado}` : null,
             usina.dataInstalacao ? `• Data de instalação: ${String(usina.dataInstalacao).split('T')[0]}` : null,
+            usina.geracaoMensalEsperadaKwh ? `• Geração mensal esperada: ${Number(usina.geracaoMensalEsperadaKwh).toFixed(0)} kWh` : null,
             ``,
-            `Endereço: ${usina.endereco}`,
+            `LOCALIZAÇÃO:`,
+            `• ${usina.endereco}`,
         ].filter(Boolean).join('\n');
 
         const workDescription = servico.descricao
@@ -430,9 +432,6 @@ export class OemService {
             : `Serviço de ${tipoLabel[servico.tipo]} para usina fotovoltaica ${usina.nome}, contemplando as atividades listadas na prestação de serviços.`;
 
         // Mapear displayMode do OeM para itemVisibilityMode do template PDF
-        // com_valor → 'grouping' (tabela com preços)
-        // sem_valor → 'summary' (resumo sem itemização)
-        // texto → 'text_only' (texto descritivo)
         const visibilityModeMap: Record<string, string> = {
             com_valor: 'grouping',
             sem_valor: 'summary',
@@ -440,7 +439,70 @@ export class OemService {
         };
         const itemVisibilityMode = visibilityModeMap[globalDisplayMode] || 'grouping';
 
-        // Criar proposta via SQL
+        // ── Validade da proposta (30 dias) ──
+        const validUntilDate = new Date();
+        validUntilDate.setDate(validUntilDate.getDate() + 30);
+        const validUntil = validUntilDate.toISOString().split('T')[0];
+
+        // ── Condições de pagamento ──
+        const paymentConditions = 'O pagamento será realizado mediante apresentação de Nota Fiscal, por meio de boleto bancário, PIX ou transferência, com vencimento em até 10 (dez) dias úteis após a conclusão dos serviços e emissão do relatório técnico.';
+
+        // ── Prazo de execução ──
+        const workDeadlineDays = servico.tipo === 'corretiva' ? 5 : 15;
+        const workDeadlineText = `Os serviços deverão ser executados no prazo de até ${workDeadlineDays} (${workDeadlineDays === 5 ? 'cinco' : 'quinze'}) dias úteis, contados a partir da aprovação desta proposta e liberação de acesso ao local.`;
+
+        // ── Obrigações da CONTRATADA ──
+        const contractorObligations = [
+            '1. Executar os serviços com pessoal técnico qualificado, devidamente treinado e habilitado conforme NR-10 e NR-35.',
+            '2. Fornecer todos os equipamentos de proteção individual (EPIs) e coletiva (EPCs) necessários à execução segura dos serviços.',
+            '3. Utilizar ferramentas, instrumentos de medição e equipamentos adequados, calibrados e em perfeito estado de funcionamento.',
+            '4. Emitir relatório técnico detalhado ao final de cada intervenção, contendo diagnóstico, ações realizadas, registro fotográfico e recomendações.',
+            '5. Manter sigilo sobre informações técnicas e comerciais do CONTRATANTE.',
+            '6. Comunicar imediatamente ao CONTRATANTE qualquer irregularidade ou risco identificado durante a execução dos serviços.',
+        ].join('\n');
+
+        // ── Obrigações do CONTRATANTE ──
+        const clientObligations = [
+            '1. Garantir o acesso seguro e desimpedido ao local da usina fotovoltaica na data agendada para a execução dos serviços.',
+            '2. Disponibilizar ponto de energia elétrica e água quando necessário para a realização dos procedimentos de limpeza e testes.',
+            '3. Fornecer informações técnicas relevantes sobre o sistema, incluindo projeto as-built, histórico de manutenções e credenciais de monitoramento, quando solicitado.',
+            '4. Efetuar o pagamento nos termos e prazos estabelecidos nesta proposta.',
+            '5. Informar previamente sobre quaisquer restrições de acesso, horários especiais ou normas internas do local.',
+        ].join('\n');
+
+        // ── Disposições gerais ──
+        const generalProvisions = [
+            `• Vigência: Esta proposta é válida por 30 (trinta) dias corridos a contar da data de emissão.`,
+            `• Materiais de reposição: Caso sejam identificados componentes defeituosos que necessitem substituição, os custos de peças e materiais serão orçados separadamente, não estando incluídos no valor desta proposta.`,
+            `• Cancelamento: Em caso de cancelamento pelo CONTRATANTE após o agendamento, será cobrada taxa de mobilização no valor de 20% do total da proposta.`,
+            `• Garantia dos serviços: Os serviços executados possuem garantia de 90 (noventa) dias sobre a mão de obra, contados a partir da data de conclusão.`,
+            `• Foro: Fica eleito o foro da Comarca de Recife/PE para dirimir eventuais litígios.`,
+        ].join('\n');
+
+        // ── Conformidade normativa ──
+        const complianceText = [
+            'Todos os serviços são executados em estrita conformidade com as normas técnicas vigentes:',
+            '',
+            '▸ NBR 16690 — Instalações elétricas de arranjos fotovoltaicos — Requisitos de projeto',
+            '▸ NBR 5410 — Instalações elétricas de baixa tensão',
+            '▸ NR-10 — Segurança em Instalações e Serviços em Eletricidade',
+            '▸ NR-35 — Trabalho em Altura',
+            '▸ IEC 62446 — Sistemas fotovoltaicos conectados à rede — Requisitos mínimos de documentação, ensaios de comissionamento e inspeção',
+            '▸ IEC 61215 — Módulos fotovoltaicos de silício cristalino — Qualificação de projeto e homologação de tipo',
+            '',
+            'A equipe técnica mantém certificações atualizadas e segue protocolos de segurança rigorosos em todas as intervenções.',
+        ].join('\n');
+
+        // ── Endereço da usina ──
+        const workAddress = usina.endereco || null;
+
+        // ── Dados bancários da empresa (genérico, pode ser customizado) ──
+        const paymentBank = 'Dados para pagamento serão informados na Nota Fiscal.';
+
+        // ── Deadline textual ──
+        const deadline = `${workDeadlineDays} dias úteis`;
+
+        // Criar proposta via SQL — agora com todos os campos enriquecidos
         const result = await this.dataSource.query(`
             INSERT INTO proposals (
                 "proposalNumber", "title", "clientId", "status",
@@ -448,8 +510,13 @@ export class OemService {
                 "activityType", "objectiveType", "scope",
                 "workDescription", "notes",
                 "itemVisibilityMode",
+                "paymentConditions", "contractorObligations", "clientObligations",
+                "generalProvisions", "complianceText",
+                "validUntil", "deadline", "workAddress",
+                "workDeadlineDays", "workDeadlineText",
+                "paymentBank",
                 "createdAt", "updatedAt"
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, NOW(), NOW())
             RETURNING id
         `, [
             proposalNumber,
@@ -465,6 +532,17 @@ export class OemService {
             workDescription,
             servico.observacoes || null,
             itemVisibilityMode,
+            paymentConditions,
+            contractorObligations,
+            clientObligations,
+            generalProvisions,
+            complianceText,
+            validUntil,
+            deadline,
+            workAddress,
+            workDeadlineDays,
+            workDeadlineText,
+            paymentBank,
         ]);
 
         const proposalId = result[0].id;
@@ -508,14 +586,100 @@ export class OemService {
         if (plano.incluiMonitoramentoRemoto) servicosIncluidos.push('Monitoramento remoto da geração');
         if (plano.incluiCorretivaPrioritaria) servicosIncluidos.push('Manutenção corretiva prioritária');
 
+        // ── Escopo com dados do plano e SLA ──
+        const slaHoras = Number(plano.tempoRespostaSlaHoras) || 48;
+        const slaUrgente = Number(plano.tempoRespostaUrgenteHoras) || 4;
+        const horarioAtend = plano.atendimentoHorario || 'comercial';
+        const horarioLabel: Record<string, string> = { comercial: 'Horário Comercial', estendido: 'Horário Estendido', '24x7': '24 horas / 7 dias' };
+        const duracaoMeses = Number(plano.termosDuracaoMeses) || 12;
+        const frequencia = plano.frequenciaPreventiva || 'semestral';
+
+        const scope = [
+            `Contrato de O&M — Plano ${plano.nome}`,
+            ``,
+            `DADOS DO SISTEMA:`,
+            `• Usina: ${usina.nome} (${usina.potenciaKwp} kWp)`,
+            `• Módulos: ${usina.qtdModulos} unidades${usina.modeloModulos ? ` — ${usina.modeloModulos}` : ''}`,
+            `• Inversores: ${usina.qtdInversores || 1} unidade(s)${usina.modeloInversores ? ` — ${usina.modeloInversores}` : ''}`,
+            ``,
+            `PARÂMETROS DO PLANO:`,
+            `• Tipo: ${(plano.tipoPlano || 'standard').charAt(0).toUpperCase() + (plano.tipoPlano || 'standard').slice(1)}`,
+            `• Frequência preventiva: ${frequencia}`,
+            `• Duração do contrato: ${duracaoMeses} meses`,
+            `• Valor mensal: R$ ${Number(contrato.valorMensal).toFixed(2)}`,
+            ``,
+            `SLA:`,
+            `• Tempo de resposta normal: ${slaHoras}h`,
+            `• Tempo de resposta urgente: ${slaUrgente}h`,
+            `• Atendimento: ${horarioLabel[horarioAtend] || horarioAtend}`,
+            plano.coberturaMaxAnual ? `• Cobertura máxima anual: R$ ${Number(plano.coberturaMaxAnual).toFixed(2)}` : null,
+            plano.limiteCorretivas ? `• Corretivas incluídas: até ${plano.limiteCorretivas}/ano` : null,
+            plano.abrangenciaKm ? `• Raio de atendimento: ${plano.abrangenciaKm} km` : null,
+        ].filter(Boolean).join('\n');
+
+        // ── Validade ──
+        const validUntilDate = new Date();
+        validUntilDate.setDate(validUntilDate.getDate() + 30);
+        const validUntil = validUntilDate.toISOString().split('T')[0];
+
+        // ── Condições de pagamento do plano ──
+        const paymentConditions = `O pagamento será realizado mensalmente, até o dia 10 de cada mês subsequente ao da prestação dos serviços, por meio de boleto bancário, PIX ou transferência bancária. Valor mensal: R$ ${Number(contrato.valorMensal).toFixed(2)}.`;
+
+        // ── Obrigações da CONTRATADA ──
+        const contractorObligations = [
+            '1. Executar os serviços com pessoal técnico qualificado, devidamente treinado e habilitado conforme NR-10 e NR-35.',
+            '2. Fornecer todos os EPIs e EPCs necessários à execução segura dos serviços.',
+            '3. Realizar as manutenções preventivas na frequência estipulada pelo plano contratado.',
+            `4. Garantir tempo de resposta de até ${slaHoras}h para chamados normais e ${slaUrgente}h para chamados urgentes.`,
+            '5. Emitir relatório técnico detalhado ao final de cada intervenção.',
+            '6. Manter monitoramento remoto da geração (quando incluído no plano).',
+            '7. Comunicar imediatamente ao CONTRATANTE qualquer irregularidade identificada.',
+        ].join('\n');
+
+        // ── Obrigações do CONTRATANTE ──
+        const clientObligations = [
+            '1. Garantir o acesso seguro ao local da usina nas datas agendadas.',
+            '2. Disponibilizar ponto de energia elétrica e água quando necessário.',
+            '3. Fornecer credenciais de acesso ao sistema de monitoramento.',
+            '4. Efetuar o pagamento mensal nos termos e prazos estabelecidos.',
+            '5. Informar previamente sobre restrições de acesso ou horários especiais.',
+        ].join('\n');
+
+        // ── Disposições gerais ──
+        const generalProvisions = [
+            `• Vigência: ${duracaoMeses} meses a contar da data de assinatura do contrato.`,
+            `• Renovação: Automática por períodos iguais, salvo manifestação em contrário com 30 dias de antecedência.`,
+            `• Reajuste: Anual pelo índice IGPM (FGV), aplicado na data de aniversário do contrato.`,
+            `• Materiais de reposição: Peças e componentes defeituosos serão orçados separadamente.`,
+            plano.exclusoes ? `• Exclusões: ${plano.exclusoes}` : null,
+            `• Garantia dos serviços: 90 dias sobre mão de obra.`,
+            `• Foro: Comarca de Recife/PE.`,
+        ].filter(Boolean).join('\n');
+
+        // ── Conformidade normativa ──
+        const complianceText = [
+            'Serviços executados em conformidade com:',
+            '▸ NBR 16690 — Instalações elétricas de arranjos fotovoltaicos',
+            '▸ NBR 5410 — Instalações elétricas de baixa tensão',
+            '▸ NR-10 — Segurança em Instalações e Serviços em Eletricidade',
+            '▸ NR-35 — Trabalho em Altura',
+            '▸ IEC 62446 — Comissionamento e inspeção de sistemas FV',
+            '▸ IEC 61215 — Módulos fotovoltaicos — Qualificação',
+        ].join('\n');
+
         const result = await this.dataSource.query(`
             INSERT INTO proposals (
                 "proposalNumber", "title", "clientId", "status",
                 "subtotal", "discount", "total",
                 "activityType", "objectiveType", "scope",
                 "workDescription",
+                "paymentConditions", "contractorObligations", "clientObligations",
+                "generalProvisions", "complianceText",
+                "validUntil", "deadline", "workAddress",
+                "workDeadlineDays", "workDeadlineText",
+                "paymentBank", "notes",
                 "createdAt", "updatedAt"
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW(), NOW())
             RETURNING id
         `, [
             proposalNumber,
@@ -527,8 +691,20 @@ export class OemService {
             contrato.valorMensal,
             'plano_oem',
             'service_only',
-            `Contrato de O&M — Plano ${plano.nome}\nUsina: ${usina.nome} (${usina.potenciaKwp} kWp)\nFrequência: ${plano.frequenciaPreventiva}\nValor mensal: R$ ${Number(contrato.valorMensal).toFixed(2)}`,
+            scope,
             `Plano de Operação & Manutenção ${plano.nome} para usina fotovoltaica`,
+            paymentConditions,
+            contractorObligations,
+            clientObligations,
+            generalProvisions,
+            complianceText,
+            validUntil,
+            `${duracaoMeses} meses (contrato recorrente)`,
+            usina.endereco || null,
+            duracaoMeses * 30,
+            `Contrato com vigência de ${duracaoMeses} meses, com manutenções preventivas na frequência ${frequencia}.`,
+            'Dados para pagamento serão informados na Nota Fiscal.',
+            plano.beneficios || null,
         ]);
 
         const proposalId = result[0].id;
