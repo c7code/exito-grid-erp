@@ -227,7 +227,7 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
                     if (!pe) return null;
                     const hasGenData = pe.geracaoEsperadaKwh && pe.geracaoAtualKwh;
                     const perdaPct = pe.perdaPercentual || 0;
-                    const cardStyle: React.CSSProperties = { flex: 1, padding: '16px 14px', borderRadius: '12px', textAlign: 'center' as const, border: '1px solid' };
+                    const cardStyle: React.CSSProperties = { flex: 1, padding: '18px 16px', borderRadius: '12px', textAlign: 'center' as const, border: '1px solid' };
                     return (
                         <>
                             <div className="pdf-section-title" style={s.sectionTitle}>
@@ -238,20 +238,20 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
                             {/* 3 Metric Cards */}
                             <div style={{ display: 'flex', gap: '12px', margin: '12px 0' }}>
                                 <div style={{ ...cardStyle, background: '#eff6ff', borderColor: '#bfdbfe' }}>
-                                    <p style={{ fontSize: '7px', textTransform: 'uppercase' as const, letterSpacing: '1.5px', fontWeight: 700, color: '#3b82f6', marginBottom: '4px' }}>Investimento da Usina</p>
-                                    <p style={{ fontSize: '17px', fontWeight: 800, color: '#1e40af' }}>{fmtCurrency(pe.valorEstimadoUsina || 0)}</p>
-                                    <p style={{ fontSize: '7.5px', color: '#64748b', marginTop: '2px' }}>Valor estimado (ref. FIPE)</p>
+                                    <p style={{ fontSize: '9px', textTransform: 'uppercase' as const, letterSpacing: '1.5px', fontWeight: 700, color: '#3b82f6', marginBottom: '4px' }}>Investimento da Usina</p>
+                                    <p style={{ fontSize: '20px', fontWeight: 800, color: '#1e40af' }}>{fmtCurrency(pe.valorEstimadoUsina || 0)}</p>
+                                    <p style={{ fontSize: '9.5px', color: '#64748b', marginTop: '2px' }}>Valor estimado (ref. FIPE)</p>
                                 </div>
                                 <div style={{ ...cardStyle, background: '#f0fdf4', borderColor: '#bbf7d0' }}>
-                                    <p style={{ fontSize: '7px', textTransform: 'uppercase' as const, letterSpacing: '1.5px', fontWeight: 700, color: '#22c55e', marginBottom: '4px' }}>Base Manutenção</p>
-                                    <p style={{ fontSize: '17px', fontWeight: 800, color: '#166534' }}>{fmtCurrency(pe.valorBaseManutencao || 0)}</p>
-                                    <p style={{ fontSize: '7.5px', color: '#64748b', marginTop: '2px' }}>{pe.percentualManutencao || 10}% do valor da usina</p>
+                                    <p style={{ fontSize: '9px', textTransform: 'uppercase' as const, letterSpacing: '1.5px', fontWeight: 700, color: '#22c55e', marginBottom: '4px' }}>Base Manutenção</p>
+                                    <p style={{ fontSize: '20px', fontWeight: 800, color: '#166534' }}>{fmtCurrency(pe.valorBaseManutencao || 0)}</p>
+                                    <p style={{ fontSize: '9.5px', color: '#64748b', marginTop: '2px' }}>{pe.percentualManutencao || 10}% do valor da usina</p>
                                 </div>
                                 {hasGenData && (
                                     <div style={{ ...cardStyle, background: perdaPct > 0 ? '#fef2f2' : '#f0fdf4', borderColor: perdaPct > 0 ? '#fecaca' : '#bbf7d0' }}>
-                                        <p style={{ fontSize: '7px', textTransform: 'uppercase' as const, letterSpacing: '1.5px', fontWeight: 700, color: perdaPct > 0 ? '#ef4444' : '#22c55e', marginBottom: '4px' }}>Eficiência</p>
-                                        <p style={{ fontSize: '17px', fontWeight: 800, color: perdaPct > 0 ? '#991b1b' : '#166534' }}>{perdaPct > 0 ? `-${perdaPct}%` : '100%'}</p>
-                                        <p style={{ fontSize: '7.5px', color: '#64748b', marginTop: '2px' }}>{perdaPct > 0 ? 'Perda detectada' : 'Geração normal'}</p>
+                                        <p style={{ fontSize: '9px', textTransform: 'uppercase' as const, letterSpacing: '1.5px', fontWeight: 700, color: perdaPct > 0 ? '#ef4444' : '#22c55e', marginBottom: '4px' }}>Eficiência</p>
+                                        <p style={{ fontSize: '20px', fontWeight: 800, color: perdaPct > 0 ? '#991b1b' : '#166534' }}>{perdaPct > 0 ? `-${perdaPct}%` : '100%'}</p>
+                                        <p style={{ fontSize: '9.5px', color: '#64748b', marginTop: '2px' }}>{perdaPct > 0 ? 'Perda detectada' : 'Geração normal'}</p>
                                     </div>
                                 )}
                             </div>
@@ -261,34 +261,34 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
                                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px 22px', margin: '12px 0' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
                                         <div>
-                                            <p style={{ fontSize: '7.5px', textTransform: 'uppercase' as const, letterSpacing: '1.5px', fontWeight: 700, color: '#64748b' }}>Geração Esperada</p>
-                                            <p style={{ fontSize: '14px', fontWeight: 800, color: '#22c55e' }}>{fmt(pe.geracaoEsperadaKwh)} kWh/mês</p>
+                                            <p style={{ fontSize: '9.5px', textTransform: 'uppercase' as const, letterSpacing: '1.5px', fontWeight: 700, color: '#64748b' }}>Geração Esperada</p>
+                                            <p style={{ fontSize: '16px', fontWeight: 800, color: '#22c55e' }}>{fmt(pe.geracaoEsperadaKwh)} kWh/mês</p>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
-                                            <p style={{ fontSize: '7.5px', textTransform: 'uppercase' as const, letterSpacing: '1.5px', fontWeight: 700, color: '#64748b' }}>Geração Atual</p>
-                                            <p style={{ fontSize: '14px', fontWeight: 800, color: perdaPct > 0 ? '#ef4444' : '#22c55e' }}>{fmt(pe.geracaoAtualKwh)} kWh/mês</p>
+                                            <p style={{ fontSize: '9.5px', textTransform: 'uppercase' as const, letterSpacing: '1.5px', fontWeight: 700, color: '#64748b' }}>Geração Atual</p>
+                                            <p style={{ fontSize: '16px', fontWeight: 800, color: perdaPct > 0 ? '#ef4444' : '#22c55e' }}>{fmt(pe.geracaoAtualKwh)} kWh/mês</p>
                                         </div>
                                     </div>
                                     {/* Progress bar */}
-                                    <div style={{ background: '#e2e8f0', borderRadius: '6px', height: '10px', overflow: 'hidden' }}>
+                                    <div style={{ background: '#e2e8f0', borderRadius: '6px', height: '12px', overflow: 'hidden' }}>
                                         <div style={{ background: perdaPct > 5 ? 'linear-gradient(90deg, #22c55e, #ef4444)' : '#22c55e', width: `${Math.max(10, 100 - perdaPct)}%`, height: '100%', borderRadius: '6px', transition: 'width 0.3s' }} />
                                     </div>
                                     {perdaPct > 0 && pe.perdaKwh && (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', padding: '10px 14px', background: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', padding: '12px 16px', background: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca' }}>
                                             <div>
-                                                <p style={{ fontSize: '8px', fontWeight: 700, color: '#991b1b' }}>⚠️ Perda mensal detectada</p>
-                                                <p style={{ fontSize: '9px', color: '#7f1d1d' }}>{fmt(pe.perdaKwh)} kWh perdidos por mês ({perdaPct}%)</p>
+                                                <p style={{ fontSize: '10px', fontWeight: 700, color: '#991b1b' }}>⚠️ Perda mensal detectada</p>
+                                                <p style={{ fontSize: '11px', color: '#7f1d1d' }}>{fmt(pe.perdaKwh)} kWh perdidos por mês ({perdaPct}%)</p>
                                             </div>
                                             {pe.perdaFinanceiraEstimada > 0 && (
                                                 <div style={{ textAlign: 'right' }}>
-                                                    <p style={{ fontSize: '8px', fontWeight: 700, color: '#991b1b' }}>Impacto financeiro</p>
-                                                    <p style={{ fontSize: '12px', fontWeight: 800, color: '#dc2626' }}>~{fmtCurrency(pe.perdaFinanceiraEstimada)}/mês</p>
+                                                    <p style={{ fontSize: '10px', fontWeight: 700, color: '#991b1b' }}>Impacto financeiro</p>
+                                                    <p style={{ fontSize: '14px', fontWeight: 800, color: '#dc2626' }}>~{fmtCurrency(pe.perdaFinanceiraEstimada)}/mês</p>
                                                 </div>
                                             )}
                                         </div>
                                     )}
                                     {perdaPct > 0 && (
-                                        <p style={{ fontSize: '8px', color: '#7f1d1d', marginTop: '8px', fontStyle: 'italic' }}>
+                                        <p style={{ fontSize: '10px', color: '#7f1d1d', marginTop: '8px', fontStyle: 'italic' }}>
                                             ⚠️ Sem manutenção adequada, a estimativa de perda pode ultrapassar 25% da geração nominal, agravando o prejuízo financeiro e comprometendo a vida útil dos equipamentos.
                                         </p>
                                     )}
@@ -298,16 +298,16 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
                             {/* Itemized Pricing Breakdown */}
                             {pe.itensPrecificados?.length > 0 && (
                                 <div style={{ margin: '12px 0' }}>
-                                    <p style={{ fontSize: '9px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '1.5px', marginBottom: '8px' }}>Detalhamento da Precificação</p>
+                                    <p style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '1.5px', marginBottom: '8px' }}>Detalhamento da Precificação</p>
                                     {pe.itensPrecificados.map((item: any, idx: number) => (
-                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 14px', background: idx % 2 === 0 ? '#f8fafc' : '#fff', borderRadius: '6px', margin: '2px 0' }}>
-                                            <span style={{ fontSize: '9px', color: '#334155' }}>▸ {item.descricao}</span>
-                                            <span style={{ fontSize: '9.5px', fontWeight: 700, color: '#0f172a' }}>{fmtCurrency(item.valor)}</span>
+                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', background: idx % 2 === 0 ? '#f8fafc' : '#fff', borderRadius: '6px', margin: '2px 0' }}>
+                                            <span style={{ fontSize: '11px', color: '#334155' }}>▸ {item.descricao}</span>
+                                            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a' }}>{fmtCurrency(item.valor)}</span>
                                         </div>
                                     ))}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', borderTop: '2px solid #f59e0b', marginTop: '6px' }}>
-                                        <span style={{ fontSize: '9.5px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' as const }}>Total Manutenção</span>
-                                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b' }}>{fmtCurrency(pe.totalServico || 0)}</span>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderTop: '2px solid #f59e0b', marginTop: '6px' }}>
+                                        <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' as const }}>Total Manutenção</span>
+                                        <span style={{ fontSize: '15px', fontWeight: 800, color: '#f59e0b' }}>{fmtCurrency(pe.totalServico || 0)}</span>
                                     </div>
                                 </div>
                             )}
