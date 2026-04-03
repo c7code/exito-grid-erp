@@ -63,7 +63,7 @@ function DialogContent({
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed z-50 grid border shadow-lg duration-200 outline-none",
           maximized
             ? "inset-2 translate-x-0 translate-y-0 rounded-lg max-w-none max-h-none overflow-y-auto p-6 gap-4"
-            : "top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-full max-w-[calc(100%-2rem)] rounded-lg p-6 gap-4 sm:max-w-lg max-h-[90vh] overflow-y-auto",
+            : "top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-full max-w-[calc(100%-2rem)] rounded-lg p-6 gap-4 sm:max-w-4xl max-h-[90vh] overflow-y-auto",
           className
         )}
         style={maximized ? { top: '8px', left: '8px', right: '8px', bottom: '8px' } : undefined}
