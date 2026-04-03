@@ -64,8 +64,10 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
     const contractVal = parsePrice(contractValue);
     const baseValue = contractVal - directBillingTotal;
 
-    const accumulatedTotal = balance?.totalExecuted || 0;
-    const accumulatedPercentage = balance?.totalExecutedPercentage || 0;
+    // When editing, subtract THIS measurement's accumulated values to avoid double-counting
+    const selfExecuted = selectedMeasurement ? Number(selectedMeasurement.executedPercentage || 0) : 0;
+    const accumulatedTotal = (balance?.totalExecuted || 0) - (selectedMeasurement ? Number(selectedMeasurement.totalAmount || selectedMeasurement.netAmount || 0) : 0);
+    const accumulatedPercentage = (balance?.totalExecutedPercentage || 0) - selfExecuted;
 
     // Each stage contributes a value to the total measurement
     const stageValues = stages.map(s => {
@@ -232,7 +234,7 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
         if (!contractVal || contractVal <= 0) { toast.error('Informe o valor do contrato'); return; }
         const validStages = stages.filter(s => s.description.trim() || parsePrice(s.percentage) > 0 || parsePrice(s.value) > 0);
         if (validStages.length === 0) { toast.error('Adicione ao menos uma etapa de medição'); return; }
-        if (execPercent + accumulatedPercentage > 100.01) { toast.error('Percentual acumulado não pode ultrapassar 100%'); return; }
+        if (execPercent + accumulatedPercentage > 100.5) { toast.error(`Percentual acumulado (${(execPercent + accumulatedPercentage).toFixed(1)}%) não pode ultrapassar 100%`); return; }
 
         setSaving(true);
         try {
