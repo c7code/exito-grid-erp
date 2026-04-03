@@ -32,11 +32,13 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileText, Loader2, Plus, Trash2, Search, ChevronDown, Box, Layers, Eye, EyeOff, Building2, DollarSign, Shield, UserPlus, Upload, X, Pencil, Calculator, Database, MessageSquareText } from 'lucide-react';
+import { FileText, Loader2, Plus, Trash2, Search, ChevronDown, Box, Layers, Eye, EyeOff, Building2, DollarSign, Shield, UserPlus, Upload, X, Pencil, Calculator, Database, MessageSquareText, FileSearch } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { ClientDialog } from '@/components/ClientDialog';
 import NewGroupingDialog from '@/components/NewGroupingDialog';
+import { ProposalPDFTemplate } from '@/components/ProposalPDFTemplate';
+import { OeMProposalPDFTemplate } from '@/components/OeMProposalPDFTemplate';
 
 interface NewProposalDialogProps {
     open: boolean;
@@ -97,6 +99,12 @@ export default function NewProposalDialog({
     const [loadingClients, setLoadingClients] = useState(false);
     const [showClientDialog, setShowClientDialog] = useState(false);
     const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+
+    // Preview state — renderização em memória, sem persistir no banco
+    const [previewOpen, setPreviewOpen] = useState(false);
+    const [previewData, setPreviewData] = useState<any>(null);
+    const [previewCompany, setPreviewCompany] = useState<any>(null);
+    const [previewHideValues, setPreviewHideValues] = useState(false);
 
 
     // Editar agrupamento de dentro da proposta
@@ -619,6 +627,113 @@ export default function NewProposalDialog({
                 toast.success(`Cliente "${newest.name}" selecionado automaticamente!`);
             }
         } catch { /* ignore */ }
+    };
+
+    // ═══ PRÉ-VISUALIZAÇÃO EM MEMÓRIA ═══
+    const handlePreview = async () => {
+        // Validação leve — título e cliente são essenciais para o preview
+        if (!formData.title.trim()) { toast.error('Informe o título para pré-visualizar'); return; }
+        if (!formData.clientId) { toast.error('Selecione um cliente para pré-visualizar'); return; }
+
+        // Buscar dados da empresa (para o template)
+        let coData = null;
+        try { coData = await api.getPrimaryCompany(); } catch { /* ok */ }
+        setPreviewCompany(coData);
+
+        // Buscar dados completos do cliente
+        const selectedClient = clients.find(c => c.id === formData.clientId);
+        let fullClient: any = null;
+        try { fullClient = await api.getClient(formData.clientId); } catch { /* fallback */ }
+
+        // Preparar itens como se fossem itens de proposta
+        const validItems = items
+            .filter((item) => item.description.trim())
+            .map((item) => ({
+                description: item.description,
+                serviceType: item.serviceType,
+                parentId: item.parentId,
+                isBundleParent: item.isBundleParent,
+                showDetailedPrices: item.showDetailedPrices,
+                overridePrice: item.isBundleParent && item.overridePrice && item.overridePrice.trim() !== '' ? parsePrice(item.overridePrice) : null,
+                unitPrice: parsePrice(item.unitPrice),
+                quantity: parsePrice(item.quantity) || 1,
+                unit: item.unit || 'UN',
+                total: getItemTotal(item),
+                notes: item.internalNote?.trim() || null,
+            }));
+
+        // Montar objeto "proposta" em memória — mesma estrutura que a API retorna
+        const fakeProposal = {
+            // Campos de identificação
+            proposalNumber: 'PRÉ-VISUALIZAÇÃO',
+            title: formData.title,
+            status: 'draft',
+            clientId: formData.clientId,
+            client: fullClient || { id: formData.clientId, name: selectedClient?.name || '—' },
+            // Valores
+            subtotal,
+            discount,
+            total,
+            // Campos técnicos
+            activityType: formData.activityType || null,
+            objectiveType: formData.objectiveType || null,
+            objectiveText: formData.objectiveText || null,
+            scope: formData.scope || null,
+            workDescription: formData.workDescription || null,
+            workAddress: formData.workAddress || null,
+            workDeadlineDays: formData.workDeadlineDays ? Number(formData.workDeadlineDays) : null,
+            workDeadlineType: formData.workDeadlineType || 'calendar_days',
+            workDeadlineText: formData.workDeadlineText || null,
+            // Prazos e pagamento
+            validUntil: formData.validUntil || null,
+            deadline: formData.deadline || null,
+            paymentConditions: formData.paymentConditions || null,
+            paymentBank: formData.paymentBank || null,
+            paymentDueCondition: formData.paymentDueCondition || null,
+            // Obrigações e cláusulas
+            obligations: formData.obligations || null,
+            contractorObligations: formData.contractorObligations || null,
+            clientObligations: formData.clientObligations || null,
+            generalProvisions: formData.generalProvisions || null,
+            notes: formData.notes || null,
+            complianceText: formData.complianceText || null,
+            // Description fields
+            serviceDescription: formData.serviceDescription || null,
+            materialFornecimento: formData.materialFornecimento || null,
+            materialFaturamento: formData.materialFaturamento || '[]',
+            thirdPartyDeadlines: formData.thirdPartyDeadlines || '[]',
+            // Custos adicionais
+            logisticsCostValue: formData.logisticsCostValue ? Number(formData.logisticsCostValue) : null,
+            logisticsCostMode: formData.logisticsCostMode || 'visible',
+            logisticsCostPercent: formData.logisticsCostPercent ? Number(formData.logisticsCostPercent) : null,
+            logisticsCostApplyTo: formData.logisticsCostApplyTo || 'material',
+            logisticsCostDescription: formData.logisticsCostDescription || null,
+            adminCostValue: formData.adminCostValue ? Number(formData.adminCostValue) : null,
+            adminCostMode: formData.adminCostMode || 'visible',
+            adminCostPercent: formData.adminCostPercent ? Number(formData.adminCostPercent) : null,
+            adminCostApplyTo: formData.adminCostApplyTo || 'material',
+            adminCostDescription: formData.adminCostDescription || null,
+            brokerageCostValue: formData.brokerageCostValue ? Number(formData.brokerageCostValue) : null,
+            brokerageCostMode: formData.brokerageCostMode || 'visible',
+            brokerageCostPercent: formData.brokerageCostPercent ? Number(formData.brokerageCostPercent) : null,
+            brokerageCostApplyTo: formData.brokerageCostApplyTo || 'material',
+            brokerageCostDescription: formData.brokerageCostDescription || null,
+            insuranceCostValue: formData.insuranceCostValue ? Number(formData.insuranceCostValue) : null,
+            insuranceCostMode: formData.insuranceCostMode || 'visible',
+            insuranceCostPercent: formData.insuranceCostPercent ? Number(formData.insuranceCostPercent) : null,
+            insuranceCostApplyTo: formData.insuranceCostApplyTo || 'material',
+            insuranceCostDescription: formData.insuranceCostDescription || null,
+            // Visibilidade
+            itemVisibilityMode: formData.itemVisibilityMode || 'detailed',
+            materialSummaryText: formData.materialSummaryText || null,
+            serviceSummaryText: formData.serviceSummaryText || null,
+            summaryTotalLabel: formData.summaryTotalLabel || 'Valor Global',
+            // Itens
+            items: validItems,
+        };
+
+        setPreviewData(fakeProposal);
+        setPreviewOpen(true);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -2709,13 +2824,22 @@ export default function NewProposalDialog({
                             )}
                         </div>
 
-                        <DialogFooter>
+                        <DialogFooter className="flex items-center gap-2">
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={() => handleOpenChange(false)}
                             >
                                 Cancelar
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="gap-1.5 border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 hover:border-blue-300"
+                                onClick={handlePreview}
+                            >
+                                <FileSearch className="w-4 h-4" />
+                                Pré-visualizar
                             </Button>
                             <Button
                                 type="submit"
@@ -2754,6 +2878,82 @@ export default function NewProposalDialog({
                     }}
                 />
             )}
+
+            {/* ═══ PRÉ-VISUALIZAÇÃO EM MEMÓRIA — SEM SALVAR NO BANCO ═══ */}
+            <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+                <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col p-0">
+                    <DialogHeader className="px-6 pt-5 pb-3 border-b bg-slate-50 flex-row items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <FileSearch className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-base">Pré-visualização da Proposta</DialogTitle>
+                                <DialogDescription className="text-xs">
+                                    {previewData?.title || '—'} — Esta é apenas uma visualização. Nada foi salvo.
+                                </DialogDescription>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {/* Toggle visibilidade de valores */}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className={`text-xs gap-1.5 transition-all ${
+                                    previewHideValues
+                                        ? 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100'
+                                        : 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                                }`}
+                                onClick={() => setPreviewHideValues(!previewHideValues)}
+                            >
+                                {previewHideValues ? (
+                                    <><EyeOff className="w-3.5 h-3.5" /> Valores Ocultos</>
+                                ) : (
+                                    <><Eye className="w-3.5 h-3.5" /> Valores Visíveis</>
+                                )}
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                className="text-xs gap-1.5"
+                                onClick={() => { setPreviewOpen(false); }}
+                            >
+                                Fechar e Voltar ao Formulário
+                            </Button>
+                        </div>
+                    </DialogHeader>
+                    <div className="flex-1 overflow-y-auto bg-slate-200/60 p-6">
+                        <div className="mx-auto shadow-xl rounded-lg overflow-hidden" style={{ maxWidth: 794 }}>
+                            {previewData && (
+                                previewData.activityType === 'plano_oem'
+                                    ? <OeMProposalPDFTemplate proposal={previewData} company={previewCompany} />
+                                    : <ProposalPDFTemplate
+                                        proposal={previewData}
+                                        client={previewData.client}
+                                        company={previewCompany}
+                                        hideFinancialValues={previewHideValues}
+                                    />
+                            )}
+                        </div>
+                    </div>
+                    {/* Footer com lembrete */}
+                    <div className="px-6 py-3 border-t bg-amber-50 flex items-center justify-between">
+                        <p className="text-xs text-amber-700">
+                            ⚠️ Esta é uma pré-visualização em memória. Nenhum dado foi persistido. Feche para voltar ao formulário.
+                        </p>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="text-xs border-amber-300 text-amber-700 hover:bg-amber-100"
+                            onClick={() => setPreviewOpen(false)}
+                        >
+                            Voltar ao Formulário
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }
