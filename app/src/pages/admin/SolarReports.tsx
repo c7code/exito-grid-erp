@@ -35,7 +35,7 @@ const fmtCurrency = (n: number) => `R$ ${fmt(n)}`;
 export default function SolarReports() {
   const [reports, setReports] = useState<any[]>([]);
   const [usinas, setUsinas] = useState<any[]>([]);
-  const [clients, setClients] = useState<any[]>([]); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingReport, setEditingReport] = useState<any>(null);
