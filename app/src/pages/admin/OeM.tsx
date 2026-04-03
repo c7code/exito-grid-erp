@@ -15,8 +15,9 @@ import { api } from '@/api';
 import {
   LayoutDashboard, Sun, Building2, FileSignature, Plus, Pencil, Trash2,
   RefreshCw, Zap, Download, Calculator, Wrench, ClipboardCheck, TrendingUp,
-  AlertTriangle, Clock,
+  AlertTriangle, Clock, Search, Loader2, MapPin, UserPlus,
 } from 'lucide-react';
+import { ClientDialog } from '@/components/ClientDialog';
 import OeMServicos from './OeM_Servicos';
 import PlanoWizardDialog from './PlanoWizardDialog';
 import {
@@ -47,6 +48,32 @@ export default function OeM() {
   const [usinaForm, setUsinaForm] = useState<any>({ ...emptyUsina });
   const [contratoForm, setContratoForm] = useState<any>({ ...emptyContrato });
   const [priceCalc, setPriceCalc] = useState<any>(null);
+  const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
+
+  // ── CEP auto-fill ──
+  const handleCepLookup = async (cep: string) => {
+    const clean = cep.replace(/\D/g, '');
+    if (clean.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const data = await api.fetchCepData(clean);
+      setUsinaForm((prev: any) => ({
+        ...prev,
+        endereco: [data.logradouro, data.bairro].filter(Boolean).join(', ') + (data.localidade ? ` — ${data.localidade}/${data.uf}` : ''),
+      }));
+      toast.success('Endereço preenchido pelo CEP!');
+    } catch { /* silently fail */ }
+    setCepLoading(false);
+  };
+
+  const filteredClients = clientSearch.length > 0
+    ? clients.filter((c: any) => {
+        const term = clientSearch.toLowerCase();
+        return (c.name || '').toLowerCase().includes(term) || (c.razaoSocial || '').toLowerCase().includes(term) || (c.document || '').includes(clientSearch.replace(/\D/g, ''));
+      })
+    : clients;
 
   const loadAll = async () => {
     try {
@@ -274,7 +301,35 @@ export default function OeM() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 space-y-1"><Label>Nome da Usina *</Label><Input value={usinaForm.nome} onChange={e => setUsinaForm({ ...usinaForm, nome: e.target.value })} placeholder="Usina Residencial — Sr. João" /></div>
-              <div className="space-y-1"><Label>Cliente *</Label><Select value={usinaForm.clienteId} onValueChange={v => setUsinaForm({ ...usinaForm, clienteId: v })}><SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger><SelectContent>{clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name || c.razaoSocial}</SelectItem>)}</SelectContent></Select></div>
+              {/* ── Cliente com busca + botão Novo ── */}
+              <div className="space-y-1">
+                <Label>Cliente *</Label>
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input
+                      value={clientSearch || (usinaForm.clienteId ? (clients.find((c: any) => c.id === usinaForm.clienteId)?.name || clients.find((c: any) => c.id === usinaForm.clienteId)?.razaoSocial || '') : '')}
+                      onChange={e => { setClientSearch(e.target.value); if (e.target.value === '') setUsinaForm({ ...usinaForm, clienteId: '' }); }}
+                      placeholder="Buscar por nome ou CPF/CNPJ..."
+                      className="pl-8"
+                    />
+                    {clientSearch.length > 0 && filteredClients.length > 0 && !usinaForm.clienteId && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {filteredClients.slice(0, 8).map((c: any) => (
+                          <button key={c.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 flex items-center gap-2 border-b border-slate-50 last:border-0" onClick={() => { setUsinaForm({ ...usinaForm, clienteId: c.id }); setClientSearch(c.name || c.razaoSocial || ''); }}>
+                            <span className="font-medium text-slate-800">{c.name || c.razaoSocial}</span>
+                            {c.document && <span className="text-xs text-slate-400">{c.document}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <Button type="button" variant="outline" size="icon" title="Novo Cliente" onClick={() => setClientDialogOpen(true)} className="shrink-0 border-amber-300 text-amber-600 hover:bg-amber-50">
+                    <UserPlus className="w-4 h-4" />
+                  </Button>
+                </div>
+                {usinaForm.clienteId && <p className="text-xs text-green-600 font-medium">✓ {clients.find((c: any) => c.id === usinaForm.clienteId)?.name || 'Cliente selecionado'}</p>}
+              </div>
               <div className="space-y-1"><Label>Status</Label><Select value={usinaForm.status} onValueChange={v => setUsinaForm({ ...usinaForm, status: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ativa">Ativa</SelectItem><SelectItem value="inativa">Inativa</SelectItem><SelectItem value="descomissionada">Descomissionada</SelectItem></SelectContent></Select></div>
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-3">
@@ -291,7 +346,30 @@ export default function OeM() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1"><Label>Data Instalação *</Label><Input type="date" value={usinaForm.dataInstalacao} onChange={e => setUsinaForm({ ...usinaForm, dataInstalacao: e.target.value })} /></div>
               <div className="space-y-1"><Label>Tipo Telhado</Label><Input value={usinaForm.tipoTelhado} onChange={e => setUsinaForm({ ...usinaForm, tipoTelhado: e.target.value })} placeholder="Cerâmico, metálico..." /></div>
-              <div className="col-span-2 space-y-1"><Label>Endereço *</Label><Input value={usinaForm.endereco} onChange={e => setUsinaForm({ ...usinaForm, endereco: e.target.value })} /></div>
+            </div>
+            {/* ── Endereço com CEP auto-fill ── */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-3">
+              <h3 className="font-semibold text-blue-800 text-sm flex items-center gap-2"><MapPin className="w-4 h-4" /> Endereço da Usina</h3>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-sm">CEP</Label>
+                  <div className="relative">
+                    <Input
+                      value={usinaForm.cep || ''}
+                      onChange={e => { const v = e.target.value; setUsinaForm({ ...usinaForm, cep: v }); if (v.replace(/\D/g, '').length === 8) handleCepLookup(v); }}
+                      placeholder="00000-000"
+                      maxLength={9}
+                    />
+                    {cepLoading && <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-blue-500" />}
+                  </div>
+                </div>
+                <div className="col-span-3 space-y-1">
+                  <Label className="text-sm">Endereço *</Label>
+                  <Input value={usinaForm.endereco} onChange={e => setUsinaForm({ ...usinaForm, endereco: e.target.value })} placeholder="Rua, Av... Bairro — Cidade/UF" />
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1"><Label>Geração Esperada (kWh/mês)</Label><Input value={usinaForm.geracaoMensalEsperadaKwh} onChange={e => setUsinaForm({ ...usinaForm, geracaoMensalEsperadaKwh: e.target.value })} type="number" placeholder="Ex: 1200" /></div>
               <div className="space-y-1"><Label>Geração Atual (kWh/mês)</Label><Input value={usinaForm.geracaoMensalAtualKwh} onChange={e => setUsinaForm({ ...usinaForm, geracaoMensalAtualKwh: e.target.value })} type="number" placeholder="Geração real medida" /></div>
               <div className="space-y-1"><Label>Tarifa Energia (R$/kWh)</Label><Input value={usinaForm.tarifaEnergiaRsKwh} onChange={e => setUsinaForm({ ...usinaForm, tarifaEnergiaRsKwh: e.target.value })} type="number" step="0.01" placeholder="Ex: 0.85" /></div>
@@ -388,6 +466,18 @@ export default function OeM() {
           <DialogFooter><Button onClick={handleSaveContrato}>Salvar Contrato</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ═══ CLIENT DIALOG (inline create) ═══ */}
+      <ClientDialog
+        open={clientDialogOpen}
+        onOpenChange={setClientDialogOpen}
+        onSuccess={async () => {
+          try {
+            await api.getClients();
+            loadAll();
+          } catch { /* ignore */ }
+        }}
+      />
     </div>
   );
 }
