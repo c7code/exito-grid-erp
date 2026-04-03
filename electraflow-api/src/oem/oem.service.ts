@@ -351,18 +351,30 @@ export class OemService {
         // Criar itens da proposta a partir do checklist
         const checklist = servico.checklist ? (typeof servico.checklist === 'string' ? JSON.parse(servico.checklist) : servico.checklist) : [];
         const activeItems = checklist.filter((c: any) => c.checked !== false);
-        const valorEstimado = Number(servico.valorEstimado || servico.valorFinal || 0);
+
+        // ── VALOR DA USINA (referência informativa, NÃO é o preço do serviço) ──
+        // valorEstimadoUsina = investimento original da usina ("tabela FIPE")
+        // percentualManutencao = % que representa o custo de manutenção
+        // valorEstimado no serviço = valor de referência para cálculos percentuais dos itens
+        const valorEstimadoUsina = Number(usina.valorEstimadoUsina || 0);
+        const percentualManutencao = Number(usina.percentualManutencao || 10);
+        const valorBaseManutencao = valorEstimadoUsina > 0 
+            ? +(valorEstimadoUsina * percentualManutencao / 100).toFixed(2) 
+            : 0;
+        // valorEstimado do serviço é usado APENAS como base para cálculos percentuais dos itens
+        // Se o serviço tem um valor manual, usa ele; senão, usa o valorBaseManutencao calculado
+        const valorBaseParaCalculo = Number(servico.valorEstimado || servico.valorFinal || valorBaseManutencao || 0);
 
         // displayMode global — controla apenas se a coluna de preço aparece no PDF
         const globalDisplayMode = activeItems.length > 0 ? (activeItems[0].displayMode || 'com_valor') : 'com_valor';
         const showPrices = globalDisplayMode === 'com_valor';
 
         // ── Calcular preço real de cada item ──
-        // Itens com inputMode=valor usam valorDireto; os demais usam percentual do valorEstimado
+        // Itens com inputMode=valor usam valorDireto; os demais usam percentual do valorBaseParaCalculo
         const directItems = activeItems.filter((c: any) => c.inputMode === 'valor');
         const percentItems = activeItems.filter((c: any) => c.inputMode !== 'valor');
         const somaDirectos = directItems.reduce((sum: number, c: any) => sum + (Number(c.valorDireto) || 0), 0);
-        const valorRestanteParaPercent = Math.max(0, valorEstimado - somaDirectos);
+        const valorRestanteParaPercent = Math.max(0, valorBaseParaCalculo - somaDirectos);
         const somaPercentuais = percentItems.reduce((sum: number, c: any) => sum + (Number(c.percentual) || 0), 0);
 
         let acumuladoPercent = 0;
@@ -373,10 +385,10 @@ export class OemService {
             if (c.inputMode === 'valor') {
                 // Valor direto digitado pelo usuário
                 itemPrice = Number(c.valorDireto) || 0;
-            } else if (somaPercentuais > 0 && valorEstimado > 0) {
-                // Percentual do valor estimado total
+            } else if (somaPercentuais > 0 && valorBaseParaCalculo > 0) {
+                // Percentual da base de manutenção (NÃO do valor da usina inteira)
                 const pct = (Number(c.percentual) || 0) / 100;
-                itemPrice = +(valorEstimado * pct).toFixed(2);
+                itemPrice = +(valorBaseParaCalculo * pct).toFixed(2);
             } else if (percentItems.length > 0 && valorRestanteParaPercent > 0) {
                 // Sem percentuais definidos — distribuir igualmente
                 itemPrice = +(valorRestanteParaPercent / percentItems.length).toFixed(2);
@@ -388,7 +400,7 @@ export class OemService {
                 const percentIdx = percentItems.indexOf(c);
                 if (percentIdx === percentItems.length - 1) {
                     const somaEsperada = somaPercentuais > 0
-                        ? +(valorEstimado * (somaPercentuais / 100)).toFixed(2)
+                        ? +(valorBaseParaCalculo * (somaPercentuais / 100)).toFixed(2)
                         : valorRestanteParaPercent;
                     const diff = +(somaEsperada - acumuladoPercent).toFixed(2);
                     if (Math.abs(diff) < 1) itemPrice = +(itemPrice + diff).toFixed(2);
@@ -408,8 +420,9 @@ export class OemService {
             };
         });
 
-        // Total real da proposta = soma dos itens (se houver itens) ou valorEstimado
-        const totalProposta = somaItens > 0 ? +somaItens.toFixed(2) : valorEstimado;
+        // ── TOTAL = APENAS soma dos itens checados/precificados ──
+        // NÃO usa valorEstimadoUsina como fallback — esse é apenas referência informativa
+        const totalProposta = +somaItens.toFixed(2);
 
         // ── Escopo detalhado com dados técnicos da usina ──
         const scope = [
@@ -425,6 +438,12 @@ export class OemService {
             ``,
             `LOCALIZAÇÃO:`,
             `• ${usina.endereco}`,
+            // ── Referência informativa do investimento (NÃO é o preço do serviço) ──
+            valorEstimadoUsina > 0 ? `` : null,
+            valorEstimadoUsina > 0 ? `REFERÊNCIA DO INVESTIMENTO:` : null,
+            valorEstimadoUsina > 0 ? `• Valor estimado da usina: R$ ${valorEstimadoUsina.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : null,
+            valorEstimadoUsina > 0 ? `• Custo estimado de manutenção (${percentualManutencao}%): R$ ${valorBaseManutencao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : null,
+            valorEstimadoUsina > 0 ? `• A ausência de manutenção adequada pode comprometer significativamente o retorno sobre o investimento e a vida útil dos equipamentos.` : null,
         ].filter(Boolean).join('\n');
 
         const workDescription = servico.descricao
