@@ -48,6 +48,7 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
     const [balance, setBalance] = useState<any>(null);
     const [mode, setMode] = useState<'list' | 'create' | 'view'>('list');
     const [proposals, setProposals] = useState<any[]>([]);
+    const [allProposals, setAllProposals] = useState<any[]>([]);
 
     // Form
     const [description, setDescription] = useState('');
@@ -90,9 +91,16 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
             ]);
             setMeasurements(Array.isArray(meas) ? meas : (meas?.data ?? []));
             setBalance(bal);
-            const workProposals = (Array.isArray(props) ? props : (props?.data ?? []))
-                .filter((p: any) => p.workId === workId || p.work?.id === workId || (work?.opportunityId && p.opportunityId === work.opportunityId));
-            setProposals(workProposals);
+            const allProps = Array.isArray(props) ? props : (props?.data ?? []);
+            setAllProposals(allProps);
+            // Filter proposals linked to this work via workId, opportunityId, or clientId
+            const workProposals = allProps.filter((p: any) =>
+                p.workId === workId ||
+                p.work?.id === workId ||
+                (work?.opportunityId && p.opportunityId === work.opportunityId) ||
+                (work?.clientId && p.clientId === work.clientId)
+            );
+            setProposals(workProposals.length > 0 ? workProposals : allProps);
         } catch { }
         setLoading(false);
     };
@@ -604,27 +612,40 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                             <div><Label>Valor do Contrato (R$) *</Label><Input type="text" inputMode="decimal" placeholder="100000.00" value={contractValue} onChange={e => setContractValue(e.target.value)} /></div>
                         </div>
 
-                        {/* Proposal import */}
-                        {proposals.length > 0 && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-3">
-                                <div className="flex items-center gap-2"><FileText className="w-4 h-4 text-blue-600" /><span className="text-xs font-semibold text-blue-700">Importar da Proposta Vinculada</span></div>
-                                <div className="flex gap-2">
-                                    <Select value={selectedProposalId} onValueChange={setSelectedProposalId}>
-                                        <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue placeholder="Selecione a proposta" /></SelectTrigger>
-                                        <SelectContent>{proposals.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.proposalNumber || p.id.slice(0, 8)} — {p.title || 'Proposta'} (R$ {fmt(Number(p.totalValue || 0))})</SelectItem>)}</SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button size="sm" className="h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white flex-1" disabled={!selectedProposalId} onClick={() => importStagesFromProposal(selectedProposalId)}>
-                                        <ClipboardList className="w-3.5 h-3.5 mr-1" /> Importar Itens como Etapas de Medição (100%)
-                                    </Button>
-                                    <Button size="sm" variant="outline" className="h-8 text-xs" disabled={!selectedProposalId} onClick={() => importFromProposal(selectedProposalId)}>
-                                        <Building2 className="w-3.5 h-3.5 mr-1" /> Fat. Direto
-                                    </Button>
-                                </div>
-                                <p className="text-[10px] text-blue-500">💡 "Importar Itens" converte cada item/serviço da proposta em uma etapa de medição a 100%, pronto para emissão.</p>
+                        {/* Proposal import — ALWAYS VISIBLE */}
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2"><ClipboardList className="w-4 h-4 text-blue-600" /><span className="text-xs font-bold text-blue-800">📋 Importar Itens da Proposta</span></div>
+                                <span className="text-[10px] text-blue-500 font-medium">{proposals.length} proposta(s) disponível(is)</span>
                             </div>
-                        )}
+                            {proposals.length > 0 ? (
+                                <>
+                                    <div className="flex gap-2">
+                                        <Select value={selectedProposalId} onValueChange={setSelectedProposalId}>
+                                            <SelectTrigger className="flex-1 h-9 text-xs bg-white"><SelectValue placeholder="Selecione a proposta para importar..." /></SelectTrigger>
+                                            <SelectContent>
+                                                {proposals.map((p: any) => (
+                                                    <SelectItem key={p.id} value={p.id}>
+                                                        {p.proposalNumber || p.id.slice(0, 8)} — {p.title || p.client?.name || 'Proposta'} (R$ {fmt(Number(p.totalValue || 0))})
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Button size="sm" className="h-9 text-xs bg-orange-500 hover:bg-orange-600 text-white font-bold" disabled={!selectedProposalId} onClick={() => importStagesFromProposal(selectedProposalId)}>
+                                            <ClipboardList className="w-3.5 h-3.5 mr-1.5" /> Importar como Etapas (100%)
+                                        </Button>
+                                        <Button size="sm" variant="outline" className="h-9 text-xs border-blue-300 text-blue-700 hover:bg-blue-100" disabled={!selectedProposalId} onClick={() => importFromProposal(selectedProposalId)}>
+                                            <Building2 className="w-3.5 h-3.5 mr-1.5" /> Importar Fat. Direto
+                                        </Button>
+                                    </div>
+                                    <p className="text-[10px] text-blue-600 leading-relaxed">💡 <strong>Importar como Etapas:</strong> Cada item da proposta vira uma etapa de medição com o valor/percentual correspondente. O valor do contrato será preenchido automaticamente.</p>
+                                </>
+                            ) : (
+                                <p className="text-xs text-blue-400 italic">Nenhuma proposta encontrada para esta obra. Crie uma proposta primeiro.</p>
+                            )}
+                        </div>
 
                         {/* ═══ ETAPAS DE MEDIÇÃO ═══ */}
                         <div>
