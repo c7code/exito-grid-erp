@@ -420,9 +420,13 @@ export class OemService {
             };
         });
 
-        // ── TOTAL = APENAS soma dos itens checados/precificados ──
-        // NÃO usa valorEstimadoUsina como fallback — esse é apenas referência informativa
-        const totalProposta = +somaItens.toFixed(2);
+        // ── TOTAL DA PROPOSTA — 3 cenários ──
+        // 1) Itens do checklist marcados e precificados → total = soma dos itens
+        // 2) Nenhum item marcado mas operador definiu valorEstimado → total = valorEstimado (preço global do serviço)
+        // 3) Nada preenchido → total = 0
+        const totalProposta = somaItens > 0
+            ? +somaItens.toFixed(2)
+            : Number(servico.valorEstimado || servico.valorFinal || 0);
 
         // ── Escopo detalhado com dados técnicos da usina ──
         const scope = [
