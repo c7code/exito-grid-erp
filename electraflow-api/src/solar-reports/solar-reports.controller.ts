@@ -81,10 +81,18 @@ export class SolarReportsController {
         
         let text = '';
         try {
-            // Dynamic import of pdf-parse
-            const pdfParse = require('pdf-parse');
-            const data = await pdfParse(file.buffer);
-            text = data.text;
+            // Use pdfjs-dist (pure JS, no native canvas dependency)
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
+            const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(file.buffer) });
+            const pdfDoc = await loadingTask.promise;
+            const textParts: string[] = [];
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const page = await pdfDoc.getPage(i);
+                const content = await page.getTextContent();
+                textParts.push(content.items.map((item: any) => item.str).join(' '));
+            }
+            text = textParts.join('\n');
         } catch (e) {
             throw new BadRequestException('Não foi possível ler o PDF. Verifique se o arquivo é um PDF válido.');
         }
