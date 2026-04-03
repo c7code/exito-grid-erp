@@ -10,7 +10,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-    Loader2, Plus, X, FileText, CheckCircle, Trash2, Download,
+    Loader2, Plus, X, CheckCircle, Trash2, Download,
     Calculator, ClipboardList, Building2, Percent, DollarSign,
     ArrowLeftRight, Hammer,
 } from 'lucide-react';
@@ -48,7 +48,6 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
     const [balance, setBalance] = useState<any>(null);
     const [mode, setMode] = useState<'list' | 'create' | 'view'>('list');
     const [proposals, setProposals] = useState<any[]>([]);
-    const [allProposals, setAllProposals] = useState<any[]>([]);
 
     // Form
     const [description, setDescription] = useState('');
@@ -92,7 +91,6 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
             setMeasurements(Array.isArray(meas) ? meas : (meas?.data ?? []));
             setBalance(bal);
             const allProps = Array.isArray(props) ? props : (props?.data ?? []);
-            setAllProposals(allProps);
             // Filter proposals linked to this work via workId, opportunityId, or clientId
             const workProposals = allProps.filter((p: any) =>
                 p.workId === workId ||
