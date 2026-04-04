@@ -61,13 +61,17 @@ export class SignaturesController {
    * This avoids filesystem dependency (Railway ephemeral containers).
    */
   @Post(':id/upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async uploadImage(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
-    // Convert buffer to base64 data URL
+    if (!file || !file.buffer) {
+      throw new Error('Arquivo não recebido');
+    }
+    // Convert buffer to base64 data URL — persists in database, not filesystem
     const mimeType = file.mimetype || 'image/png';
     const base64 = file.buffer.toString('base64');
     const imageUrl = `data:${mimeType};base64,${base64}`;
-    return this.service.updateSlot(id, { imageUrl });
+    const updated = await this.service.updateSlot(id, { imageUrl });
+    return updated;
   }
 
   @Get(':id')

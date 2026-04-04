@@ -180,19 +180,24 @@ export default function AdminSettings() {
 
 
   const handleSaveSignatureImage = async (croppedDataUrl: string) => {
-    if (!company) return;
-    const blob = await (await fetch(croppedDataUrl)).blob();
-    const file = new File([blob], 'signature.png', { type: 'image/png' });
-    if (uploadingSlotId) {
-      // Uploading for a specific slot
-      await api.uploadSignatureImage(uploadingSlotId, file);
-      const slots = await api.getSignatureSlots();
-      setSignatureSlots(Array.isArray(slots) ? slots : []);
-      setUploadingSlotId(null);
-      toast.success('Imagem de assinatura atualizada!');
-    } else {
-      const updated = await api.uploadCompanySignature(company.id, file);
-      setCompany(updated);
+    try {
+      const blob = await (await fetch(croppedDataUrl)).blob();
+      const file = new File([blob], 'signature.png', { type: 'image/png' });
+      if (uploadingSlotId) {
+        // Uploading for a specific signature slot (no company needed)
+        await api.uploadSignatureImage(uploadingSlotId, file);
+        const slots = await api.getSignatureSlots();
+        setSignatureSlots(Array.isArray(slots) ? slots : []);
+        setUploadingSlotId(null);
+        toast.success('Imagem de assinatura salva!');
+      } else if (company) {
+        const updated = await api.uploadCompanySignature(company.id, file);
+        setCompany(updated);
+        toast.success('Assinatura da empresa salva!');
+      }
+    } catch (err: any) {
+      console.error('[Settings] Error uploading signature:', err);
+      toast.error('Erro ao salvar imagem: ' + (err?.response?.data?.message || err?.message || 'Erro desconhecido'));
     }
   };
 
