@@ -168,7 +168,7 @@ export class ProposalPublicController {
   @ApiOperation({ summary: 'Confirmar assinatura da proposta (público)' })
   async confirmSignature(
     @Param('token') token: string,
-    @Body() data: { name: string; document: string },
+    @Body() data: { name: string; document: string; signatureImage?: string },
     @Req() req: Request,
   ) {
     const ip = req.headers['x-forwarded-for'] as string || req.socket?.remoteAddress || 'unknown';
@@ -176,6 +176,7 @@ export class ProposalPublicController {
     return this.proposalsService.signProposal(token, {
       name: data.name,
       document: data.document,
+      signatureImage: data.signatureImage,
       ip,
       userAgent,
     });

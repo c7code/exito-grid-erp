@@ -718,7 +718,7 @@ class ApiService {
     return response.data;
   }
 
-  async signProposalByToken(token: string, data: { name: string; document: string }) {
+  async signProposalByToken(token: string, data: { name: string; document: string; signatureImage?: string }) {
     const response = await this.client.post(`/proposals/sign/${token}/confirm`, data);
     return response.data;
   }
@@ -2004,7 +2004,7 @@ class ApiService {
     return response.data;
   }
 
-  async signContractByToken(token: string, data: { name: string; document: string }) {
+  async signContractByToken(token: string, data: { name: string; document: string; signatureImage?: string }) {
     const response = await this.client.post(`/contracts/sign/${token}/confirm`, data);
     return response.data;
   }

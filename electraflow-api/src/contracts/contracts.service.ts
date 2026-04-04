@@ -245,7 +245,7 @@ export class ContractsService {
 
     async signContract(
         token: string,
-        data: { name: string; document: string; ip?: string; userAgent?: string },
+        data: { name: string; document: string; ip?: string; userAgent?: string; signatureImage?: string },
     ): Promise<{ contract: Contract; verificationCode: string }> {
         const contract = await this.contractRepo.findOne({
             where: { signatureToken: token },
@@ -267,6 +267,11 @@ export class ContractsService {
         contract.signedByDocument = data.document;
         contract.signedByIP = data.ip || 'unknown';
         contract.signedByUserAgent = data.userAgent || 'unknown';
+
+        // Store the drawn/typed signature image if provided
+        if (data.signatureImage) {
+            (contract as any).signatureImageBase64 = data.signatureImage;
+        }
 
         await this.contractRepo.save(contract);
 

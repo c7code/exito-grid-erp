@@ -108,7 +108,7 @@ export class ContractPublicController {
     @Post(':token/confirm')
     confirmSignature(
         @Param('token') token: string,
-        @Body() data: { name: string; document: string },
+        @Body() data: { name: string; document: string; signatureImage?: string },
         @Req() req: Request,
     ) {
         const ip = req.headers['x-forwarded-for'] as string || req.socket?.remoteAddress || 'unknown';
@@ -116,6 +116,7 @@ export class ContractPublicController {
         return this.contractsService.signContract(token, {
             name: data.name,
             document: data.document,
+            signatureImage: data.signatureImage,
             ip,
             userAgent,
         });

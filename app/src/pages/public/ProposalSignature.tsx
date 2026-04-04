@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '@/api';
 import { ProposalPDFTemplate } from '@/components/ProposalPDFTemplate';
-import { CheckCircle2, Loader2, AlertTriangle, FileSignature, Shield, Printer } from 'lucide-react';
+import { SignaturePad } from '@/components/SignaturePad';
+import {
+  CheckCircle2, Loader2, AlertTriangle, FileSignature, Shield, Printer,
+  Lock, ChevronDown, ChevronUp, Eye, PenTool, BadgeCheck,
+} from 'lucide-react';
 
 export default function ProposalSignature() {
     const { token } = useParams<{ token: string }>();
@@ -17,6 +21,11 @@ export default function ProposalSignature() {
     const [signerName, setSignerName] = useState('');
     const [signerDocument, setSignerDocument] = useState('');
     const [accepted, setAccepted] = useState(false);
+    const [signatureImage, setSignatureImage] = useState<string | null>(null);
+
+    // UI state
+    const [step, setStep] = useState<1 | 2 | 3>(1); // 1=Review, 2=Sign, 3=Done
+    const [docExpanded, setDocExpanded] = useState(true);
 
     useEffect(() => {
         if (!token) return;
@@ -36,18 +45,18 @@ export default function ProposalSignature() {
     }
 
     async function handleSign() {
-        if (!signerName.trim()) return;
-        if (!signerDocument.trim()) return;
-        if (!accepted) return;
+        if (!signerName.trim() || !signerDocument.trim() || !accepted || !signatureImage) return;
 
         try {
             setSigning(true);
             const result = await api.signProposalByToken(token!, {
                 name: signerName,
                 document: signerDocument,
+                signatureImage,
             });
             setSigned(true);
             setVerificationCode(result.verificationCode);
+            setStep(3);
         } catch (e: any) {
             setError(e?.response?.data?.message || 'Erro ao assinar proposta.');
         } finally {
@@ -55,293 +64,454 @@ export default function ProposalSignature() {
         }
     }
 
-    function handlePrint() {
-        window.print();
-    }
+    function handlePrint() { window.print(); }
+
+    // ═══ CSS variables ═══
+    const accent = '#E8620A';
+    const dark = '#0f172a';
 
     // ═══ Loading ═══
     if (loading) {
         return (
             <div style={{
                 minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: '#f5f5f5',
-                fontFamily: "'Segoe UI', sans-serif",
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: `linear-gradient(135deg, ${dark}, #1e293b)`,
+                fontFamily: "'Segoe UI', system-ui, sans-serif",
             }}>
                 <div style={{ textAlign: 'center' }}>
-                    <Loader2 style={{ width: '40px', height: '40px', animation: 'spin 1s linear infinite', color: '#E8620A' }} />
-                    <p style={{ marginTop: '12px', color: '#666' }}>Carregando proposta...</p>
+                    <div style={{
+                        width: '56px', height: '56px', margin: '0 auto 16px',
+                        border: `3px solid ${accent}`, borderTopColor: 'transparent',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                    }} />
+                    <p style={{ color: '#94a3b8', fontSize: '15px' }}>Carregando documento...</p>
                 </div>
             </div>
         );
     }
 
     // ═══ Error ═══
-    if (error) {
+    if (error && !signed) {
         return (
             <div style={{
                 minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: '#f5f5f5',
-                fontFamily: "'Segoe UI', sans-serif",
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: `linear-gradient(135deg, ${dark}, #1e293b)`,
+                fontFamily: "'Segoe UI', system-ui, sans-serif",
             }}>
                 <div style={{
-                    textAlign: 'center',
-                    background: '#fff',
-                    padding: '40px',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-                    maxWidth: '400px',
+                    textAlign: 'center', background: '#fff', padding: '48px 40px',
+                    borderRadius: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                    maxWidth: '440px', width: '90%',
                 }}>
-                    <AlertTriangle style={{ width: '48px', height: '48px', color: '#f59e0b', margin: '0 auto 16px' }} />
-                    <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>Link Inválido</h2>
-                    <p style={{ color: '#666', fontSize: '14px' }}>{error}</p>
+                    <AlertTriangle style={{ width: '52px', height: '52px', color: '#f59e0b', margin: '0 auto 16px' }} />
+                    <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px', color: dark }}>
+                        Link Inválido ou Expirado
+                    </h2>
+                    <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.6' }}>{error}</p>
+                    <div style={{
+                        marginTop: '20px', padding: '12px', background: '#fef3c7',
+                        borderRadius: '8px', fontSize: '12px', color: '#92400e',
+                    }}>
+                        Entre em contato com a empresa para solicitar um novo link de assinatura.
+                    </div>
                 </div>
             </div>
         );
     }
 
-    // ═══ Signed Successfully ═══
-    if (signed) {
+    // ═══ Signed Successfully — Step 3 ═══
+    if (signed || step === 3) {
         return (
             <div style={{
                 minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)',
-                fontFamily: "'Segoe UI', sans-serif",
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: `linear-gradient(135deg, #064e3b, #065f46, #047857)`,
+                fontFamily: "'Segoe UI', system-ui, sans-serif",
             }}>
                 <div style={{
-                    textAlign: 'center',
-                    background: '#fff',
-                    padding: '50px 40px',
-                    borderRadius: '16px',
-                    boxShadow: '0 8px 30px rgba(0,0,0,0.1)',
-                    maxWidth: '500px',
-                    border: '2px solid #22c55e',
+                    textAlign: 'center', background: '#fff', padding: '56px 44px',
+                    borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.2)',
+                    maxWidth: '520px', width: '90%',
                 }}>
-                    <CheckCircle2 style={{ width: '64px', height: '64px', color: '#22c55e', margin: '0 auto 20px' }} />
-                    <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px', color: '#16a34a' }}>
-                        Proposta Assinada!
-                    </h2>
-                    <p style={{ color: '#555', fontSize: '14px', marginBottom: '20px' }}>
-                        Sua assinatura foi registrada com sucesso.
-                    </p>
+                    {/* Animated checkmark */}
                     <div style={{
-                        background: '#f8fafc',
-                        padding: '16px',
-                        borderRadius: '8px',
-                        textAlign: 'left',
-                        fontSize: '13px',
+                        width: '80px', height: '80px', borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        margin: '0 auto 24px',
+                        boxShadow: '0 8px 30px rgba(34,197,94,0.3)',
                     }}>
-                        <p><strong>Proposta:</strong> #{proposal?.proposalNumber}</p>
-                        <p><strong>Assinado por:</strong> {signerName}</p>
-                        <p><strong>CPF/CNPJ:</strong> {signerDocument}</p>
-                        <p><strong>Data/Hora:</strong> {new Date().toLocaleString('pt-BR')}</p>
-                        <p style={{ marginTop: '12px', fontSize: '14px' }}>
-                            <strong>Código de Verificação:</strong>
+                        <CheckCircle2 style={{ width: '44px', height: '44px', color: '#fff' }} />
+                    </div>
+
+                    <h2 style={{ fontSize: '26px', fontWeight: 800, marginBottom: '8px', color: '#16a34a' }}>
+                        Documento Assinado!
+                    </h2>
+                    <p style={{ color: '#64748b', fontSize: '15px', marginBottom: '28px' }}>
+                        Sua assinatura digital foi registrada com sucesso.
+                    </p>
+
+                    {/* Signature proof card */}
+                    <div style={{
+                        background: '#f8fafc', borderRadius: '12px', padding: '20px',
+                        textAlign: 'left', fontSize: '13px', border: '1px solid #e2e8f0',
+                    }}>
+                        <div style={{ fontWeight: 700, color: dark, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Shield style={{ width: '16px', height: '16px', color: '#22c55e' }} />
+                            Comprovante de Assinatura
+                        </div>
+                        <div style={{ display: 'grid', gap: '8px' }}>
+                            <div><span style={{ color: '#94a3b8' }}>Proposta:</span> <strong>#{proposal?.proposalNumber}</strong></div>
+                            <div><span style={{ color: '#94a3b8' }}>Assinado por:</span> <strong>{signerName}</strong></div>
+                            <div><span style={{ color: '#94a3b8' }}>CPF/CNPJ:</span> <strong>{signerDocument}</strong></div>
+                            <div><span style={{ color: '#94a3b8' }}>Data/Hora:</span> <strong>{new Date().toLocaleString('pt-BR')}</strong></div>
+                        </div>
+
+                        <div style={{
+                            marginTop: '16px', padding: '14px', borderRadius: '8px',
+                            background: '#f0fdf4', border: '1px solid #bbf7d0',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        }}>
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#166534', fontWeight: 600 }}>CÓDIGO DE VERIFICAÇÃO</div>
+                                <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>
+                                    Guarde este código para futuras verificações
+                                </div>
+                            </div>
                             <span style={{
-                                display: 'inline-block',
-                                background: '#22c55e',
-                                color: '#fff',
-                                padding: '4px 12px',
-                                borderRadius: '6px',
-                                fontWeight: 700,
-                                fontSize: '18px',
-                                letterSpacing: '3px',
-                                marginLeft: '8px',
+                                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                color: '#fff', padding: '8px 16px', borderRadius: '8px',
+                                fontWeight: 800, fontSize: '20px', letterSpacing: '4px',
+                                fontFamily: 'monospace',
                             }}>
                                 {verificationCode}
                             </span>
-                        </p>
+                        </div>
                     </div>
-                    <p style={{ marginTop: '16px', fontSize: '11px', color: '#999' }}>
-                        Guarde este código para verificação futura. IP e dados do navegador foram registrados.
-                    </p>
+
+                    <div style={{
+                        marginTop: '20px', display: 'flex', gap: '6px',
+                        alignItems: 'center', justifyContent: 'center',
+                        color: '#94a3b8', fontSize: '11px',
+                    }}>
+                        <Lock style={{ width: '12px', height: '12px' }} />
+                        IP, data/hora e dados do navegador foram registrados para validade jurídica.
+                    </div>
                 </div>
             </div>
         );
     }
 
-    // ═══ Main: View Proposal + Sign ═══
+    // ═══ Main: Review & Sign Ceremony ═══
+    const canSign = signerName.trim() && signerDocument.trim() && accepted && signatureImage;
+
     return (
         <div style={{
             minHeight: '100vh',
-            background: '#e5e5e5',
-            fontFamily: "'Segoe UI', sans-serif",
+            background: `linear-gradient(180deg, ${dark} 0%, #1e293b 100%)`,
+            fontFamily: "'Segoe UI', system-ui, sans-serif",
         }}>
-            {/* Top bar */}
+            {/* ═══ HEADER ═══ */}
             <div className="no-print" style={{
-                background: '#2d2d2d',
-                color: '#fff',
-                padding: '12px 24px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                position: 'sticky',
-                top: 0,
-                zIndex: 50,
+                background: 'rgba(15,23,42,0.95)',
+                backdropFilter: 'blur(12px)',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                padding: '14px 24px',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                position: 'sticky', top: 0, zIndex: 50,
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <FileSignature style={{ width: '20px', height: '20px', color: '#E8620A' }} />
-                    <span style={{ fontWeight: 700 }}>Proposta Comercial #{proposal?.proposalNumber}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                        width: '36px', height: '36px', borderRadius: '10px',
+                        background: `linear-gradient(135deg, ${accent}, #c2410c)`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                        <FileSignature style={{ width: '18px', height: '18px', color: '#fff' }} />
+                    </div>
+                    <div>
+                        <div style={{ color: '#fff', fontWeight: 700, fontSize: '14px' }}>
+                            EXITO GRID — Assinatura Digital
+                        </div>
+                        <div style={{ color: '#64748b', fontSize: '11px' }}>
+                            Proposta #{proposal?.proposalNumber}
+                        </div>
+                    </div>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                        padding: '5px 10px', borderRadius: '6px',
+                        background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)',
+                    }}>
+                        <Lock style={{ width: '12px', height: '12px', color: '#22c55e' }} />
+                        <span style={{ color: '#22c55e', fontSize: '11px', fontWeight: 600 }}>Seguro</span>
+                    </div>
                     <button
                         onClick={handlePrint}
                         style={{
-                            background: 'transparent',
-                            border: '1px solid #555',
-                            color: '#fff',
-                            padding: '6px 16px',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontSize: '13px',
+                            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
+                            color: '#94a3b8', padding: '6px 14px', borderRadius: '8px',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                            fontSize: '12px',
                         }}
                     >
-                        <Printer style={{ width: '14px', height: '14px' }} /> Imprimir
+                        <Printer style={{ width: '13px', height: '13px' }} /> Imprimir
                     </button>
                 </div>
             </div>
 
-            {/* Proposal Document */}
-            <div style={{ maxWidth: '880px', margin: '20px auto', background: '#fff', boxShadow: '0 2px 20px rgba(0,0,0,0.1)' }}>
-                <ProposalPDFTemplate proposal={proposal} client={proposal?.client} />
-            </div>
-
-            {/* Signature Form */}
+            {/* ═══ STEPS INDICATOR ═══ */}
             <div className="no-print" style={{
-                maxWidth: '600px',
-                margin: '20px auto 40px',
-                background: '#fff',
-                borderRadius: '12px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-                padding: '32px',
-                border: '2px solid #E8620A',
+                display: 'flex', justifyContent: 'center', padding: '20px 20px 0',
+                gap: '8px',
             }}>
-                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                    <Shield style={{ width: '32px', height: '32px', color: '#E8620A', margin: '0 auto 10px' }} />
-                    <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a' }}>
-                        Assinar Proposta
-                    </h2>
-                    <p style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
-                        Preencha seus dados para confirmar o aceite desta proposta comercial.
-                    </p>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px', color: '#333' }}>
-                            Nome Completo / Razão Social *
-                        </label>
-                        <input
-                            type="text"
-                            value={signerName}
-                            onChange={e => setSignerName(e.target.value)}
-                            placeholder="Informe o nome completo ou razão social"
-                            style={{
-                                width: '100%',
-                                padding: '10px 14px',
-                                border: '1px solid #ddd',
-                                borderRadius: '8px',
-                                fontSize: '14px',
-                                outline: 'none',
-                                boxSizing: 'border-box',
-                            }}
-                        />
-                    </div>
-
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px', color: '#333' }}>
-                            CPF / CNPJ *
-                        </label>
-                        <input
-                            type="text"
-                            value={signerDocument}
-                            onChange={e => setSignerDocument(e.target.value)}
-                            placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                            style={{
-                                width: '100%',
-                                padding: '10px 14px',
-                                border: '1px solid #ddd',
-                                borderRadius: '8px',
-                                fontSize: '14px',
-                                outline: 'none',
-                                boxSizing: 'border-box',
-                            }}
-                        />
-                    </div>
-
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '10px',
-                        padding: '12px',
-                        background: '#fef3c7',
-                        borderRadius: '8px',
-                        border: '1px solid #fde68a',
+                {[
+                    { n: 1, label: 'Revisar Documento', icon: Eye },
+                    { n: 2, label: 'Assinar', icon: PenTool },
+                    { n: 3, label: 'Confirmação', icon: BadgeCheck },
+                ].map(({ n, label, icon: Icon }) => (
+                    <div key={n} style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '8px 16px', borderRadius: '8px',
+                        background: step >= n ? `${accent}20` : 'rgba(255,255,255,0.04)',
+                        border: step >= n ? `1px solid ${accent}40` : '1px solid rgba(255,255,255,0.06)',
+                        transition: 'all 0.3s ease',
                     }}>
-                        <input
-                            type="checkbox"
-                            checked={accepted}
-                            onChange={e => setAccepted(e.target.checked)}
-                            style={{ marginTop: '3px', cursor: 'pointer' }}
-                        />
-                        <span style={{ fontSize: '12px', color: '#92400e', lineHeight: '1.5' }}>
-                            Declaro que li e aceito todos os termos desta proposta comercial.
-                            Confirmo que possuo autoridade para assinar em nome da empresa/pessoa
-                            acima identificada.
+                        <div style={{
+                            width: '24px', height: '24px', borderRadius: '50%',
+                            background: step >= n ? accent : 'rgba(255,255,255,0.08)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            <Icon style={{ width: '12px', height: '12px', color: step >= n ? '#fff' : '#475569' }} />
+                        </div>
+                        <span style={{
+                            fontSize: '12px', fontWeight: step >= n ? 600 : 400,
+                            color: step >= n ? '#fff' : '#475569',
+                        }}>
+                            {label}
                         </span>
                     </div>
+                ))}
+            </div>
 
-                    <button
-                        onClick={handleSign}
-                        disabled={signing || !signerName.trim() || !signerDocument.trim() || !accepted}
-                        style={{
-                            width: '100%',
-                            padding: '14px',
-                            background: (!signerName.trim() || !signerDocument.trim() || !accepted || signing) ? '#ccc' : '#E8620A',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '16px',
-                            fontWeight: 700,
-                            cursor: (!signerName.trim() || !signerDocument.trim() || !accepted || signing) ? 'not-allowed' : 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '10px',
-                        }}
-                    >
-                        {signing ? (
-                            <>
-                                <Loader2 style={{ width: '18px', height: '18px', animation: 'spin 1s linear infinite' }} />
-                                Assinando...
-                            </>
-                        ) : (
-                            <>
-                                <FileSignature style={{ width: '18px', height: '18px' }} />
-                                Assinar e Aceitar Proposta
-                            </>
-                        )}
-                    </button>
+            {/* ═══ DOCUMENT VIEWER ═══ */}
+            <div style={{ maxWidth: '880px', margin: '20px auto', padding: '0 16px' }}>
+                {/* Collapsible document header */}
+                <button
+                    className="no-print"
+                    onClick={() => setDocExpanded(!docExpanded)}
+                    style={{
+                        width: '100%', padding: '14px 20px',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: docExpanded ? '12px 12px 0 0' : '12px',
+                        color: '#fff', cursor: 'pointer',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        fontSize: '14px', fontWeight: 600,
+                    }}
+                >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Eye style={{ width: '16px', height: '16px', color: accent }} />
+                        Documento: {proposal?.title || `Proposta #${proposal?.proposalNumber}`}
+                    </span>
+                    {docExpanded
+                        ? <ChevronUp style={{ width: '18px', height: '18px', color: '#64748b' }} />
+                        : <ChevronDown style={{ width: '18px', height: '18px', color: '#64748b' }} />
+                    }
+                </button>
 
-                    <p style={{ fontSize: '10px', color: '#999', textAlign: 'center', lineHeight: '1.5' }}>
-                        Ao assinar, seu IP, data/hora e dados do navegador serão registrados
-                        para fins de autenticidade e validade jurídica do aceite eletrônico.
-                    </p>
+                {docExpanded && (
+                    <div style={{
+                        background: '#fff',
+                        boxShadow: '0 8px 40px rgba(0,0,0,0.3)',
+                        borderRadius: '0 0 12px 12px',
+                        overflow: 'hidden',
+                    }}>
+                        <ProposalPDFTemplate proposal={proposal} client={proposal?.client} />
+                    </div>
+                )}
+            </div>
+
+            {/* ═══ SIGNATURE FORM — Step 2 ═══ */}
+            <div className="no-print" style={{
+                maxWidth: '600px', margin: '24px auto 50px', padding: '0 16px',
+            }}>
+                <div style={{
+                    background: '#fff', borderRadius: '16px',
+                    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                    overflow: 'hidden',
+                }}>
+                    {/* Form header */}
+                    <div style={{
+                        background: `linear-gradient(135deg, ${dark}, #1e293b)`,
+                        padding: '28px 28px 20px',
+                        textAlign: 'center',
+                    }}>
+                        <div style={{
+                            width: '48px', height: '48px', borderRadius: '14px',
+                            background: `linear-gradient(135deg, ${accent}, #c2410c)`,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            marginBottom: '12px',
+                            boxShadow: `0 8px 20px ${accent}40`,
+                        }}>
+                            <PenTool style={{ width: '22px', height: '22px', color: '#fff' }} />
+                        </div>
+                        <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#fff', margin: 0 }}>
+                            Assinar Documento
+                        </h2>
+                        <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '6px' }}>
+                            Preencha seus dados e desenhe sua assinatura para confirmar o aceite.
+                        </p>
+                    </div>
+
+                    {/* Form body */}
+                    <div style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+
+                        {/* Name */}
+                        <div>
+                            <label style={{
+                                display: 'block', fontSize: '13px', fontWeight: 600,
+                                marginBottom: '6px', color: dark,
+                            }}>
+                                Nome Completo / Razão Social *
+                            </label>
+                            <input
+                                type="text" value={signerName}
+                                onChange={e => setSignerName(e.target.value)}
+                                placeholder="Informe o nome completo ou razão social"
+                                style={{
+                                    width: '100%', padding: '12px 16px',
+                                    border: '2px solid #e2e8f0', borderRadius: '10px',
+                                    fontSize: '14px', outline: 'none', boxSizing: 'border-box',
+                                    transition: 'border-color 0.2s',
+                                }}
+                                onFocus={e => e.target.style.borderColor = accent}
+                                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                            />
+                        </div>
+
+                        {/* Document */}
+                        <div>
+                            <label style={{
+                                display: 'block', fontSize: '13px', fontWeight: 600,
+                                marginBottom: '6px', color: dark,
+                            }}>
+                                CPF / CNPJ *
+                            </label>
+                            <input
+                                type="text" value={signerDocument}
+                                onChange={e => setSignerDocument(e.target.value)}
+                                placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                                style={{
+                                    width: '100%', padding: '12px 16px',
+                                    border: '2px solid #e2e8f0', borderRadius: '10px',
+                                    fontSize: '14px', outline: 'none', boxSizing: 'border-box',
+                                    transition: 'border-color 0.2s',
+                                }}
+                                onFocus={e => e.target.style.borderColor = accent}
+                                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                            />
+                        </div>
+
+                        {/* Signature Pad */}
+                        <div>
+                            <label style={{
+                                display: 'block', fontSize: '13px', fontWeight: 600,
+                                marginBottom: '6px', color: dark,
+                            }}>
+                                Sua Assinatura *
+                            </label>
+                            <SignaturePad
+                                onSignatureCapture={(base64) => { setSignatureImage(base64); setStep(2); }}
+                                onSignatureClear={() => setSignatureImage(null)}
+                                signerName={signerName}
+                                accentColor={accent}
+                            />
+                            {signatureImage && (
+                                <div style={{
+                                    marginTop: '8px', padding: '8px 12px',
+                                    background: '#f0fdf4', borderRadius: '8px',
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    fontSize: '12px', color: '#16a34a', fontWeight: 500,
+                                    border: '1px solid #bbf7d0',
+                                }}>
+                                    <CheckCircle2 style={{ width: '14px', height: '14px' }} />
+                                    Assinatura capturada com sucesso
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Terms acceptance */}
+                        <div style={{
+                            display: 'flex', alignItems: 'flex-start', gap: '12px',
+                            padding: '14px 16px', background: '#fffbeb',
+                            borderRadius: '10px', border: '1px solid #fde68a',
+                        }}>
+                            <input
+                                type="checkbox" checked={accepted}
+                                onChange={e => setAccepted(e.target.checked)}
+                                style={{
+                                    marginTop: '2px', cursor: 'pointer',
+                                    width: '18px', height: '18px',
+                                    accentColor: accent,
+                                }}
+                            />
+                            <span style={{ fontSize: '12px', color: '#92400e', lineHeight: '1.6' }}>
+                                Declaro que li e aceito todos os termos desta proposta comercial.
+                                Confirmo que possuo autoridade legal para assinar em nome da
+                                empresa/pessoa acima identificada. Estou ciente de que esta
+                                assinatura eletrônica possui validade jurídica conforme Lei 14.063/2020.
+                            </span>
+                        </div>
+
+                        {/* Sign button */}
+                        <button
+                            onClick={handleSign}
+                            disabled={!canSign || signing}
+                            style={{
+                                width: '100%', padding: '16px',
+                                background: canSign && !signing
+                                    ? `linear-gradient(135deg, ${accent}, #c2410c)`
+                                    : '#e2e8f0',
+                                color: canSign && !signing ? '#fff' : '#94a3b8',
+                                border: 'none', borderRadius: '12px',
+                                fontSize: '16px', fontWeight: 700,
+                                cursor: canSign && !signing ? 'pointer' : 'not-allowed',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                                boxShadow: canSign && !signing ? `0 8px 24px ${accent}40` : 'none',
+                                transition: 'all 0.3s ease',
+                            }}
+                        >
+                            {signing ? (
+                                <>
+                                    <Loader2 style={{ width: '20px', height: '20px', animation: 'spin 1s linear infinite' }} />
+                                    Processando assinatura...
+                                </>
+                            ) : (
+                                <>
+                                    <FileSignature style={{ width: '20px', height: '20px' }} />
+                                    Assinar e Aceitar Proposta
+                                </>
+                            )}
+                        </button>
+
+                        {/* Legal notice */}
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            gap: '6px', color: '#94a3b8', fontSize: '10px', textAlign: 'center',
+                        }}>
+                            <Lock style={{ width: '11px', height: '11px' }} />
+                            Ao assinar, seu IP, data/hora e navegador serão registrados
+                            para autenticidade e validade jurídica do aceite eletrônico.
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Print styles */}
+            {/* Print + Animation styles */}
             <style>{`
                 @media print {
                     .no-print { display: none !important; }

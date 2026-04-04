@@ -55,6 +55,7 @@ export class ProposalsService implements OnModuleInit {
       { col: 'signedByIP', type: 'VARCHAR DEFAULT NULL', table: 'proposals' },
       { col: 'signedByUserAgent', type: 'TEXT DEFAULT NULL', table: 'proposals' },
       { col: 'signatureVerificationCode', type: 'VARCHAR DEFAULT NULL', table: 'proposals' },
+      { col: 'signatureImageBase64', type: 'TEXT DEFAULT NULL', table: 'proposals' },
       // proposals: revision & audit
       { col: 'revisionNumber', type: 'INT DEFAULT 1', table: 'proposals' },
       { col: 'createdById', type: 'UUID DEFAULT NULL', table: 'proposals' },
@@ -773,7 +774,7 @@ export class ProposalsService implements OnModuleInit {
 
   async signProposal(
     token: string,
-    data: { name: string; document: string; ip?: string; userAgent?: string },
+    data: { name: string; document: string; ip?: string; userAgent?: string; signatureImage?: string },
   ): Promise<{ proposal: Proposal; verificationCode: string }> {
     const proposal = await this.proposalRepository.findOne({
       where: { signatureToken: token },
@@ -799,6 +800,11 @@ export class ProposalsService implements OnModuleInit {
     proposal.signedByUserAgent = data.userAgent || 'unknown';
     proposal.status = ProposalStatus.ACCEPTED;
     proposal.acceptedAt = new Date();
+
+    // Store the drawn/typed signature image if provided
+    if (data.signatureImage) {
+      proposal.signatureImageBase64 = data.signatureImage;
+    }
 
     await this.proposalRepository.save(proposal);
 

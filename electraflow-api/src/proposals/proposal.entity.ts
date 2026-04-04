@@ -288,6 +288,9 @@ export class Proposal {
   @Column({ nullable: true })
   signatureVerificationCode: string;   // Código de verificação (6 dígitos)
 
+  @Column({ type: 'text', nullable: true })
+  signatureImageBase64: string;        // Base64 PNG da assinatura desenhada/digitada pelo cliente
+
   // ═══════════════════════════════════════════════════════════════
   // Dados da Engenharia de Precificação (OeM)
   // JSON com snapshot: valorUsina, baseManutencao, geração, perdas, itens
