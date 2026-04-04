@@ -619,8 +619,8 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
                 <div className="sig-block" style={s.sigArea}>
                     <div style={s.sigBox}>
                         {signatures?.contratada?.imageUrl && (
-                            <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-                                <img src={signatures.contratada.imageUrl.startsWith('/') ? `${(window as any).__API_BASE_URL || ''}${signatures.contratada.imageUrl}` : signatures.contratada.imageUrl} alt="Assinatura" style={{ maxHeight: '60px', maxWidth: '200px', objectFit: 'contain' }} />
+                            <div style={{ textAlign: 'center', marginBottom: '-12px', position: 'relative', zIndex: 1 }}>
+                                <img src={signatures.contratada.imageUrl} alt="Assinatura" style={{ height: '55px', maxWidth: '220px', objectFit: 'contain', filter: 'contrast(1.3) brightness(0.9)' }} />
                             </div>
                         )}
                         <div style={s.sigLine}>{signatures?.contratada?.signerName || empresa.nome}</div>
@@ -629,8 +629,8 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
                     </div>
                     <div style={s.sigBox}>
                         {signatures?.contratante?.imageUrl && (
-                            <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-                                <img src={signatures.contratante.imageUrl.startsWith('/') ? `${(window as any).__API_BASE_URL || ''}${signatures.contratante.imageUrl}` : signatures.contratante.imageUrl} alt="Assinatura" style={{ maxHeight: '60px', maxWidth: '200px', objectFit: 'contain' }} />
+                            <div style={{ textAlign: 'center', marginBottom: '-12px', position: 'relative', zIndex: 1 }}>
+                                <img src={signatures.contratante.imageUrl} alt="Assinatura" style={{ height: '55px', maxWidth: '220px', objectFit: 'contain', filter: 'contrast(1.3) brightness(0.9)' }} />
                             </div>
                         )}
                         <div style={s.sigLine}>{signatures?.contratante?.signerName || clientName}</div>

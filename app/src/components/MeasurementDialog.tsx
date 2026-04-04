@@ -352,15 +352,26 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
         const periodStart = m.startDate ? new Date(m.startDate).toLocaleDateString('pt-BR') : '—';
         const periodEnd = m.endDate ? new Date(m.endDate).toLocaleDateString('pt-BR') : '—';
 
-        // Resolve signatures
-        const apiBase = (window as any).__API_BASE_URL || '';
+        // Resolve signatures — try API first, fallback to client-side defaults
         let sigs: any = {};
-        try { sigs = await api.resolveSignatures('measurement', m.id, ['contratada', 'contratante', 'testemunha']); } catch { /* fallback */ }
+        try {
+            sigs = await api.resolveSignatures('measurement', m.id, ['contratada', 'contratante', 'testemunha']);
+            if (!sigs || !Object.keys(sigs).some(k => sigs[k]?.imageUrl)) throw new Error('no images');
+        } catch {
+            try {
+                const allSlots = await api.getSignatureSlots();
+                const slots = Array.isArray(allSlots) ? allSlots : [];
+                const scopeMap: Record<string, string> = { contratada: 'company', contratante: 'client', testemunha: 'witness' };
+                for (const [pos, scope] of Object.entries(scopeMap)) {
+                    const def = slots.find((s: any) => s.scope === scope && s.isDefault);
+                    if (def) sigs[pos] = { imageUrl: def.imageUrl, signerName: def.signerName, signerRole: def.signerRole, signerDocument: def.signerDocument };
+                }
+            } catch { /* ignore */ }
+        }
         const sigImgHtml = (key: string) => {
             const sig = sigs[key];
             if (!sig?.imageUrl) return '';
-            const src = sig.imageUrl.startsWith('/') ? `${apiBase}${sig.imageUrl}` : sig.imageUrl;
-            return `<div style="text-align:center;margin-bottom:6px;"><img src="${src}" alt="Assinatura" style="max-height:55px;max-width:180px;object-fit:contain;"/></div>`;
+            return `<div style="text-align:center;margin-bottom:-8px;position:relative;z-index:1;"><img src="${sig.imageUrl}" alt="Assinatura" style="height:50px;max-width:180px;object-fit:contain;filter:contrast(1.3) brightness(0.9);"/></div>`;
         };
 
         let sectionNum = 1;

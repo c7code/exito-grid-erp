@@ -242,8 +242,35 @@ export default function AdminProposals() {
       try { coData = await api.getPrimaryCompany(); } catch {}
       setPreviewProposalData(freshProposal);
       setCompanyData(coData);
-      // Resolve signatures
-      try { const sigs = await api.resolveSignatures('proposal', proposal.id, ['contratada', 'contratante']); setResolvedSignatures(sigs); } catch { setResolvedSignatures(null); }
+      // Resolve signatures — try API first, fallback to client-side resolution
+      try {
+        const sigs = await api.resolveSignatures('proposal', proposal.id, ['contratada', 'contratante']);
+        if (sigs && Object.keys(sigs).some(k => sigs[k]?.imageUrl)) {
+          setResolvedSignatures(sigs);
+        } else {
+          throw new Error('No resolved signatures with images');
+        }
+      } catch {
+        // Fallback: load all slots and find defaults by scope
+        try {
+          const allSlots = await api.getSignatureSlots();
+          const slots = Array.isArray(allSlots) ? allSlots : [];
+          const scopeMap: Record<string, string> = { contratada: 'company', contratante: 'client', testemunha: 'witness' };
+          const fallback: Record<string, any> = {};
+          for (const [pos, scope] of Object.entries(scopeMap)) {
+            const defaultSlot = slots.find((s: any) => s.scope === scope && s.isDefault);
+            if (defaultSlot) {
+              fallback[pos] = {
+                imageUrl: defaultSlot.imageUrl,
+                signerName: defaultSlot.signerName,
+                signerRole: defaultSlot.signerRole,
+                signerDocument: defaultSlot.signerDocument,
+              };
+            }
+          }
+          setResolvedSignatures(Object.keys(fallback).length > 0 ? fallback : null);
+        } catch { setResolvedSignatures(null); }
+      }
       setPreviewDialogOpen(true);
     } catch (err) {
       console.warn('Preview failed, using local data:', err);
