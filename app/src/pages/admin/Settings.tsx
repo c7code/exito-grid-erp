@@ -181,16 +181,16 @@ export default function AdminSettings() {
 
   const handleSaveSignatureImage = async (croppedDataUrl: string) => {
     try {
-      const blob = await (await fetch(croppedDataUrl)).blob();
-      const file = new File([blob], 'signature.png', { type: 'image/png' });
       if (uploadingSlotId) {
-        // Uploading for a specific signature slot (no company needed)
-        await api.uploadSignatureImage(uploadingSlotId, file);
+        // Save base64 data URL directly via PUT (no multipart upload needed)
+        await api.updateSignatureSlot(uploadingSlotId, { imageUrl: croppedDataUrl });
         const slots = await api.getSignatureSlots();
         setSignatureSlots(Array.isArray(slots) ? slots : []);
         setUploadingSlotId(null);
         toast.success('Imagem de assinatura salva!');
       } else if (company) {
+        const blob = await (await fetch(croppedDataUrl)).blob();
+        const file = new File([blob], 'signature.png', { type: 'image/png' });
         const updated = await api.uploadCompanySignature(company.id, file);
         setCompany(updated);
         toast.success('Assinatura da empresa salva!');
