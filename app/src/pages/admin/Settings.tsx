@@ -387,11 +387,15 @@ export default function AdminSettings() {
                         </div>
 
                         {/* Image preview */}
-                        <div className="bg-gray-50 border rounded-lg p-3 min-h-[60px] flex items-center justify-center">
+                        <div
+                          className="border rounded-lg p-3 min-h-[60px] flex items-center justify-center cursor-pointer"
+                          style={{ background: imgSrc ? 'repeating-conic-gradient(#e5e5e5 0% 25%, transparent 0% 50%) 50% / 16px 16px' : '#f9fafb' }}
+                          onClick={() => { setUploadingSlotId(slot.id); setShowSignatureDialog(true); }}
+                        >
                           {imgSrc ? (
                             <img src={imgSrc} alt="Assinatura" className="max-h-[70px] max-w-full object-contain" />
                           ) : (
-                            <div className="text-center cursor-pointer" onClick={() => { setUploadingSlotId(slot.id); setShowSignatureDialog(true); }}>
+                            <div className="text-center">
                               <Upload className="w-5 h-5 text-slate-300 mx-auto" />
                               <p className="text-[10px] text-slate-400 mt-1">Enviar imagem</p>
                             </div>

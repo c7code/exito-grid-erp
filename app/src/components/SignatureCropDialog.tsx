@@ -145,6 +145,79 @@ export function SignatureCropDialog({
 
   const handleMouseUp = () => setIsDragging(false);
 
+  /**
+   * Remove white/light background from signature image, making it transparent.
+   * This makes scanned signatures look clean and professional.
+   */
+  const removeWhiteBackground = (sourceCanvas: HTMLCanvasElement): string => {
+    const w = sourceCanvas.width;
+    const h = sourceCanvas.height;
+    const ctx = sourceCanvas.getContext('2d');
+    if (!ctx) return sourceCanvas.toDataURL('image/png');
+
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const data = imageData.data;
+
+    // Threshold: pixels with R,G,B all above this value are considered "white/light"
+    const threshold = 200;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      // Calculate brightness
+      const brightness = (r + g + b) / 3;
+
+      if (brightness > threshold) {
+        // Make white/light pixels fully transparent
+        data[i + 3] = 0;
+      } else if (brightness > threshold - 40) {
+        // Smooth transition for near-white pixels (anti-aliasing)
+        const opacity = Math.round(255 * (1 - (brightness - (threshold - 40)) / 40));
+        data[i + 3] = Math.min(data[i + 3], opacity);
+      }
+      // Dark pixels (the actual signature) keep full opacity
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+
+    // Auto-trim transparent edges
+    let minX = w, minY = h, maxX = 0, maxY = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = (y * w + x) * 4;
+        if (data[idx + 3] > 10) { // non-transparent pixel
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    // Add small padding
+    const pad = 8;
+    minX = Math.max(0, minX - pad);
+    minY = Math.max(0, minY - pad);
+    maxX = Math.min(w - 1, maxX + pad);
+    maxY = Math.min(h - 1, maxY + pad);
+
+    const trimW = maxX - minX + 1;
+    const trimH = maxY - minY + 1;
+
+    if (trimW < 10 || trimH < 10) return sourceCanvas.toDataURL('image/png');
+
+    const trimCanvas = document.createElement('canvas');
+    trimCanvas.width = trimW;
+    trimCanvas.height = trimH;
+    const trimCtx = trimCanvas.getContext('2d');
+    if (!trimCtx) return sourceCanvas.toDataURL('image/png');
+    trimCtx.putImageData(ctx.getImageData(minX, minY, trimW, trimH), 0, 0);
+
+    return trimCanvas.toDataURL('image/png');
+  };
+
   // ── Generate cropped image ──
   const getCroppedImage = (): string | null => {
     const canvas = canvasRef.current;
@@ -168,7 +241,7 @@ export function SignatureCropDialog({
       ctx.translate(w / 2, h / 2);
       ctx.rotate((rotation * Math.PI) / 180);
       ctx.drawImage(image, -w / 2, -h / 2, w, h);
-      return tempCanvas.toDataURL('image/png');
+      return removeWhiteBackground(tempCanvas);
     }
 
     const x = Math.min(cropStart.x, cropEnd.x);
@@ -206,7 +279,7 @@ export function SignatureCropDialog({
     );
     ctx.restore();
 
-    return tempCanvas.toDataURL('image/png');
+    return removeWhiteBackground(tempCanvas);
   };
 
   // ── Save ──
