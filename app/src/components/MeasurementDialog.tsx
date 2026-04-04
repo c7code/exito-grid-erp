@@ -321,7 +321,7 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
     };
 
     /* ─── PDF Generation ────────────────────────────────────────────────────── */
-    const generatePDF = (m: any) => {
+    const generatePDF = async (m: any) => {
         const billingItems = m.directBillingItems ? JSON.parse(m.directBillingItems) : [];
         const mStages = m.stages ? JSON.parse(m.stages) : [];
         const cVal = Number(m.contractValue || 0);
@@ -351,6 +351,17 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
         const measNum = String(m.number).padStart(3, '0');
         const periodStart = m.startDate ? new Date(m.startDate).toLocaleDateString('pt-BR') : '—';
         const periodEnd = m.endDate ? new Date(m.endDate).toLocaleDateString('pt-BR') : '—';
+
+        // Resolve signatures
+        const apiBase = (window as any).__API_BASE_URL || '';
+        let sigs: any = {};
+        try { sigs = await api.resolveSignatures('measurement', m.id, ['contratada', 'contratante', 'testemunha']); } catch { /* fallback */ }
+        const sigImgHtml = (key: string) => {
+            const sig = sigs[key];
+            if (!sig?.imageUrl) return '';
+            const src = sig.imageUrl.startsWith('/') ? `${apiBase}${sig.imageUrl}` : sig.imageUrl;
+            return `<div style="text-align:center;margin-bottom:6px;"><img src="${src}" alt="Assinatura" style="max-height:55px;max-width:180px;object-fit:contain;"/></div>`;
+        };
 
         let sectionNum = 1;
 
@@ -499,9 +510,9 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
   <div class="clause">Declaramos que os serviços descritos neste boletim de medição foram executados conforme as especificações técnicas do contrato e que os valores apresentados correspondem ao trabalho efetivamente realizado no período indicado. Este documento é parte integrante do contrato firmado entre as partes.</div>
 
   <div class="signatures">
-    <div class="sig-block"><div class="sig-line">CONTRATANTE</div><div class="sig-detail">${clientName}</div><div class="sig-detail">${clientDoc}</div></div>
-    <div class="sig-block"><div class="sig-line">CONTRATADA</div><div class="sig-detail">Exito System</div></div>
-    <div class="sig-block"><div class="sig-line">TESTEMUNHA</div><div class="sig-detail">Nome / CPF</div></div>
+    <div class="sig-block">${sigImgHtml('contratante')}<div class="sig-line">CONTRATANTE</div><div class="sig-detail">${sigs.contratante?.signerName || clientName}</div><div class="sig-detail">${sigs.contratante?.signerDocument || clientDoc}</div></div>
+    <div class="sig-block">${sigImgHtml('contratada')}<div class="sig-line">CONTRATADA</div><div class="sig-detail">${sigs.contratada?.signerName || 'Exito Grid'}</div></div>
+    <div class="sig-block">${sigImgHtml('testemunha')}<div class="sig-line">TESTEMUNHA</div><div class="sig-detail">${sigs.testemunha?.signerName || 'Nome / CPF'}</div></div>
   </div>
 
   <div class="doc-footer">Documento gerado eletronicamente em ${measDate} pelo sistema Electraflow — Exito System<br/>Este documento não possui validade sem as devidas assinaturas das partes envolvidas.</div>

@@ -56,6 +56,7 @@ import NewProposalDialog from '@/components/NewProposalDialog';
 import { ProposalPDFTemplate } from '@/components/ProposalPDFTemplate';
 import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate';
 import { OeMProposalPDFTemplate } from '@/components/OeMProposalPDFTemplate';
+import { SignatureSelector } from '@/components/SignatureSelector';
 import html2pdf from 'html2pdf.js';
 import { Download, MessageCircle, Mail, ExternalLink } from 'lucide-react';
 
@@ -92,6 +93,7 @@ export default function AdminProposals() {
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewProposalData, setPreviewProposalData] = useState<any>(null);
   const [hideFinancialValues, setHideFinancialValues] = useState(false);
+  const [resolvedSignatures, setResolvedSignatures] = useState<any>(null);
 
   useEffect(() => {
     loadProposals();
@@ -240,6 +242,8 @@ export default function AdminProposals() {
       try { coData = await api.getPrimaryCompany(); } catch {}
       setPreviewProposalData(freshProposal);
       setCompanyData(coData);
+      // Resolve signatures
+      try { const sigs = await api.resolveSignatures('proposal', proposal.id, ['contratada', 'contratante']); setResolvedSignatures(sigs); } catch { setResolvedSignatures(null); }
       setPreviewDialogOpen(true);
     } catch (err) {
       console.warn('Preview failed, using local data:', err);
@@ -972,15 +976,31 @@ export default function AdminProposals() {
             </div>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto bg-slate-200/60 p-6">
+            {/* Signature Selector */}
+            {previewProposalData && (
+              <div className="mx-auto mb-4" style={{ maxWidth: 794 }}>
+                <SignatureSelector
+                  documentType="proposal"
+                  documentId={previewProposalData.id}
+                  slots={[
+                    { position: 'contratada', label: 'CONTRATADA (Empresa)' },
+                    { position: 'contratante', label: 'CONTRATANTE (Cliente)' },
+                  ]}
+                  onSignaturesLoaded={setResolvedSignatures}
+                  compact
+                />
+              </div>
+            )}
             <div className="mx-auto shadow-xl rounded-lg overflow-hidden" style={{ maxWidth: 794 }}>
               {previewProposalData && (
                 previewProposalData.activityType === 'plano_oem'
-                  ? <OeMProposalPDFTemplate proposal={previewProposalData} company={companyData} />
+                  ? <OeMProposalPDFTemplate proposal={previewProposalData} company={companyData} signatures={resolvedSignatures} />
                   : <ProposalPDFTemplate
                       proposal={previewProposalData}
                       client={previewProposalData.client || previewProposalData.opportunity?.client}
                       company={companyData}
                       hideFinancialValues={hideFinancialValues}
+                      signatures={resolvedSignatures}
                     />
               )}
             </div>
@@ -994,8 +1014,8 @@ export default function AdminProposals() {
           proposalToPrint.activityType === 'energia_solar' && solarProjectData
             ? <SolarProposalPDFTemplate proposal={proposalToPrint} solarProject={solarProjectData} company={companyData} />
             : proposalToPrint.activityType === 'plano_oem'
-              ? <OeMProposalPDFTemplate proposal={proposalToPrint} company={companyData} />
-              : <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} company={companyData} hideFinancialValues={hideFinancialValues} />
+              ? <OeMProposalPDFTemplate proposal={proposalToPrint} company={companyData} signatures={resolvedSignatures} />
+              : <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} company={companyData} hideFinancialValues={hideFinancialValues} signatures={resolvedSignatures} />
         )}
       </div>
     </div>

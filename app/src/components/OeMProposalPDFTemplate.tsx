@@ -4,6 +4,7 @@ import { EXITO_GRID_LOGO } from '@/assets/exito-grid-logo-base64';
 interface OeMProposalPDFTemplateProps {
     proposal: any;
     company?: any;
+    signatures?: Record<string, { imageUrl?: string; signerName?: string; signerRole?: string; signerDocument?: string }>;
 }
 
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -38,7 +39,7 @@ function renderStructuredText(text: string | undefined | null, baseStyle: React.
     );
 }
 
-export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemplateProps) {
+export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMProposalPDFTemplateProps) {
     const items = proposal.items || [];
     const co = company || {};
     const empresa = {
@@ -617,13 +618,23 @@ export function OeMProposalPDFTemplate({ proposal, company }: OeMProposalPDFTemp
 
                 <div className="sig-block" style={s.sigArea}>
                     <div style={s.sigBox}>
-                        <div style={s.sigLine}>{empresa.nome}</div>
+                        {signatures?.contratada?.imageUrl && (
+                            <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                                <img src={signatures.contratada.imageUrl.startsWith('/') ? `${(window as any).__API_BASE_URL || ''}${signatures.contratada.imageUrl}` : signatures.contratada.imageUrl} alt="Assinatura" style={{ maxHeight: '60px', maxWidth: '200px', objectFit: 'contain' }} />
+                            </div>
+                        )}
+                        <div style={s.sigLine}>{signatures?.contratada?.signerName || empresa.nome}</div>
                         <div style={s.sigSub}>CNPJ: {empresa.cnpj}</div>
                         <div style={{ ...s.sigSub, fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>CONTRATADA</div>
                     </div>
                     <div style={s.sigBox}>
-                        <div style={s.sigLine}>{clientName}</div>
-                        <div style={s.sigSub}>CPF/CNPJ: {clientDoc}</div>
+                        {signatures?.contratante?.imageUrl && (
+                            <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                                <img src={signatures.contratante.imageUrl.startsWith('/') ? `${(window as any).__API_BASE_URL || ''}${signatures.contratante.imageUrl}` : signatures.contratante.imageUrl} alt="Assinatura" style={{ maxHeight: '60px', maxWidth: '200px', objectFit: 'contain' }} />
+                            </div>
+                        )}
+                        <div style={s.sigLine}>{signatures?.contratante?.signerName || clientName}</div>
+                        <div style={s.sigSub}>CPF/CNPJ: {signatures?.contratante?.signerDocument || clientDoc}</div>
                         <div style={{ ...s.sigSub, fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>CONTRATANTE</div>
                     </div>
                 </div>
