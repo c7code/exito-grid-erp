@@ -309,14 +309,46 @@ export default function AdminProposals() {
           console.warn('Could not load company data:', err);
         }
       }
-      if (!coData) {
-        try {
-          coData = await api.getPrimaryCompany();
-          setCompanyData(coData);
-        } catch (err) {
-          console.warn('Could not load primary company:', err);
-        }
+    }
+
+    // Load company data for all proposal types (not just solar)
+    if (!coData) {
+      try {
+        coData = await api.getPrimaryCompany();
+        setCompanyData(coData);
+      } catch (err) {
+        console.warn('Could not load primary company:', err);
       }
+    }
+
+    // ═══ RESOLVE SIGNATURES for PDF — same logic as preview ═══
+    try {
+      const sigs = await api.resolveSignatures('proposal', freshProposal.id, ['contratada', 'contratante']);
+      if (sigs && Object.keys(sigs).some(k => sigs[k]?.imageUrl)) {
+        setResolvedSignatures(sigs);
+      } else {
+        throw new Error('No resolved signatures with images');
+      }
+    } catch {
+      // Fallback: load all slots and find defaults by scope
+      try {
+        const allSlots = await api.getSignatureSlots();
+        const slots = Array.isArray(allSlots) ? allSlots : [];
+        const scopeMap: Record<string, string> = { contratada: 'company', contratante: 'client', testemunha: 'witness' };
+        const fallback: Record<string, any> = {};
+        for (const [pos, scope] of Object.entries(scopeMap)) {
+          const defaultSlot = slots.find((s: any) => s.scope === scope && s.isDefault);
+          if (defaultSlot) {
+            fallback[pos] = {
+              imageUrl: defaultSlot.imageUrl,
+              signerName: defaultSlot.signerName,
+              signerRole: defaultSlot.signerRole,
+              signerDocument: defaultSlot.signerDocument,
+            };
+          }
+        }
+        setResolvedSignatures(Object.keys(fallback).length > 0 ? fallback : null);
+      } catch { setResolvedSignatures(null); }
     }
 
     setProposalToPrint(freshProposal);

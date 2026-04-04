@@ -219,10 +219,12 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
         bullet: { position: 'absolute' as const, left: 0, color: '#E8620A', fontWeight: '700' } as React.CSSProperties,
         complianceBox: { background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', padding: '16px 20px', margin: '14px 0' } as React.CSSProperties,
         complianceTitle: { fontSize: '10px', fontWeight: '700', color: '#166534', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' } as React.CSSProperties,
-        sigArea: { display: 'flex', justifyContent: 'space-between', gap: '60px', marginTop: '40px', paddingTop: '20px', breakInside: 'avoid' as const } as React.CSSProperties,
-        sigBox: { flex: 1, textAlign: 'center' as const } as React.CSSProperties,
-        sigLine: { borderTop: '1px solid #333', marginTop: '50px', paddingTop: '8px', fontSize: '9px', fontWeight: '600' } as React.CSSProperties,
-        sigSub: { fontSize: '8px', color: '#777' } as React.CSSProperties,
+        sigArea: { display: 'flex', justifyContent: 'space-between', gap: '40px', marginTop: '44px', paddingTop: '20px', breakInside: 'avoid' as const } as React.CSSProperties,
+        sigBox: { flex: 1, textAlign: 'center' as const, padding: '20px 16px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#fafafa' } as React.CSSProperties,
+        sigImgWrap: { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '70px', marginBottom: '8px', background: '#fff', borderRadius: '6px', padding: '8px 12px' } as React.CSSProperties,
+        sigLine: { borderTop: '2px solid #1a1a1a', paddingTop: '10px', fontSize: '10px', fontWeight: '700', color: '#1a1a1a', letterSpacing: '0.3px' } as React.CSSProperties,
+        sigSub: { fontSize: '8.5px', color: '#666', marginTop: '2px' } as React.CSSProperties,
+        sigRole: { fontSize: '7.5px', fontWeight: '700', color: '#E8620A', textTransform: 'uppercase' as const, letterSpacing: '2px', marginTop: '6px', padding: '3px 10px', background: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: '3px', display: 'inline-block' } as React.CSSProperties,
         footer: { background: '#1a1a1a', padding: '14px 36px', textAlign: 'center' as const, marginTop: '30px', breakInside: 'avoid' as const } as React.CSSProperties,
         footerText: { fontSize: '8px', color: '#888', letterSpacing: '1px' },
         verifyBox: { background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '6px', padding: '14px 20px', margin: '20px 0' } as React.CSSProperties,
@@ -1108,25 +1110,51 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                 </div>
 
                 <div className="sig-block" style={s.sigArea}>
+                    {/* CONTRATADA */}
                     <div style={s.sigBox}>
-                        {signatures?.contratada?.imageUrl && (
-                            <div style={{ textAlign: 'center', marginBottom: '-12px', position: 'relative', zIndex: 1 }}>
-                                <img src={signatures.contratada.imageUrl} alt="Assinatura" style={{ height: '55px', maxWidth: '220px', objectFit: 'contain', filter: 'contrast(1.3) brightness(0.9)' }} />
-                            </div>
-                        )}
+                        <div style={s.sigImgWrap}>
+                            {signatures?.contratada?.imageUrl ? (
+                                <img
+                                    src={signatures.contratada.imageUrl}
+                                    alt="Assinatura Contratada"
+                                    style={{
+                                        height: '65px',
+                                        maxWidth: '240px',
+                                        objectFit: 'contain',
+                                        mixBlendMode: 'multiply',
+                                        filter: 'contrast(1.6) brightness(1.15) grayscale(0.3)',
+                                    }}
+                                />
+                            ) : (
+                                <div style={{ width: '180px', borderBottom: '1px dashed #ccc', height: '65px' }} />
+                            )}
+                        </div>
                         <div style={s.sigLine}>{signatures?.contratada?.signerName || empresa.nome}</div>
                         <div style={s.sigSub}>CNPJ: {empresa.cnpj}</div>
-                        <div style={{ ...s.sigSub, fontWeight: 600 }}>CONTRATADA</div>
+                        <div style={s.sigRole}>CONTRATADA</div>
                     </div>
+                    {/* CONTRATANTE */}
                     <div style={s.sigBox}>
-                        {signatures?.contratante?.imageUrl && (
-                            <div style={{ textAlign: 'center', marginBottom: '-12px', position: 'relative', zIndex: 1 }}>
-                                <img src={signatures.contratante.imageUrl} alt="Assinatura" style={{ height: '55px', maxWidth: '220px', objectFit: 'contain', filter: 'contrast(1.3) brightness(0.9)' }} />
-                            </div>
-                        )}
+                        <div style={s.sigImgWrap}>
+                            {signatures?.contratante?.imageUrl ? (
+                                <img
+                                    src={signatures.contratante.imageUrl}
+                                    alt="Assinatura Contratante"
+                                    style={{
+                                        height: '65px',
+                                        maxWidth: '240px',
+                                        objectFit: 'contain',
+                                        mixBlendMode: 'multiply',
+                                        filter: 'contrast(1.6) brightness(1.15) grayscale(0.3)',
+                                    }}
+                                />
+                            ) : (
+                                <div style={{ width: '180px', borderBottom: '1px dashed #ccc', height: '65px' }} />
+                            )}
+                        </div>
                         <div style={s.sigLine}>{signatures?.contratante?.signerName || clientName}</div>
                         <div style={s.sigSub}>CPF/CNPJ: {signatures?.contratante?.signerDocument || clientDoc}</div>
-                        <div style={{ ...s.sigSub, fontWeight: 600 }}>CONTRATANTE</div>
+                        <div style={s.sigRole}>CONTRATANTE</div>
                     </div>
                 </div>
             </div>

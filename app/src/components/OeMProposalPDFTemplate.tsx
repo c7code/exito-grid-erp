@@ -129,10 +129,12 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
         // General provisions
         provisionBox: { background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '10px', padding: '18px 22px', margin: '10px 0' } as React.CSSProperties,
         // Signature
-        sigArea: { display: 'flex', justifyContent: 'space-between', gap: '60px', marginTop: '40px', paddingTop: '20px', breakInside: 'avoid' as const } as React.CSSProperties,
-        sigBox: { flex: 1, textAlign: 'center' as const } as React.CSSProperties,
-        sigLine: { borderTop: '1.5px solid #1e293b', marginTop: '50px', paddingTop: '10px', fontSize: '9px', fontWeight: 700, color: '#0f172a' } as React.CSSProperties,
-        sigSub: { fontSize: '8px', color: '#64748b', marginTop: '2px' } as React.CSSProperties,
+        sigArea: { display: 'flex', justifyContent: 'space-between', gap: '40px', marginTop: '44px', paddingTop: '20px', breakInside: 'avoid' as const } as React.CSSProperties,
+        sigBox: { flex: 1, textAlign: 'center' as const, padding: '20px 16px 16px', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#f8fafc' } as React.CSSProperties,
+        sigImgWrap: { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '70px', marginBottom: '8px', background: '#fff', borderRadius: '8px', padding: '8px 12px' } as React.CSSProperties,
+        sigLine: { borderTop: '2px solid #0f172a', paddingTop: '10px', fontSize: '10px', fontWeight: 700, color: '#0f172a', letterSpacing: '0.3px' } as React.CSSProperties,
+        sigSub: { fontSize: '8.5px', color: '#64748b', marginTop: '2px' } as React.CSSProperties,
+        sigRole: { fontSize: '7.5px', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase' as const, letterSpacing: '2px', marginTop: '6px', padding: '3px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', display: 'inline-block' } as React.CSSProperties,
         footer: { background: '#0f172a', padding: '18px 44px', textAlign: 'center' as const, marginTop: '30px', breakInside: 'avoid' as const } as React.CSSProperties,
         footerText: { fontSize: '8px', color: '#64748b', letterSpacing: '1px' } as React.CSSProperties,
     };
@@ -617,25 +619,51 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
                 </div>
 
                 <div className="sig-block" style={s.sigArea}>
+                    {/* CONTRATADA */}
                     <div style={s.sigBox}>
-                        {signatures?.contratada?.imageUrl && (
-                            <div style={{ textAlign: 'center', marginBottom: '-12px', position: 'relative', zIndex: 1 }}>
-                                <img src={signatures.contratada.imageUrl} alt="Assinatura" style={{ height: '55px', maxWidth: '220px', objectFit: 'contain', filter: 'contrast(1.3) brightness(0.9)' }} />
-                            </div>
-                        )}
+                        <div style={s.sigImgWrap}>
+                            {signatures?.contratada?.imageUrl ? (
+                                <img
+                                    src={signatures.contratada.imageUrl}
+                                    alt="Assinatura Contratada"
+                                    style={{
+                                        height: '65px',
+                                        maxWidth: '240px',
+                                        objectFit: 'contain',
+                                        mixBlendMode: 'multiply',
+                                        filter: 'contrast(1.6) brightness(1.15) grayscale(0.3)',
+                                    }}
+                                />
+                            ) : (
+                                <div style={{ width: '180px', borderBottom: '1px dashed #cbd5e1', height: '65px' }} />
+                            )}
+                        </div>
                         <div style={s.sigLine}>{signatures?.contratada?.signerName || empresa.nome}</div>
                         <div style={s.sigSub}>CNPJ: {empresa.cnpj}</div>
-                        <div style={{ ...s.sigSub, fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>CONTRATADA</div>
+                        <div style={s.sigRole}>CONTRATADA</div>
                     </div>
+                    {/* CONTRATANTE */}
                     <div style={s.sigBox}>
-                        {signatures?.contratante?.imageUrl && (
-                            <div style={{ textAlign: 'center', marginBottom: '-12px', position: 'relative', zIndex: 1 }}>
-                                <img src={signatures.contratante.imageUrl} alt="Assinatura" style={{ height: '55px', maxWidth: '220px', objectFit: 'contain', filter: 'contrast(1.3) brightness(0.9)' }} />
-                            </div>
-                        )}
+                        <div style={s.sigImgWrap}>
+                            {signatures?.contratante?.imageUrl ? (
+                                <img
+                                    src={signatures.contratante.imageUrl}
+                                    alt="Assinatura Contratante"
+                                    style={{
+                                        height: '65px',
+                                        maxWidth: '240px',
+                                        objectFit: 'contain',
+                                        mixBlendMode: 'multiply',
+                                        filter: 'contrast(1.6) brightness(1.15) grayscale(0.3)',
+                                    }}
+                                />
+                            ) : (
+                                <div style={{ width: '180px', borderBottom: '1px dashed #cbd5e1', height: '65px' }} />
+                            )}
+                        </div>
                         <div style={s.sigLine}>{signatures?.contratante?.signerName || clientName}</div>
                         <div style={s.sigSub}>CPF/CNPJ: {signatures?.contratante?.signerDocument || clientDoc}</div>
-                        <div style={{ ...s.sigSub, fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>CONTRATANTE</div>
+                        <div style={s.sigRole}>CONTRATANTE</div>
                     </div>
                 </div>
             </div>
