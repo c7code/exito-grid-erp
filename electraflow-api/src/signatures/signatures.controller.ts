@@ -3,17 +3,7 @@ import {
   UploadedFile, UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
 import { SignaturesService } from './signatures.service';
-
-const signatureStorage = diskStorage({
-  destination: './uploads/signatures',
-  filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e6);
-    cb(null, `sig-${unique}${extname(file.originalname)}`);
-  },
-});
 
 @Controller('signatures')
 export class SignaturesController {
@@ -66,10 +56,17 @@ export class SignaturesController {
     return this.service.createSlot(data);
   }
 
+  /**
+   * Upload signature image — stores as base64 data URL in database.
+   * This avoids filesystem dependency (Railway ephemeral containers).
+   */
   @Post(':id/upload')
-  @UseInterceptors(FileInterceptor('file', { storage: signatureStorage }))
+  @UseInterceptors(FileInterceptor('file'))
   async uploadImage(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
-    const imageUrl = `/uploads/signatures/${file.filename}`;
+    // Convert buffer to base64 data URL
+    const mimeType = file.mimetype || 'image/png';
+    const base64 = file.buffer.toString('base64');
+    const imageUrl = `data:${mimeType};base64,${base64}`;
     return this.service.updateSlot(id, { imageUrl });
   }
 

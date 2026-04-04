@@ -27,8 +27,8 @@ export class SignatureSlot {
   @Column({ nullable: true })
   signerDocument: string;                 // CPF/CNPJ do signatário
 
-  @Column({ nullable: true })
-  imageUrl: string;                       // Path/URL da imagem escaneada
+  @Column({ type: 'text', nullable: true })
+  imageUrl: string;                       // Base64 data URL da imagem escaneada
 
   @Column({ default: 'company' })
   scope: string;                          // 'company' | 'client' | 'employee' | 'witness'
