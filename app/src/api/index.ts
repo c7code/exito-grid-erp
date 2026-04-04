@@ -2497,6 +2497,52 @@ class ApiService {
     fd.append('file', file);
     return (await this.client.post(`/solar-reports/${id}/parse-bill`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
   }
+
+  // ═══ SIGNATURES (Biblioteca centralizada) ═══════════════════════════════════
+
+  async getSignatureSlots(scope?: string) {
+    const params = scope ? { scope } : {};
+    return (await this.client.get('/signatures', { params })).data;
+  }
+
+  async getSignatureSlot(id: string) {
+    return (await this.client.get(`/signatures/${id}`)).data;
+  }
+
+  async createSignatureSlot(data: any) {
+    return (await this.client.post('/signatures', data)).data;
+  }
+
+  async updateSignatureSlot(id: string, data: any) {
+    return (await this.client.put(`/signatures/${id}`, data)).data;
+  }
+
+  async deleteSignatureSlot(id: string) {
+    return (await this.client.delete(`/signatures/${id}`)).data;
+  }
+
+  async uploadSignatureImage(id: string, file: File) {
+    const fd = new FormData();
+    fd.append('file', file);
+    return (await this.client.post(`/signatures/${id}/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
+  }
+
+  async getDocumentSignatures(documentType: string, documentId: string) {
+    return (await this.client.get(`/signatures/document/${documentType}/${documentId}`)).data;
+  }
+
+  async setDocumentSignature(data: { documentType: string; documentId: string; slotPosition: string; signatureSlotId: string; overrideSignerName?: string; overrideSignerRole?: string }) {
+    return (await this.client.post('/signatures/document/bind', data)).data;
+  }
+
+  async removeDocumentSignature(id: string) {
+    return (await this.client.delete(`/signatures/document/${id}`)).data;
+  }
+
+  async resolveSignatures(documentType: string, documentId: string, slots?: string[]) {
+    const params = slots ? { slots: slots.join(',') } : {};
+    return (await this.client.get(`/signatures/resolve/${documentType}/${documentId}`, { params })).data;
+  }
 }
 
 export const api = new ApiService();

@@ -152,49 +152,97 @@ export default function AdminSettings() {
   const [company, setCompany] = useState<any>(null);
   const [sigLoaded, setSigLoaded] = useState(false);
   const [showSignatureDialog, setShowSignatureDialog] = useState(false);
-  const [signerName, setSignerName] = useState('');
-  const [signerRole, setSignerRole] = useState('');
-  const [savingSig, setSavingSig] = useState(false);
+
+  // Multi-signature state
+  const [signatureSlots, setSignatureSlots] = useState<any[]>([]);
+  const [loadingSigs, setLoadingSigs] = useState(false);
+  const [showSlotDialog, setShowSlotDialog] = useState(false);
+  const [editingSlot, setEditingSlot] = useState<any>(null);
+  const [slotForm, setSlotForm] = useState({ label: '', signerName: '', signerRole: '', signerDocument: '', scope: 'company', isDefault: false });
+  const [uploadingSlotId, setUploadingSlotId] = useState<string | null>(null);
 
   const loadSignatureConfig = async () => {
     if (sigLoaded) return;
+    setLoadingSigs(true);
     try {
       const c = await api.getPrimaryCompany();
       if (c) {
         setCompany(c);
-        setSignerName(c.signatureSignerName || '');
-        setSignerRole(c.signatureSignerRole || '');
       }
+      const slots = await api.getSignatureSlots();
+      setSignatureSlots(Array.isArray(slots) ? slots : []);
       setSigLoaded(true);
     } catch { /* ignore */ }
+    setLoadingSigs(false);
   };
 
-  const handleSaveSignatureInfo = async () => {
-    if (!company) return;
-    setSavingSig(true);
-    try {
-      const updated = await api.updateCompany(company.id, {
-        signatureSignerName: signerName,
-        signatureSignerRole: signerRole,
-      });
-      setCompany(updated);
-      toast.success('Dados do responsável salvos!');
-    } catch { toast.error('Erro ao salvar'); }
-    setSavingSig(false);
-  };
+
 
   const handleSaveSignatureImage = async (croppedDataUrl: string) => {
     if (!company) return;
     const blob = await (await fetch(croppedDataUrl)).blob();
     const file = new File([blob], 'signature.png', { type: 'image/png' });
-    const updated = await api.uploadCompanySignature(company.id, file);
-    setCompany(updated);
+    if (uploadingSlotId) {
+      // Uploading for a specific slot
+      await api.uploadSignatureImage(uploadingSlotId, file);
+      const slots = await api.getSignatureSlots();
+      setSignatureSlots(Array.isArray(slots) ? slots : []);
+      setUploadingSlotId(null);
+      toast.success('Imagem de assinatura atualizada!');
+    } else {
+      const updated = await api.uploadCompanySignature(company.id, file);
+      setCompany(updated);
+    }
   };
 
   const handleRemoveSignature = async () => {
     if (!company) return;
     const updated = await api.updateCompany(company.id, { signatureImageUrl: null });
     setCompany(updated);
+  };
+
+  const openNewSlot = () => {
+    setEditingSlot(null);
+    setSlotForm({ label: '', signerName: '', signerRole: '', signerDocument: '', scope: 'company', isDefault: false });
+    setShowSlotDialog(true);
+  };
+
+  const openEditSlot = (s: any) => {
+    setEditingSlot(s);
+    setSlotForm({ label: s.label, signerName: s.signerName || '', signerRole: s.signerRole || '', signerDocument: s.signerDocument || '', scope: s.scope, isDefault: s.isDefault });
+    setShowSlotDialog(true);
+  };
+
+  const handleSaveSlot = async () => {
+    if (!slotForm.label) { toast.error('Nome é obrigatório'); return; }
+    try {
+      if (editingSlot) {
+        await api.updateSignatureSlot(editingSlot.id, slotForm);
+        toast.success('Assinatura atualizada!');
+      } else {
+        await api.createSignatureSlot(slotForm);
+        toast.success('Assinatura criada!');
+      }
+      setShowSlotDialog(false);
+      const slots = await api.getSignatureSlots();
+      setSignatureSlots(Array.isArray(slots) ? slots : []);
+    } catch { toast.error('Erro ao salvar'); }
+  };
+
+  const handleDeleteSlot = async (id: string) => {
+    if (!confirm('Remover esta assinatura?')) return;
+    try {
+      await api.deleteSignatureSlot(id);
+      setSignatureSlots(prev => prev.filter(s => s.id !== id));
+      toast.success('Assinatura removida');
+    } catch { toast.error('Erro ao remover'); }
+  };
+
+  const scopeLabelsMap: Record<string, { label: string; color: string }> = {
+    company: { label: 'Empresa', color: 'bg-blue-100 text-blue-700' },
+    client: { label: 'Cliente', color: 'bg-green-100 text-green-700' },
+    employee: { label: 'Funcionário', color: 'bg-purple-100 text-purple-700' },
+    witness: { label: 'Testemunha', color: 'bg-amber-100 text-amber-700' },
   };
 
   return (
@@ -288,97 +336,143 @@ export default function AdminSettings() {
 
         {/* ═══ ASSINATURAS TAB ═══ */}
         <TabsContent value="signatures" className="space-y-6">
+          {/* Biblioteca de Assinaturas */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Pen className="w-5 h-5" />
-                Assinatura da Empresa
-              </CardTitle>
-              <CardDescription>
-                Configure a assinatura que aparecerá em todos os documentos (propostas, contratos, medições, recibos, OS)
-              </CardDescription>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><Pen className="w-5 h-5" /> Biblioteca de Assinaturas</CardTitle>
+                  <CardDescription>Cadastre assinaturas reutilizáveis para todos os documentos impressos do sistema</CardDescription>
+                </div>
+                <Button onClick={openNewSlot} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm">
+                  <Plus className="w-4 h-4 mr-1" /> Nova Assinatura
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Current signature preview */}
-              <div className="border rounded-lg p-4 bg-gray-50">
-                <p className="text-xs text-gray-500 mb-3 font-medium uppercase tracking-wide">Assinatura Atual</p>
-                {company?.signatureImageUrl ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="bg-white border rounded-lg p-4 min-h-[80px] flex items-center justify-center w-full max-w-md">
-                      <img
-                        src={company.signatureImageUrl.startsWith('/') ? `${(window as any).__API_BASE_URL || ''}${company.signatureImageUrl}` : company.signatureImageUrl}
-                        alt="Assinatura"
-                        className="max-h-[100px] max-w-full object-contain"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setShowSignatureDialog(true)}>
-                        <Upload className="w-4 h-4 mr-1" /> Trocar
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={handleRemoveSignature}>
-                        <Trash2 className="w-4 h-4 mr-1" /> Remover
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="bg-white border-2 border-dashed border-orange-300 rounded-lg p-6 flex flex-col items-center gap-2 w-full max-w-md cursor-pointer hover:bg-orange-50 transition-colors"
-                      onClick={() => setShowSignatureDialog(true)}
-                    >
-                      <Upload className="w-8 h-8 text-orange-400" />
-                      <p className="text-sm text-gray-600">Clique para enviar sua assinatura escaneada</p>
-                      <p className="text-xs text-gray-400">PNG, JPG — será recortada e ajustada automaticamente</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Signer info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Nome do Responsável</Label>
-                  <Input
-                    value={signerName}
-                    onChange={e => setSignerName(e.target.value)}
-                    placeholder="Ex: João da Silva"
-                    className="mt-1"
-                  />
+            <CardContent>
+              {loadingSigs ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-amber-500 mr-2" /> Carregando...</div>
+              ) : signatureSlots.length === 0 ? (
+                <div className="text-center py-8">
+                  <Pen className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-sm text-slate-500 mb-2">Nenhuma assinatura cadastrada</p>
+                  <p className="text-xs text-slate-400 mb-4">Clique em "Nova Assinatura" para começar. Você pode cadastrar assinaturas da empresa, clientes, funcionários e testemunhas.</p>
+                  <Button onClick={openNewSlot} variant="outline" size="sm"><Plus className="w-4 h-4 mr-1" /> Cadastrar Primeira Assinatura</Button>
                 </div>
-                <div>
-                  <Label className="text-sm font-medium">Cargo</Label>
-                  <Input
-                    value={signerRole}
-                    onChange={e => setSignerRole(e.target.value)}
-                    placeholder="Ex: Diretor Técnico / Engenheiro Responsável"
-                    className="mt-1"
-                  />
-                </div>
-              </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {signatureSlots.map((slot: any) => {
+                    const scopeInfo = scopeLabelsMap[slot.scope] || { label: slot.scope, color: 'bg-gray-100 text-gray-700' };
+                    const imgSrc = slot.imageUrl ? (slot.imageUrl.startsWith('/') ? `${(window as any).__API_BASE_URL || ''}${slot.imageUrl}` : slot.imageUrl) : null;
+                    return (
+                      <div key={slot.id} className="border rounded-xl p-4 bg-white hover:shadow-md transition-shadow space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-semibold text-sm text-slate-800">{slot.label}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge className={`text-[10px] ${scopeInfo.color}`}>{scopeInfo.label}</Badge>
+                              {slot.isDefault && <Badge className="text-[10px] bg-amber-100 text-amber-700">⭐ Padrão</Badge>}
+                            </div>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSlot(slot)}><Edit className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => handleDeleteSlot(slot.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                          </div>
+                        </div>
 
-              <Button onClick={handleSaveSignatureInfo} disabled={savingSig} className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900">
-                {savingSig ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Salvando...</> : <><Save className="w-4 h-4 mr-2" /> Salvar Dados do Responsável</>}
-              </Button>
+                        {/* Image preview */}
+                        <div className="bg-gray-50 border rounded-lg p-3 min-h-[60px] flex items-center justify-center">
+                          {imgSrc ? (
+                            <img src={imgSrc} alt="Assinatura" className="max-h-[70px] max-w-full object-contain" />
+                          ) : (
+                            <div className="text-center cursor-pointer" onClick={() => { setUploadingSlotId(slot.id); setShowSignatureDialog(true); }}>
+                              <Upload className="w-5 h-5 text-slate-300 mx-auto" />
+                              <p className="text-[10px] text-slate-400 mt-1">Enviar imagem</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Signer info */}
+                        <div className="space-y-1 text-xs text-slate-500">
+                          {slot.signerName && <p>👤 {slot.signerName}</p>}
+                          {slot.signerRole && <p>💼 {slot.signerRole}</p>}
+                          {slot.signerDocument && <p>📋 {slot.signerDocument}</p>}
+                        </div>
+
+                        {/* Upload button if has image already */}
+                        {imgSrc && (
+                          <Button variant="outline" size="sm" className="w-full text-xs h-7" onClick={() => { setUploadingSlotId(slot.id); setShowSignatureDialog(true); }}>
+                            <Upload className="w-3 h-3 mr-1" /> Trocar Imagem
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
+          {/* Explainer */}
           <Card>
             <CardHeader>
               <CardTitle>Como funciona?</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-slate-600">
-              <div className="flex gap-3 items-start"><span className="text-lg">✍️</span><div><p className="font-medium text-slate-800">Assinatura da Empresa</p><p>Faça sua assinatura no papel, escaneie e envie aqui. Use o recorte para ajustar a área.</p></div></div>
-              <div className="flex gap-3 items-start"><span className="text-lg">📄</span><div><p className="font-medium text-slate-800">Documentos</p><p>A assinatura aparecerá automaticamente em: Propostas, Contratos, Medições, Recibos, OS — onde houver campo de assinatura.</p></div></div>
-              <div className="flex gap-3 items-start"><span className="text-lg">👤</span><div><p className="font-medium text-slate-800">Clientes</p><p>A assinatura do cliente pode ser configurada no cadastro de cada cliente (módulo Clientes).</p></div></div>
+              <div className="flex gap-3 items-start"><span className="text-lg">🏢</span><div><p className="font-medium text-slate-800">Assinatura da Empresa</p><p>Cadastre a assinatura do diretor/responsável legal. Será usada como CONTRATADA em propostas, medições e contratos.</p></div></div>
+              <div className="flex gap-3 items-start"><span className="text-lg">👷</span><div><p className="font-medium text-slate-800">Assinatura de Funcionário</p><p>Para engenheiros e técnicos. Cada obra pode ter um responsável diferente — selecione na hora de gerar o documento.</p></div></div>
+              <div className="flex gap-3 items-start"><span className="text-lg">🏗️</span><div><p className="font-medium text-slate-800">Assinatura de Cliente</p><p>Clientes corporativos como MRV podem ter vários engenheiros responsáveis. Cadastre cada um e vincule por documento.</p></div></div>
+              <div className="flex gap-3 items-start"><span className="text-lg">✍️</span><div><p className="font-medium text-slate-800">Testemunha</p><p>Pré-cadastre testemunhas que assinam frequentemente. Selecione por documento conforme necessário.</p></div></div>
             </CardContent>
           </Card>
 
+          {/* Dialog: Nova/Editar Assinatura */}
+          <Dialog open={showSlotDialog} onOpenChange={setShowSlotDialog}>
+            <DialogContent className="max-w-lg w-[95vw] md:w-auto">
+              <DialogHeader>
+                <DialogTitle>{editingSlot ? 'Editar Assinatura' : 'Nova Assinatura'}</DialogTitle>
+                <DialogDescription>Cadastre os dados do signatário e envie a imagem da assinatura</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div><Label>Nome da Assinatura *</Label><Input value={slotForm.label} onChange={e => setSlotForm(p => ({ ...p, label: e.target.value }))} placeholder="Ex: Diretor Técnico, Eng. Marcos (MRV)" /></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><Label>Nome do Signatário</Label><Input value={slotForm.signerName} onChange={e => setSlotForm(p => ({ ...p, signerName: e.target.value }))} placeholder="João da Silva" /></div>
+                  <div><Label>Cargo</Label><Input value={slotForm.signerRole} onChange={e => setSlotForm(p => ({ ...p, signerRole: e.target.value }))} placeholder="Diretor Técnico" /></div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><Label>CPF/CNPJ</Label><Input value={slotForm.signerDocument} onChange={e => setSlotForm(p => ({ ...p, signerDocument: e.target.value }))} placeholder="000.000.000-00" /></div>
+                  <div>
+                    <Label>Tipo</Label>
+                    <Select value={slotForm.scope} onValueChange={v => setSlotForm(p => ({ ...p, scope: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="company">🏢 Empresa</SelectItem>
+                        <SelectItem value="employee">👷 Funcionário</SelectItem>
+                        <SelectItem value="client">🏗️ Cliente</SelectItem>
+                        <SelectItem value="witness">✍️ Testemunha</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={slotForm.isDefault} onCheckedChange={v => setSlotForm(p => ({ ...p, isDefault: v }))} />
+                  <Label className="text-sm">Assinatura padrão para este tipo (usada como fallback automático)</Label>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowSlotDialog(false)}>Cancelar</Button>
+                <Button onClick={handleSaveSlot} className="bg-amber-500 hover:bg-amber-600 text-slate-900">{editingSlot ? 'Salvar' : 'Criar'}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <SignatureCropDialog
             open={showSignatureDialog}
-            onOpenChange={setShowSignatureDialog}
-            currentSignatureUrl={company?.signatureImageUrl}
+            onOpenChange={(v) => { setShowSignatureDialog(v); if (!v) setUploadingSlotId(null); }}
+            currentSignatureUrl={uploadingSlotId ? signatureSlots.find((s: any) => s.id === uploadingSlotId)?.imageUrl : company?.signatureImageUrl}
             onSave={handleSaveSignatureImage}
             onRemove={handleRemoveSignature}
-            title="Assinatura da Empresa"
+            title={uploadingSlotId ? 'Imagem da Assinatura' : 'Assinatura da Empresa'}
           />
         </TabsContent>
 
