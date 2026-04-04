@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
 import { Loader2, Pen, Check } from 'lucide-react';
 import { api } from '@/api';
 import { toast } from 'sonner';
