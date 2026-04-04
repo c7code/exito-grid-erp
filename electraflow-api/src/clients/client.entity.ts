@@ -30,7 +30,10 @@ export class Client {
   name: string;
 
   @Column({ nullable: true })
-  companyName: string;
+  companyName: string;            // Razão Social
+
+  @Column({ nullable: true })
+  tradeName: string;              // Nome Fantasia
 
   @Column({ unique: true, nullable: true })
   document: string;

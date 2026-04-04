@@ -21,6 +21,14 @@ import { parsePrice } from '@/lib/parsePrice';
 const fmt = (v: number) =>
     v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const fmtDoc = (doc: string) => {
+    if (!doc) return '—';
+    const d = doc.replace(/\D/g, '');
+    if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+    return doc;
+};
+
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 interface DirectBillingItem {
     supplier: string; cnpj: string; material: string;
@@ -329,11 +337,13 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
         const remainVal = base - (accPct / 100 * base);
 
         const workTitle = m.work?.title || work?.title || 'Obra';
-        const clientName = m.work?.client?.name || work?.client?.name || '—';
-        const clientDoc = m.work?.client?.cpfCnpj || work?.client?.cpfCnpj || '';
-        const clientPhone = m.work?.client?.phone || work?.client?.phone || '';
-        const clientEmail = m.work?.client?.email || work?.client?.email || '';
-        const clientAddress = [m.work?.client?.address || work?.client?.address, m.work?.client?.city || work?.client?.city, m.work?.client?.state || work?.client?.state].filter(Boolean).join(', ') || '—';
+        const client = m.work?.client || work?.client || {};
+        const clientName = client.tradeName || client.companyName || client.name || '—';
+        const clientRazaoSocial = client.companyName || client.name || '';
+        const clientDoc = client.document || client.cpfCnpj || '';
+        const clientPhone = client.phone || client.whatsapp || '';
+        const clientEmail = client.email || '';
+        const clientAddress = [client.address, client.number, client.neighborhood, client.city, client.state].filter(Boolean).join(', ') || '—';
         const workCode = m.work?.code || work?.code || '';
         const workAddress = [work?.address, work?.city, work?.state].filter(Boolean).join(', ') || '—';
         const workType = work?.type || '';
@@ -415,7 +425,8 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
   <div class="section">
     <div class="section-title">${sectionNum++}. Identificação do Contratante</div>
     <table class="info-table">
-      <tr><td class="label">Contratante:</td><td><strong>${clientName}</strong></td><td class="label">CPF/CNPJ:</td><td>${clientDoc || '—'}</td></tr>
+      <tr><td class="label">Contratante:</td><td><strong>${clientName}</strong></td><td class="label">CPF/CNPJ:</td><td><strong>${fmtDoc(clientDoc)}</strong></td></tr>
+      ${clientRazaoSocial && clientRazaoSocial !== clientName ? `<tr><td class="label">Razão Social:</td><td colspan="3">${clientRazaoSocial}</td></tr>` : ''}
       <tr><td class="label">Endereço:</td><td>${clientAddress}</td><td class="label">Contato:</td><td>${clientPhone || clientEmail || '—'}</td></tr>
     </table>
   </div>
