@@ -58,7 +58,7 @@ import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate'
 import { OeMProposalPDFTemplate } from '@/components/OeMProposalPDFTemplate';
 import { SignatureSelector } from '@/components/SignatureSelector';
 import html2pdf from 'html2pdf.js';
-import { Download, MessageCircle, Mail, ExternalLink } from 'lucide-react';
+import { Download, MessageCircle, Mail, ExternalLink, Copy, Link2 } from 'lucide-react';
 
 const statusLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: any }> = {
   draft: { label: 'Rascunho', variant: 'outline', icon: FileText },
@@ -94,6 +94,10 @@ export default function AdminProposals() {
   const [previewProposalData, setPreviewProposalData] = useState<any>(null);
   const [hideFinancialValues, setHideFinancialValues] = useState(false);
   const [resolvedSignatures, setResolvedSignatures] = useState<any>(null);
+
+  // Signature link state
+  const [signatureLinkDialogOpen, setSignatureLinkDialogOpen] = useState(false);
+  const [signatureLink, setSignatureLink] = useState('');
 
   useEffect(() => {
     loadProposals();
@@ -463,6 +467,18 @@ export default function AdminProposals() {
     window.location.href = `mailto:${proposal.client?.email}?subject=${subject}&body=${body}`;
   };
 
+  const handleGenerateSignatureLink = async (proposal: any) => {
+    try {
+      const result = await api.generateSignatureLink(proposal.id);
+      const fullUrl = `${window.location.origin}${result.url}`;
+      setSignatureLink(fullUrl);
+      setSignatureLinkDialogOpen(true);
+      toast.success('Link de assinatura gerado com sucesso!');
+    } catch {
+      toast.error('Erro ao gerar link de assinatura');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -689,6 +705,11 @@ export default function AdminProposals() {
                               <DropdownMenuItem onClick={() => handleShareEmail(proposal)}>
                                 <Mail className="w-4 h-4 mr-2" />
                                 Email
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleGenerateSignatureLink(proposal)}>
+                                <Link2 className="w-4 h-4 mr-2 text-emerald-600" />
+                                Enviar para Assinatura
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               {proposal.status === 'draft' && (
@@ -1142,6 +1163,49 @@ export default function AdminProposals() {
               : <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} company={companyData} hideFinancialValues={hideFinancialValues} signatures={resolvedSignatures} />
         )}
       </div>
+
+      {/* ═══ Signature Link Dialog ═══ */}
+      <Dialog open={signatureLinkDialogOpen} onOpenChange={setSignatureLinkDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="w-5 h-5 text-emerald-600" />
+              Link de Assinatura Digital
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Envie o link abaixo para o cliente assinar a proposta digitalmente.
+              O cliente poderá <strong>desenhar</strong>, <strong>digitar</strong> ou <strong>fazer upload</strong> da assinatura.
+            </p>
+            <div className="flex gap-2">
+              <Input readOnly value={signatureLink} className="font-mono text-xs" />
+              <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(signatureLink); toast.success('Link copiado!'); }}>
+                <Copy className="w-4 h-4" />
+              </Button>
+              <Button variant="outline" size="icon" onClick={() => window.open(signatureLink, '_blank')}>
+                <ExternalLink className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => {
+                const msg = `Olá! Segue o link para assinatura digital da proposta:\n\n${signatureLink}\n\nBasta clicar, revisar o documento e assinar digitalmente.`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+              }}>
+                <MessageCircle className="w-4 h-4 mr-1" /> WhatsApp
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => {
+                window.open(`mailto:?subject=Assinatura Digital - Proposta&body=${encodeURIComponent(`Segue o link para assinatura digital:\n\n${signatureLink}`)}`, '_blank');
+              }}>
+                <Mail className="w-4 h-4 mr-1" /> Email
+              </Button>
+            </div>
+            <div className="text-[10px] text-muted-foreground text-center">
+              🔒 O link expira em 30 dias. IP, data/hora e navegador serão registrados para validade jurídica.
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
