@@ -235,6 +235,71 @@ export default function AdminProposals() {
     }
   };
 
+  // ═══ UTILITY: Clean scanned signature images via Canvas ═══
+  // html2canvas does NOT support mix-blend-mode, so we process at pixel level
+  const cleanSignatureImage = (imageUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      if (!imageUrl || !imageUrl.startsWith('data:')) {
+        resolve(imageUrl);
+        return;
+      }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(imageUrl); return; }
+
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        // Threshold: pixels lighter than this become transparent (removes gray/white bg)
+        const bgThreshold = 180;
+        // Ink darkening: darken remaining pixels for crisp signature
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i], g = data[i + 1], b = data[i + 2];
+          const brightness = (r + g + b) / 3;
+
+          if (brightness > bgThreshold) {
+            // Light pixel → make transparent
+            data[i + 3] = 0;
+          } else {
+            // Dark pixel (actual ink) → darken for crisp look
+            const factor = Math.max(0, brightness / bgThreshold);
+            // Fade near-threshold pixels
+            data[i + 3] = Math.round(255 * (1 - factor * factor));
+            // Push toward pure black for crispness
+            const darken = 0.6;
+            data[i] = Math.round(r * darken);
+            data[i + 1] = Math.round(g * darken);
+            data[i + 2] = Math.round(b * darken);
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => resolve(imageUrl);
+      img.src = imageUrl;
+    });
+  };
+
+  // Helper: process all signature imageUrls through canvas cleanup
+  const cleanSignatures = async (sigs: Record<string, any>): Promise<Record<string, any>> => {
+    const cleaned: Record<string, any> = {};
+    for (const [key, val] of Object.entries(sigs)) {
+      if (val?.imageUrl) {
+        cleaned[key] = { ...val, imageUrl: await cleanSignatureImage(val.imageUrl) };
+      } else {
+        cleaned[key] = val;
+      }
+    }
+    return cleaned;
+  };
+
   const handlePreviewProposal = async (proposal: any) => {
     try {
       const freshProposal = await api.getProposal(proposal.id);
@@ -246,7 +311,7 @@ export default function AdminProposals() {
       try {
         const sigs = await api.resolveSignatures('proposal', proposal.id, ['contratada', 'contratante']);
         if (sigs && Object.keys(sigs).some(k => sigs[k]?.imageUrl)) {
-          setResolvedSignatures(sigs);
+          setResolvedSignatures(await cleanSignatures(sigs));
         } else {
           throw new Error('No resolved signatures with images');
         }
@@ -268,7 +333,7 @@ export default function AdminProposals() {
               };
             }
           }
-          setResolvedSignatures(Object.keys(fallback).length > 0 ? fallback : null);
+          setResolvedSignatures(Object.keys(fallback).length > 0 ? await cleanSignatures(fallback) : null);
         } catch { setResolvedSignatures(null); }
       }
       setPreviewDialogOpen(true);
@@ -321,11 +386,11 @@ export default function AdminProposals() {
       }
     }
 
-    // ═══ RESOLVE SIGNATURES for PDF — same logic as preview ═══
+    // ═══ RESOLVE SIGNATURES for PDF — with canvas cleanup ═══
     try {
       const sigs = await api.resolveSignatures('proposal', freshProposal.id, ['contratada', 'contratante']);
       if (sigs && Object.keys(sigs).some(k => sigs[k]?.imageUrl)) {
-        setResolvedSignatures(sigs);
+        setResolvedSignatures(await cleanSignatures(sigs));
       } else {
         throw new Error('No resolved signatures with images');
       }
@@ -347,7 +412,7 @@ export default function AdminProposals() {
             };
           }
         }
-        setResolvedSignatures(Object.keys(fallback).length > 0 ? fallback : null);
+        setResolvedSignatures(Object.keys(fallback).length > 0 ? await cleanSignatures(fallback) : null);
       } catch { setResolvedSignatures(null); }
     }
 
