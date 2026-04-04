@@ -170,9 +170,10 @@ export default function AdminSettings() {
         setCompany(c);
       }
       const slots = await api.getSignatureSlots();
+      console.log('[Settings] Loaded signature slots:', slots?.length || 0);
       setSignatureSlots(Array.isArray(slots) ? slots : []);
       setSigLoaded(true);
-    } catch { /* ignore */ }
+    } catch (err) { console.error('[Settings] Error loading signatures:', err); }
     setLoadingSigs(false);
   };
 

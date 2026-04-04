@@ -19,46 +19,21 @@ const signatureStorage = diskStorage({
 export class SignaturesController {
   constructor(private readonly service: SignaturesService) {}
 
-  // ═══ SIGNATURE SLOTS ════════════════════════════════════════════════════════
+  // ═══ SPECIFIC ROUTES FIRST (before :id catch-all) ══════════════════════════
 
-  @Get()
-  findAll(@Query('scope') scope?: string) {
-    if (scope) return this.service.findSlotsByScope(scope);
-    return this.service.findAllSlots();
+  @Get('resolve/:type/:docId')
+  resolveSignatures(
+    @Param('type') type: string,
+    @Param('docId') docId: string,
+    @Query('slots') slots?: string,
+  ) {
+    const slotPositions = slots ? slots.split(',') : ['contratada', 'contratante', 'testemunha'];
+    return this.service.resolveSignatures(type, docId, slotPositions);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findSlotById(id);
-  }
-
-  @Post()
-  create(@Body() data: any) {
-    return this.service.createSlot(data);
-  }
-
-  @Put(':id')
-  update(@Param('id') id: string, @Body() data: any) {
-    return this.service.updateSlot(id, data);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.service.deleteSlot(id);
-  }
-
-  @Post(':id/upload')
-  @UseInterceptors(FileInterceptor('file', { storage: signatureStorage }))
-  async uploadImage(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
-    const imageUrl = `/uploads/signatures/${file.filename}`;
-    return this.service.updateSlot(id, { imageUrl });
-  }
-
-  // ═══ DOCUMENT SIGNATURES ════════════════════════════════════════════════════
-
-  @Get('document/:type/:id')
-  getDocumentSignatures(@Param('type') type: string, @Param('id') id: string) {
-    return this.service.getDocumentSignatures(type, id);
+  @Get('document/:type/:docId')
+  getDocumentSignatures(@Param('type') type: string, @Param('docId') docId: string) {
+    return this.service.getDocumentSignatures(type, docId);
   }
 
   @Post('document/bind')
@@ -73,18 +48,43 @@ export class SignaturesController {
     return this.service.setDocumentSignature(data);
   }
 
-  @Delete('document/:id')
-  removeDocumentSignature(@Param('id') id: string) {
-    return this.service.removeDocumentSignature(id);
+  @Delete('document/:docId')
+  removeDocumentSignature(@Param('docId') docId: string) {
+    return this.service.removeDocumentSignature(docId);
   }
 
-  @Get('resolve/:type/:id')
-  resolveSignatures(
-    @Param('type') type: string,
-    @Param('id') id: string,
-    @Query('slots') slots?: string,
-  ) {
-    const slotPositions = slots ? slots.split(',') : ['contratada', 'contratante', 'testemunha'];
-    return this.service.resolveSignatures(type, id, slotPositions);
+  // ═══ SIGNATURE SLOTS (generic :id routes LAST) ═════════════════════════════
+
+  @Get()
+  findAll(@Query('scope') scope?: string) {
+    if (scope) return this.service.findSlotsByScope(scope);
+    return this.service.findAllSlots();
+  }
+
+  @Post()
+  create(@Body() data: any) {
+    return this.service.createSlot(data);
+  }
+
+  @Post(':id/upload')
+  @UseInterceptors(FileInterceptor('file', { storage: signatureStorage }))
+  async uploadImage(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
+    const imageUrl = `/uploads/signatures/${file.filename}`;
+    return this.service.updateSlot(id, { imageUrl });
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.service.findSlotById(id);
+  }
+
+  @Put(':id')
+  update(@Param('id') id: string, @Body() data: any) {
+    return this.service.updateSlot(id, data);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.service.deleteSlot(id);
   }
 }
