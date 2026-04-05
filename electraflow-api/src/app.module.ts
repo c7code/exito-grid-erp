@@ -37,6 +37,7 @@ import { SinapiModule } from './sinapi/sinapi.module';
 import { BudgetsModule } from './budgets/budgets.module';
 import { SolarReportsModule } from './solar-reports/solar-reports.module';
 import { SignaturesModule } from './signatures/signatures.module';
+import { SimulationsModule } from './simulations/simulations.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { SignaturesModule } from './signatures/signatures.module';
     BudgetsModule,
     SolarReportsModule,
     SignaturesModule,
+    SimulationsModule,
   ],
 })
 export class AppModule { }

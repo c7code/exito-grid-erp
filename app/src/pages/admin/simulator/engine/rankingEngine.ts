@@ -17,6 +17,12 @@ import { generateAlerts } from './alertGenerator';
 import { simulate as legacySimulate } from '../../financeEngine';
 import type { SimInputs, Condition } from '../../financeTypes';
 import { INDEX_RATES } from '../../financeTypes';
+import type { StructuringResult } from './paymentStructuringEngine';
+import {
+  applyStructuringBlocks,
+  applyStructuringScoreAdjustments,
+  generateAllExplanations,
+} from './structuringRankBooster';
 
 // ─── Converter WizardInput → SimInputs legado ───────────────────────────────
 function toSimInputs(input: WizardInput): SimInputs {
@@ -558,7 +564,7 @@ function generateNegotiationConditions(
 }
 
 // ─── MAIN: runSimulation ───────────────────────────────────────────────────────
-export function runSimulation(input: WizardInput): SimulatorResult {
+export function runSimulation(input: WizardInput, structuring?: StructuringResult | null): SimulatorResult {
   const monthlyRate = INDEX_RATES['CDI'] || 0.87;
 
   // 0. Normalizar inputs — aplicar defaults quando operador não preenche
@@ -593,11 +599,21 @@ export function runSimulation(input: WizardInput): SimulatorResult {
   // 6. Aplicar bloqueios
   applyBlocks(evaluated, normalizedInput);
 
+  // 6b. Aplicar bloqueios baseados em estruturação financeira
+  if (structuring) {
+    applyStructuringBlocks(evaluated, normalizedInput, structuring);
+  }
+
   // 7. Aplicar penalizações e bonificações
   applyAdjustments(evaluated, normalizedInput);
 
   // 8. Calcular final scores com pesos por perfil
   calcFinalScores(evaluated, detectedProfile);
+
+  // 8b. Ajustar scores com base na estruturação
+  if (structuring) {
+    applyStructuringScoreAdjustments(evaluated, normalizedInput, structuring);
+  }
 
   // 9. Atribuir status
   assignStatuses(evaluated, normalizedInput.minMargin);
@@ -609,13 +625,23 @@ export function runSimulation(input: WizardInput): SimulatorResult {
     }
   }
 
-  // 10. Atribuir tags
+  // 11. Atribuir tags
   assignTags(evaluated);
 
-  // 11. Selecionar top 3
+  // 12. Selecionar top 3
   const { recommended, bestForClosing, bestForMargin, alternatives } = selectTop3(evaluated);
 
-  // 12. Sumário
+  // 13. Gerar explicações contextuais
+  const explanations = generateAllExplanations(
+    evaluated,
+    normalizedInput,
+    structuring || null,
+    recommended.id,
+    bestForClosing.id,
+    bestForMargin.id,
+  );
+
+  // 14. Sumário
   const viable = evaluated.filter(c => !c.blocked);
   const blocked = evaluated.filter(c => c.blocked);
 
@@ -637,5 +663,6 @@ export function runSimulation(input: WizardInput): SimulatorResult {
     blockedCount: blocked.length,
     detectedProfile,
     summary,
+    explanations,
   };
 }

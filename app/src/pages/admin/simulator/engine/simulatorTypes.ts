@@ -213,6 +213,18 @@ export interface SimulatorResult {
   blockedCount: number;                     // Quantas condições foram eliminadas
   detectedProfile: ClientProfile;           // Perfil detectado automaticamente
   summary: ResultSummary;
+  /** Mapa conditionId → explicação contextual (gerado pelo structuringRankBooster) */
+  explanations?: Map<string, ConditionExplanation>;
+}
+
+/** Explicação detalhada de uma condição (gerada pelo booster) */
+export interface ConditionExplanation {
+  recommendation: string;
+  financialSummary: string;
+  immediateReceipt: string;
+  financedSummary: string;
+  flexibilityCost: string;
+  blockExplanation?: string;
 }
 
 export interface ResultSummary {

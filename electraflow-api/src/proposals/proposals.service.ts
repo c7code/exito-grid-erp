@@ -326,6 +326,7 @@ export class ProposalsService implements OnModuleInit {
       insuranceCostValue: proposal.insuranceCostValue,
       insuranceCostMode: proposal.insuranceCostMode,
       complianceText: proposal.complianceText,
+      simulationData: proposal.simulationData,
       items: (proposal.items || []).map(item => ({
         description: item.description,
         serviceType: item.serviceType,
@@ -581,7 +582,7 @@ export class ProposalsService implements OnModuleInit {
       'itemVisibilityMode', 'materialSummaryText', 'serviceSummaryText', 'summaryTotalLabel',
       'logisticsCostValue', 'logisticsCostMode', 'adminCostValue', 'adminCostMode',
       'brokerageCostValue', 'brokerageCostMode', 'insuranceCostValue', 'insuranceCostMode',
-      'complianceText',
+      'complianceText', 'simulationData',
     ];
     for (const field of fieldsToRestore) {
       if (snapshot[field] !== undefined) {

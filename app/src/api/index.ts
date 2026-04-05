@@ -2543,7 +2543,105 @@ class ApiService {
     const params = slots ? { slots: slots.join(',') } : {};
     return (await this.client.get(`/signatures/resolve/${documentType}/${documentId}`, { params })).data;
   }
+
+  // ═══ Simulation Sessions ═══
+  async getSimulationSessions(status?: string) {
+    const params = status ? { status } : {};
+    const response = await this.client.get('/simulations', { params });
+    return response.data;
+  }
+
+  async getSimulationSession(id: string) {
+    const response = await this.client.get(`/simulations/${id}`);
+    return response.data;
+  }
+
+  async getSimulationsByProposal(proposalId: string) {
+    const response = await this.client.get(`/simulations/by-proposal/${proposalId}`);
+    return response.data;
+  }
+
+  async createSimulationSession(data: any) {
+    const response = await this.client.post('/simulations', data);
+    return response.data;
+  }
+
+  async updateSimulationSession(id: string, data: any) {
+    const response = await this.client.put(`/simulations/${id}`, data);
+    return response.data;
+  }
+
+  async linkSimulationToProposal(sessionId: string, proposalId: string) {
+    const response = await this.client.post(`/simulations/${sessionId}/link/${proposalId}`);
+    return response.data;
+  }
+
+  async deleteSimulationSession(id: string) {
+    const response = await this.client.delete(`/simulations/${id}`);
+    return response.data;
+  }
+
+  async getMySimulations(status?: string) {
+    const params = status ? { status } : {};
+    const response = await this.client.get('/simulations/my', { params });
+    return response.data;
+  }
+
+  async updateSimulationSelection(id: string, data: { selectedConditionId: string; selectedTotal?: number; selectedMargin?: number }) {
+    const response = await this.client.put(`/simulations/${id}/selection`, data);
+    return response.data;
+  }
+
+  async archiveSimulationSession(id: string) {
+    const response = await this.client.post(`/simulations/${id}/archive`);
+    return response.data;
+  }
+
+  // ═══ Simulation Exceptions ═══
+  async getSimulationExceptions(filters?: { status?: string; sessionId?: string }) {
+    const params: any = {};
+    if (filters?.status) params.status = filters.status;
+    if (filters?.sessionId) params.sessionId = filters.sessionId;
+    const response = await this.client.get('/simulation-exceptions', { params });
+    return response.data;
+  }
+
+  async getPendingExceptions() {
+    const response = await this.client.get('/simulation-exceptions/pending');
+    return response.data;
+  }
+
+  async getExceptionsBySession(sessionId: string) {
+    const response = await this.client.get(`/simulation-exceptions/by-session/${sessionId}`);
+    return response.data;
+  }
+
+  async getSimulationException(id: string) {
+    const response = await this.client.get(`/simulation-exceptions/${id}`);
+    return response.data;
+  }
+
+  async getExceptionAuditTrail(id: string) {
+    const response = await this.client.get(`/simulation-exceptions/${id}/audit`);
+    return response.data;
+  }
+
+  async requestSimulationException(data: any) {
+    const response = await this.client.post('/simulation-exceptions', data);
+    return response.data;
+  }
+
+  async approveSimulationException(id: string, data?: { approvalNote?: string }) {
+    const response = await this.client.post(`/simulation-exceptions/${id}/approve`, data || {});
+    return response.data;
+  }
+
+  async rejectSimulationException(id: string, data?: { approvalNote?: string }) {
+    const response = await this.client.post(`/simulation-exceptions/${id}/reject`, data || {});
+    return response.data;
+  }
 }
 
 export const api = new ApiService();
+
 

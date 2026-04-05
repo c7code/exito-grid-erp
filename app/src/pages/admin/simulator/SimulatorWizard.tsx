@@ -1,7 +1,11 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Calculator, ArrowRight, ArrowLeft, Sparkles } from 'lucide-react';
 import type { WizardInput, SimulatorResult } from './engine/simulatorTypes';
+import type { StructuringResult } from './engine/paymentStructuringEngine';
+import type { RequestExceptionDTO } from '../../../types/simulation-exception.types';
 import { runSimulation } from './engine/rankingEngine';
+import { structurePayment, fromWizardInput } from './engine/paymentStructuringEngine';
+import { api } from '../../../api';
 import Step1ServiceData from './steps/Step1_ServiceData';
 import Step2ClientProfile from './steps/Step2_ClientProfile';
 import Step3Results from './steps/Step3_Results';
@@ -33,6 +37,7 @@ export default function SimulatorWizard() {
   const [step, setStep] = useState(0);
   const [input, setInput] = useState<WizardInput>(DEFAULT_INPUT);
   const [result, setResult] = useState<SimulatorResult | null>(null);
+  const [structuring, setStructuring] = useState<StructuringResult | null>(null);
   const [selectedConditionId, setSelectedConditionId] = useState<string | null>(null);
 
   const updateInput = useCallback(<K extends keyof WizardInput>(key: K, value: WizardInput[K]) => {
@@ -50,8 +55,31 @@ export default function SimulatorWizard() {
 
   const handleNext = useCallback(() => {
     if (step === 1) {
-      // Ao avançar da etapa 2 → 3, rodar o motor
-      const simResult = runSimulation(input);
+      // Ao avançar da etapa 2 → 3, rodar ambos os motores
+      // 1. Estruturação financeira primeiro (alimenta o ranking)
+      let structResult: StructuringResult | null = null;
+      try {
+        const structInput = fromWizardInput({
+          proposalValue: input.totalCost / (1 - (input.minMargin || 15) / 100), // preço base estimado
+          immediateCost: input.immediateCost,
+          totalCost: input.totalCost,
+          cardMachineRate: input.cardMachineRate,
+          correctionIndex: input.correctionIndex,
+          customRate: input.customRate,
+          maxTerm: input.maxTerm,
+          monthlyCapacity: input.monthlyCapacity,
+          availableEntry: input.availableEntry,
+          entryMethod: input.entryMethod,
+          cardEntryAmount: input.cardEntryAmount,
+        });
+        structResult = structurePayment(structInput);
+      } catch (err) {
+        console.warn('Structuring engine error (non-critical):', err);
+      }
+      setStructuring(structResult);
+
+      // 2. Simulação com ranking (recebe structuring para bloqueios e ajustes)
+      const simResult = runSimulation(input, structResult);
       setResult(simResult);
       setSelectedConditionId(simResult.recommended.id);
     }
@@ -66,6 +94,7 @@ export default function SimulatorWizard() {
     setStep(0);
     setInput(DEFAULT_INPUT);
     setResult(null);
+    setStructuring(null);
     setSelectedConditionId(null);
   }, []);
 
@@ -127,6 +156,11 @@ export default function SimulatorWizard() {
             result={result}
             selectedId={selectedConditionId}
             onSelect={setSelectedConditionId}
+            structuring={structuring}
+            wizardInput={input}
+            onRequestException={async (data: RequestExceptionDTO) => {
+              await api.requestSimulationException(data);
+            }}
           />
         )}
         {step === 3 && result && (
@@ -135,6 +169,7 @@ export default function SimulatorWizard() {
             selectedId={selectedConditionId}
             clientName={input.clientName}
             serviceDescription={input.serviceDescription}
+            wizardInput={input}
           />
         )}
 

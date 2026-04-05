@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { MessageSquare, Mail, Printer, Eye, EyeOff, AlertTriangle, Copy, CheckCircle, FileText, ScrollText, Loader2, Search, Link2, X } from 'lucide-react';
-import type { SimulatorResult, EvaluatedCondition } from '../engine/simulatorTypes';
+import type { SimulatorResult, EvaluatedCondition, WizardInput } from '../engine/simulatorTypes';
 import { fmt, getScoreClassification, getScoreLabel, getScoreEmoji, getScoreColor } from '../engine/simulatorTypes';
 import { generateClientArgument } from '../engine/alertGenerator';
 import { getRiskLabel } from '../engine/riskEngine';
@@ -14,6 +14,7 @@ interface Props {
   selectedId: string | null;
   clientName?: string;
   serviceDescription: string;
+  wizardInput?: WizardInput;
 }
 
 // ═══ WhatsApp Text Builder ════════════════════════════════════════
@@ -81,17 +82,55 @@ function buildEmailText(conditions: EvaluatedCondition[], service: string, clien
 }
 
 // ═══ Simulation Data Builder (for saving to proposal) ═════════════
+// v2: Expanded to persist full context for re-simulation and audit
 function buildSimulationJSON(
   selected: EvaluatedCondition,
   allViable: EvaluatedCondition[],
   service: string,
-  clientName?: string
+  clientName?: string,
+  wizardInput?: WizardInput,
+  result?: SimulatorResult
 ): string {
   return JSON.stringify({
-    version: 1,
+    version: 2,
     generatedAt: new Date().toISOString(),
     service,
     clientName: clientName || null,
+
+    // ── Inputs que geraram esta simulação (permite re-criar) ──
+    inputs: wizardInput ? {
+      proposalValue: wizardInput.proposalValue,
+      immediateCost: wizardInput.immediateCost,
+      totalCost: wizardInput.totalCost,
+      minMargin: wizardInput.minMargin,
+      maxTerm: wizardInput.maxTerm,
+      correctionIndex: wizardInput.correctionIndex,
+      customRate: wizardInput.customRate,
+      cardMachineRate: wizardInput.cardMachineRate,
+      atSightDiscount: wizardInput.atSightDiscount,
+      clientProfile: wizardInput.clientProfile,
+      preferredPayment: wizardInput.preferredPayment,
+      monthlyCapacity: wizardInput.monthlyCapacity,
+      availableEntry: wizardInput.availableEntry,
+      desiredInstallments: wizardInput.desiredInstallments,
+      entryMethod: wizardInput.entryMethod,
+    } : null,
+
+    // ── Resumo do resultado (stats sem condições individuais) ──
+    summary: result?.summary ? {
+      basePrice: result.summary.basePrice,
+      grossProfit: result.summary.grossProfit,
+      totalConditionsGenerated: result.summary.totalConditionsGenerated,
+      totalViable: result.summary.totalViable,
+      totalBlocked: result.summary.totalBlocked,
+      bestMarginAvailable: result.summary.bestMarginAvailable,
+      worstMarginAvailable: result.summary.worstMarginAvailable,
+    } : null,
+
+    // ── Perfil detectado pelo motor ──
+    detectedProfile: result?.detectedProfile || null,
+
+    // ── Condição selecionada (dados completos) ──
     selected: {
       id: selected.id,
       commercialName: selected.commercialName,
@@ -102,12 +141,27 @@ function buildSimulationJSON(
       totalClient: selected.totalClient,
       frequency: selected.frequency,
       effectiveMargin: selected.effectiveMargin,
+      realMargin: selected.realMargin,
       correctionAmount: selected.correctionAmount,
+      totalProfit: selected.totalProfit,
+      irrAnnual: selected.irrAnnual,
+      riskLevel: selected.riskLevel,
+      riskScore: selected.riskScore,
+      finalScore: selected.finalScore,
+      closingScore: selected.closingScore,
+      cashScore: selected.cashScore,
+      profitScore: selected.profitScore,
+      attractivenessScore: selected.attractivenessScore,
+      paybackMonth: selected.paybackMonth,
+      defaultRisk: selected.defaultRisk,
+      scoreLabel: selected.scoreLabel,
       argument: generateClientArgument(selected, allViable, 'auto'),
     },
+
+    // ── Alternativas (top 5 com scores) ──
     alternatives: allViable
       .filter(c => c.id !== selected.id)
-      .slice(0, 3)
+      .slice(0, 5)
       .map(c => ({
         id: c.id,
         commercialName: c.commercialName,
@@ -117,8 +171,14 @@ function buildSimulationJSON(
         installmentAmount: c.installmentAmount,
         totalClient: c.totalClient,
         frequency: c.frequency,
+        effectiveMargin: c.effectiveMargin,
+        finalScore: c.finalScore,
+        riskLevel: c.riskLevel,
         argument: generateClientArgument(c, allViable, 'auto'),
       })),
+
+    // ── Total de condições bloqueadas (para auditoria) ──
+    blockedCount: result?.blockedCount || 0,
   });
 }
 
@@ -385,7 +445,7 @@ function ProposalSelectorModal({
 // ═══════════════════════════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════════════════════════
-export default function Step4Export({ result, selectedId, clientName, serviceDescription }: Props) {
+export default function Step4Export({ result, selectedId, clientName, serviceDescription, wizardInput }: Props) {
   const [viewMode, setViewMode] = useState<'client' | 'internal'>('client');
   const [copied, setCopied] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
@@ -465,13 +525,35 @@ export default function Step4Export({ result, selectedId, clientName, serviceDes
   const handleLinkToProposal = useCallback(async (proposal: any) => {
     setLinkingProposal(true);
     try {
-      const simulationJSON = buildSimulationJSON(selected, allViable, serviceDescription, clientName);
+      const simulationJSON = buildSimulationJSON(selected, allViable, serviceDescription, clientName, wizardInput, result);
       const paymentText = buildPaymentText(selected);
 
       await api.updateProposal(proposal.id, {
         simulationData: simulationJSON,
         paymentConditions: paymentText,
       });
+
+      // Salvar sessão de simulação completa (não-crítico)
+      try {
+        await api.createSimulationSession({
+          proposalId: proposal.id,
+          serviceDescription,
+          label: `${serviceDescription} — ${clientName || 'Cliente'}`,
+          selectedConditionId: selected.id,
+          detectedProfile: result.detectedProfile,
+          basePrice: result.summary.basePrice,
+          selectedTotal: selected.totalClient,
+          selectedMargin: selected.effectiveMargin,
+          totalConditions: result.summary.totalConditionsGenerated,
+          viableConditions: result.summary.totalViable,
+          blockedConditions: result.summary.totalBlocked,
+          inputData: wizardInput ? JSON.stringify(wizardInput) : null,
+          resultData: simulationJSON,
+          status: 'linked',
+        });
+      } catch (sessionErr) {
+        console.warn('Simulation session save failed (non-critical):', sessionErr);
+      }
 
       toast.success(`Simulação vinculada à proposta ${proposal.proposalNumber}!`);
       setShowProposalSelector(false);
@@ -482,7 +564,7 @@ export default function Step4Export({ result, selectedId, clientName, serviceDes
     } finally {
       setLinkingProposal(false);
     }
-  }, [selected, allViable, serviceDescription, clientName, navigate]);
+  }, [selected, allViable, serviceDescription, clientName, wizardInput, result, navigate]);
 
   const handleCreateContract = useCallback(() => {
     const params = new URLSearchParams({
