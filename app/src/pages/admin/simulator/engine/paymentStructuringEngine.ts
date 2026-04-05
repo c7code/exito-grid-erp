@@ -23,8 +23,8 @@
 // Todas as funções são PURAS e testáveis.
 // ════════════════════════════════════════════════════════════════════════════
 
-import type { EntryPaymentMethod, EntryPaymentSlice } from './financeTypes';
-import { calcEntryMix, pmt } from './financeEngine';
+import type { EntryPaymentMethod } from '../../financeTypes';
+import { pmt } from '../../financeEngine';
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
