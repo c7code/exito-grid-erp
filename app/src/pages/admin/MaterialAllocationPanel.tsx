@@ -54,11 +54,11 @@ const parseNum = (v: string | number): number => {
 
 export default function MaterialAllocationPanel({ materials, onChange, readOnly }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<Record<number, any[]>>({});
   const [searching, setSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null);
-  const searchTimeout = useRef<any>(null);
+  const searchTimerRef = useRef<Record<number, any>>({});
+  const topSearchTimer = useRef<any>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // ── Totals ──
@@ -66,16 +66,34 @@ export default function MaterialAllocationPanel({ materials, onChange, readOnly 
   const subtotalService = materials.filter(m => m.serviceType === 'service').reduce((s, m) => s + m.total, 0);
   const grandTotal = subtotalMaterial + subtotalService;
 
-  // ── Catalog search ──
-  const debouncedSearch = useCallback((query: string) => {
-    if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    if (query.length < 2) { setSearchResults([]); return; }
-    setSearching(true);
-    searchTimeout.current = setTimeout(async () => {
+  // ── Per-index catalog search (same pattern as Proposals) ──
+  const debouncedSearchForIndex = useCallback((index: number, query: string) => {
+    if (searchTimerRef.current[index]) clearTimeout(searchTimerRef.current[index]);
+    if (query.length < 2) {
+      setSearchResults(prev => ({ ...prev, [index]: [] }));
+      return;
+    }
+    searchTimerRef.current[index] = setTimeout(async () => {
       try {
         const results = await api.searchCatalogItems(query);
-        setSearchResults(results.filter((r: any) => r.dataType !== 'category').slice(0, 8));
-      } catch { setSearchResults([]); }
+        const filtered = results.filter((r: any) => r.dataType !== 'category').slice(0, 8);
+        setSearchResults(prev => ({ ...prev, [index]: filtered }));
+      } catch {
+        setSearchResults(prev => ({ ...prev, [index]: [] }));
+      }
+    }, 300);
+  }, []);
+
+  // ── Top-level catalog search (for "+ Adicionar > Item do Catálogo") ──
+  const debouncedTopSearch = useCallback((query: string) => {
+    if (topSearchTimer.current) clearTimeout(topSearchTimer.current);
+    if (query.length < 2) { setSearchResults(prev => ({ ...prev, [-1]: [] })); return; }
+    setSearching(true);
+    topSearchTimer.current = setTimeout(async () => {
+      try {
+        const results = await api.searchCatalogItems(query);
+        setSearchResults(prev => ({ ...prev, [-1]: results.filter((r: any) => r.dataType !== 'category').slice(0, 8) }));
+      } catch { setSearchResults(prev => ({ ...prev, [-1]: [] })); }
       setSearching(false);
     }, 300);
   }, []);
@@ -94,9 +112,8 @@ export default function MaterialAllocationPanel({ materials, onChange, readOnly 
     };
     onChange([...materials, newItem]);
     setSearchQuery('');
-    setSearchResults([]);
+    setSearchResults(prev => ({ ...prev, [-1]: [] }));
     setShowSearch(false);
-    setActiveSearchIndex(null);
   };
 
   // ── Add manual item ──
@@ -138,9 +155,7 @@ export default function MaterialAllocationPanel({ materials, onChange, readOnly 
   // ── Inline search for description field ──
   const handleDescriptionChange = (index: number, value: string) => {
     updateItem(index, 'description', value);
-    setActiveSearchIndex(index);
-    debouncedSearch(value);
-    setShowSearch(true);
+    debouncedSearchForIndex(index, value);
   };
 
   const selectSearchResult = (index: number, catalogItem: any) => {
@@ -156,9 +171,7 @@ export default function MaterialAllocationPanel({ materials, onChange, readOnly 
       fromCatalog: true,
     };
     onChange(updated);
-    setShowSearch(false);
-    setActiveSearchIndex(null);
-    setSearchResults([]);
+    setSearchResults(prev => ({ ...prev, [index]: [] }));
   };
 
   return (
@@ -194,7 +207,7 @@ export default function MaterialAllocationPanel({ materials, onChange, readOnly 
       </div>
 
       {/* Catalog search (top-level) */}
-      {showSearch && activeSearchIndex === null && (
+      {showSearch && (
         <div className="relative" ref={dropdownRef}>
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -203,18 +216,18 @@ export default function MaterialAllocationPanel({ materials, onChange, readOnly 
                 autoFocus
                 placeholder="Buscar no catálogo..."
                 value={searchQuery}
-                onChange={e => { setSearchQuery(e.target.value); debouncedSearch(e.target.value); }}
+                onChange={e => { setSearchQuery(e.target.value); debouncedTopSearch(e.target.value); }}
                 className="pl-9 text-sm"
               />
             </div>
-            <Button variant="ghost" size="sm" onClick={() => { setShowSearch(false); setSearchResults([]); setSearchQuery(''); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setShowSearch(false); setSearchResults(prev => ({ ...prev, [-1]: [] })); setSearchQuery(''); }}>
               ✕
             </Button>
           </div>
-          {(searchResults.length > 0 || searching) && (
+          {((searchResults[-1]?.length || 0) > 0 || searching) && (
             <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
               {searching && <div className="p-3 flex items-center gap-2 text-sm text-slate-400"><Loader2 className="w-4 h-4 animate-spin" />Buscando...</div>}
-              {searchResults.map(item => (
+              {(searchResults[-1] || []).map(item => (
                 <button
                   key={item.id}
                   type="button"
@@ -274,15 +287,14 @@ export default function MaterialAllocationPanel({ materials, onChange, readOnly 
                     <Input
                       value={item.description}
                       onChange={e => handleDescriptionChange(index, e.target.value)}
-                      onFocus={() => setActiveSearchIndex(index)}
-                      onBlur={() => setTimeout(() => { if (activeSearchIndex === index) { setShowSearch(false); setActiveSearchIndex(null); } }, 200)}
+                      onBlur={() => setTimeout(() => setSearchResults(prev => ({ ...prev, [index]: [] })), 250)}
                       placeholder="Descrição..."
                       className="text-sm h-8 border-0 shadow-none bg-transparent px-1 focus-visible:ring-1"
                     />
                     {/* Inline search results */}
-                    {showSearch && activeSearchIndex === index && searchResults.length > 0 && (
+                    {(searchResults[index]?.length || 0) > 0 && (
                       <div className="absolute z-50 w-full mt-0.5 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto left-0 top-full">
-                        {searchResults.map(sr => (
+                        {(searchResults[index] || []).map(sr => (
                           <button
                             key={sr.id}
                             type="button"
