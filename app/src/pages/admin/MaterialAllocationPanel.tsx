@@ -86,11 +86,11 @@ export default function MaterialAllocationPanel({ materials, onChange, readOnly 
   const addFromCatalog = (item: any) => {
     const newMat: OemMaterial = {
       id: item.id,
-      description: item.description || item.name || '',
+      description: item.name || item.description || '',
       unit: item.unit || 'un',
       quantity: 1,
-      unitPrice: Number(item.unitPrice || item.price || 0),
-      total: Number(item.unitPrice || item.price || 0),
+      unitPrice: Number(item.unitPrice || 0),
+      total: Number(item.unitPrice || 0),
       fromCatalog: true,
     };
     onChange([...materials, newMat]);
@@ -184,14 +184,16 @@ export default function MaterialAllocationPanel({ materials, onChange, readOnly 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <Database className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                      <span className="font-medium text-slate-800 truncate">{item.description || item.name}</span>
+                      <span className="font-medium text-slate-800 truncate">{item.name || item.description}</span>
                     </div>
-                    {item.category?.name && (
-                      <span className="text-xs text-slate-400 ml-5.5">{item.category.name}</span>
-                    )}
+                    <div className="flex items-center gap-2 ml-5">
+                      {item.sku && <span className="text-xs text-slate-400">SKU: {item.sku}</span>}
+                      {item.brand && <span className="text-xs text-slate-400">• {item.brand}</span>}
+                      {item.category?.name && <span className="text-xs text-slate-400">• {item.category.name}</span>}
+                    </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="text-xs font-semibold text-green-600">{fmt(item.unitPrice || item.price || 0)}</span>
+                    <span className="text-xs font-semibold text-green-600">{fmt(item.unitPrice || 0)}</span>
                     <span className="text-xs text-slate-400 block">{item.unit || 'un'}</span>
                   </div>
                 </button>
