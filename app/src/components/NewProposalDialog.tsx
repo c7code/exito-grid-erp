@@ -1898,6 +1898,9 @@ export default function NewProposalDialog({
                                             <SelectItem value="detailed">
                                                 📋 Estrutura Detalhada — Agrupamentos + relação de materiais
                                             </SelectItem>
+                                            <SelectItem value="list_only">
+                                                📃 Lista sem Valores — Itens com qtd, só subtotal no final
+                                            </SelectItem>
                                             <SelectItem value="consolidated">
                                                 📊 Material Consolidado — Lista única de todos os materiais
                                             </SelectItem>

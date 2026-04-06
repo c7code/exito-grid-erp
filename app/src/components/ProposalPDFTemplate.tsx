@@ -414,6 +414,78 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                     ) : null;
 
                     // ═══════════════════════════════════════════
+                    // MODO 0: LISTA SEM VALORES — Itens sem preço individual
+                    // Mostra: Item, Descrição, Un, Qtd + Subtotal geral
+                    // ═══════════════════════════════════════════
+                    if (mode === 'list_only') {
+                        const renderListTable = (tableItems: any[], type: string, subtotal: number) => {
+                            const topItems = tableItems.filter((i: any) => !i.parentId);
+                            return (
+                                <table style={s.table}>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ ...s.th, width: '8%' }}>Item</th>
+                                            <th style={{ ...s.th, width: '62%' }}>Descrição</th>
+                                            <th style={{ ...s.th, width: '12%' }}>Un</th>
+                                            <th style={{ ...s.thRight, width: '18%' }}>Qtd</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {topItems.map((item: any, idx: number) => {
+                                            const children = getChildren(item.id);
+                                            return (
+                                                <React.Fragment key={idx}>
+                                                    <tr style={item.isBundleParent ? { background: '#f8fafc' } : {}}>
+                                                        <td style={{ ...s.td, fontWeight: item.isBundleParent ? 700 : 400 }}>{String(idx + 1).padStart(2, '0')}</td>
+                                                        <td style={{ ...s.td, fontWeight: item.isBundleParent ? 700 : 400 }}>{item.description}</td>
+                                                        <td style={s.td}>{item.unit || (type === 'material' ? 'un' : 'sv')}</td>
+                                                        <td style={s.tdRight}>{Number(item.quantity || 1)}</td>
+                                                    </tr>
+                                                    {children.map((child: any, ci: number) => (
+                                                        <tr key={`c-${ci}`} style={{ background: '#fefefe' }}>
+                                                            <td style={{ ...s.td, paddingLeft: '20px', color: '#888', fontSize: '8.5px' }}>{String(idx + 1).padStart(2, '0')}.{ci + 1}</td>
+                                                            <td style={{ ...s.td, paddingLeft: '20px', color: '#555', fontSize: '9px' }}>↳ {child.description}</td>
+                                                            <td style={{ ...s.td, color: '#888', fontSize: '8.5px' }}>{child.unit || (type === 'material' ? 'un' : 'sv')}</td>
+                                                            <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>{Number(child.quantity || 1)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                        <tr>
+                                            <td colSpan={3} style={{ ...s.td, textAlign: 'right', fontWeight: 700, background: '#fafafa' }}>
+                                                Subtotal {type === 'material' ? 'Materiais' : 'Serviços'}
+                                            </td>
+                                            <td style={{ ...s.tdRight, fontWeight: 700, background: '#fafafa', color: '#E8620A' }}>R$ {fmtV(subtotal)}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            );
+                        };
+
+                        return (
+                            <>
+                                {materialItems.length > 0 && (
+                                    <>
+                                        <div style={s.sectionTitle}>{clauseNum++}. Fornecimento de Materiais</div>
+                                        {proposal.materialFornecimento && renderStructuredText(proposal.materialFornecimento, s.para)}
+                                        {renderListTable(materialItems, 'material', materialSubtotal)}
+                                    </>
+                                )}
+                                {serviceItems.length > 0 && (
+                                    <>
+                                        <div style={s.sectionTitle}>{clauseNum++}. Prestação de Serviços</div>
+                                        {proposal.serviceDescription && renderStructuredText(proposal.serviceDescription, s.para)}
+                                        {renderListTable(serviceItems, 'service', serviceSubtotal)}
+                                    </>
+                                )}
+                                {renderCostComposition(clauseNum)}
+                                {renderEvidenciadoCosts()}
+                            </>
+                        );
+                    }
+
+                    // ═══════════════════════════════════════════
                     // MODO 1: AGRUPAMENTO — Apenas bundles
                     // ═══════════════════════════════════════════
                     if (mode === 'grouping') {
