@@ -57,6 +57,7 @@ import { ProposalPDFTemplate } from '@/components/ProposalPDFTemplate';
 import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate';
 import { OeMProposalPDFTemplate } from '@/components/OeMProposalPDFTemplate';
 import { SignatureSelector } from '@/components/SignatureSelector';
+import ProposalAttachments from '@/components/ProposalAttachments';
 import html2pdf from 'html2pdf.js';
 import { Download, MessageCircle, Mail, ExternalLink, Copy, Link2 } from 'lucide-react';
 
@@ -1123,6 +1124,7 @@ export default function AdminProposals() {
           <div className="flex-1 overflow-y-auto bg-slate-200/60 p-6">
             {/* Signature Selector */}
             {previewProposalData && (
+              <>
               <div className="mx-auto mb-4" style={{ maxWidth: 794 }}>
                 <SignatureSelector
                   documentType="proposal"
@@ -1135,6 +1137,13 @@ export default function AdminProposals() {
                   compact
                 />
               </div>
+              {/* ═══ ANEXOS DA PROPOSTA ═══ */}
+              {previewProposalData.id && (
+                <div className="mx-auto mb-4" style={{ maxWidth: 794 }}>
+                  <ProposalAttachments proposalId={previewProposalData.id} />
+                </div>
+              )}
+              </>
             )}
             <div className="mx-auto shadow-xl rounded-lg overflow-hidden" style={{ maxWidth: 794 }}>
               {previewProposalData && (

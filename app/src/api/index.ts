@@ -458,7 +458,7 @@ class ApiService {
     return response.data;
   }
 
-  async uploadDocument(file: File, data?: { name?: string; workId?: string; taskId?: string; type?: string; folderId?: string; description?: string; purpose?: string; tags?: string[]; sourceOrganization?: string }) {
+  async uploadDocument(file: File, data?: { name?: string; workId?: string; taskId?: string; type?: string; folderId?: string; description?: string; purpose?: string; tags?: string[]; sourceOrganization?: string; proposalId?: string; clientId?: string }) {
     const formData = new FormData();
     formData.append('file', file);
     if (data?.name) formData.append('name', data.name);
@@ -470,6 +470,8 @@ class ApiService {
     if (data?.purpose) formData.append('purpose', data.purpose);
     if (data?.tags?.length) formData.append('tags', JSON.stringify(data.tags));
     if (data?.sourceOrganization) formData.append('sourceOrganization', data.sourceOrganization);
+    if (data?.proposalId) formData.append('proposalId', data.proposalId);
+    if (data?.clientId) formData.append('clientId', data.clientId);
 
     const response = await this.client.post('/documents/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
