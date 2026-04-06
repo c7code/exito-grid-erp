@@ -1,16 +1,20 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// MaterialAllocationPanel — Painel de alocação de materiais reutilizável
-// Usado no módulo O&M (Serviços) e potencialmente em OS / Propostas
+// MaterialAllocationPanel — Painel de itens (Materiais + Serviços) para O&M
+// Mesma experiência do módulo de Propostas: busca, tipo, qtd, preço, total
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { api } from '@/api';
 import {
-  Package, Trash2, Search, Loader2, Database, PenLine, X,
+  Package, Trash2, Search, Plus, ChevronDown, Database, PenLine, Loader2,
 } from 'lucide-react';
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
@@ -18,7 +22,8 @@ import {
 export interface OemMaterial {
   id?: string;           // UUID do catalog_item (se veio do catálogo)
   description: string;   // Nome/descrição
-  unit: string;          // Unidade (un, m, kg, pç, etc.)
+  serviceType: string;   // 'material' | 'service'
+  unit: string;          // Unidade (UN, M, M², KG, etc.)
   quantity: number;      // Quantidade
   unitPrice: number;     // Preço unitário
   total: number;         // quantity × unitPrice
@@ -31,8 +36,19 @@ interface Props {
   readOnly?: boolean;
 }
 
+const unitOptions = ['UN', 'M', 'M²', 'KG', 'CX', 'PCT', 'JG', 'RL', 'PÇ', 'CDA', 'KIT', 'VB'];
+
 const fmt = (v: number) =>
   Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const parseNum = (v: string | number): number => {
+  if (typeof v === 'number') return isNaN(v) ? 0 : v;
+  const s = String(v).trim();
+  if (!s) return 0;
+  const normalized = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
+  const n = parseFloat(normalized);
+  return isNaN(n) ? 0 : n;
+};
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 
@@ -40,141 +56,165 @@ export default function MaterialAllocationPanel({ materials, onChange, readOnly 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [showManualForm, setShowManualForm] = useState(false);
-  const [manualForm, setManualForm] = useState({ description: '', unit: 'un', quantity: 1, unitPrice: 0 });
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null);
   const searchTimeout = useRef<any>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // ── Total geral dos materiais ──
-  const totalMaterials = materials.reduce((sum, m) => sum + m.total, 0);
+  // ── Totals ──
+  const subtotalMaterial = materials.filter(m => m.serviceType === 'material').reduce((s, m) => s + m.total, 0);
+  const subtotalService = materials.filter(m => m.serviceType === 'service').reduce((s, m) => s + m.total, 0);
+  const grandTotal = subtotalMaterial + subtotalService;
 
-  // ── Close dropdown on outside click ──
-  useEffect(() => {
-    const h = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
-  // ── Search catalog with debounce ──
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query);
+  // ── Catalog search ──
+  const debouncedSearch = useCallback((query: string) => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    if (query.length < 2) {
-      setSearchResults([]);
-      setShowDropdown(false);
-      return;
-    }
+    if (query.length < 2) { setSearchResults([]); return; }
+    setSearching(true);
     searchTimeout.current = setTimeout(async () => {
-      setSearching(true);
       try {
-        const items = await api.searchCatalogItems(query);
-        setSearchResults(Array.isArray(items) ? items.slice(0, 10) : []);
-        setShowDropdown(true);
-      } catch {
-        setSearchResults([]);
-      }
+        const results = await api.searchCatalogItems(query);
+        setSearchResults(results.filter((r: any) => r.dataType !== 'category').slice(0, 8));
+      } catch { setSearchResults([]); }
       setSearching(false);
     }, 300);
   }, []);
 
-  // ── Add from catalog ──
-  const addFromCatalog = (item: any) => {
-    const newMat: OemMaterial = {
-      id: item.id,
-      description: item.name || item.description || '',
-      unit: item.unit || 'un',
+  // ── Add item from catalog ──
+  const addFromCatalog = (catalogItem: any) => {
+    const newItem: OemMaterial = {
+      id: catalogItem.id,
+      description: catalogItem.name || catalogItem.description || '',
+      serviceType: catalogItem.type === 'service' ? 'service' : 'material',
+      unit: catalogItem.unit || 'UN',
       quantity: 1,
-      unitPrice: Number(item.unitPrice || 0),
-      total: Number(item.unitPrice || 0),
+      unitPrice: Number(catalogItem.unitPrice || 0),
+      total: Number(catalogItem.unitPrice || 0),
       fromCatalog: true,
     };
-    onChange([...materials, newMat]);
+    onChange([...materials, newItem]);
     setSearchQuery('');
     setSearchResults([]);
-    setShowDropdown(false);
+    setShowSearch(false);
+    setActiveSearchIndex(null);
   };
 
-  // ── Add manual ──
-  const addManual = () => {
-    if (!manualForm.description.trim()) return;
-    const total = manualForm.quantity * manualForm.unitPrice;
-    const newMat: OemMaterial = {
-      description: manualForm.description.trim(),
-      unit: manualForm.unit || 'un',
-      quantity: manualForm.quantity || 1,
-      unitPrice: manualForm.unitPrice || 0,
-      total,
+  // ── Add manual item ──
+  const addManualItem = (type: string) => {
+    const newItem: OemMaterial = {
+      description: '',
+      serviceType: type,
+      unit: 'UN',
+      quantity: 1,
+      unitPrice: 0,
+      total: 0,
       fromCatalog: false,
     };
-    onChange([...materials, newMat]);
-    setManualForm({ description: '', unit: 'un', quantity: 1, unitPrice: 0 });
-    setShowManualForm(false);
+    onChange([...materials, newItem]);
   };
 
-  // ── Update material row ──
-  const updateMaterial = (idx: number, field: keyof OemMaterial, value: any) => {
+  // ── Update item ──
+  const updateItem = (index: number, field: keyof OemMaterial, value: any) => {
     const updated = [...materials];
-    (updated[idx] as any)[field] = value;
-    // Recalc total
+    updated[index] = { ...updated[index], [field]: value };
+
+    // Recalculate total
     if (field === 'quantity' || field === 'unitPrice') {
-      updated[idx].total = Number(updated[idx].quantity || 0) * Number(updated[idx].unitPrice || 0);
+      const qty = field === 'quantity' ? parseNum(value) : updated[index].quantity;
+      const price = field === 'unitPrice' ? parseNum(value) : updated[index].unitPrice;
+      updated[index].quantity = qty;
+      updated[index].unitPrice = price;
+      updated[index].total = qty * price;
     }
+
     onChange(updated);
   };
 
-  // ── Remove ──
-  const removeMaterial = (idx: number) => {
-    onChange(materials.filter((_, i) => i !== idx));
+  // ── Remove item ──
+  const removeItem = (index: number) => {
+    onChange(materials.filter((_, i) => i !== index));
+  };
+
+  // ── Inline search for description field ──
+  const handleDescriptionChange = (index: number, value: string) => {
+    updateItem(index, 'description', value);
+    setActiveSearchIndex(index);
+    debouncedSearch(value);
+    setShowSearch(true);
+  };
+
+  const selectSearchResult = (index: number, catalogItem: any) => {
+    const updated = [...materials];
+    updated[index] = {
+      ...updated[index],
+      id: catalogItem.id,
+      description: catalogItem.name || catalogItem.description || '',
+      serviceType: catalogItem.type === 'service' ? 'service' : 'material',
+      unit: catalogItem.unit || updated[index].unit,
+      unitPrice: Number(catalogItem.unitPrice || 0),
+      total: updated[index].quantity * Number(catalogItem.unitPrice || 0),
+      fromCatalog: true,
+    };
+    onChange(updated);
+    setShowSearch(false);
+    setActiveSearchIndex(null);
+    setSearchResults([]);
   };
 
   return (
-    <div className="bg-slate-50 border rounded-lg p-3 space-y-3">
+    <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Package className="w-4 h-4 text-blue-600" />
-          <h3 className="font-semibold text-sm text-slate-700">Materiais Utilizados</h3>
-          {materials.length > 0 && (
-            <Badge variant="outline" className="text-xs">{materials.length} {materials.length === 1 ? 'item' : 'itens'}</Badge>
-          )}
+          <h3 className="font-semibold text-sm text-slate-700 uppercase tracking-wide">
+            Atividades / Serviços
+          </h3>
         </div>
-        {!readOnly && totalMaterials > 0 && (
-          <span className="text-sm font-bold text-blue-700">{fmt(totalMaterials)}</span>
+
+        {!readOnly && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="text-xs gap-1.5">
+                <Plus className="w-3.5 h-3.5" /> Adicionar <ChevronDown className="w-3 h-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => addManualItem('service')}>
+                <PenLine className="w-4 h-4 mr-2 text-blue-500" />
+                Item Avulso
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowSearch(true)}>
+                <Search className="w-4 h-4 mr-2 text-emerald-500" />
+                Item do Catálogo
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
-      {/* Search bar */}
-      {!readOnly && (
+      {/* Catalog search (top-level) */}
+      {showSearch && activeSearchIndex === null && (
         <div className="relative" ref={dropdownRef}>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input
-              value={searchQuery}
-              onChange={e => handleSearch(e.target.value)}
-              placeholder="Buscar material no catálogo..."
-              className="pl-8 pr-10 h-9 text-sm"
-            />
-            {searching && <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-blue-500" />}
-            {searchQuery && !searching && (
-              <button
-                type="button"
-                onClick={() => { setSearchQuery(''); setSearchResults([]); setShowDropdown(false); }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                autoFocus
+                placeholder="Buscar no catálogo..."
+                value={searchQuery}
+                onChange={e => { setSearchQuery(e.target.value); debouncedSearch(e.target.value); }}
+                className="pl-9 text-sm"
+              />
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => { setShowSearch(false); setSearchResults([]); setSearchQuery(''); }}>
+              ✕
+            </Button>
           </div>
-
-          {/* Dropdown results */}
-          {showDropdown && searchResults.length > 0 && (
-            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
-              {searchResults.map((item: any) => (
+          {(searchResults.length > 0 || searching) && (
+            <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              {searching && <div className="p-3 flex items-center gap-2 text-sm text-slate-400"><Loader2 className="w-4 h-4 animate-spin" />Buscando...</div>}
+              {searchResults.map(item => (
                 <button
                   key={item.id}
                   type="button"
@@ -189,199 +229,191 @@ export default function MaterialAllocationPanel({ materials, onChange, readOnly 
                     <div className="flex items-center gap-2 ml-5">
                       {item.sku && <span className="text-xs text-slate-400">SKU: {item.sku}</span>}
                       {item.brand && <span className="text-xs text-slate-400">• {item.brand}</span>}
-                      {item.category?.name && <span className="text-xs text-slate-400">• {item.category.name}</span>}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-xs font-semibold text-green-600">{fmt(item.unitPrice || 0)}</span>
-                    <span className="text-xs text-slate-400 block">{item.unit || 'un'}</span>
+                    <span className="text-xs text-slate-400 block">{item.unit || 'UN'}</span>
                   </div>
                 </button>
               ))}
             </div>
           )}
-          {showDropdown && searchResults.length === 0 && searchQuery.length >= 2 && !searching && (
-            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-center text-sm text-slate-400">
-              Nenhum item encontrado no catálogo
-            </div>
-          )}
         </div>
       )}
 
-      {/* Material rows */}
+      {/* Items table */}
       {materials.length > 0 && (
         <div className="border rounded-lg overflow-hidden bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-100">
-              <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500">Material</th>
-                <th className="px-2 py-2 text-center text-xs font-medium text-slate-500 w-16">Unid</th>
-                <th className="px-2 py-2 text-center text-xs font-medium text-slate-500 w-20">Qtd</th>
-                <th className="px-2 py-2 text-right text-xs font-medium text-slate-500 w-24">Preço Unit</th>
-                <th className="px-2 py-2 text-right text-xs font-medium text-slate-500 w-24">Total</th>
-                {!readOnly && <th className="w-8" />}
-              </tr>
-            </thead>
-            <tbody>
-              {materials.map((m, idx) => (
-                <tr key={idx} className="border-t border-slate-100 group hover:bg-slate-50/50">
-                  <td className="px-3 py-1.5">
-                    <div className="flex items-center gap-1.5">
-                      {m.fromCatalog ? (
-                        <span title="Do catálogo"><Database className="w-3.5 h-3.5 text-blue-400 shrink-0" /></span>
-                      ) : (
-                        <span title="Manual"><PenLine className="w-3.5 h-3.5 text-amber-400 shrink-0" /></span>
-                      )}
-                      {readOnly ? (
-                        <span className="text-slate-700 truncate">{m.description}</span>
-                      ) : (
-                        <Input
-                          value={m.description}
-                          onChange={e => updateMaterial(idx, 'description', e.target.value)}
-                          className="h-7 text-xs border-0 bg-transparent p-0 focus-visible:ring-0 shadow-none"
-                        />
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-2 py-1.5 text-center">
-                    {readOnly ? (
-                      <span className="text-xs text-slate-500">{m.unit}</span>
-                    ) : (
-                      <Input
-                        value={m.unit}
-                        onChange={e => updateMaterial(idx, 'unit', e.target.value)}
-                        className="h-7 text-xs text-center w-14 mx-auto"
-                      />
+          {/* Table header */}
+          <div className="grid grid-cols-[1fr_100px_80px_70px_90px_80px_32px] gap-1 px-3 py-2 bg-slate-50 border-b text-xs font-medium text-slate-500 uppercase tracking-wide">
+            <div>Descrição</div>
+            <div>Tipo</div>
+            <div className="text-right">Preço Unit.</div>
+            <div className="text-right">Qtd</div>
+            <div className="text-center">UN</div>
+            <div className="text-right">Total</div>
+            <div></div>
+          </div>
+
+          {/* Table body */}
+          {materials.map((item, index) => (
+            <div
+              key={index}
+              className="grid grid-cols-[1fr_100px_80px_70px_90px_80px_32px] gap-1 px-3 py-1.5 border-b border-slate-50 last:border-0 items-center hover:bg-slate-50/50 group relative"
+            >
+              {/* Description with inline catalog search */}
+              <div className="relative">
+                {readOnly ? (
+                  <div className="flex items-center gap-1.5">
+                    {item.fromCatalog && <Database className="w-3 h-3 text-blue-400 shrink-0" />}
+                    <span className="text-sm text-slate-700 truncate">{item.description}</span>
+                  </div>
+                ) : (
+                  <>
+                    <Input
+                      value={item.description}
+                      onChange={e => handleDescriptionChange(index, e.target.value)}
+                      onFocus={() => setActiveSearchIndex(index)}
+                      onBlur={() => setTimeout(() => { if (activeSearchIndex === index) { setShowSearch(false); setActiveSearchIndex(null); } }, 200)}
+                      placeholder="Descrição..."
+                      className="text-sm h-8 border-0 shadow-none bg-transparent px-1 focus-visible:ring-1"
+                    />
+                    {/* Inline search results */}
+                    {showSearch && activeSearchIndex === index && searchResults.length > 0 && (
+                      <div className="absolute z-50 w-full mt-0.5 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto left-0 top-full">
+                        {searchResults.map(sr => (
+                          <button
+                            key={sr.id}
+                            type="button"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between gap-2 border-b border-slate-50 last:border-0"
+                            onMouseDown={e => { e.preventDefault(); selectSearchResult(index, sr); }}
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Database className="w-3 h-3 text-blue-400 shrink-0" />
+                              <span className="truncate">{sr.name || sr.description}</span>
+                            </div>
+                            <span className="text-xs font-medium text-green-600 shrink-0">{fmt(sr.unitPrice || 0)}</span>
+                          </button>
+                        ))}
+                      </div>
                     )}
-                  </td>
-                  <td className="px-2 py-1.5 text-center">
-                    {readOnly ? (
-                      <span className="text-xs">{m.quantity}</span>
-                    ) : (
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={m.quantity || ''}
-                        onChange={e => updateMaterial(idx, 'quantity', Number(e.target.value) || 0)}
-                        className="h-7 text-xs text-center w-16 mx-auto"
-                      />
-                    )}
-                  </td>
-                  <td className="px-2 py-1.5 text-right">
-                    {readOnly ? (
-                      <span className="text-xs">{fmt(m.unitPrice)}</span>
-                    ) : (
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={m.unitPrice || ''}
-                        onChange={e => updateMaterial(idx, 'unitPrice', Number(e.target.value) || 0)}
-                        className="h-7 text-xs text-right w-20 ml-auto"
-                      />
-                    )}
-                  </td>
-                  <td className="px-2 py-1.5 text-right">
-                    <span className="text-xs font-semibold text-green-700">{fmt(m.total)}</span>
-                  </td>
-                  {!readOnly && (
-                    <td className="px-1 py-1.5">
-                      <button
-                        type="button"
-                        onClick={() => removeMaterial(idx)}
-                        className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity p-1"
-                        title="Remover"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {/* Totalizador */}
-          <div className="flex items-center justify-between bg-slate-900 text-white px-4 py-2">
-            <div className="flex items-center gap-2">
-              <Package className="w-4 h-4 text-blue-400" />
-              <span className="text-sm font-medium">Total de Materiais</span>
+                  </>
+                )}
+              </div>
+
+              {/* Type */}
+              {readOnly ? (
+                <span className="text-xs text-slate-500">{item.serviceType === 'service' ? 'Serviço' : 'Material'}</span>
+              ) : (
+                <Select
+                  value={item.serviceType}
+                  onValueChange={v => updateItem(index, 'serviceType', v)}
+                >
+                  <SelectTrigger className="h-8 text-xs border-0 shadow-none bg-transparent">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="service">Serviço</SelectItem>
+                    <SelectItem value="material">Material</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Unit Price */}
+              {readOnly ? (
+                <span className="text-sm text-right text-slate-700">{parseNum(item.unitPrice).toFixed(2)}</span>
+              ) : (
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={item.unitPrice}
+                  onChange={e => updateItem(index, 'unitPrice', e.target.value)}
+                  className="text-sm h-8 text-right border-0 shadow-none bg-transparent px-1"
+                />
+              )}
+
+              {/* Quantity */}
+              {readOnly ? (
+                <span className="text-sm text-right text-slate-700">{item.quantity}</span>
+              ) : (
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={item.quantity}
+                  onChange={e => updateItem(index, 'quantity', e.target.value)}
+                  className="text-sm h-8 text-right border-0 shadow-none bg-transparent px-1"
+                />
+              )}
+
+              {/* Unit */}
+              {readOnly ? (
+                <span className="text-xs text-center text-slate-500">{item.unit}</span>
+              ) : (
+                <Select
+                  value={item.unit}
+                  onValueChange={v => updateItem(index, 'unit', v)}
+                >
+                  <SelectTrigger className="h-8 text-xs border-0 shadow-none bg-transparent">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {unitOptions.map(u => (
+                      <SelectItem key={u} value={u}>{u}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Total */}
+              <span className="text-sm text-right font-medium text-slate-800">
+                {fmt(item.total)}
+              </span>
+
+              {/* Delete */}
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => removeItem(index)}
+                  className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-400 transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-            <span className="text-lg font-bold text-blue-400">{fmt(totalMaterials)}</span>
+          ))}
+        </div>
+      )}
+
+      {/* Totals */}
+      {materials.length > 0 && (
+        <div className="bg-white border rounded-lg overflow-hidden">
+          <div className="flex justify-end px-4 py-2 gap-8 text-sm">
+            {subtotalMaterial > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500">Materiais:</span>
+                <span className="font-medium text-slate-700">{fmt(subtotalMaterial)}</span>
+              </div>
+            )}
+            {subtotalService > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500">Serviços:</span>
+                <span className="font-medium text-slate-700">{fmt(subtotalService)}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end px-4 py-2.5 bg-slate-900 text-white">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-slate-300">Total:</span>
+              <span className="text-lg font-bold text-emerald-400">{fmt(grandTotal)}</span>
+            </div>
           </div>
         </div>
       )}
 
-      {materials.length === 0 && (
-        <p className="text-xs text-slate-400 text-center py-2">Nenhum material adicionado</p>
-      )}
-
-      {/* Manual entry form */}
-      {!readOnly && showManualForm && (
-        <div className="bg-white border border-amber-200 rounded-lg p-3 space-y-2">
-          <Label className="text-xs font-medium text-amber-700">Adicionar material avulso</Label>
-          <div className="grid grid-cols-12 gap-2">
-            <div className="col-span-5">
-              <Input
-                value={manualForm.description}
-                onChange={e => setManualForm({ ...manualForm, description: e.target.value })}
-                placeholder="Descrição do material"
-                className="h-8 text-xs"
-                onKeyDown={e => e.key === 'Enter' && addManual()}
-              />
-            </div>
-            <div className="col-span-2">
-              <Input
-                value={manualForm.unit}
-                onChange={e => setManualForm({ ...manualForm, unit: e.target.value })}
-                placeholder="un"
-                className="h-8 text-xs text-center"
-              />
-            </div>
-            <div className="col-span-2">
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={manualForm.quantity || ''}
-                onChange={e => setManualForm({ ...manualForm, quantity: Number(e.target.value) || 0 })}
-                placeholder="Qtd"
-                className="h-8 text-xs text-center"
-              />
-            </div>
-            <div className="col-span-2">
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={manualForm.unitPrice || ''}
-                onChange={e => setManualForm({ ...manualForm, unitPrice: Number(e.target.value) || 0 })}
-                placeholder="R$ Unit"
-                className="h-8 text-xs text-right"
-              />
-            </div>
-            <div className="col-span-1 flex gap-1">
-              <Button type="button" variant="default" size="sm" onClick={addManual} className="h-8 px-2 bg-amber-500 hover:bg-amber-600 text-xs">
-                ✓
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Actions */}
-      {!readOnly && (
-        <div className="flex items-center gap-2 pt-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setShowManualForm(!showManualForm)}
-            className="h-8 text-xs"
-          >
-            <PenLine className="w-3.5 h-3.5 mr-1" />
-            {showManualForm ? 'Cancelar' : 'Material avulso'}
-          </Button>
+      {materials.length === 0 && !showSearch && (
+        <div className="text-center py-6 text-sm text-slate-400">
+          Nenhum item adicionado. Clique em <strong>+ Adicionar</strong> para incluir materiais ou serviços.
         </div>
       )}
     </div>

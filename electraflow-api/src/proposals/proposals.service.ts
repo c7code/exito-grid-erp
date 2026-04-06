@@ -370,7 +370,10 @@ export class ProposalsService implements OnModuleInit {
     proposal.revisionNumber = newRevisionNumber;
 
     try {
-      return await this.proposalRepository.save(proposal);
+      const saved = await this.proposalRepository.save(proposal);
+      // ── Propagar alterações para contratos e obras vinculadas ──
+      await this.syncLinkedEntities(id);
+      return saved;
     } catch (saveErr: any) {
       // If save fails due to unknown column, log and retry with safe fields only
       this.logger.error('Error saving proposal: ' + saveErr?.message);
@@ -402,7 +405,61 @@ export class ProposalsService implements OnModuleInit {
       .where('id = :id', { id })
       .execute();
 
+    // ── Propagar alterações para contratos e obras vinculadas ──
+    await this.syncLinkedEntities(id);
+
     return this.findOne(id);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Sync linked entities — propaga valor da proposta para contratos e obras
+  // ═══════════════════════════════════════════════════════════════
+  private async syncLinkedEntities(proposalId: string): Promise<void> {
+    try {
+      // Buscar proposta atualizada
+      const proposal = await this.findOne(proposalId);
+      const newTotal = Number(proposal.total) || 0;
+
+      // Atualizar contratos vinculados
+      const contracts = await this.dataSource.query(
+        `SELECT id, "workId" FROM contracts WHERE "proposalId" = $1 AND "deletedAt" IS NULL`,
+        [proposalId],
+      );
+
+      for (const contract of contracts) {
+        // Atualizar valor do contrato
+        await this.dataSource.query(
+          `UPDATE contracts SET "totalValue" = $1, "updatedAt" = NOW() WHERE id = $2`,
+          [newTotal, contract.id],
+        );
+
+        // Atualizar valor da obra vinculada ao contrato
+        if (contract.workId) {
+          await this.dataSource.query(
+            `UPDATE works SET "totalValue" = $1, "updatedAt" = NOW() WHERE id = $2`,
+            [newTotal, contract.workId],
+          );
+          this.logger.log(`📊 [Sync] Obra ${contract.workId} atualizada: R$ ${newTotal}`);
+        }
+
+        this.logger.log(`📊 [Sync] Contrato ${contract.id} atualizado: R$ ${newTotal}`);
+      }
+
+      // Atualizar obras criadas diretamente da proposta (sem contrato)
+      // Buscar obras pelo opportunityId da proposta
+      if (proposal.opportunityId) {
+        await this.dataSource.query(
+          `UPDATE works SET "totalValue" = $1, "updatedAt" = NOW() WHERE "opportunityId" = $2 AND "deletedAt" IS NULL`,
+          [newTotal, proposal.opportunityId],
+        );
+      }
+
+      if (contracts.length > 0) {
+        this.logger.log(`✅ [Sync] Proposta ${proposal.proposalNumber}: ${contracts.length} contrato(s) sincronizado(s)`);
+      }
+    } catch (err) {
+      this.logger.warn(`⚠️ [Sync] Erro ao sincronizar entidades vinculadas à proposta ${proposalId}: ${err?.message}`);
+    }
   }
 
   async send(id: string): Promise<Proposal> {
