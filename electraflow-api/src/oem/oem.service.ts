@@ -150,12 +150,15 @@ export class OemService {
                     recomendacoes TEXT,
                     "tecnicoResponsavel" VARCHAR,
                     equipe TEXT,
+                    "materiaisUtilizados" TEXT,
                     observacoes TEXT,
                     "createdAt" TIMESTAMP DEFAULT NOW(),
                     "updatedAt" TIMESTAMP DEFAULT NOW(),
                     "deletedAt" TIMESTAMP
                 )
             `);
+            // ── Coluna de materiais para oem_servicos (migração incremental) ──
+            try { await this.dataSource.query(`ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "materiaisUtilizados" TEXT`); } catch { /* exists */ }
         } catch (e) {
             console.warn('OeM tables migration:', e?.message);
         }

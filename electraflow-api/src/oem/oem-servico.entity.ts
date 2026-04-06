@@ -85,6 +85,11 @@ export class OemServico {
     @Column({ nullable: true })
     equipe: string; // JSON: ['nome1', 'nome2']
 
+    // ═══ MATERIAIS UTILIZADOS ═════════════════════════════════════
+    // JSON: [{ id?, description, unit, quantity, unitPrice, total, fromCatalog }]
+    @Column({ type: 'text', nullable: true })
+    materiaisUtilizados: string;
+
     @Column({ type: 'text', nullable: true })
     observacoes: string;
 

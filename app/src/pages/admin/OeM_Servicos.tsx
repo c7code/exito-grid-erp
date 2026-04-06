@@ -17,6 +17,7 @@ import {
   PRIORIDADE_LABELS, PRIORIDADE_COLORS,
   emptyServico, fmt,
 } from './OeM_handlers';
+import MaterialAllocationPanel, { type OemMaterial } from './MaterialAllocationPanel';
 
 interface Props {
   servicos: any[];
@@ -37,6 +38,7 @@ export default function OeMServicos({ servicos, usinas, clients, onReload, editS
   const [checklist, setChecklist] = useState<any[]>([]);
   const [newCheckItem, setNewCheckItem] = useState('');
   const [displayMode, setDisplayMode] = useState<'com_valor' | 'sem_valor' | 'texto'>('com_valor');
+  const [materiais, setMateriais] = useState<OemMaterial[]>([]);
 
   // ── Precificação inteligente ──
   const [baseManutencao, setBaseManutencao] = useState(0);
@@ -68,6 +70,7 @@ export default function OeMServicos({ servicos, usinas, clients, onReload, editS
     setBaseManutencao(0);
     setValorUsina(0);
     setPctManutencao(10);
+    setMateriais([]);
     loadChecklist(tipo);
     setDialogOpen(true);
   };
@@ -78,7 +81,11 @@ export default function OeMServicos({ servicos, usinas, clients, onReload, editS
     try {
       // Salvar displayMode em cada item do checklist
       const clWithMode = checklist.map(c => ({ ...c, displayMode }));
-      const data = { ...form, checklist: JSON.stringify(clWithMode) };
+      const data = {
+        ...form,
+        checklist: JSON.stringify(clWithMode),
+        materiaisUtilizados: materiais.length > 0 ? JSON.stringify(materiais) : null,
+      };
       if (!data.valorEstimado) data.valorEstimado = null;
       if (!data.dataAgendada) data.dataAgendada = null;
       if (editingId) { await api.updateOemServico(editingId, data); toast.success('Serviço atualizado'); }
@@ -92,6 +99,11 @@ export default function OeMServicos({ servicos, usinas, clients, onReload, editS
     const cl = s.checklist ? (typeof s.checklist === 'string' ? JSON.parse(s.checklist) : s.checklist) : [];
     setChecklist(cl);
     setDisplayMode(cl.length > 0 ? (cl[0].displayMode || 'com_valor') : 'com_valor');
+    // Carregar materiais
+    const mats = s.materiaisUtilizados
+      ? (typeof s.materiaisUtilizados === 'string' ? JSON.parse(s.materiaisUtilizados) : s.materiaisUtilizados)
+      : [];
+    setMateriais(mats);
     setForm({
       tipo: s.tipo, usinaId: s.usinaId || '', clienteId: s.clienteId || '',
       prioridade: s.prioridade || 'normal', descricao: s.descricao || '',
@@ -382,6 +394,12 @@ export default function OeMServicos({ servicos, usinas, clients, onReload, editS
               <div className="space-y-1"><Label>Técnico Responsável</Label><Input value={form.tecnicoResponsavel} onChange={e => setForm({ ...form, tecnicoResponsavel: e.target.value })} /></div>
               <div className="col-span-2 space-y-1"><Label>Descrição</Label><Textarea value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} rows={2} placeholder="Descreva o serviço a ser realizado..." /></div>
             </div>
+
+            {/* ═══ MATERIAIS UTILIZADOS ═══ */}
+            <MaterialAllocationPanel
+              materials={materiais}
+              onChange={setMateriais}
+            />
 
             {/* ═══ CHECKLIST COM PREVIEW DE VALORES ═══ */}
             <div className="bg-slate-50 border rounded-lg p-3 space-y-2">
