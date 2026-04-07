@@ -67,6 +67,7 @@ interface ActivityItem {
     isBundleParent?: boolean;
     parentId?: string;
     showDetailedPrices?: boolean;
+    showGroupTitle?: boolean;
     catalogItemId?: string;
     overridePrice?: string;
     internalNote?: string;
@@ -379,6 +380,7 @@ export default function NewProposalDialog({
                         isBundleParent: it.isBundleParent || false,
                         parentId: it.parentId || undefined,
                         showDetailedPrices: it.showDetailedPrices !== undefined ? it.showDetailedPrices : true,
+                        showGroupTitle: it.showGroupTitle !== undefined ? it.showGroupTitle : true,
                         overridePrice: it.overridePrice != null ? String(it.overridePrice) : '',
                         internalNote: it.notes || '',
                     })));
@@ -654,6 +656,7 @@ export default function NewProposalDialog({
                 parentId: item.parentId,
                 isBundleParent: item.isBundleParent,
                 showDetailedPrices: item.showDetailedPrices,
+                showGroupTitle: item.showGroupTitle !== undefined ? item.showGroupTitle : true,
                 overridePrice: item.isBundleParent && item.overridePrice && item.overridePrice.trim() !== '' ? parsePrice(item.overridePrice) : null,
                 unitPrice: parsePrice(item.unitPrice),
                 quantity: parsePrice(item.quantity) || 1,
@@ -751,6 +754,7 @@ export default function NewProposalDialog({
                     parentId: item.parentId,
                     isBundleParent: item.isBundleParent,
                     showDetailedPrices: item.showDetailedPrices,
+                    showGroupTitle: item.showGroupTitle !== undefined ? item.showGroupTitle : true,
                     overridePrice: item.isBundleParent && item.overridePrice && item.overridePrice.trim() !== '' ? parsePrice(item.overridePrice) : null,
                     unitPrice: parsePrice(item.unitPrice),
                     quantity: parsePrice(item.quantity) || 1,
@@ -1149,6 +1153,7 @@ export default function NewProposalDialog({
                                                                     unit: item.unit || 'UN',
                                                                     isBundleParent: true,
                                                                     showDetailedPrices: true,
+                                                                    showGroupTitle: true,
                                                                 };
 
                                                                 // Flatten tree into children
@@ -1426,6 +1431,7 @@ export default function NewProposalDialog({
                                                                                             isBundleParent: true,
                                                                                             id: parentTempId,
                                                                                             showDetailedPrices: true,
+                                                                                            showGroupTitle: true,
                                                                                             unitPrice: '0',
                                                                                             quantity: '1',
                                                                                             serviceType: 'material'
@@ -1456,6 +1462,7 @@ export default function NewProposalDialog({
                                                                                             isBundleParent: true,
                                                                                             id: parentTempId,
                                                                                             showDetailedPrices: true,
+                                                                                            showGroupTitle: true,
                                                                                             unitPrice: '0',
                                                                                             quantity: '1',
                                                                                             serviceType: suggestion.type === 'service' ? 'service' : 'material',
@@ -1635,6 +1642,21 @@ export default function NewProposalDialog({
                                                                         >
                                                                             {item.showDetailedPrices ? (
                                                                                 <Eye className="w-4 h-4 text-amber-600" />
+                                                                            ) : (
+                                                                                <EyeOff className="w-4 h-4 text-slate-400" />
+                                                                            )}
+                                                                        </Button>
+                                                                        <span className="text-[10px] text-slate-400 uppercase font-semibold ml-1">Título:</span>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            title={item.showGroupTitle !== false ? 'Título do agrupamento VISÍVEL na proposta' : 'Título do agrupamento OCULTO na proposta (itens aparecem como avulsos)'}
+                                                                            className={`h-6 w-8 p-0 ${item.showGroupTitle !== false ? 'hover:bg-violet-100' : 'hover:bg-slate-100'}`}
+                                                                            onClick={() => updateItem(index, 'showGroupTitle', item.showGroupTitle === false ? true : false)}
+                                                                        >
+                                                                            {item.showGroupTitle !== false ? (
+                                                                                <Eye className="w-4 h-4 text-violet-600" />
                                                                             ) : (
                                                                                 <EyeOff className="w-4 h-4 text-slate-400" />
                                                                             )}

@@ -377,6 +377,9 @@ export class ProposalItem {
   @Column({ default: true })
   showDetailedPrices: boolean;
 
+  @Column({ default: true })
+  showGroupTitle: boolean;  // Exibir título do agrupamento no PDF (false = itens aparecem como avulsos)
+
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   overridePrice: number;  // Preço cobrado (override) — permite ajustar o valor do kit manualmente
 
