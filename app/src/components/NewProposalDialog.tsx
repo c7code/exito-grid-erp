@@ -1927,7 +1927,7 @@ export default function NewProposalDialog({
                                                 📊 Material Consolidado — Lista única de todos os materiais
                                             </SelectItem>
                                             <SelectItem value="total_only">
-                                                💰 Valor Total — Lista de itens com preços, só valor global no final
+                                                💰 Valor Total — Relação de itens sem preços, só valor global
                                             </SelectItem>
                                             <SelectItem value="commercial">
                                                 📝 Descrição Comercial — Texto comercial inteligente

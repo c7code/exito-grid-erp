@@ -502,10 +502,9 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                             </>
                         );
                     }
-
                     // ═══════════════════════════════════════════
-                    // MODO 0B: TOTAL GLOBAL — Lista de itens + apenas valor total
-                    // Mostra: tabela de materiais e serviços com valores, sem subtotais separados, só VALOR GLOBAL
+                    // MODO 0B: TOTAL GLOBAL — Relação de itens sem preços + somente valor total
+                    // Mostra: tabela (Item, Descrição, Un, Qtd) sem preços individuais, sem subtotais, só VALOR GLOBAL
                     // ═══════════════════════════════════════════
                     if (mode === 'total_only') {
                         const renderTotalOnlyTable = (tableItems: any[], type: string) => {
@@ -515,18 +514,15 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                                 <table style={s.table}>
                                     <thead>
                                         <tr>
-                                            <th style={{ ...s.th, width: '5%' }}>Item</th>
-                                            <th style={{ ...s.th, width: '45%' }}>Descrição</th>
-                                            <th style={{ ...s.th, width: '10%' }}>Un</th>
-                                            <th style={{ ...s.thRight, width: '10%' }}>Qtd</th>
-                                            <th style={{ ...s.thRight, width: '15%' }}>Vlr. Unit.</th>
-                                            <th style={{ ...s.thRight, width: '15%' }}>Total</th>
+                                            <th style={{ ...s.th, width: '8%' }}>Item</th>
+                                            <th style={{ ...s.th, width: '62%' }}>Descrição</th>
+                                            <th style={{ ...s.th, width: '12%' }}>Un</th>
+                                            <th style={{ ...s.thRight, width: '18%' }}>Qtd</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {topItems.map((item: any) => {
                                             const children = getChildren(item.id);
-                                            const up = getUnitPrice(item);
                                             const hideTitle = item.isBundleParent && item.showGroupTitle === false;
                                             if (hideTitle) {
                                                 return children.map((child: any) => {
@@ -537,8 +533,6 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                                                             <td style={s.td}>{child.description}</td>
                                                             <td style={s.td}>{child.unit || (type === 'material' ? 'un' : 'sv')}</td>
                                                             <td style={s.tdRight}>{Number(child.quantity || 1)}</td>
-                                                            <td style={s.tdRight}>R$ {fmtV(child.unitPrice)}</td>
-                                                            <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmtV(child.total || child.unitPrice * child.quantity)}</td>
                                                         </tr>
                                                     );
                                                 });
@@ -552,8 +546,6 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                                                         <td style={{ ...s.td, fontWeight: item.isBundleParent ? 700 : 400 }}>{item.description}</td>
                                                         <td style={s.td}>{item.unit || (type === 'material' ? 'un' : 'sv')}</td>
                                                         <td style={s.tdRight}>{Number(item.quantity || 1)}</td>
-                                                        <td style={s.tdRight}>R$ {fmtV(up)}</td>
-                                                        <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmtV(item.total || up * Number(item.quantity || 1))}</td>
                                                     </tr>
                                                     {children.map((child: any, ci: number) => (
                                                         <tr key={`c-${ci}`} style={{ background: '#fefefe' }}>
@@ -561,8 +553,6 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                                                             <td style={{ ...s.td, paddingLeft: '20px', color: '#555', fontSize: '9px' }}>↳ {child.description}</td>
                                                             <td style={{ ...s.td, color: '#888', fontSize: '8.5px' }}>{child.unit || (type === 'material' ? 'un' : 'sv')}</td>
                                                             <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>{Number(child.quantity || 1)}</td>
-                                                            <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>R$ {fmtV(child.unitPrice)}</td>
-                                                            <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>R$ {fmtV(child.total || child.unitPrice * child.quantity)}</td>
                                                         </tr>
                                                     ))}
                                                 </React.Fragment>
