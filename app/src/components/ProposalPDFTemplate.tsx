@@ -504,6 +504,140 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                     }
 
                     // ═══════════════════════════════════════════
+                    // MODO 0B: TOTAL GLOBAL — Lista de itens + apenas valor total
+                    // Mostra: tabela de materiais e serviços com valores, sem subtotais separados, só VALOR GLOBAL
+                    // ═══════════════════════════════════════════
+                    if (mode === 'total_only') {
+                        const renderTotalOnlyTable = (tableItems: any[], type: string) => {
+                            const topItems = tableItems.filter((i: any) => !i.parentId);
+                            let runningIdx = 0;
+                            return (
+                                <table style={s.table}>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ ...s.th, width: '5%' }}>Item</th>
+                                            <th style={{ ...s.th, width: '45%' }}>Descrição</th>
+                                            <th style={{ ...s.th, width: '10%' }}>Un</th>
+                                            <th style={{ ...s.thRight, width: '10%' }}>Qtd</th>
+                                            <th style={{ ...s.thRight, width: '15%' }}>Vlr. Unit.</th>
+                                            <th style={{ ...s.thRight, width: '15%' }}>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {topItems.map((item: any) => {
+                                            const children = getChildren(item.id);
+                                            const up = getUnitPrice(item);
+                                            const hideTitle = item.isBundleParent && item.showGroupTitle === false;
+                                            if (hideTitle) {
+                                                return children.map((child: any) => {
+                                                    runningIdx++;
+                                                    return (
+                                                        <tr key={`flat-${child.id || runningIdx}`}>
+                                                            <td style={s.td}>{String(runningIdx).padStart(2, '0')}</td>
+                                                            <td style={s.td}>{child.description}</td>
+                                                            <td style={s.td}>{child.unit || (type === 'material' ? 'un' : 'sv')}</td>
+                                                            <td style={s.tdRight}>{Number(child.quantity || 1)}</td>
+                                                            <td style={s.tdRight}>R$ {fmtV(child.unitPrice)}</td>
+                                                            <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmtV(child.total || child.unitPrice * child.quantity)}</td>
+                                                        </tr>
+                                                    );
+                                                });
+                                            }
+                                            runningIdx++;
+                                            const currentIdx = runningIdx;
+                                            return (
+                                                <React.Fragment key={currentIdx}>
+                                                    <tr style={item.isBundleParent ? { background: '#f8fafc' } : {}}>
+                                                        <td style={{ ...s.td, fontWeight: item.isBundleParent ? 700 : 400 }}>{String(currentIdx).padStart(2, '0')}</td>
+                                                        <td style={{ ...s.td, fontWeight: item.isBundleParent ? 700 : 400 }}>{item.description}</td>
+                                                        <td style={s.td}>{item.unit || (type === 'material' ? 'un' : 'sv')}</td>
+                                                        <td style={s.tdRight}>{Number(item.quantity || 1)}</td>
+                                                        <td style={s.tdRight}>R$ {fmtV(up)}</td>
+                                                        <td style={{ ...s.tdRight, fontWeight: 600 }}>R$ {fmtV(item.total || up * Number(item.quantity || 1))}</td>
+                                                    </tr>
+                                                    {children.map((child: any, ci: number) => (
+                                                        <tr key={`c-${ci}`} style={{ background: '#fefefe' }}>
+                                                            <td style={{ ...s.td, paddingLeft: '20px', color: '#888', fontSize: '8.5px' }}>{String(currentIdx).padStart(2, '0')}.{ci + 1}</td>
+                                                            <td style={{ ...s.td, paddingLeft: '20px', color: '#555', fontSize: '9px' }}>↳ {child.description}</td>
+                                                            <td style={{ ...s.td, color: '#888', fontSize: '8.5px' }}>{child.unit || (type === 'material' ? 'un' : 'sv')}</td>
+                                                            <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>{Number(child.quantity || 1)}</td>
+                                                            <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>R$ {fmtV(child.unitPrice)}</td>
+                                                            <td style={{ ...s.tdRight, color: '#888', fontSize: '8.5px' }}>R$ {fmtV(child.total || child.unitPrice * child.quantity)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            );
+                        };
+
+                        return (
+                            <>
+                                {materialItems.length > 0 && (
+                                    <>
+                                        <div style={s.sectionTitle}>{clauseNum++}. Fornecimento de Materiais</div>
+                                        {proposal.materialFornecimento && renderStructuredText(proposal.materialFornecimento, s.para)}
+                                        {renderTotalOnlyTable(materialItems, 'material')}
+                                    </>
+                                )}
+                                {serviceItems.length > 0 && (
+                                    <>
+                                        <div style={s.sectionTitle}>{clauseNum++}. Prestação de Serviços</div>
+                                        {proposal.serviceDescription && renderStructuredText(proposal.serviceDescription, s.para)}
+                                        {renderTotalOnlyTable(serviceItems, 'service')}
+                                    </>
+                                )}
+                                {/* Sem subtotais separados — apenas bloco VALOR GLOBAL */}
+                                <div style={{ marginTop: '24px' }}>
+                                    <div style={{ background: '#fafafa', borderRadius: '6px', padding: '16px 20px', border: '1px solid #e5e7eb' }}>
+                                        {(showLogistics || showAdmin || showBrokerage || showInsurance || discount > 0) && (
+                                            <>
+                                                {showLogistics && (
+                                                    <div style={s.summaryRow}>
+                                                        <span>Custo Logístico{proposal.logisticsCostPercent && Number(proposal.logisticsCostPercent) > 0 && <span style={s.costBadge}>{proposal.logisticsCostPercent}%</span>}</span>
+                                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(logisticsCost)}</span>
+                                                    </div>
+                                                )}
+                                                {showAdmin && (
+                                                    <div style={s.summaryRow}>
+                                                        <span>Custo Administrativo{proposal.adminCostPercent && Number(proposal.adminCostPercent) > 0 && <span style={s.costBadge}>{proposal.adminCostPercent}%</span>}</span>
+                                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(adminCost)}</span>
+                                                    </div>
+                                                )}
+                                                {showBrokerage && (
+                                                    <div style={s.summaryRow}>
+                                                        <span>Corretagem{proposal.brokerageCostPercent && Number(proposal.brokerageCostPercent) > 0 && <span style={s.costBadge}>{proposal.brokerageCostPercent}%</span>}</span>
+                                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(brokerageCost)}</span>
+                                                    </div>
+                                                )}
+                                                {showInsurance && (
+                                                    <div style={s.summaryRow}>
+                                                        <span>Seguro{proposal.insuranceCostPercent && Number(proposal.insuranceCostPercent) > 0 && <span style={s.costBadge}>{proposal.insuranceCostPercent}%</span>}</span>
+                                                        <span style={{ fontWeight: 600 }}>R$ {fmtV(insuranceCost)}</span>
+                                                    </div>
+                                                )}
+                                                {discount > 0 && (
+                                                    <div style={{ ...s.summaryRow, color: '#16a34a' }}>
+                                                        <span>Desconto</span>
+                                                        <span style={{ fontWeight: 600 }}>- R$ {fmtV(discount)}</span>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                        <div style={s.totalRow}>
+                                            <span>{totalLabel}</span>
+                                            <span>R$ {fmtV(grandTotal)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {renderEvidenciadoCosts()}
+                            </>
+                        );
+                    }
+
+                    // ═══════════════════════════════════════════
                     // MODO 1: AGRUPAMENTO — Apenas bundles
                     // ═══════════════════════════════════════════
                     if (mode === 'grouping') {
