@@ -119,6 +119,7 @@ export class ProposalsService implements OnModuleInit {
       { col: 'isBundleParent', type: 'BOOLEAN DEFAULT false', table: 'proposal_items' },
       { col: 'parentId', type: 'UUID DEFAULT NULL', table: 'proposal_items' },
       { col: 'showDetailedPrices', type: 'BOOLEAN DEFAULT true', table: 'proposal_items' },
+      { col: 'showGroupTitle', type: 'BOOLEAN DEFAULT true', table: 'proposal_items' },
       { col: 'isSuggested', type: 'BOOLEAN DEFAULT false', table: 'proposal_items' },
       { col: 'suggestedByRule', type: 'VARCHAR DEFAULT NULL', table: 'proposal_items' },
       { col: 'sortOrder', type: 'INT DEFAULT 0', table: 'proposal_items' },
@@ -337,6 +338,7 @@ export class ProposalsService implements OnModuleInit {
         isBundleParent: item.isBundleParent,
         parentId: item.parentId,
         showDetailedPrices: item.showDetailedPrices,
+        showGroupTitle: item.showGroupTitle,
         overridePrice: item.overridePrice,
         notes: item.notes,
       })),
@@ -393,9 +395,10 @@ export class ProposalsService implements OnModuleInit {
     // ── Salvar novos itens ──
     await this.saveProposalItems(id, items);
 
-    // ── Recalcular totais usando query direta (evita cascade sobrescrever itens) ──
+    // ── Recalcular totais usando APENAS itens top-level (sem parentId), evitando duplicação ──
     const freshProposal = await this.findOne(id);
-    const subtotal = freshProposal.items.reduce((sum, item) => sum + Number(item.total), 0);
+    const topLevelItems = (freshProposal.items || []).filter(item => !item.parentId);
+    const subtotal = topLevelItems.reduce((sum, item) => sum + Number(item.total), 0);
     const total = subtotal - Number(freshProposal.discount || 0);
 
     await this.proposalRepository
@@ -460,6 +463,32 @@ export class ProposalsService implements OnModuleInit {
     } catch (err) {
       this.logger.warn(`⚠️ [Sync] Erro ao sincronizar entidades vinculadas à proposta ${proposalId}: ${err?.message}`);
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Recalcular totais da proposta a partir dos itens (corrige inconsistências)
+  // ═══════════════════════════════════════════════════════════════
+  async recalculateTotals(id: string): Promise<Proposal> {
+    const proposal = await this.findOne(id);
+
+    // Apenas itens top-level (sem parentId) — totais dos pais já incluem filhos
+    const topLevelItems = (proposal.items || []).filter(item => !item.parentId);
+    const subtotal = topLevelItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    const total = subtotal - Number(proposal.discount || 0);
+
+    this.logger.log(`🔄 [Recalculate] Proposta ${proposal.proposalNumber}: subtotal=${subtotal}, total=${total} (itens top-level: ${topLevelItems.length}/${proposal.items?.length || 0})`);
+
+    await this.proposalRepository
+      .createQueryBuilder()
+      .update(Proposal)
+      .set({ subtotal, total })
+      .where('id = :id', { id })
+      .execute();
+
+    // Propagar para entidades vinculadas
+    await this.syncLinkedEntities(id);
+
+    return this.findOne(id);
   }
 
   async send(id: string): Promise<Proposal> {
@@ -690,6 +719,7 @@ export class ProposalsService implements OnModuleInit {
       isBundleParent: item.isBundleParent || false,
       showDetailedPrices: item.showDetailedPrices !== undefined ? item.showDetailedPrices : true,
       overridePrice: item.overridePrice != null && Number(item.overridePrice) > 0 ? Number(item.overridePrice) : null,
+      showGroupTitle: item.showGroupTitle !== undefined ? item.showGroupTitle : true,
       isSuggested: item.isSuggested || false,
       suggestedByRule: item.suggestedByRule || null,
       notes: item.notes || null,

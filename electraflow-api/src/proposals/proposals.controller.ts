@@ -96,6 +96,12 @@ export class ProposalsController {
     return this.proposalsService.updateItems(id, data.items);
   }
 
+  @Post(':id/recalculate')
+  @ApiOperation({ summary: 'Recalcular totais da proposta' })
+  async recalculate(@Param('id') id: string) {
+    return this.proposalsService.recalculateTotals(id);
+  }
+
   @Post(':id/send')
   @ApiOperation({ summary: 'Enviar proposta' })
   async send(@Param('id') id: string) {

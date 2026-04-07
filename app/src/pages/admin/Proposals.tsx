@@ -49,6 +49,7 @@ import {
   Wrench,
   ClipboardList,
   RotateCcw,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -689,6 +690,19 @@ export default function AdminProposals() {
                               <DropdownMenuItem onClick={() => handleViewRevisions(proposal)}>
                                 <History className="w-4 h-4 mr-2" />
                                 Ver Revisões
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={async () => {
+                                try {
+                                  toast.info('Recalculando totais...');
+                                  await api.recalculateProposal(proposal.id);
+                                  toast.success('Totais recalculados com sucesso!');
+                                  loadProposals();
+                                } catch {
+                                  toast.error('Erro ao recalcular totais.');
+                                }
+                              }}>
+                                <RefreshCw className="w-4 h-4 mr-2 text-cyan-600" />
+                                Recalcular Totais
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => handlePreviewProposal(proposal)}>

@@ -659,6 +659,11 @@ class ApiService {
     return response.data;
   }
 
+  async recalculateProposal(id: string) {
+    const response = await this.client.post(`/proposals/${id}/recalculate`);
+    return response.data;
+  }
+
   async sendProposal(id: string) {
     const response = await this.client.post(`/proposals/${id}/send`);
     return response.data;
