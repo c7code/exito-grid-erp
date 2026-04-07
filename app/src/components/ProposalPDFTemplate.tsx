@@ -83,8 +83,8 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
     // Masked format helper
     const fmtV = (v: number) => hideFinancialValues ? '•••••' : fmt(v);
 
-    const materialSubtotal = materialItems.reduce((s: number, i: any) => s + Number(i.total || i.unitPrice * i.quantity || 0), 0);
-    const serviceSubtotal = serviceItems.reduce((s: number, i: any) => s + Number(i.total || i.unitPrice * i.quantity || 0), 0);
+    const materialSubtotal = materialItems.filter((i: any) => !i.parentId).reduce((s: number, i: any) => s + Number(i.total || i.unitPrice * i.quantity || 0), 0);
+    const serviceSubtotal = serviceItems.filter((i: any) => !i.parentId).reduce((s: number, i: any) => s + Number(i.total || i.unitPrice * i.quantity || 0), 0);
 
     // Calcular custos adicionais
     const calcCost = (value: number | null, percent: number | null, base: number) => {
