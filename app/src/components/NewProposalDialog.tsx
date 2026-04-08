@@ -5,7 +5,6 @@ import {
     DialogHeader,
     DialogTitle,
     DialogDescription,
-    DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -883,8 +882,8 @@ export default function NewProposalDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={handleOpenChange}>
-                <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
+                <DialogContent className="sm:max-w-6xl max-h-[90vh] flex flex-col p-0 gap-0">
+                    <DialogHeader className="px-6 pt-5 pb-4 border-b bg-slate-50/80">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
                                 <FileText className="w-5 h-5 text-amber-600" />
@@ -908,7 +907,7 @@ export default function NewProposalDialog({
                         </div>
                     </DialogHeader>
 
-                    <form onSubmit={handleSubmit} className="space-y-6 mt-2">
+                    <form onSubmit={handleSubmit} className="space-y-6 mt-2 flex-1 overflow-y-auto px-6 pb-4">
                         {/* Informações da Proposta */}
                         <div className="space-y-4">
                             <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
@@ -1960,7 +1959,7 @@ export default function NewProposalDialog({
                                             className="text-xs"
                                             onClick={() => {
                                                 const matItems = items.filter(i => i.serviceType === 'material' && i.description.trim());
-                                                const svcItems = items.filter(i => i.serviceType !== 'material' && i.description.trim());
+                                                const svcItems = items.filter(i => i.serviceType === 'service' && i.description.trim());
 
                                                 let matText = '';
                                                 if (matItems.length > 0) {
@@ -2010,7 +2009,7 @@ export default function NewProposalDialog({
                                         </div>
                                     )}
 
-                                    {items.some(i => i.serviceType !== 'material') && (
+                                    {items.some(i => i.serviceType === 'service') && (
                                         <div className="space-y-2">
                                             <Label className="text-xs text-amber-700 font-semibold">
                                                 Texto Comercial — Serviços
@@ -2852,7 +2851,14 @@ export default function NewProposalDialog({
                             )}
                         </div>
 
-                        <DialogFooter className="flex items-center gap-2">
+                    </form>
+
+                    {/* ═══ STICKY BOTTOM BAR ═══ */}
+                    <div className="sticky bottom-0 left-0 right-0 z-20 border-t bg-white/95 backdrop-blur-sm px-6 py-3 flex items-center justify-between gap-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+                        <p className="text-xs text-slate-400 hidden sm:block">
+                            {initialData ? `Editando proposta #${initialData.proposalNumber || initialData.id?.substring(0,8).toUpperCase()}` : 'Nova proposta — preencha todos os campos obrigatórios'}
+                        </p>
+                        <div className="flex items-center gap-2 ml-auto">
                             <Button
                                 type="button"
                                 variant="outline"
@@ -2871,8 +2877,10 @@ export default function NewProposalDialog({
                             </Button>
                             <Button
                                 type="submit"
+                                form="proposal-form"
                                 className="bg-amber-500 hover:bg-amber-600 text-slate-900"
                                 disabled={loading}
+                                onClick={handleSubmit as any}
                             >
                                 {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                 {loading
@@ -2880,8 +2888,8 @@ export default function NewProposalDialog({
                                     : (initialData ? 'Salvar Alterações' : 'Criar Proposta')
                                 }
                             </Button>
-                        </DialogFooter>
-                    </form>
+                        </div>
+                    </div>
                 </DialogContent>
             </Dialog>
 

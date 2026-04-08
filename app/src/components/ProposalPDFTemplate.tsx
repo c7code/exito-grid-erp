@@ -77,8 +77,10 @@ const objectiveLabels: Record<string, string> = {
 
 export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = false, signatures }: ProposalPDFTemplateProps) {
     const items = proposal.items || [];
+    // Filtro rigoroso: material = 'material'; serviço = 'service'
+    // Itens sem serviceType definido NÃO devem aparecer em nenhuma seção
     const materialItems = items.filter((i: any) => i.serviceType === 'material');
-    const serviceItems = items.filter((i: any) => i.serviceType !== 'material');
+    const serviceItems = items.filter((i: any) => i.serviceType === 'service');
 
     // Masked format helper
     const fmtV = (v: number) => hideFinancialValues ? '•••••' : fmt(v);
