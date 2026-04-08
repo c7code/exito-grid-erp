@@ -308,7 +308,26 @@ export default function AdminProposals() {
 
   const handlePreviewProposal = async (proposal: any) => {
     try {
-      const freshProposal = await api.getProposal(proposal.id);
+      let freshProposal = await api.getProposal(proposal.id);
+
+      // ═══ BUSCAR DOCUMENTOS EXTERNOS vinculados à proposta ═══
+      try {
+        const allDocs = await api.getDocuments({ proposalId: freshProposal.id });
+        const externalDocs = (Array.isArray(allDocs) ? allDocs : [])
+          .filter((d: any) => d.purpose === 'proposal_external');
+        if (!freshProposal.documents || freshProposal.documents.length === 0) {
+          freshProposal = { ...freshProposal, documents: externalDocs };
+        } else {
+          freshProposal = {
+            ...freshProposal,
+            documents: [
+              ...freshProposal.documents.filter((d: any) => d.purpose === 'proposal_external'),
+              ...externalDocs.filter((d: any) => !freshProposal.documents.find((x: any) => x.id === d.id)),
+            ],
+          };
+        }
+      } catch { /* silencioso */ }
+
       let coData = null;
       try { coData = await api.getPrimaryCompany(); } catch {}
       setPreviewProposalData(freshProposal);
@@ -359,6 +378,28 @@ export default function AdminProposals() {
       freshProposal = await api.getProposal(proposal.id);
     } catch (err) {
       console.warn('Could not fetch fresh proposal data, using local data:', err);
+    }
+
+    // ═══ BUSCAR DOCUMENTOS EXTERNOS vinculados à proposta ═══
+    try {
+      const allDocs = await api.getDocuments({ proposalId: freshProposal.id });
+      const externalDocs = (Array.isArray(allDocs) ? allDocs : [])
+        .filter((d: any) => d.purpose === 'proposal_external');
+      // Injetar no objeto da proposta para o template PDF renderizar
+      if (!freshProposal.documents || freshProposal.documents.length === 0) {
+        freshProposal = { ...freshProposal, documents: externalDocs };
+      } else {
+        // Mesclar com qualquer doc já retornado pelo backend
+        freshProposal = {
+          ...freshProposal,
+          documents: [
+            ...freshProposal.documents.filter((d: any) => d.purpose === 'proposal_external'),
+            ...externalDocs.filter((d: any) => !freshProposal.documents.find((x: any) => x.id === d.id)),
+          ],
+        };
+      }
+    } catch (err) {
+      console.warn('Could not fetch proposal documents:', err);
     }
 
     // If solar proposal, load solar project data first
