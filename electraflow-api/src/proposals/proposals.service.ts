@@ -172,6 +172,21 @@ export class ProposalsService implements OnModuleInit {
     if (!proposal) {
       throw new NotFoundException('Proposta não encontrada');
     }
+
+    // Buscar documentos externos vinculados à proposta (para renderização no PDF)
+    try {
+      const docs = await this.dataSource.query(
+        `SELECT id, name, "fileName", url, "mimeType", size, description, purpose
+         FROM documents
+         WHERE "proposalId" = $1 AND purpose IN ('proposal_external', 'proposal_internal') AND "deletedAt" IS NULL
+         ORDER BY "createdAt" ASC`,
+        [id],
+      );
+      (proposal as any).documents = docs || [];
+    } catch {
+      (proposal as any).documents = [];
+    }
+
     return proposal;
   }
 
