@@ -93,6 +93,45 @@ export class OemServico {
     @Column({ type: 'text', nullable: true })
     observacoes: string;
 
+    // ═══ PROPOSTA CUSTOMIZADA O&M ═════════════════════════════════
+    // Título personalizado da proposta (ex: 'Limpeza + Inspeção Elétrica — Usina Caruaru')
+    @Column({ type: 'text', nullable: true })
+    proposalTitle: string;
+
+    // Validade da proposta (data ISO string)
+    @Column({ type: 'varchar', nullable: true })
+    proposalValidUntil: string;
+
+    // Modo da proposta: 'servico' | 'material' | 'misto'
+    @Column({ type: 'varchar', nullable: true, default: 'servico' })
+    proposalMode: string;
+
+    // JSON: { beneficios, analise, diagnostico, sla, obrigacoes, disposicoes, conformidade, escopo }
+    // Controla quais seções aparecem no PDF gerado
+    @Column({ type: 'text', nullable: true })
+    sectionToggles: string;
+
+    // JSON: [{ description, fornecedor, cnpjFornecedor, quantity, unitPrice, total }]
+    // Insumos/materiais necessários para a manutenção (com dados de fornecedor p/ rastreabilidade)
+    @Column({ type: 'text', nullable: true })
+    oemMateriais: string;
+
+    // Se true, o custo de oemMateriais é somado ao total da proposta
+    @Column({ type: 'boolean', nullable: true, default: false })
+    incluirMateriaisNoTotal: boolean;
+
+    // Subtotal apenas dos serviços (itens do checklist)
+    @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+    totalServicos: number;
+
+    // Subtotal apenas dos materiais/insumos
+    @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+    totalMateriais: number;
+
+    // Snapshot do proposalId gerado para esta proposta customizada (pode diferir do proposalId legacy)
+    @Column({ type: 'varchar', nullable: true })
+    oemProposalId: string;
+
     @CreateDateColumn()
     createdAt: Date;
 

@@ -1,10 +1,11 @@
-import React from 'react';
+﻿import React from 'react';
 import { EXITO_GRID_LOGO } from '@/assets/exito-grid-logo-base64';
 
 interface OeMProposalPDFTemplateProps {
     proposal: any;
     company?: any;
     signatures?: Record<string, { imageUrl?: string; signerName?: string; signerRole?: string; signerDocument?: string }>;
+    idOverride?: string;
 }
 
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -39,7 +40,7 @@ function renderStructuredText(text: string | undefined | null, baseStyle: React.
     );
 }
 
-export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMProposalPDFTemplateProps) {
+export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverride }: OeMProposalPDFTemplateProps) {
     const items = proposal.items || [];
     const co = company || {};
     const empresa = {
@@ -79,8 +80,27 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
     const generalProvisions = proposal.generalProvisions || null;
     const complianceText = proposal.complianceText || null;
     const workDeadlineText = proposal.workDeadlineText || null;
-    const validUntilStr = proposal.validUntil ? new Date(proposal.validUntil).toLocaleDateString('pt-BR') : '30 dias';
+    const rawValidUntil = proposal.validUntil || proposal.proposalValidUntil;
+    const validUntilStr = rawValidUntil ? new Date(rawValidUntil).toLocaleDateString('pt-BR') : '30 dias';
     const deadlineStr = proposal.deadline || null;
+
+    // ── Section Toggles — controla renderização condicional das seções ──
+    let toggles: Record<string, boolean> = {};
+    try { toggles = proposal.sectionToggles ? JSON.parse(proposal.sectionToggles) : {}; } catch { toggles = {}; }
+    const sec = (key: string, def = true) => toggles[key] !== undefined ? toggles[key] : def;
+
+    // ── Materiais & Insumos ──
+    let oemMateriais: any[] = [];
+    try { oemMateriais = proposal.oemMateriais ? JSON.parse(proposal.oemMateriais) : []; } catch { oemMateriais = []; }
+    const externalMateriais = oemMateriais.filter((m: any) => m.description);
+    const totalMateriais = externalMateriais.reduce((s: number, m: any) => s + (Number(m.total) || 0), 0);
+    const totalServicos = Number(proposal.totalServicos || proposal.total || 0);
+    const incluirMateriaisNoTotal = proposal.incluirMateriaisNoTotal === true || proposal.incluirMateriaisNoTotal === 'true';
+    const grandTotal = incluirMateriaisNoTotal ? totalServicos + totalMateriais : totalServicos;
+    const displayTotal = Number(proposal.total || grandTotal);
+
+    // ── Diagnóstico Técnico ──
+    const diagnosticoText = proposal.diagnostico || null; // used below in sec('diagnostico')
 
     // ── Auto-numbering sections ──
     let sectionIndex = 0;
@@ -146,7 +166,7 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
     const slaUrgente = slaUrgenteFromScope ? slaUrgenteFromScope[1] : '4';
 
     return (
-        <div id="proposal-pdf-content" className="pdf-section" style={s.page}>
+        <div id={idOverride || 'proposal-pdf-content'} className="pdf-section" style={s.page}>
             <style>{`
                 #proposal-pdf-content tr { break-inside: avoid; }
                 #proposal-pdf-content .sig-block { break-inside: avoid; }
@@ -223,8 +243,8 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
                     </p>
                 </div>
 
-                {/* ─── ANÁLISE DE IMPACTO & RETORNO (condicional — só aparece se pricingEngineData preenchido) ─── */}
-                {(() => {
+                {/* ─── ANÁLISE DE IMPACTO & RETORNO (condicional) ─── */}
+                {sec('analise', false) && (() => {
                     let pe: any = null;
                     try { pe = proposal.pricingEngineData ? JSON.parse(proposal.pricingEngineData) : null; } catch { pe = null; }
                     if (!pe) return null;
@@ -311,7 +331,7 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
                 })()}
 
                 {/* ─── BENEFÍCIOS (condicional) ─── */}
-                {benefits.length > 0 && (
+                {sec('beneficios', false) && benefits.length > 0 && (
                     <>
                         <div className="pdf-section-title" style={s.sectionTitle}>
                             <div style={{ ...s.sectionIcon, background: '#22c55e' }}>✨</div>
@@ -327,6 +347,20 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
                             ))}
                         </div>
                     </>
+                )}
+
+                {/* ─── DIAGNÓSTICO TÉCNICO (condicional) ─── */}
+                {sec('diagnostico', false) && diagnosticoText && (
+                <div className="pdf-keep-together">
+                    <div className="pdf-section-title" style={s.sectionTitle}>
+                        <div style={{ ...s.sectionIcon, background: '#dc2626' }}>🔬</div>
+                        <span style={s.sectionNum}>{nextSection()}.</span>
+                        Diagnóstico Técnico
+                    </div>
+                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '18px 22px' }}>
+                        {renderStructuredText(diagnosticoText, { fontSize: '9.5px', color: '#991b1b', lineHeight: '1.75' })}
+                    </div>
+                </div>
                 )}
 
                 {/* ─── ESCOPO TÉCNICO ─── */}
@@ -402,6 +436,7 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
                 )}
 
                 {/* ─── SLA ─── */}
+                {sec('sla') && (<>
                 <div className="pdf-section-title" style={s.sectionTitle}>
                     <div style={{ ...s.sectionIcon, background: '#3b82f6' }}>⏱️</div>
                     <span style={s.sectionNum}>{nextSection()}.</span>
@@ -424,8 +459,10 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
                 <p style={{ ...s.para, textAlign: 'center', fontStyle: 'italic', fontSize: '8.5px', color: '#64748b' }}>
                     Tempos de resposta contados a partir da abertura do chamado técnico.
                 </p>
+                </>)}
 
-                {/* ─── GARANTIAS / CONFORMIDADE (dinâmico com fallback) ─── */}
+                {/* ─── GARANTIAS / CONFORMIDADE ─── */}
+                {sec('garantias') && (<>
                 <div className="pdf-section-title" style={s.sectionTitle}>
                     <div style={{ ...s.sectionIcon, background: '#059669' }}>🛡️</div>
                     <span style={s.sectionNum}>{nextSection()}.</span>
@@ -454,8 +491,10 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
                         </>
                     )}
                 </div>
+                </>)}
 
                 {/* ─── INVESTIMENTO ─── */}
+                {sec('investimento') && (<>
                 <div className="pdf-section-title" style={s.sectionTitle}>
                     <div style={{ ...s.sectionIcon, background: '#f59e0b' }}>💰</div>
                     <span style={s.sectionNum}>{nextSection()}.</span>
@@ -525,13 +564,75 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
                                 Investimento Total
                             </p>
                             <span style={{ fontSize: '30px', fontWeight: 900, color: '#f59e0b' }}>
-                                {fmtCurrency(total)}
+                                {fmtCurrency(displayTotal)}
                             </span>
                         </div>
                     </div>
                 )}
 
+                </>)}
+
+                {/* ─── MATERIAIS & INSUMOS (condicional — aparece se há materiais) ─── */}
+                {externalMateriais.length > 0 && (
+                <div className="pdf-keep-together" style={{ marginTop: '20px' }}>
+                    <div className="pdf-section-title" style={s.sectionTitle}>
+                        <div style={{ ...s.sectionIcon, background: '#0891b2' }}>📦</div>
+                        <span style={s.sectionNum}>{nextSection()}.</span>
+                        Materiais &amp; Insumos
+                    </div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
+                        <thead>
+                            <tr style={{ background: '#0f172a' }}>
+                                <th style={{ padding: '8px 12px', textAlign: 'left', color: '#f59e0b', fontWeight: 700 }}>Descrição</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 700 }}>Fornecedor</th>
+                                <th style={{ padding: '8px 8px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>CNPJ</th>
+                                <th style={{ padding: '8px 6px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>Qtd</th>
+                                <th style={{ padding: '8px 8px', textAlign: 'right', color: '#94a3b8', fontWeight: 700 }}>Unit.</th>
+                                <th style={{ padding: '8px 12px', textAlign: 'right', color: '#94a3b8', fontWeight: 700 }}>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {externalMateriais.map((m: any, i: number) => (
+                                <tr key={i} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff', borderBottom: '1px solid #e2e8f0' }}>
+                                    <td style={{ padding: '9px 12px', fontWeight: 600, color: '#0f172a', fontSize: '9px' }}>{m.description}</td>
+                                    <td style={{ padding: '9px 10px', color: '#475569', fontSize: '9px' }}>{m.fornecedor || '—'}</td>
+                                    <td style={{ padding: '9px 8px', textAlign: 'center', color: '#64748b', fontFamily: 'monospace', fontSize: '8px' }}>{m.cnpjFornecedor || '—'}</td>
+                                    <td style={{ padding: '9px 6px', textAlign: 'center', color: '#334155' }}>{m.quantity}</td>
+                                    <td style={{ padding: '9px 8px', textAlign: 'right', color: '#334155' }}>{fmtCurrency(m.unitPrice)}</td>
+                                    <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: '#0891b2' }}>{fmtCurrency(m.total)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                        <tfoot>
+                            <tr style={{ background: '#0f172a' }}>
+                                <td colSpan={5} style={{ padding: '9px 12px', textAlign: 'right', color: '#94a3b8', fontWeight: 700, letterSpacing: '0.5px' }}>Subtotal Materiais</td>
+                                <td style={{ padding: '9px 12px', textAlign: 'right', color: '#0ea5e9', fontWeight: 800, fontSize: '10px' }}>{fmtCurrency(totalMateriais)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    {!incluirMateriaisNoTotal && (
+                        <p style={{ fontSize: '8px', color: '#64748b', fontStyle: 'italic', marginTop: '6px', textAlign: 'right' }}>
+                            ⚠️ Materiais para referência. Faturamento direto por pedido de compra separado.
+                        </p>
+                    )}
+                    {incluirMateriaisNoTotal && (
+                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', marginTop: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#64748b', marginBottom: '4px' }}>
+                                <span>Subtotal Serviços</span><span>{fmtCurrency(totalServicos)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#0891b2', marginBottom: '4px' }}>
+                                <span>Subtotal Materiais</span><span>{fmtCurrency(totalMateriais)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 800, color: '#0f172a', borderTop: '1px solid #e2e8f0', paddingTop: '6px', marginTop: '4px' }}>
+                                <span>TOTAL GERAL</span><span style={{ color: '#f59e0b' }}>{fmtCurrency(grandTotal)}</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                )}
+
                 {/* ─── CONDIÇÕES DE PAGAMENTO ─── */}
+                {sec('pagamento') && (<>
                 <div className="pdf-section-title" style={s.sectionTitle}>
                     <div style={{ ...s.sectionIcon, background: '#6366f1' }}>📋</div>
                     <span style={s.sectionNum}>{nextSection()}.</span>
@@ -547,8 +648,10 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
                     )}
                 </div>
 
-                {/* ─── OBRIGAÇÕES (quando preenchidas — dinâmico com fallback) ─── */}
-                {(contractorObligations || clientObligations) && (
+                </>)}
+
+                {/* ─── OBRIGAÇÕES ─── */}
+                {sec('obrigacoes', false) && (contractorObligations || clientObligations) && (
                     <>
                         <div className="pdf-section-title" style={s.sectionTitle}>
                             <div style={{ ...s.sectionIcon, background: '#0891b2' }}>⚖️</div>
@@ -578,8 +681,8 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures }: OeMPro
                     </>
                 )}
 
-                {/* ─── DISPOSIÇÕES GERAIS (quando preenchidas) ─── */}
-                {generalProvisions && (
+                {/* ─── DISPOSIÇÕES GERAIS ─── */}
+                {sec('disposicoes', false) && generalProvisions && (
                     <>
                         <div className="pdf-section-title" style={s.sectionTitle}>
                             <div style={{ ...s.sectionIcon, background: '#7c3aed' }}>📜</div>

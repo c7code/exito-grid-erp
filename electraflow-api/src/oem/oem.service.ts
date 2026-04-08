@@ -157,8 +157,22 @@ export class OemService {
                     "deletedAt" TIMESTAMP
                 )
             `);
-            // ── Coluna de materiais para oem_servicos (migração incremental) ──
-            try { await this.dataSource.query(`ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "materiaisUtilizados" TEXT`); } catch { /* exists */ }
+            // ── Colunas de proposta para oem_servicos (migração incremental) ──
+            const servicoColumns = [
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "materiaisUtilizados" TEXT`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "proposalTitle" TEXT`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "proposalValidUntil" VARCHAR`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "proposalMode" VARCHAR DEFAULT 'servico'`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "sectionToggles" TEXT`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "oemMateriais" TEXT`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "incluirMateriaisNoTotal" BOOLEAN DEFAULT false`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "totalServicos" DECIMAL(12,2)`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "totalMateriais" DECIMAL(12,2)`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "oemProposalId" VARCHAR`,
+            ];
+            for (const sql of servicoColumns) {
+                try { await this.dataSource.query(sql); } catch { /* column may already exist */ }
+            }
         } catch (e) {
             console.warn('OeM tables migration:', e?.message);
         }

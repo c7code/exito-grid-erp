@@ -10,7 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { api } from '@/api';
-import { Plus, Pencil, Trash2, FileSignature, CheckCircle2, ClipboardList, Calculator, DollarSign } from 'lucide-react';
+import { Plus, Pencil, Trash2, FileSignature, CheckCircle2, ClipboardList, Calculator, DollarSign, FileText } from 'lucide-react';
+import OeMProposalDialog from '@/components/OeMProposalDialog';
 import {
   TIPO_LABELS, TIPO_COLORS, TIPO_ICONS,
   STATUS_LABELS, STATUS_COLORS,
@@ -39,6 +40,8 @@ export default function OeMServicos({ servicos, usinas, clients, onReload, editS
   const [newCheckItem, setNewCheckItem] = useState('');
   const [displayMode, setDisplayMode] = useState<'com_valor' | 'sem_valor' | 'texto'>('com_valor');
   const [materiais, setMateriais] = useState<OemMaterial[]>([]);
+  const [proposalServico, setProposalServico] = useState<any | null>(null);
+  const [proposalOpen, setProposalOpen] = useState(false);
 
   // ── Precificação inteligente ──
   const [baseManutencao, setBaseManutencao] = useState(0);
@@ -243,10 +246,25 @@ export default function OeMServicos({ servicos, usinas, clients, onReload, editS
                   <div className="flex gap-1 mt-2">
                     {s.status !== 'concluido' && s.status !== 'cancelado' && (
                       <>
-                        {!s.proposalId && <Button variant="outline" size="sm" title="Gerar Proposta" onClick={() => handleGerarProposta(s.id)}><FileSignature className="w-3.5 h-3.5" /></Button>}
+                        {!s.proposalId && <Button variant="outline" size="sm" title="Gerar Proposta (legado)" onClick={() => handleGerarProposta(s.id)}><FileSignature className="w-3.5 h-3.5" /></Button>}
                         <Button variant="outline" size="sm" title="Concluir" className="text-green-600" onClick={() => handleConcluir(s)}><CheckCircle2 className="w-3.5 h-3.5" /></Button>
                       </>
                     )}
+                    <Button
+                      variant="outline" size="sm"
+                      title="Proposta O&M Personalizada"
+                      className="text-amber-600 border-amber-200 hover:bg-amber-50 gap-1 text-xs font-semibold"
+                      onClick={async () => {
+                        try {
+                          const full = await api.getOemServico(s.id);
+                          setProposalServico(full);
+                          setProposalOpen(true);
+                        } catch { toast.error('Erro ao carregar serviço'); }
+                      }}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Proposta</span>
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => handleEdit(s)}><Pencil className="w-4 h-4" /></Button>
                     <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDelete(s.id)}><Trash2 className="w-4 h-4" /></Button>
                   </div>
@@ -515,6 +533,14 @@ export default function OeMServicos({ servicos, usinas, clients, onReload, editS
           <DialogFooter><Button className="bg-green-600 hover:bg-green-700" onClick={handleSaveConcluir}><CheckCircle2 className="w-4 h-4 mr-1" />Concluir Serviço</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+      {proposalServico && (
+        <OeMProposalDialog
+          open={proposalOpen}
+          onOpenChange={setProposalOpen}
+          servico={proposalServico}
+          onSaved={() => { setProposalOpen(false); onReload(); }}
+        />
+      )}
     </div>
   );
 }
