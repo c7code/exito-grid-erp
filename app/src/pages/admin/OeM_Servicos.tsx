@@ -12,13 +12,13 @@ import { toast } from 'sonner';
 import { api } from '@/api';
 import { Plus, Pencil, Trash2, FileSignature, CheckCircle2, ClipboardList, Calculator, DollarSign, FileText } from 'lucide-react';
 import OeMProposalDialog from '@/components/OeMProposalDialog';
+import OeMServiceItemsPanel, { type OemServiceItem } from '@/components/OeMServiceItemsPanel';
 import {
   TIPO_LABELS, TIPO_COLORS, TIPO_ICONS,
   STATUS_LABELS, STATUS_COLORS,
   PRIORIDADE_LABELS, PRIORIDADE_COLORS,
   emptyServico, fmt,
 } from './OeM_handlers';
-import MaterialAllocationPanel, { type OemMaterial } from './MaterialAllocationPanel';
 
 interface Props {
   servicos: any[];
@@ -39,7 +39,10 @@ export default function OeMServicos({ servicos, usinas, clients, onReload, editS
   const [checklist, setChecklist] = useState<any[]>([]);
   const [newCheckItem, setNewCheckItem] = useState('');
   const [displayMode, setDisplayMode] = useState<'com_valor' | 'sem_valor' | 'texto'>('com_valor');
-  const [materiais, setMateriais] = useState<OemMaterial[]>([]);
+  const [materiais, setMateriais] = useState<any[]>([]);
+  // ── Itens livres (idêntico ao módulo Comercial) ──
+  const [serviceItems, setServiceItems] = useState<OemServiceItem[]>([]);
+  const [serviceDisplayMode, setServiceDisplayMode] = useState<'com_valor' | 'sem_valor' | 'texto'>('com_valor');
   const [proposalServico, setProposalServico] = useState<any | null>(null);
   const [proposalOpen, setProposalOpen] = useState(false);
 
@@ -74,6 +77,8 @@ export default function OeMServicos({ servicos, usinas, clients, onReload, editS
     setValorUsina(0);
     setPctManutencao(10);
     setMateriais([]);
+    setServiceItems([]);
+    setServiceDisplayMode('com_valor');
     loadChecklist(tipo);
     setDialogOpen(true);
   };
@@ -82,12 +87,14 @@ export default function OeMServicos({ servicos, usinas, clients, onReload, editS
     if (!form.usinaId) { toast.error('Selecione uma usina'); return; }
     if (!form.clienteId) { toast.error('Selecione um cliente'); return; }
     try {
-      // Salvar displayMode em cada item do checklist
       const clWithMode = checklist.map(c => ({ ...c, displayMode }));
       const data = {
         ...form,
         checklist: JSON.stringify(clWithMode),
         materiaisUtilizados: materiais.length > 0 ? JSON.stringify(materiais) : null,
+        // Itens livres do painel de serviços (idêntico ao módulo Comercial)
+        oemExtraItems: serviceItems.length > 0 ? JSON.stringify(serviceItems) : null,
+        oemItemDisplayMode: serviceDisplayMode,
       };
       if (!data.valorEstimado) data.valorEstimado = null;
       if (!data.dataAgendada) data.dataAgendada = null;
@@ -107,6 +114,12 @@ export default function OeMServicos({ servicos, usinas, clients, onReload, editS
       ? (typeof s.materiaisUtilizados === 'string' ? JSON.parse(s.materiaisUtilizados) : s.materiaisUtilizados)
       : [];
     setMateriais(mats);
+    // Carregar itens livres do painel
+    try {
+      const si = s.oemExtraItems ? JSON.parse(s.oemExtraItems) : [];
+      setServiceItems(Array.isArray(si) ? si : []);
+    } catch { setServiceItems([]); }
+    setServiceDisplayMode(s.oemItemDisplayMode || 'com_valor');
     setForm({
       tipo: s.tipo, usinaId: s.usinaId || '', clienteId: s.clienteId || '',
       prioridade: s.prioridade || 'normal', descricao: s.descricao || '',
@@ -413,10 +426,13 @@ export default function OeMServicos({ servicos, usinas, clients, onReload, editS
               <div className="col-span-2 space-y-1"><Label>Descrição</Label><Textarea value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} rows={2} placeholder="Descreva o serviço a ser realizado..." /></div>
             </div>
 
-            {/* ═══ MATERIAIS UTILIZADOS ═══ */}
-            <MaterialAllocationPanel
-              materials={materiais}
-              onChange={setMateriais}
+            {/* ═══ ATIVIDADES / SERVIÇOS E MATERIAIS (idêntico ao módulo Comercial) ═══ */}
+            <OeMServiceItemsPanel
+              items={serviceItems}
+              onChange={setServiceItems}
+              displayMode={serviceDisplayMode}
+              onDisplayModeChange={setServiceDisplayMode}
+              checklistTotal={totalChecklist}
             />
 
             {/* ═══ CHECKLIST COM PREVIEW DE VALORES ═══ */}
