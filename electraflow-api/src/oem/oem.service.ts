@@ -169,6 +169,8 @@ export class OemService {
                 `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "totalServicos" DECIMAL(12,2)`,
                 `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "totalMateriais" DECIMAL(12,2)`,
                 `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "oemProposalId" VARCHAR`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "oemExtraItems" TEXT`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "oemItemDisplayMode" VARCHAR`,
             ];
             for (const sql of servicoColumns) {
                 try { await this.dataSource.query(sql); } catch { /* column may already exist */ }

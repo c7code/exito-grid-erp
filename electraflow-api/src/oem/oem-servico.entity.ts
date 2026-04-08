@@ -132,6 +132,14 @@ export class OemServico {
     @Column({ type: 'varchar', nullable: true })
     oemProposalId: string;
 
+    // Itens livres do painel de serviços (idêntico ao módulo Comercial) — JSON
+    @Column({ type: 'text', nullable: true })
+    oemExtraItems: string;
+
+    // Modo de exibição de preços dos itens livres (com_valor | sem_valor | texto)
+    @Column({ type: 'varchar', nullable: true })
+    oemItemDisplayMode: string;
+
     @CreateDateColumn()
     createdAt: Date;
 

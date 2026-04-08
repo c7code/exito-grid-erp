@@ -10,12 +10,12 @@ import { toast } from 'sonner';
 import { api } from '@/api';
 import { OeMProposalPDFTemplate } from './OeMProposalPDFTemplate';
 import html2pdf from 'html2pdf.js';
-import {
-    FileText, Settings, Wrench, Package, ClipboardList,
+import { FileText, Settings, Wrench, Package, ClipboardList,
     Plus, Trash2, Download, Eye, Loader2, ChevronRight,
     Sun, Zap, BarChart3, Shield, CreditCard, Scale, BookOpen,
     Building2, Hash,
 } from 'lucide-react';
+import OeMServiceItemsPanel, { type OemServiceItem } from './OeMServiceItemsPanel';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -112,8 +112,10 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
     // ── Aba 2: Seções
     const [toggles, setToggles] = useState<OemSectionToggles>(DEFAULT_TOGGLES);
 
-    // ── Aba 3: Serviços (read-only from checklist, display only)
+    // ── Aba 3: Serviços (checklist read-only + painel de itens livres)
     const [checklist, setChecklist] = useState<any[]>([]);
+    const [extraItems, setExtraItems] = useState<OemServiceItem[]>([]);
+    const [oemDisplayMode, setOemDisplayMode] = useState<'com_valor' | 'sem_valor' | 'texto'>('com_valor');
 
     // ── Aba 4: Materiais
     const [materiais, setMateriais] = useState<OemMaterialItem[]>([]);
@@ -170,6 +172,15 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
             setChecklist(cl);
         } catch { setChecklist([]); }
 
+        // Extra items livres (salvos em um campo separado)
+        try {
+            const saved = servico.oemExtraItems ? JSON.parse(servico.oemExtraItems) : [];
+            setExtraItems(Array.isArray(saved) && saved.length > 0 ? saved : []);
+        } catch { setExtraItems([]); }
+
+        // Display mode dos itens
+        setOemDisplayMode(servico.oemItemDisplayMode || 'com_valor');
+
         // Textos defaults (podem ter sido salvos no servico)
         setDiagnostico(servico.diagnostico || '');
         setWorkDescription(servico.descricao || defaultTitle);
@@ -186,7 +197,36 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
 
     // ─── Cálculos ─────────────────────────────────────────────────────────────
     const totalMateriais = materiais.reduce((s, m) => s + (Number(m.total) || 0), 0);
-    const totalServicos = Number(servico?.valorEstimado || servico?.valorFinal || 0);
+
+    // Total base do checklist O&M (valor estimado pré-configurado)
+    const totalChecklist = Number(servico?.valorEstimado || servico?.valorFinal || 0);
+
+    // Helper para itens extras (idêntico ao OeMServiceItemsPanel)
+    const parseNum = (v: string | number): number => {
+        if (typeof v === 'number') return isNaN(v) ? 0 : v;
+        const s = String(v || '').trim();
+        if (!s) return 0;
+        const n = s.includes(',') ? parseFloat(s.replace(/\./g, '').replace(',', '.')) : parseFloat(s);
+        return isNaN(n) ? 0 : n;
+    };
+    const getExtraItemTotal = (item: OemServiceItem): number => {
+        if (item.isBundleParent) {
+            const pQty = Math.max(parseNum(item.quantity) || 1, 1);
+            if (item.overridePrice && item.overridePrice.trim() !== '') return parseNum(item.overridePrice) * pQty;
+            return extraItems.filter(i => i.parentId === item.id)
+                .reduce((s, i) => s + parseNum(i.unitPrice) * Math.max(parseNum(i.quantity) || 1, 0), 0) * pQty;
+        }
+        if (item.parentId) {
+            const parent = extraItems.find(i => i.id === item.parentId);
+            const pQty = parent ? Math.max(parseNum(parent.quantity) || 1, 1) : 1;
+            return parseNum(item.unitPrice) * Math.max(parseNum(item.quantity) || 1, 0) * pQty;
+        }
+        return parseNum(item.unitPrice) * Math.max(parseNum(item.quantity) || 1, 0);
+    };
+    const totalExtraItems = extraItems.filter(i => !i.parentId).reduce((s, i) => s + getExtraItemTotal(i), 0);
+
+    // Total combinado (checklist + itens livres extras)
+    const totalServicos = totalChecklist + totalExtraItems;
     const grandTotal = incluirMateriaisNoTotal ? totalServicos + totalMateriais : totalServicos;
 
     // ─── Materiais helpers ────────────────────────────────────────────────────
@@ -223,6 +263,9 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                 totalMateriais,
                 diagnostico,
                 descricao: workDescription,
+                // Itens livres adicionados no painel de serviços
+                oemExtraItems: JSON.stringify(extraItems),
+                oemItemDisplayMode: oemDisplayMode,
             };
             await api.updateOemServico(servico.id, payload);
             toast.success('Proposta O&M salva com sucesso!');
@@ -236,7 +279,8 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
 
     // ─── Preview ───────────────────────────────────────────────────────────────
     const buildPreviewData = useCallback(() => {
-        const activeItems = checklist
+        // Itens do checklist O&M (pré-configurados)
+        const checklistItems = checklist
             .filter(c => c.checked !== false)
             .map((c: any) => ({
                 description: c.item,
@@ -245,8 +289,28 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                 unitPrice: c.valorDireto || 0,
                 quantity: 1,
                 total: c.valorDireto || 0,
-                showDetailedPrices: displayMode === 'com_valor',
+                showDetailedPrices: oemDisplayMode === 'com_valor',
             }));
+
+        // Itens livres (painel de serviços extra)
+        const extraPdfItems = extraItems
+            .filter(i => i.description.trim())
+            .map((i: OemServiceItem) => ({
+                id: i.id,
+                description: i.description,
+                unit: i.unit || 'SV',
+                serviceType: i.serviceType,
+                unitPrice: parseNum(i.unitPrice),
+                quantity: parseNum(i.quantity) || 1,
+                isBundleParent: i.isBundleParent,
+                parentId: i.parentId,
+                showDetailedPrices: i.showDetailedPrices !== false && oemDisplayMode === 'com_valor',
+                showGroupTitle: i.showGroupTitle !== false,
+                overridePrice: i.overridePrice ? parseNum(i.overridePrice) : null,
+                total: getExtraItemTotal(i),
+            }));
+
+        const allItems = [...checklistItems, ...extraPdfItems];
 
         const visMap: Record<string, string> = { com_valor: 'grouping', sem_valor: 'summary', texto: 'text_only' };
 
@@ -263,8 +327,8 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
             totalServicos,
             totalMateriais,
             total: grandTotal,
-            items: activeItems,
-            itemVisibilityMode: visMap[displayMode] || 'grouping',
+            items: allItems,
+            itemVisibilityMode: visMap[oemDisplayMode] || 'grouping',
             client: servico?.cliente,
             clientName: servico?.cliente?.name,
             diagnostico,
@@ -277,7 +341,7 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
             complianceText,
             proposalNumber: servico?.oemProposalId || servico?.proposalId || `OEM-${Date.now()}`,
         };
-    }, [title, validUntil, proposalMode, toggles, materiais, incluirMateriaisNoTotal, totalMateriais, totalServicos, grandTotal, checklist, displayMode, diagnostico, workDescription, beneficios, paymentConditions, contractorObligations, clientObligations, generalProvisions, complianceText, servico]);
+    }, [title, validUntil, proposalMode, toggles, materiais, incluirMateriaisNoTotal, totalMateriais, totalServicos, grandTotal, checklist, oemDisplayMode, extraItems, diagnostico, workDescription, beneficios, paymentConditions, contractorObligations, clientObligations, generalProvisions, complianceText, servico]);
 
     const handlePreview = () => {
         setPreviewData(buildPreviewData());
@@ -362,6 +426,11 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                                     >
                                         <Icon className="w-3.5 h-3.5" />
                                         {t.label}
+                                        {i === 2 && extraItems.filter(it => it.description.trim()).length > 0 && (
+                                            <Badge className="bg-emerald-500/30 text-emerald-300 text-[10px] px-1.5 py-0 h-4">
+                                                +{extraItems.filter(it => it.description.trim()).length}
+                                            </Badge>
+                                        )}
                                         {i === 3 && materiais.length > 0 && (
                                             <Badge className="bg-amber-500/30 text-amber-300 text-[10px] px-1.5 py-0 h-4">
                                                 {materiais.length}
@@ -495,48 +564,60 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
 
                         {/* ══ ABA 3: SERVIÇOS ══ */}
                         {tab === 2 && (
-                            <div className="space-y-4">
-                                <div className="text-sm text-slate-500">
-                                    Serviços gerados automaticamente a partir do checklist do serviço O&M.
-                                    Para editar, altere o checklist na tela de serviços e regere a proposta.
-                                </div>
-                                {checklist.length === 0 ? (
-                                    <div className="text-center py-12 text-slate-400">
-                                        <Wrench className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                                        <p>Nenhum item no checklist deste serviço.</p>
-                                        <p className="text-xs mt-1">Adicione itens ao checklist do serviço O&M primeiro.</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {checklist.map((item: any, i: number) => (
-                                            <div
-                                                key={i}
-                                                className={`flex items-center gap-3 p-3 rounded-lg border ${item.checked !== false ? 'bg-white border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-50'}`}
-                                            >
-                                                <div className={`w-5 h-5 rounded flex-shrink-0 flex items-center justify-center ${item.checked !== false ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                                                    <span className="text-white text-xs font-bold">{item.checked !== false ? '✓' : '—'}</span>
+                            <div className="space-y-6">
+                                {/* ── Checklist pré-configurado (read-only) ── */}
+                                {checklist.length > 0 && (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                                <ClipboardList className="w-4 h-4 text-slate-500" />
+                                                Checklist O&M Configurado
+                                            </h3>
+                                            <Badge variant="outline" className="text-xs text-slate-600">
+                                                R$ {totalChecklist.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </Badge>
+                                        </div>
+                                        <div className="grid gap-1.5">
+                                            {checklist.map((item: any, i: number) => (
+                                                <div
+                                                    key={i}
+                                                    className={`flex items-center gap-3 px-3 py-2 rounded-lg border text-sm ${item.checked !== false ? 'bg-white border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-50'}`}
+                                                >
+                                                    <div className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center text-[10px] font-bold ${item.checked !== false ? 'bg-emerald-500 text-white' : 'bg-slate-300 text-white'}`}>
+                                                        {item.checked !== false ? '✓' : '—'}
+                                                    </div>
+                                                    <span className="flex-1 text-slate-700">{item.item}</span>
+                                                    {item.inputMode === 'valor' && item.valorDireto > 0 && (
+                                                        <span className="font-semibold text-emerald-700 text-xs">
+                                                            R$ {Number(item.valorDireto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                    )}
+                                                    {(!item.inputMode || item.inputMode === 'percentual') && item.percentual > 0 && (
+                                                        <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] px-1.5">{item.percentual}%</Badge>
+                                                    )}
                                                 </div>
-                                                <span className="text-sm text-slate-700 flex-1">{item.item}</span>
-                                                {item.inputMode === 'valor' && item.valorDireto > 0 && (
-                                                    <span className="text-sm font-semibold text-emerald-700">
-                                                        R$ {Number(item.valorDireto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                    </span>
-                                                )}
-                                                {item.percentual > 0 && (
-                                                    <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs">{item.percentual}%</Badge>
-                                                )}
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
 
-                                {/* Total card */}
-                                <div className="mt-4 bg-slate-800 rounded-xl p-4 flex justify-between items-center">
-                                    <span className="text-slate-300 text-sm font-medium">Total de Serviços</span>
-                                    <span className="text-amber-400 text-xl font-bold">
-                                        R$ {totalServicos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                    </span>
-                                </div>
+                                {/* Divider */}
+                                {checklist.length > 0 && (
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex-1 border-t border-dashed border-slate-300" />
+                                        <span className="text-xs text-slate-400 font-medium">+ Itens Adicionais Livres</span>
+                                        <div className="flex-1 border-t border-dashed border-slate-300" />
+                                    </div>
+                                )}
+
+                                {/* ── Painel de itens livres (idêntico ao módulo Comercial) ── */}
+                                <OeMServiceItemsPanel
+                                    items={extraItems}
+                                    onChange={setExtraItems}
+                                    displayMode={oemDisplayMode}
+                                    onDisplayModeChange={setOemDisplayMode}
+                                    checklistTotal={totalChecklist}
+                                />
                             </div>
                         )}
 
