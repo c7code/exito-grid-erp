@@ -1308,6 +1308,81 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                         </>
                     );
                 })()}
+                {/* ═══ DOCUMENTOS ANEXOS (externos) ═══ */}
+                {(() => {
+                    // Suporta tanto `proposal.attachments` (preview) quanto `proposal.documents` (API real)
+                    const rawDocs: any[] = proposal.attachments
+                        || (proposal.documents || []).filter((d: any) => d.purpose === 'proposal_external');
+                    if (!rawDocs || rawDocs.length === 0) return null;
+
+                    const getIcon = (mimeType: string = '') => {
+                        if (mimeType.includes('pdf')) return '📄';
+                        if (mimeType.includes('image')) return '🖼️';
+                        if (mimeType.includes('spreadsheet') || mimeType.includes('excel') || mimeType.endsWith('xlsx') || mimeType.endsWith('xls')) return '📊';
+                        if (mimeType.includes('word') || mimeType.endsWith('docx') || mimeType.endsWith('doc')) return '📝';
+                        return '📎';
+                    };
+
+                    const fmtSize = (bytes: number) => {
+                        if (!bytes) return '';
+                        const kb = bytes / 1024;
+                        if (kb < 1024) return `${kb.toFixed(0)} KB`;
+                        return `${(kb / 1024).toFixed(1)} MB`;
+                    };
+
+                    return (
+                        <>
+                            <div style={{ ...s.sectionTitle, marginTop: '24px' }}>
+                                Documentos Anexos
+                            </div>
+                            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', marginBottom: '18px' }}>
+                                {rawDocs.map((doc: any, idx: number) => (
+                                    <div key={idx} style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                        padding: '10px 14px',
+                                        borderBottom: idx < rawDocs.length - 1 ? '1px solid #f1f5f9' : 'none',
+                                        background: idx % 2 === 0 ? '#ffffff' : '#f8fafc',
+                                    }}>
+                                        <span style={{ fontSize: '18px', lineHeight: 1 }}>{getIcon(doc.mimeType)}</span>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#1e293b', wordBreak: 'break-word' }}>
+                                                {doc.name || doc.fileName || `Anexo ${idx + 1}`}
+                                            </div>
+                                            {doc.description && (
+                                                <div style={{ fontSize: '8.5px', color: '#64748b', marginTop: '1px' }}>
+                                                    {doc.description}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {doc.size && (
+                                            <span style={{ fontSize: '8px', color: '#94a3b8', flexShrink: 0 }}>
+                                                {fmtSize(doc.size)}
+                                            </span>
+                                        )}
+                                        {doc.url && !doc.url.startsWith('blob:') && (
+                                            <span style={{
+                                                fontSize: '7.5px',
+                                                color: '#3b82f6',
+                                                flexShrink: 0,
+                                                background: '#eff6ff',
+                                                borderRadius: '4px',
+                                                padding: '2px 6px',
+                                                border: '1px solid #bfdbfe',
+                                            }}>
+                                                Ver online ↗
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ fontSize: '8px', color: '#94a3b8', marginBottom: '12px', fontStyle: 'italic' }}>
+                                * Os documentos listados acima fazem parte integrante desta proposta e devem ser considerados para fins de execução contratual.
+                            </div>
+                        </>
+                    );
+                })()}
 
                 {/* ASSINATURA DIGITAL verificada */}
                 {proposal.signedAt && (

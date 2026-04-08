@@ -98,7 +98,14 @@ export default function NewProposalDialog({
     const [clients, setClients] = useState<ClientOption[]>([]);
     const [loadingClients, setLoadingClients] = useState(false);
     const [showClientDialog, setShowClientDialog] = useState(false);
-    const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+
+    // Cada anexo tem: arquivo, visibilidade e nome editável
+    interface AttachedFileEntry {
+        file: File;
+        visibility: 'internal' | 'external';
+        name: string;
+    }
+    const [attachedFiles, setAttachedFiles] = useState<AttachedFileEntry[]>([]);
 
     // Preview state — renderização em memória, sem persistir no banco
     const [previewOpen, setPreviewOpen] = useState(false);
@@ -734,6 +741,10 @@ export default function NewProposalDialog({
             summaryTotalLabel: formData.summaryTotalLabel || 'Valor Global',
             // Itens
             items: validItems,
+            // Anexos externos simulados (para preview do PDF)
+            attachments: attachedFiles
+                .filter(f => f.visibility === 'external')
+                .map(f => ({ name: f.name || f.file.name, url: URL.createObjectURL(f.file), mimeType: f.file.type, size: f.file.size })),
         };
 
         setPreviewData(fakeProposal);
@@ -832,6 +843,7 @@ export default function NewProposalDialog({
                 items: validItems,
             };
 
+            let createdResult: any = null;
             if (initialData?.id) {
                 // Atualizar proposta: enviar dados e itens separadamente
                 await api.updateProposal(initialData.id, payload.proposal);
@@ -840,23 +852,32 @@ export default function NewProposalDialog({
                 }
                 toast.success('Proposta atualizada com sucesso!');
             } else {
-                await api.createProposal(payload);
+                createdResult = await api.createProposal(payload);
                 toast.success('Proposta criada com sucesso!');
             }
 
-            // Upload attached files to Documents module
-            if (attachedFiles.length > 0) {
-                for (const file of attachedFiles) {
+            // Upload dos anexos vinculados à proposta com visibilidade correta
+            const savedProposalId = initialData?.id || createdResult?.id || createdResult?.proposal?.id;
+            if (attachedFiles.length > 0 && savedProposalId) {
+                for (const entry of attachedFiles) {
                     try {
-                        await api.uploadDocument(file, {
-                            name: file.name,
+                        await api.uploadDocument(entry.file, {
+                            name: entry.name || entry.file.name,
                             type: 'other',
+                            proposalId: savedProposalId,
+                            // 'proposal_internal' = só uso interno | 'proposal_external' = aparece no PDF para o cliente
+                            purpose: entry.visibility === 'external' ? 'proposal_external' : 'proposal_internal',
                         });
                     } catch (err) {
                         console.error('Erro ao enviar anexo:', err);
                     }
                 }
-                toast.success(`${attachedFiles.length} anexo(s) enviado(s) ao módulo Documentos`);
+                const extCount = attachedFiles.filter(f => f.visibility === 'external').length;
+                const intCount = attachedFiles.filter(f => f.visibility === 'internal').length;
+                const parts = [];
+                if (extCount > 0) parts.push(`${extCount} externo(s)`);
+                if (intCount > 0) parts.push(`${intCount} interno(s)`);
+                toast.success(`${attachedFiles.length} anexo(s) enviado(s): ${parts.join(', ')}`);
             }
 
             resetForm();
@@ -2809,9 +2830,16 @@ export default function NewProposalDialog({
 
                         {/* Anexos */}
                         <div className="space-y-4 pt-4 border-t">
-                            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                <Upload className="w-4 h-4" /> Anexos
-                            </h3>
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                    <Upload className="w-4 h-4" /> Anexos da Proposta
+                                </h3>
+                                <p className="text-[10px] text-slate-400">
+                                    🔵 Interno = só visível no ERP &nbsp;|&nbsp; 🟢 Externo = aparece no PDF do cliente
+                                </p>
+                            </div>
+
+                            {/* Drop zone */}
                             <div className="relative group h-20 border-2 border-dashed border-slate-200 rounded-xl bg-white hover:border-amber-400 hover:bg-amber-50/50 transition-all flex flex-col items-center justify-center cursor-pointer">
                                 <input
                                     type="file"
@@ -2819,27 +2847,72 @@ export default function NewProposalDialog({
                                     multiple
                                     onChange={(e) => {
                                         if (e.target.files) {
-                                            setAttachedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                                            const newEntries = Array.from(e.target.files!).map(file => ({
+                                                file,
+                                                visibility: 'internal' as const,
+                                                name: file.name,
+                                            }));
+                                            setAttachedFiles(prev => [...prev, ...newEntries]);
                                         }
                                         e.target.value = '';
                                     }}
                                 />
                                 <Upload className="w-5 h-5 text-slate-400 group-hover:text-amber-500 transition-colors" />
                                 <span className="text-xs text-slate-500 mt-1">Clique para anexar arquivos</span>
-                                <span className="text-[10px] text-slate-400">Salvos automaticamente no módulo Documentos</span>
+                                <span className="text-[10px] text-slate-400">Por padrão, anexos são Internos. Mude para Externo para incluir no PDF.</span>
                             </div>
 
                             {attachedFiles.length > 0 && (
-                                <div className="space-y-1.5">
-                                    {attachedFiles.map((file, idx) => (
-                                        <div key={idx} className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg">
-                                            <div className="w-7 h-7 rounded bg-amber-100 flex items-center justify-center shrink-0">
-                                                <FileText className="w-3.5 h-3.5 text-amber-600" />
+                                <div className="space-y-2">
+                                    {attachedFiles.map((entry, idx) => (
+                                        <div key={idx} className={`flex items-center gap-2 p-2.5 rounded-lg border ${
+                                            entry.visibility === 'external'
+                                                ? 'bg-emerald-50 border-emerald-200'
+                                                : 'bg-slate-50 border-slate-200'
+                                        }`}>
+                                            {/* Ícone tipo de arquivo */}
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                                entry.visibility === 'external' ? 'bg-emerald-100' : 'bg-amber-100'
+                                            }`}>
+                                                <FileText className={`w-4 h-4 ${
+                                                    entry.visibility === 'external' ? 'text-emerald-600' : 'text-amber-600'
+                                                }`} />
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-medium text-slate-700 truncate">{file.name}</p>
-                                                <p className="text-[10px] text-slate-400">{(file.size / 1024).toFixed(1)} KB</p>
-                                            </div>
+
+                                            {/* Nome editável */}
+                                            <input
+                                                type="text"
+                                                className="flex-1 min-w-0 text-xs font-medium bg-transparent border-none outline-none text-slate-700"
+                                                value={entry.name}
+                                                onChange={(e) => {
+                                                    const updated = [...attachedFiles];
+                                                    updated[idx] = { ...updated[idx], name: e.target.value };
+                                                    setAttachedFiles(updated);
+                                                }}
+                                            />
+
+                                            {/* Tamanho */}
+                                            <span className="text-[10px] text-slate-400 shrink-0">{(entry.file.size / 1024).toFixed(0)} KB</span>
+
+                                            {/* Toggle de visibilidade */}
+                                            <button
+                                                type="button"
+                                                title={entry.visibility === 'external' ? 'Clique para tornar Interno (não vai no PDF)' : 'Clique para tornar Externo (vai no PDF do cliente)'}
+                                                className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all ${
+                                                    entry.visibility === 'external'
+                                                        ? 'bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600'
+                                                        : 'bg-slate-200 text-slate-600 border-slate-300 hover:bg-slate-300'
+                                                }`}
+                                                onClick={() => {
+                                                    const updated = [...attachedFiles];
+                                                    updated[idx] = { ...updated[idx], visibility: entry.visibility === 'external' ? 'internal' : 'external' };
+                                                    setAttachedFiles(updated);
+                                                }}
+                                            >
+                                                {entry.visibility === 'external' ? '🟢 Externo' : '🔵 Interno'}
+                                            </button>
+
+                                            {/* Remover */}
                                             <button
                                                 type="button"
                                                 className="h-6 w-6 flex items-center justify-center text-slate-400 hover:text-red-500 shrink-0"
