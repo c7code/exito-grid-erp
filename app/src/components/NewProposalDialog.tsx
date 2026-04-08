@@ -647,9 +647,11 @@ export default function NewProposalDialog({
         try { fullClient = await api.getClient(formData.clientId); } catch { /* fallback */ }
 
         // Preparar itens como se fossem itens de proposta
+        // IMPORTANTE: incluir o id pois getChildren() no template depende de item.id para achar filhos
         const validItems = items
-            .filter((item) => item.description.trim())
+            .filter((item) => item.description.trim() || item.parentId) // manter filhos mesmo sem descricao
             .map((item) => ({
+                id: item.id,  // CRITICO: sem id, getChildren(parentId) retorna vazio e quebra hierarquia
                 description: item.description,
                 serviceType: item.serviceType,
                 parentId: item.parentId,
@@ -2930,7 +2932,33 @@ export default function NewProposalDialog({
                                 </DialogDescription>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {/* Seletor de Modo de Exibição inline no preview */}
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-slate-500 hidden md:block">Modo:</span>
+                                <select
+                                    value={formData.itemVisibilityMode}
+                                    onChange={(e) => setFormData({ ...formData, itemVisibilityMode: e.target.value })}
+                                    className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                >
+                                    <option value="detailed">Estrutura Detalhada</option>
+                                    <option value="grouping">Agrupamento (kits)</option>
+                                    <option value="list_only">Lista sem Valores</option>
+                                    <option value="total_only">Valor Total</option>
+                                    <option value="consolidated">Material Consolidado</option>
+                                    <option value="commercial">Descrição Comercial</option>
+                                </select>
+                            </div>
+                            {/* Botão Atualizar — regenera o preview com o modo atual */}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs gap-1.5 border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100"
+                                onClick={() => { setPreviewOpen(false); setTimeout(() => handlePreview(), 50); }}
+                            >
+                                🔄 Atualizar
+                            </Button>
                             {/* Toggle visibilidade de valores */}
                             <Button
                                 type="button"
@@ -2955,7 +2983,7 @@ export default function NewProposalDialog({
                                 className="text-xs gap-1.5"
                                 onClick={() => { setPreviewOpen(false); }}
                             >
-                                Fechar e Voltar ao Formulário
+                                Fechar
                             </Button>
                         </div>
                     </DialogHeader>
