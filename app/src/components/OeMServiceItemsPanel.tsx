@@ -399,6 +399,9 @@ export default function OeMServiceItemsPanel({
                                                     {item.isBundleParent && (
                                                         <Layers className="w-4 h-4 text-amber-500 shrink-0" />
                                                     )}
+                                                    {(item as any)._source === 'checklist' && !item.isBundleParent && (
+                                                        <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-medium shrink-0" title="Item do checklist padrão">📋</span>
+                                                    )}
                                                     <Input
                                                         placeholder={item.isBundleParent ? 'Nome do Kit...' : 'Descrição ou pesquisar catálogo...'}
                                                         value={item.description}

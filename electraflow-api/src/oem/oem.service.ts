@@ -331,6 +331,12 @@ export class OemService {
     async updateServico(id: string, data: any): Promise<OemServico> {
         const s = await this.findOneServico(id);
         this.sanitizeUuids(data, ['usinaId', 'clienteId', 'proposalId']);
+
+        // Limpar relações eagerly-loaded para que TypeORM
+        // use os FKs atualizados pelo Object.assign (fix: cliente não persistia)
+        delete (s as any).usina;
+        delete (s as any).cliente;
+
         Object.assign(s, data);
         return this.servicoRepo.save(s);
     }

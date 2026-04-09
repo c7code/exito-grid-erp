@@ -13,7 +13,7 @@ import html2pdf from 'html2pdf.js';
 import { FileText, Settings, Wrench, Package, ClipboardList,
     Plus, Trash2, Download, Eye, Loader2, ChevronRight,
     Sun, Zap, BarChart3, Shield, CreditCard, Scale, BookOpen,
-    Building2, Hash, ArrowUp, ArrowDown,
+    Building2, Hash,
 } from 'lucide-react';
 import OeMServiceItemsPanel, { type OemServiceItem } from './OeMServiceItemsPanel';
 
@@ -27,6 +27,8 @@ export interface OemMaterialItem {
     quantity: number;
     unitPrice: number;
     total: number;
+    tipoLancamento: 'avulso' | 'faturamento_direto';
+    ocultarValorPdf: boolean;
 }
 
 export interface OemSectionToggles {
@@ -112,9 +114,9 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
     // ── Aba 2: Seções
     const [toggles, setToggles] = useState<OemSectionToggles>(DEFAULT_TOGGLES);
 
-    // ── Aba 3: Serviços (checklist read-only + painel de itens livres)
-    const [checklist, setChecklist] = useState<any[]>([]);
-    const [extraItems, setExtraItems] = useState<OemServiceItem[]>([]);
+    // ── Aba 3: Serviços (lista unificada: checklist + extras)
+    const [_originalChecklist, setOriginalChecklist] = useState<any[]>([]); // preserva o template original
+    const [unifiedItems, setUnifiedItems] = useState<OemServiceItem[]>([]);
     const [oemDisplayMode, setOemDisplayMode] = useState<'com_valor' | 'sem_valor' | 'texto'>('com_valor');
 
     // ── Aba 4: Materiais
@@ -166,17 +168,73 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
             setMateriais(savedMateriais);
         } catch { setMateriais([]); }
 
-        // Checklist
+        // Checklist original (preservado para compatibilidade do plano)
+        let cl: any[] = [];
         try {
-            const cl = servico.checklist ? JSON.parse(servico.checklist) : [];
-            setChecklist(cl);
-        } catch { setChecklist([]); }
+            cl = servico.checklist ? JSON.parse(servico.checklist) : [];
+        } catch { cl = []; }
+        setOriginalChecklist(cl);
 
-        // Extra items livres (salvos em um campo separado)
+        // Extra items livres (salvos em oemExtraItems)
+        let savedExtras: OemServiceItem[] = [];
         try {
-            const saved = servico.oemExtraItems ? JSON.parse(servico.oemExtraItems) : [];
-            setExtraItems(Array.isArray(saved) && saved.length > 0 ? saved : []);
-        } catch { setExtraItems([]); }
+            const parsed = servico.oemExtraItems ? JSON.parse(servico.oemExtraItems) : [];
+            savedExtras = Array.isArray(parsed) ? parsed : [];
+        } catch { savedExtras = []; }
+
+        // Se os extras já contêm itens com _source=checklist (já foram unificados antes), usar direto
+        const alreadyUnified = savedExtras.some((i: any) => i._source === 'checklist');
+        if (alreadyUnified || savedExtras.length > 0) {
+            // Merge: itens salvos + checklist items que ainda não foram adicionados
+            const savedCheckDescriptions = new Set(savedExtras.filter((i: any) => i._source === 'checklist').map((i: any) => i.description));
+            const missingCheckItems = cl
+                .filter((c: any) => c.checked !== false && !savedCheckDescriptions.has(c.item))
+                .map((c: any) => ({
+                    id: genId(),
+                    description: c.item,
+                    unit: 'SV',
+                    serviceType: 'service' as const,
+                    unitPrice: String(c.valorDireto || 0),
+                    quantity: '1',
+                    showDetailedPrices: true,
+                    showGroupTitle: true,
+                    _source: 'checklist' as const,
+                } as OemServiceItem));
+            if (alreadyUnified) {
+                // Já foi salvo unificado — apenas injetar novos itens do template que possam ter sido adicionados depois
+                setUnifiedItems([...savedExtras, ...missingCheckItems]);
+            } else {
+                // Primeira unificação: checklist convertido + extras existentes
+                const checkConverted = cl.filter((c: any) => c.checked !== false).map((c: any) => ({
+                    id: genId(),
+                    description: c.item,
+                    unit: 'SV',
+                    serviceType: 'service' as const,
+                    unitPrice: String(c.valorDireto || 0),
+                    quantity: '1',
+                    showDetailedPrices: true,
+                    showGroupTitle: true,
+                    _source: 'checklist' as const,
+                } as OemServiceItem));
+                setUnifiedItems([...checkConverted, ...savedExtras.map((i: any) => ({ ...i, _source: i._source || 'extra' }))]);
+            }
+        } else {
+            // Primeira vez (nenhum extra salvo): converter checklist para unified format
+            const checkItems = cl
+                .filter((c: any) => c.checked !== false)
+                .map((c: any) => ({
+                    id: genId(),
+                    description: c.item,
+                    unit: 'SV',
+                    serviceType: 'service' as const,
+                    unitPrice: String(c.valorDireto || 0),
+                    quantity: '1',
+                    showDetailedPrices: true,
+                    showGroupTitle: true,
+                    _source: 'checklist' as const,
+                } as OemServiceItem));
+            setUnifiedItems(checkItems);
+        }
 
         // Display mode dos itens
         setOemDisplayMode(servico.oemItemDisplayMode || 'com_valor');
@@ -198,10 +256,7 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
     // ─── Cálculos ─────────────────────────────────────────────────────────────
     const totalMateriais = materiais.reduce((s, m) => s + (Number(m.total) || 0), 0);
 
-    // Total base do checklist O&M (valor estimado pré-configurado)
-    const totalChecklist = Number(servico?.valorEstimado || servico?.valorFinal || 0);
-
-    // Helper para itens extras (idêntico ao OeMServiceItemsPanel)
+    // Helper para cálculo de totais dos itens
     const parseNum = (v: string | number): number => {
         if (typeof v === 'number') return isNaN(v) ? 0 : v;
         const s = String(v || '').trim();
@@ -209,29 +264,29 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
         const n = s.includes(',') ? parseFloat(s.replace(/\./g, '').replace(',', '.')) : parseFloat(s);
         return isNaN(n) ? 0 : n;
     };
-    const getExtraItemTotal = (item: OemServiceItem): number => {
+    const getItemTotal = (item: OemServiceItem): number => {
         if (item.isBundleParent) {
             const pQty = Math.max(parseNum(item.quantity) || 1, 1);
             if (item.overridePrice && item.overridePrice.trim() !== '') return parseNum(item.overridePrice) * pQty;
-            return extraItems.filter(i => i.parentId === item.id)
+            return unifiedItems.filter(i => i.parentId === item.id)
                 .reduce((s, i) => s + parseNum(i.unitPrice) * Math.max(parseNum(i.quantity) || 1, 0), 0) * pQty;
         }
         if (item.parentId) {
-            const parent = extraItems.find(i => i.id === item.parentId);
+            const parent = unifiedItems.find(i => i.id === item.parentId);
             const pQty = parent ? Math.max(parseNum(parent.quantity) || 1, 1) : 1;
             return parseNum(item.unitPrice) * Math.max(parseNum(item.quantity) || 1, 0) * pQty;
         }
         return parseNum(item.unitPrice) * Math.max(parseNum(item.quantity) || 1, 0);
     };
-    const totalExtraItems = extraItems.filter(i => !i.parentId).reduce((s, i) => s + getExtraItemTotal(i), 0);
 
-    // Total combinado (checklist + itens livres extras)
-    const totalServicos = totalChecklist + totalExtraItems;
+    // Total combinado (itens unificados)
+    const totalServicos = unifiedItems.filter(i => !i.parentId).reduce((s, i) => s + getItemTotal(i), 0);
     const grandTotal = incluirMateriaisNoTotal ? totalServicos + totalMateriais : totalServicos;
 
     // ─── Materiais helpers ────────────────────────────────────────────────────
-    const addMaterial = () => setMateriais(prev => [...prev, {
+    const addMaterial = (tipo: 'avulso' | 'faturamento_direto' = 'faturamento_direto') => setMateriais(prev => [...prev, {
         id: genId(), description: '', fornecedor: '', cnpjFornecedor: '', quantity: 1, unitPrice: 0, total: 0,
+        tipoLancamento: tipo, ocultarValorPdf: false,
     }]);
 
     const removeMaterial = (id: string) => setMateriais(prev => prev.filter(m => m.id !== id));
@@ -270,8 +325,8 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                 generalProvisions,
                 complianceText,
                 recomendacoes: beneficios,
-                // Itens livres adicionados no painel de serviços
-                oemExtraItems: JSON.stringify(extraItems),
+                // Itens unificados (checklist + extras em lista única)
+                oemExtraItems: JSON.stringify(unifiedItems),
                 oemItemDisplayMode: oemDisplayMode,
             };
             await api.updateOemServico(servico.id, payload);
@@ -286,38 +341,25 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
 
     // ─── Preview ───────────────────────────────────────────────────────────────
     const buildPreviewData = useCallback(() => {
-        // Itens do checklist O&M (pré-configurados)
-        const checklistItems = checklist
-            .filter(c => c.checked !== false)
-            .map((c: any) => ({
-                description: c.item,
-                unit: 'sv',
-                serviceType: 'service',
-                unitPrice: c.valorDireto || 0,
-                quantity: 1,
-                total: c.valorDireto || 0,
-                showDetailedPrices: oemDisplayMode === 'com_valor',
-            }));
-
-        // Itens livres (painel de serviços extra)
-        const extraPdfItems = extraItems
-            .filter(i => i.description.trim())
+        // Itens unificados (checklist + extras) → formato PDF
+        const allItems = unifiedItems
+            .filter(i => i.description?.trim())
             .map((i: OemServiceItem) => ({
                 id: i.id,
                 description: i.description,
                 unit: i.unit || 'SV',
-                serviceType: i.serviceType,
+                serviceType: i.serviceType || 'service',
                 unitPrice: parseNum(i.unitPrice),
                 quantity: parseNum(i.quantity) || 1,
                 isBundleParent: i.isBundleParent,
                 parentId: i.parentId,
-                showDetailedPrices: i.showDetailedPrices !== false && oemDisplayMode === 'com_valor',
+                showDetailedPrices: (i as any)._source === 'checklist'
+                    ? oemDisplayMode === 'com_valor'
+                    : i.showDetailedPrices !== false && oemDisplayMode === 'com_valor',
                 showGroupTitle: i.showGroupTitle !== false,
                 overridePrice: i.overridePrice ? parseNum(i.overridePrice) : null,
-                total: getExtraItemTotal(i),
+                total: getItemTotal(i),
             }));
-
-        const allItems = [...checklistItems, ...extraPdfItems];
 
         const visMap: Record<string, string> = { com_valor: 'grouping', sem_valor: 'summary', texto: 'text_only' };
 
@@ -348,7 +390,7 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
             complianceText,
             proposalNumber: servico?.oemProposalId || servico?.proposalId || `OEM-${Date.now()}`,
         };
-    }, [title, validUntil, proposalMode, toggles, materiais, incluirMateriaisNoTotal, totalMateriais, totalServicos, grandTotal, checklist, oemDisplayMode, extraItems, diagnostico, workDescription, beneficios, paymentConditions, contractorObligations, clientObligations, generalProvisions, complianceText, servico]);
+    }, [title, validUntil, proposalMode, toggles, materiais, incluirMateriaisNoTotal, totalMateriais, totalServicos, grandTotal, unifiedItems, oemDisplayMode, diagnostico, workDescription, beneficios, paymentConditions, contractorObligations, clientObligations, generalProvisions, complianceText, servico]);
 
     const handlePreview = () => {
         setPreviewData(buildPreviewData());
@@ -433,9 +475,9 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                                     >
                                         <Icon className="w-3.5 h-3.5" />
                                         {t.label}
-                                        {i === 2 && extraItems.filter(it => it.description.trim()).length > 0 && (
+                                        {i === 2 && unifiedItems.filter(it => it.description?.trim()).length > 0 && (
                                             <Badge className="bg-emerald-500/30 text-emerald-300 text-[10px] px-1.5 py-0 h-4">
-                                                +{extraItems.filter(it => it.description.trim()).length}
+                                                +{unifiedItems.filter(it => it.description?.trim()).length}
                                             </Badge>
                                         )}
                                         {i === 3 && materiais.length > 0 && (
@@ -569,87 +611,24 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                             </div>
                         )}
 
-                        {/* ══ ABA 3: SERVIÇOS ══ */}
+                        {/* ══ ABA 3: SERVIÇOS (Lista Unificada) ══ */}
                         {tab === 2 && (
                             <div className="space-y-6">
-                                {/* ── Checklist pré-configurado (com reordenação) ── */}
-                                {checklist.length > 0 && (
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                                                <ClipboardList className="w-4 h-4 text-slate-500" />
-                                                Checklist O&M Configurado
-                                            </h3>
-                                            <Badge variant="outline" className="text-xs text-slate-600">
-                                                R$ {totalChecklist.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                            </Badge>
-                                        </div>
-                                        <div className="grid gap-1.5">
-                                            {checklist.map((item: any, i: number) => (
-                                                <div
-                                                    key={i}
-                                                    className={`flex items-center gap-3 px-3 py-2 rounded-lg border text-sm ${item.checked !== false ? 'bg-white border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-50'}`}
-                                                >
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <button
-                                                            type="button"
-                                                            className="text-slate-300 hover:text-slate-600 disabled:opacity-30"
-                                                            disabled={i === 0}
-                                                            onClick={() => {
-                                                                const next = [...checklist];
-                                                                [next[i - 1], next[i]] = [next[i], next[i - 1]];
-                                                                setChecklist(next);
-                                                            }}
-                                                        >
-                                                            <ArrowUp className="w-3 h-3" />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="text-slate-300 hover:text-slate-600 disabled:opacity-30"
-                                                            disabled={i === checklist.length - 1}
-                                                            onClick={() => {
-                                                                const next = [...checklist];
-                                                                [next[i], next[i + 1]] = [next[i + 1], next[i]];
-                                                                setChecklist(next);
-                                                            }}
-                                                        >
-                                                            <ArrowDown className="w-3 h-3" />
-                                                        </button>
-                                                    </div>
-                                                    <div className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center text-[10px] font-bold ${item.checked !== false ? 'bg-emerald-500 text-white' : 'bg-slate-300 text-white'}`}>
-                                                        {item.checked !== false ? '✓' : '—'}
-                                                    </div>
-                                                    <span className="flex-1 text-slate-700">{item.item}</span>
-                                                    {item.inputMode === 'valor' && item.valorDireto > 0 && (
-                                                        <span className="font-semibold text-emerald-700 text-xs">
-                                                            R$ {Number(item.valorDireto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                        </span>
-                                                    )}
-                                                    {(!item.inputMode || item.inputMode === 'percentual') && item.percentual > 0 && (
-                                                        <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] px-1.5">{item.percentual}%</Badge>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Divider */}
-                                {checklist.length > 0 && (
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex-1 border-t border-dashed border-slate-300" />
-                                        <span className="text-xs text-slate-400 font-medium">+ Itens Adicionais Livres</span>
-                                        <div className="flex-1 border-t border-dashed border-slate-300" />
-                                    </div>
-                                )}
-
-                                {/* ── Painel de itens livres (idêntico ao módulo Comercial) ── */}
+                                <div className="flex items-center gap-2 mb-1">
+                                    <ClipboardList className="w-4 h-4 text-amber-500" />
+                                    <h3 className="text-sm font-bold text-slate-800">Checklist de Serviços</h3>
+                                    <Badge variant="outline" className="text-xs text-slate-500 ml-auto">
+                                        {unifiedItems.filter(i => (i as any)._source === 'checklist').length} padrão
+                                        {' + '}
+                                        {unifiedItems.filter(i => (i as any)._source !== 'checklist').length} extras
+                                    </Badge>
+                                </div>
                                 <OeMServiceItemsPanel
-                                    items={extraItems}
-                                    onChange={setExtraItems}
+                                    items={unifiedItems}
+                                    onChange={setUnifiedItems}
                                     displayMode={oemDisplayMode}
                                     onDisplayModeChange={setOemDisplayMode}
-                                    checklistTotal={totalChecklist}
+                                    checklistTotal={0}
                                 />
                             </div>
                         )}
@@ -661,29 +640,42 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                                     <div>
                                         <h3 className="text-sm font-bold text-slate-800">Materiais & Insumos</h3>
                                         <p className="text-xs text-slate-500 mt-0.5">
-                                            Informe os materiais necessários com dados do fornecedor para rastreabilidade
+                                            Material avulso (fornecimento próprio) ou faturamento direto por fornecedor
                                         </p>
                                     </div>
-                                    <Button size="sm" onClick={addMaterial}
-                                        className="bg-amber-500 hover:bg-amber-600 text-slate-900 gap-1.5 text-xs">
-                                        <Plus className="w-3.5 h-3.5" /> Adicionar Material
-                                    </Button>
+                                    <div className="flex gap-1.5">
+                                        <Button size="sm" onClick={() => addMaterial('avulso')}
+                                            className="bg-emerald-500 hover:bg-emerald-600 text-white gap-1.5 text-xs">
+                                            <Plus className="w-3.5 h-3.5" /> Avulso
+                                        </Button>
+                                        <Button size="sm" onClick={() => addMaterial('faturamento_direto')}
+                                            className="bg-blue-500 hover:bg-blue-600 text-white gap-1.5 text-xs">
+                                            <Plus className="w-3.5 h-3.5" /> Fat. Direto
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 {materiais.length === 0 ? (
                                     <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl text-slate-400">
                                         <Package className="w-12 h-12 mx-auto mb-3 opacity-40" />
                                         <p className="text-sm">Nenhum material adicionado</p>
-                                        <p className="text-xs mt-1">Clique em "Adicionar Material" para incluir insumos</p>
+                                        <p className="text-xs mt-1">Use os botões acima para incluir materiais</p>
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        {materiais.map((m, idx) => (
-                                            <div key={m.id} className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+                                        {materiais.map((m, idx) => {
+                                            const isAvulso = m.tipoLancamento === 'avulso';
+                                            return (
+                                            <div key={m.id} className={`bg-white rounded-xl p-4 space-y-3 border-2 ${isAvulso ? 'border-emerald-200' : 'border-blue-200'}`}>
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                                        Material #{idx + 1}
-                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge className={`text-[10px] px-2 py-0.5 ${isAvulso ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                                                            {isAvulso ? '🏢 Fornecimento Próprio' : '📦 Faturamento Direto'}
+                                                        </Badge>
+                                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                                            #{idx + 1}
+                                                        </span>
+                                                    </div>
                                                     <button
                                                         onClick={() => removeMaterial(m.id)}
                                                         className="text-red-400 hover:text-red-600 transition-colors"
@@ -700,31 +692,34 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                                                         placeholder="Ex: Módulo FV 550W Monocristalino"
                                                     />
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div>
-                                                        <Label className="text-xs text-slate-600 flex items-center gap-1">
-                                                            <Building2 className="w-3 h-3" /> Nome do Fornecedor
-                                                        </Label>
-                                                        <Input
-                                                            value={m.fornecedor}
-                                                            onChange={e => updateMaterial(m.id, 'fornecedor', e.target.value)}
-                                                            className="mt-1 text-sm"
-                                                            placeholder="Ex: Enova Distribuição Solar"
-                                                        />
+                                                {/* Campos de fornecedor — apenas para faturamento direto */}
+                                                {!isAvulso && (
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div>
+                                                            <Label className="text-xs text-slate-600 flex items-center gap-1">
+                                                                <Building2 className="w-3 h-3" /> Nome do Fornecedor
+                                                            </Label>
+                                                            <Input
+                                                                value={m.fornecedor}
+                                                                onChange={e => updateMaterial(m.id, 'fornecedor', e.target.value)}
+                                                                className="mt-1 text-sm"
+                                                                placeholder="Ex: Enova Distribuição Solar"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <Label className="text-xs text-slate-600 flex items-center gap-1">
+                                                                <Hash className="w-3 h-3" /> CNPJ do Fornecedor
+                                                            </Label>
+                                                            <Input
+                                                                value={m.cnpjFornecedor}
+                                                                onChange={e => updateMaterial(m.id, 'cnpjFornecedor', fmtCNPJ(e.target.value))}
+                                                                className="mt-1 text-sm font-mono"
+                                                                placeholder="00.000.000/0001-00"
+                                                                maxLength={18}
+                                                            />
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <Label className="text-xs text-slate-600 flex items-center gap-1">
-                                                            <Hash className="w-3 h-3" /> CNPJ do Fornecedor
-                                                        </Label>
-                                                        <Input
-                                                            value={m.cnpjFornecedor}
-                                                            onChange={e => updateMaterial(m.id, 'cnpjFornecedor', fmtCNPJ(e.target.value))}
-                                                            className="mt-1 text-sm font-mono"
-                                                            placeholder="00.000.000/0001-00"
-                                                            maxLength={18}
-                                                        />
-                                                    </div>
-                                                </div>
+                                                )}
                                                 <div className="grid grid-cols-3 gap-3">
                                                     <div>
                                                         <Label className="text-xs text-slate-600">Quantidade</Label>
@@ -749,13 +744,25 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                                                     </div>
                                                     <div>
                                                         <Label className="text-xs text-slate-600">Total</Label>
-                                                        <div className="mt-1 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-md text-sm font-bold text-emerald-700">
+                                                        <div className={`mt-1 px-3 py-2 rounded-md text-sm font-bold ${isAvulso ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-blue-50 border border-blue-200 text-blue-700'}`}>
                                                             R$ {Number(m.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                         </div>
                                                     </div>
                                                 </div>
+                                                {/* Toggle ocultar valor — apenas para avulso */}
+                                                {isAvulso && (
+                                                    <div className="flex items-center gap-2 pt-1 border-t border-emerald-100">
+                                                        <Switch
+                                                            checked={m.ocultarValorPdf || false}
+                                                            onCheckedChange={v => updateMaterial(m.id, 'ocultarValorPdf' as any, v)}
+                                                            className="scale-75"
+                                                        />
+                                                        <span className="text-xs text-slate-500">Ocultar valor unitário no PDF (exibe apenas descrição e qtd)</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
 

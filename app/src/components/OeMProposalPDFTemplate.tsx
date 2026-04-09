@@ -580,43 +580,105 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                 </>)}
 
                 {/* ─── MATERIAIS & INSUMOS (condicional — aparece se há materiais) ─── */}
-                {externalMateriais.length > 0 && (
-                <div className="pdf-keep-together" style={{ marginTop: '20px' }}>
+                {externalMateriais.length > 0 && (() => {
+                    const avulsos = externalMateriais.filter((m: any) => m.tipoLancamento === 'avulso');
+                    const diretos = externalMateriais.filter((m: any) => m.tipoLancamento !== 'avulso');
+                    const totalAvulsos = avulsos.reduce((s: number, m: any) => s + (Number(m.total) || 0), 0);
+                    const totalDiretos = diretos.reduce((s: number, m: any) => s + (Number(m.total) || 0), 0);
+
+                    return (
+                <div style={{ marginTop: '20px' }}>
                     <div className="pdf-section-title" style={s.sectionTitle}>
                         <div style={{ ...s.sectionIcon, background: '#0891b2' }}>📦</div>
                         <span style={s.sectionNum}>{nextSection()}.</span>
                         Materiais &amp; Insumos
                     </div>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
-                        <thead>
-                            <tr style={{ background: '#0f172a' }}>
-                                <th style={{ padding: '8px 12px', textAlign: 'left', color: '#f59e0b', fontWeight: 700 }}>Descrição</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 700 }}>Fornecedor</th>
-                                <th style={{ padding: '8px 8px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>CNPJ</th>
-                                <th style={{ padding: '8px 6px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>Qtd</th>
-                                <th style={{ padding: '8px 8px', textAlign: 'right', color: '#94a3b8', fontWeight: 700 }}>Unit.</th>
-                                <th style={{ padding: '8px 12px', textAlign: 'right', color: '#94a3b8', fontWeight: 700 }}>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {externalMateriais.map((m: any, i: number) => (
-                                <tr key={i} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff', borderBottom: '1px solid #e2e8f0' }}>
-                                    <td style={{ padding: '9px 12px', fontWeight: 600, color: '#0f172a', fontSize: '9px' }}>{m.description}</td>
-                                    <td style={{ padding: '9px 10px', color: '#475569', fontSize: '9px' }}>{m.fornecedor || '—'}</td>
-                                    <td style={{ padding: '9px 8px', textAlign: 'center', color: '#64748b', fontFamily: 'monospace', fontSize: '8px' }}>{m.cnpjFornecedor || '—'}</td>
-                                    <td style={{ padding: '9px 6px', textAlign: 'center', color: '#334155' }}>{m.quantity}</td>
-                                    <td style={{ padding: '9px 8px', textAlign: 'right', color: '#334155' }}>{fmtCurrency(m.unitPrice)}</td>
-                                    <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: '#0891b2' }}>{fmtCurrency(m.total)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                        <tfoot>
-                            <tr style={{ background: '#0f172a' }}>
-                                <td colSpan={5} style={{ padding: '9px 12px', textAlign: 'right', color: '#94a3b8', fontWeight: 700, letterSpacing: '0.5px' }}>Subtotal Materiais</td>
-                                <td style={{ padding: '9px 12px', textAlign: 'right', color: '#0ea5e9', fontWeight: 800, fontSize: '10px' }}>{fmtCurrency(totalMateriais)}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
+
+                    {/* ── Avulsos (Fornecimento Próprio) ── */}
+                    {avulsos.length > 0 && (
+                        <div className="pdf-keep-together" style={{ marginBottom: '14px' }}>
+                            <p style={{ fontSize: '9px', fontWeight: 700, color: '#166534', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                🏢 Fornecimento Próprio
+                            </p>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
+                                <thead>
+                                    <tr style={{ background: '#14532d' }}>
+                                        <th style={{ padding: '8px 12px', textAlign: 'left', color: '#86efac', fontWeight: 700 }}>Descrição</th>
+                                        <th style={{ padding: '8px 6px', textAlign: 'center', color: '#86efac', fontWeight: 700 }}>Qtd</th>
+                                        <th style={{ padding: '8px 8px', textAlign: 'right', color: '#86efac', fontWeight: 700 }}>Unit.</th>
+                                        <th style={{ padding: '8px 12px', textAlign: 'right', color: '#86efac', fontWeight: 700 }}>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {avulsos.map((m: any, i: number) => (
+                                        <tr key={i} style={{ background: i % 2 === 0 ? '#f0fdf4' : '#fff', borderBottom: '1px solid #dcfce7' }}>
+                                            <td style={{ padding: '9px 12px', fontWeight: 600, color: '#0f172a', fontSize: '9px' }}>{m.description}</td>
+                                            <td style={{ padding: '9px 6px', textAlign: 'center', color: '#334155' }}>{m.quantity}</td>
+                                            <td style={{ padding: '9px 8px', textAlign: 'right', color: '#334155' }}>
+                                                {m.ocultarValorPdf ? '—' : fmtCurrency(m.unitPrice)}
+                                            </td>
+                                            <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: '#166534' }}>
+                                                {m.ocultarValorPdf ? '—' : fmtCurrency(m.total)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot>
+                                    <tr style={{ background: '#14532d' }}>
+                                        <td colSpan={3} style={{ padding: '9px 12px', textAlign: 'right', color: '#86efac', fontWeight: 700 }}>
+                                            Subtotal Fornecimento
+                                        </td>
+                                        <td style={{ padding: '9px 12px', textAlign: 'right', color: '#86efac', fontWeight: 800, fontSize: '10px' }}>
+                                            {fmtCurrency(totalAvulsos)}
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* ── Faturamento Direto ── */}
+                    {diretos.length > 0 && (
+                        <div className="pdf-keep-together" style={{ marginBottom: '14px' }}>
+                            <p style={{ fontSize: '9px', fontWeight: 700, color: '#1e40af', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                📦 Faturamento Direto
+                            </p>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
+                                <thead>
+                                    <tr style={{ background: '#0f172a' }}>
+                                        <th style={{ padding: '8px 12px', textAlign: 'left', color: '#f59e0b', fontWeight: 700 }}>Descrição</th>
+                                        <th style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 700 }}>Fornecedor</th>
+                                        <th style={{ padding: '8px 8px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>CNPJ</th>
+                                        <th style={{ padding: '8px 6px', textAlign: 'center', color: '#94a3b8', fontWeight: 700 }}>Qtd</th>
+                                        <th style={{ padding: '8px 8px', textAlign: 'right', color: '#94a3b8', fontWeight: 700 }}>Unit.</th>
+                                        <th style={{ padding: '8px 12px', textAlign: 'right', color: '#94a3b8', fontWeight: 700 }}>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {diretos.map((m: any, i: number) => (
+                                        <tr key={i} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff', borderBottom: '1px solid #e2e8f0' }}>
+                                            <td style={{ padding: '9px 12px', fontWeight: 600, color: '#0f172a', fontSize: '9px' }}>{m.description}</td>
+                                            <td style={{ padding: '9px 10px', color: '#475569', fontSize: '9px' }}>{m.fornecedor || '—'}</td>
+                                            <td style={{ padding: '9px 8px', textAlign: 'center', color: '#64748b', fontFamily: 'monospace', fontSize: '8px' }}>{m.cnpjFornecedor || '—'}</td>
+                                            <td style={{ padding: '9px 6px', textAlign: 'center', color: '#334155' }}>{m.quantity}</td>
+                                            <td style={{ padding: '9px 8px', textAlign: 'right', color: '#334155' }}>{fmtCurrency(m.unitPrice)}</td>
+                                            <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: '#0891b2' }}>{fmtCurrency(m.total)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot>
+                                    <tr style={{ background: '#0f172a' }}>
+                                        <td colSpan={5} style={{ padding: '9px 12px', textAlign: 'right', color: '#94a3b8', fontWeight: 700, letterSpacing: '0.5px' }}>Subtotal Faturamento Direto</td>
+                                        <td style={{ padding: '9px 12px', textAlign: 'right', color: '#0ea5e9', fontWeight: 800, fontSize: '10px' }}>{fmtCurrency(totalDiretos)}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                            <p style={{ fontSize: '8px', color: '#64748b', fontStyle: 'italic', marginTop: '4px', textAlign: 'right' }}>
+                                Faturamento realizado diretamente pelo fornecedor ao contratante.
+                            </p>
+                        </div>
+                    )}
+
                     {!incluirMateriaisNoTotal && (
                         <p style={{ fontSize: '8px', color: '#64748b', fontStyle: 'italic', marginTop: '6px', textAlign: 'right' }}>
                             ⚠️ Materiais para referência. Faturamento direto por pedido de compra separado.
@@ -636,7 +698,8 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                         </div>
                     )}
                 </div>
-                )}
+                    );
+                })()}
 
                 {/* ─── CONDIÇÕES DE PAGAMENTO ─── */}
                 {sec('pagamento') && (<>
