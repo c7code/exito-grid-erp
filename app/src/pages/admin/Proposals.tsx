@@ -50,6 +50,7 @@ import {
   ClipboardList,
   RotateCcw,
   RefreshCw,
+  HardHat,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -171,6 +172,31 @@ export default function AdminProposals() {
       loadProposals();
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Erro ao reverter aprovação.');
+    }
+  };
+
+  const handleTransferToWork = async (proposal: any) => {
+    if (!confirm(`Criar uma Obra a partir da proposta "${proposal.title || proposal.proposalNumber}"?`)) return;
+    try {
+      toast.info('Criando obra...');
+      const clientName = proposal.client?.name || '';
+      const work = await api.createWork({
+        title: proposal.title || `Obra - ${proposal.proposalNumber}`,
+        type: proposal.activityType === 'solar' ? 'solar'
+            : proposal.activityType?.startsWith('manutencao_') ? 'maintenance'
+            : 'commercial',
+        clientId: proposal.clientId || proposal.client?.id || null,
+        totalValue: Number(proposal.total || 0),
+        description: `Obra gerada automaticamente a partir da proposta ${proposal.proposalNumber || ''}${clientName ? ` - Cliente: ${clientName}` : ''}`,
+        address: proposal.client?.address || null,
+        city: proposal.client?.city || null,
+        state: proposal.client?.state || null,
+        status: 'pending',
+      });
+      toast.success('Obra criada com sucesso!');
+      navigate(`/admin/works/${work.id}`);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Erro ao criar obra.');
     }
   };
 
@@ -790,10 +816,16 @@ export default function AdminProposals() {
                                 </>
                               )}
                               {proposal.status === 'accepted' && (
-                                <DropdownMenuItem onClick={() => handleRevertAcceptance(proposal)}>
-                                  <RotateCcw className="w-4 h-4 mr-2 text-amber-600" />
-                                  Reverter Aprovação
-                                </DropdownMenuItem>
+                                <>
+                                  <DropdownMenuItem onClick={() => handleTransferToWork(proposal)}>
+                                    <HardHat className="w-4 h-4 mr-2 text-emerald-600" />
+                                    Transferir para Obra
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleRevertAcceptance(proposal)}>
+                                    <RotateCcw className="w-4 h-4 mr-2 text-amber-600" />
+                                    Reverter Aprovação
+                                  </DropdownMenuItem>
+                                </>
                               )}
                               <DropdownMenuSeparator />
                               {/* ═══ ATALHOS FINANCEIROS ═══ */}
