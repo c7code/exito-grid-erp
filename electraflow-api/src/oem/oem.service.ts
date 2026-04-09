@@ -171,6 +171,12 @@ export class OemService {
                 `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "oemProposalId" VARCHAR`,
                 `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "oemExtraItems" TEXT`,
                 `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "oemItemDisplayMode" VARCHAR`,
+                // Textos editáveis da proposta O&M
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "paymentConditions" TEXT`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "contractorObligations" TEXT`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "clientObligations" TEXT`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "generalProvisions" TEXT`,
+                `ALTER TABLE oem_servicos ADD COLUMN IF NOT EXISTS "complianceText" TEXT`,
             ];
             for (const sql of servicoColumns) {
                 try { await this.dataSource.query(sql); } catch { /* column may already exist */ }

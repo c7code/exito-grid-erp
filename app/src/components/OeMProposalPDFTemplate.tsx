@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { EXITO_GRID_LOGO } from '@/assets/exito-grid-logo-base64';
 
 interface OeMProposalPDFTemplateProps {
@@ -168,10 +168,14 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
     return (
         <div id={idOverride || 'proposal-pdf-content'} className="pdf-section" style={s.page}>
             <style>{`
-                #proposal-pdf-content tr { break-inside: avoid; }
+                #proposal-pdf-content tr { break-inside: avoid; break-after: auto; }
                 #proposal-pdf-content .sig-block { break-inside: avoid; }
                 #proposal-pdf-content .pdf-keep-together { break-inside: avoid; }
                 #proposal-pdf-content .pdf-section-title { break-inside: avoid; break-after: avoid; }
+                #proposal-pdf-content .pdf-fragmentable { break-inside: auto; }
+                #proposal-pdf-content .pdf-fragmentable > div,
+                #proposal-pdf-content .pdf-fragmentable > p { break-inside: auto; orphans: 3; widows: 3; }
+                #proposal-pdf-content p { orphans: 3; widows: 3; }
                 #proposal-pdf-content { padding-bottom: 38px; }
             `}</style>
 
@@ -432,6 +436,9 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                                 {workDeadlineText || `Prazo de execução: ${deadlineStr}.`}
                             </p>
                         </div>
+                        <p style={{ fontSize: '8.5px', fontStyle: 'italic', color: '#64748b', margin: '6px 0 0 0', lineHeight: '1.5' }}>
+                            Nota: Os prazos aqui estipulados referentes a fornecedores, fabricantes, logística de terceiros ou órgãos públicos são de responsabilidade exclusiva dos respectivos entes, não cabendo à {empresa.nome} a responsabilidade por eventuais atrasos destes.
+                        </p>
                     </>
                 )}
 

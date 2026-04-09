@@ -13,7 +13,7 @@ import html2pdf from 'html2pdf.js';
 import { FileText, Settings, Wrench, Package, ClipboardList,
     Plus, Trash2, Download, Eye, Loader2, ChevronRight,
     Sun, Zap, BarChart3, Shield, CreditCard, Scale, BookOpen,
-    Building2, Hash,
+    Building2, Hash, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import OeMServiceItemsPanel, { type OemServiceItem } from './OeMServiceItemsPanel';
 
@@ -263,6 +263,13 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                 totalMateriais,
                 diagnostico,
                 descricao: workDescription,
+                // Textos editáveis da proposta
+                paymentConditions,
+                contractorObligations,
+                clientObligations,
+                generalProvisions,
+                complianceText,
+                recomendacoes: beneficios,
                 // Itens livres adicionados no painel de serviços
                 oemExtraItems: JSON.stringify(extraItems),
                 oemItemDisplayMode: oemDisplayMode,
@@ -565,7 +572,7 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                         {/* ══ ABA 3: SERVIÇOS ══ */}
                         {tab === 2 && (
                             <div className="space-y-6">
-                                {/* ── Checklist pré-configurado (read-only) ── */}
+                                {/* ── Checklist pré-configurado (com reordenação) ── */}
                                 {checklist.length > 0 && (
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between">
@@ -583,6 +590,32 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                                                     key={i}
                                                     className={`flex items-center gap-3 px-3 py-2 rounded-lg border text-sm ${item.checked !== false ? 'bg-white border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-50'}`}
                                                 >
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <button
+                                                            type="button"
+                                                            className="text-slate-300 hover:text-slate-600 disabled:opacity-30"
+                                                            disabled={i === 0}
+                                                            onClick={() => {
+                                                                const next = [...checklist];
+                                                                [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                                                                setChecklist(next);
+                                                            }}
+                                                        >
+                                                            <ArrowUp className="w-3 h-3" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="text-slate-300 hover:text-slate-600 disabled:opacity-30"
+                                                            disabled={i === checklist.length - 1}
+                                                            onClick={() => {
+                                                                const next = [...checklist];
+                                                                [next[i], next[i + 1]] = [next[i + 1], next[i]];
+                                                                setChecklist(next);
+                                                            }}
+                                                        >
+                                                            <ArrowDown className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
                                                     <div className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center text-[10px] font-bold ${item.checked !== false ? 'bg-emerald-500 text-white' : 'bg-slate-300 text-white'}`}>
                                                         {item.checked !== false ? '✓' : '—'}
                                                     </div>

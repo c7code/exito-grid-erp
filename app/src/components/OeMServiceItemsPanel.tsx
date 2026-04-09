@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { api } from '@/api';
 import {
     Plus, Trash2, Eye, EyeOff, Layers, FileText, Box,
-    ChevronDown, Calculator, MessageSquareText,
+    ChevronDown, Calculator, MessageSquareText, ArrowUp, ArrowDown,
 } from 'lucide-react';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -137,6 +137,48 @@ export default function OeMServiceItemsPanel({
             next = next.filter((_, i) => i !== idx);
         }
         if (next.length === 0) next = [emptyItem()];
+        onChange(next);
+    };
+
+    // ── Reordenação de itens (setas ↑/↓) ─────────────────────────────────────
+    const moveItem = (idx: number, direction: 'up' | 'down') => {
+        const item = items[idx];
+        const next = [...items];
+        if (item.parentId) {
+            // Filhos: mover apenas entre irmãos do mesmo pai
+            const siblings = items.map((it, i) => ({ it, i })).filter(x => x.it.parentId === item.parentId);
+            const sibIdx = siblings.findIndex(x => x.i === idx);
+            const targetSib = direction === 'up' ? siblings[sibIdx - 1] : siblings[sibIdx + 1];
+            if (!targetSib) return;
+            [next[idx], next[targetSib.i]] = [next[targetSib.i], next[idx]];
+        } else {
+            // Item raiz ou bundle: mover bloco inteiro (pai + filhos)
+            const block = [idx, ...items.map((it, i) => ({ it, i })).filter(x => x.it.parentId === item.id).map(x => x.i)];
+            const minBlock = Math.min(...block);
+            const maxBlock = Math.max(...block);
+            if (direction === 'up') {
+                if (minBlock === 0) return;
+                // Encontrar item anterior que não é filho do mesmo pai
+                let targetIdx = minBlock - 1;
+                while (targetIdx >= 0 && next[targetIdx].parentId) targetIdx--;
+                if (targetIdx < 0) return;
+                const targetBlock = [targetIdx, ...items.map((it, i) => ({ it, i })).filter(x => x.it.parentId === next[targetIdx].id).map(x => x.i)];
+                const targetMin = Math.min(...targetBlock);
+                // Swap blocks
+                const mySlice = next.splice(minBlock, maxBlock - minBlock + 1);
+                next.splice(targetMin, 0, ...mySlice);
+            } else {
+                if (maxBlock >= items.length - 1) return;
+                let targetIdx = maxBlock + 1;
+                while (targetIdx < next.length && next[targetIdx].parentId && next[targetIdx].parentId !== item.id) targetIdx++;
+                if (targetIdx >= next.length) return;
+                const targetBlock = [targetIdx, ...items.map((it, i) => ({ it, i })).filter(x => x.it.parentId === next[targetIdx].id).map(x => x.i)];
+                const targetMax = Math.max(...targetBlock);
+                // Swap blocks
+                const targetSlice = next.splice(minBlock + (maxBlock - minBlock + 1), targetMax - maxBlock);
+                next.splice(minBlock, 0, ...targetSlice);
+            }
+        }
         onChange(next);
     };
 
@@ -324,7 +366,7 @@ export default function OeMServiceItemsPanel({
                                 <TableHead className="w-[90px]">Qtd</TableHead>
                                 <TableHead className="w-[80px]">UN</TableHead>
                                 <TableHead className="w-[130px]">Total</TableHead>
-                                <TableHead className="w-[40px]"></TableHead>
+                                <TableHead className="w-[80px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -548,9 +590,29 @@ export default function OeMServiceItemsPanel({
                                             </div>
                                         </TableCell>
 
-                                        {/* ── Ações (nota + lixeira) ── */}
+                                        {/* ── Ações (setas + nota + lixeira) ── */}
                                         <TableCell>
                                             <div className="flex items-center gap-0.5">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title="Mover para cima"
+                                                    className="h-7 w-7 text-slate-300 hover:text-slate-600"
+                                                    onClick={() => moveItem(index, 'up')}
+                                                >
+                                                    <ArrowUp className="w-3.5 h-3.5" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title="Mover para baixo"
+                                                    className="h-7 w-7 text-slate-300 hover:text-slate-600"
+                                                    onClick={() => moveItem(index, 'down')}
+                                                >
+                                                    <ArrowDown className="w-3.5 h-3.5" />
+                                                </Button>
                                                 <Button
                                                     type="button"
                                                     variant="ghost"

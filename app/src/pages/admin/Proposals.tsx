@@ -595,6 +595,7 @@ export default function AdminProposals() {
               <p className="text-sm">Clique em "Nova Proposta" para criar a primeira.</p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -607,7 +608,7 @@ export default function AdminProposals() {
                   <TableHead>Valor</TableHead>
                   <TableHead>Simulação</TableHead>
                   <TableHead>Cadastrado por</TableHead>
-                  <TableHead className="w-[120px]"></TableHead>
+                  <TableHead className="w-[160px] sticky right-0 bg-white z-10" style={{ boxShadow: '-4px 0 8px -2px rgba(0,0,0,0.06)' }}></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -681,8 +682,29 @@ export default function AdminProposals() {
                           <span className="text-sm text-slate-400">—</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="sticky right-0 bg-white z-10" style={{ boxShadow: '-4px 0 8px -2px rgba(0,0,0,0.06)' }}>
                         <div className="flex items-center gap-1 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-amber-400 hover:text-amber-600 hover:bg-amber-50"
+                            title="Editar"
+                            onClick={async () => {
+                              if (proposal.activityType === 'plano_oem' || proposal.activityType?.startsWith('manutencao_')) {
+                                try {
+                                  const servico = await api.findOemServicoByProposal(proposal.id);
+                                  if (servico?.id) {
+                                    navigate(`/admin/oem?tab=servicos&editServiceId=${servico.id}`);
+                                    return;
+                                  }
+                                } catch { /* fallback */ }
+                              }
+                              setEditingProposal(proposal);
+                              setShowNewDialog(true);
+                            }}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -708,26 +730,7 @@ export default function AdminProposals() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={async () => {
-                                // Se for proposta OeM, redirecionar para o módulo O&M
-                                if (proposal.activityType === 'plano_oem' || proposal.activityType?.startsWith('manutencao_')) {
-                                  try {
-                                    const servico = await api.findOemServicoByProposal(proposal.id);
-                                    if (servico?.id) {
-                                      navigate(`/admin/oem?tab=servicos&editServiceId=${servico.id}`);
-                                      return;
-                                    }
-                                  } catch { /* fallback to normal edit */ }
-                                  toast.info('Redirecionando para O&M...');
-                                  navigate('/admin/oem?tab=servicos');
-                                  return;
-                                }
-                                setEditingProposal(proposal);
-                                setShowNewDialog(true);
-                              }}>
-                                <Pencil className="w-4 h-4 mr-2" />
-                                Editar
-                              </DropdownMenuItem>
+                              {/* Editar movido para botão direto na coluna */}
                               <DropdownMenuItem onClick={() => handleViewRevisions(proposal)}>
                                 <History className="w-4 h-4 mr-2" />
                                 Ver Revisões
@@ -827,6 +830,7 @@ export default function AdminProposals() {
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

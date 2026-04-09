@@ -1090,6 +1090,9 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                                     </table>
                                 </>
                             )}
+                            <p style={{ fontSize: '8.5px', fontStyle: 'italic', color: '#64748b', margin: '6px 0 0 0', lineHeight: '1.5' }}>
+                                Nota: Os prazos aqui estipulados referentes a fornecedores, fabricantes, logística de terceiros ou órgãos públicos são de responsabilidade exclusiva dos respectivos entes, não cabendo à {empresa.nome} a responsabilidade por eventuais atrasos destes.
+                            </p>
                         </>
                     );
                 })()}

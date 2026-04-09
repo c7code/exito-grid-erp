@@ -140,6 +140,22 @@ export class OemServico {
     @Column({ type: 'varchar', nullable: true })
     oemItemDisplayMode: string;
 
+    // ═══ TEXTOS EDITÁVEIS DA PROPOSTA O&M ══════════════════════════
+    @Column({ type: 'text', nullable: true })
+    paymentConditions: string;
+
+    @Column({ type: 'text', nullable: true })
+    contractorObligations: string;
+
+    @Column({ type: 'text', nullable: true })
+    clientObligations: string;
+
+    @Column({ type: 'text', nullable: true })
+    generalProvisions: string;
+
+    @Column({ type: 'text', nullable: true })
+    complianceText: string;
+
     @CreateDateColumn()
     createdAt: Date;
 
