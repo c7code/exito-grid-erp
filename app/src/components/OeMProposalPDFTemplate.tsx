@@ -96,6 +96,7 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
     const totalMateriais = externalMateriais.reduce((s: number, m: any) => s + (Number(m.total) || 0), 0);
     const totalServicos = Number(proposal.totalServicos || proposal.total || 0);
     const incluirMateriaisNoTotal = proposal.incluirMateriaisNoTotal === true || proposal.incluirMateriaisNoTotal === 'true';
+    const exibirSubtotalMateriais = proposal.exibirSubtotalMateriais !== false; // default: true
     const grandTotal = incluirMateriaisNoTotal ? totalServicos + totalMateriais : totalServicos;
     const displayTotal = Number(proposal.total || grandTotal);
 
@@ -623,6 +624,7 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                                         </tr>
                                     ))}
                                 </tbody>
+                                {exibirSubtotalMateriais && (
                                 <tfoot>
                                     <tr style={{ background: '#14532d' }}>
                                         <td colSpan={3} style={{ padding: '9px 12px', textAlign: 'right', color: '#86efac', fontWeight: 700 }}>
@@ -633,6 +635,7 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                                         </td>
                                     </tr>
                                 </tfoot>
+                                )}
                             </table>
                         </div>
                     )}
@@ -666,12 +669,14 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                                         </tr>
                                     ))}
                                 </tbody>
+                                {exibirSubtotalMateriais && (
                                 <tfoot>
                                     <tr style={{ background: '#0f172a' }}>
                                         <td colSpan={5} style={{ padding: '9px 12px', textAlign: 'right', color: '#94a3b8', fontWeight: 700, letterSpacing: '0.5px' }}>Subtotal Faturamento Direto</td>
                                         <td style={{ padding: '9px 12px', textAlign: 'right', color: '#0ea5e9', fontWeight: 800, fontSize: '10px' }}>{fmtCurrency(totalDiretos)}</td>
                                     </tr>
                                 </tfoot>
+                                )}
                             </table>
                             <p style={{ fontSize: '8px', color: '#64748b', fontStyle: 'italic', marginTop: '4px', textAlign: 'right' }}>
                                 Faturamento realizado diretamente pelo fornecedor ao contratante.
@@ -689,9 +694,11 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#64748b', marginBottom: '4px' }}>
                                 <span>Subtotal Serviços</span><span>{fmtCurrency(totalServicos)}</span>
                             </div>
+                            {exibirSubtotalMateriais && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#0891b2', marginBottom: '4px' }}>
                                 <span>Subtotal Materiais</span><span>{fmtCurrency(totalMateriais)}</span>
                             </div>
+                            )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 800, color: '#0f172a', borderTop: '1px solid #e2e8f0', paddingTop: '6px', marginTop: '4px' }}>
                                 <span>TOTAL GERAL</span><span style={{ color: '#f59e0b' }}>{fmtCurrency(grandTotal)}</span>
                             </div>

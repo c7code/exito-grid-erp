@@ -122,6 +122,7 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
     // ── Aba 4: Materiais
     const [materiais, setMateriais] = useState<OemMaterialItem[]>([]);
     const [incluirMateriaisNoTotal, setIncluirMateriaisNoTotal] = useState(false);
+    const [exibirSubtotalMateriais, setExibirSubtotalMateriais] = useState(true);
 
     // ── Aba 5: Textos
     const [diagnostico, setDiagnostico] = useState('');
@@ -160,7 +161,13 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
         try {
             const savedToggles = servico.sectionToggles ? JSON.parse(servico.sectionToggles) : null;
             setToggles(savedToggles ?? DEFAULT_TOGGLES);
-        } catch { setToggles(DEFAULT_TOGGLES); }
+            // Carregar toggle de subtotal de materiais (default: true)
+            if (savedToggles?.subtotalMateriais !== undefined) {
+                setExibirSubtotalMateriais(savedToggles.subtotalMateriais);
+            } else {
+                setExibirSubtotalMateriais(true);
+            }
+        } catch { setToggles(DEFAULT_TOGGLES); setExibirSubtotalMateriais(true); }
 
         // Materiais
         try {
@@ -311,7 +318,7 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                 proposalTitle: title,
                 proposalValidUntil: validUntil,
                 proposalMode,
-                sectionToggles: JSON.stringify(toggles),
+                sectionToggles: JSON.stringify({ ...toggles, subtotalMateriais: exibirSubtotalMateriais }),
                 oemMateriais: JSON.stringify(materiais),
                 incluirMateriaisNoTotal,
                 totalServicos,
@@ -373,6 +380,7 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
             sectionToggles: JSON.stringify(toggles),
             oemMateriais: JSON.stringify(materiais),
             incluirMateriaisNoTotal,
+            exibirSubtotalMateriais,
             totalServicos,
             totalMateriais,
             total: grandTotal,
@@ -390,7 +398,7 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
             complianceText,
             proposalNumber: servico?.oemProposalId || servico?.proposalId || `OEM-${Date.now()}`,
         };
-    }, [title, validUntil, proposalMode, toggles, materiais, incluirMateriaisNoTotal, totalMateriais, totalServicos, grandTotal, unifiedItems, oemDisplayMode, diagnostico, workDescription, beneficios, paymentConditions, contractorObligations, clientObligations, generalProvisions, complianceText, servico]);
+    }, [title, validUntil, proposalMode, toggles, materiais, incluirMateriaisNoTotal, exibirSubtotalMateriais, totalMateriais, totalServicos, grandTotal, unifiedItems, oemDisplayMode, diagnostico, workDescription, beneficios, paymentConditions, contractorObligations, clientObligations, generalProvisions, complianceText, servico]);
 
     const handlePreview = () => {
         setPreviewData(buildPreviewData());
@@ -780,6 +788,21 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                                         <Switch
                                             checked={incluirMateriaisNoTotal}
                                             onCheckedChange={setIncluirMateriaisNoTotal}
+                                        />
+                                    </div>
+                                    {/* Toggle subtotal de fornecimento no PDF */}
+                                    <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-800">Exibir Subtotal de Fornecimento no PDF</p>
+                                            <p className="text-xs text-slate-500 mt-0.5">
+                                                {exibirSubtotalMateriais
+                                                    ? 'A linha de subtotal dos materiais será visível no PDF'
+                                                    : 'Subtotal oculto — materiais embutidos no valor global (serviço fechado)'}
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={exibirSubtotalMateriais}
+                                            onCheckedChange={setExibirSubtotalMateriais}
                                         />
                                     </div>
                                     <div className="border-t border-slate-100 pt-3 space-y-1">
