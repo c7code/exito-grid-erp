@@ -217,6 +217,11 @@ class ApiService {
     return response.data;
   }
 
+  async generateClientPortalAccess(clientId: string) {
+    const response = await this.client.post(`/clients/${clientId}/generate-access`);
+    return response.data;
+  }
+
   // Works
   async getWorks() {
     const response = await this.client.get('/works');

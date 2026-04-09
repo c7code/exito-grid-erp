@@ -41,6 +41,10 @@ import {
     CalendarDays,
     Wifi,
     WifiOff,
+    Building2,
+    Link2,
+    UserCheck,
+    Phone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -119,6 +123,15 @@ export default function AdminUsers() {
     const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
     const [resetPasswordResult, setResetPasswordResult] = useState<{ userName: string; userEmail: string; newPassword: string } | null>(null);
     const [, setResettingPassword] = useState(false);
+
+    // === Criar Conta Cliente ===
+    const [showClientDialog, setShowClientDialog] = useState(false);
+    const [clientMode, setClientMode] = useState<'new' | 'link'>('new');
+    const [clientForm, setClientForm] = useState({ name: '', email: '', phone: '' });
+    const [existingClients, setExistingClients] = useState<any[]>([]);
+    const [selectedClientId, setSelectedClientId] = useState('');
+    const [clientResult, setClientResult] = useState<{ name: string; email: string; portalPassword: string } | null>(null);
+    const [savingClient, setSavingClient] = useState(false);
 
     // === Disponibilidade ===
     const [availability, setAvailability] = useState<any[]>([]);
@@ -248,6 +261,56 @@ export default function AdminUsers() {
         setInviteResult(null);
     };
 
+    // === Criar Conta Cliente ===
+    const openClientDialog = async () => {
+        setClientForm({ name: '', email: '', phone: '' });
+        setClientResult(null);
+        setClientMode('new');
+        setSelectedClientId('');
+        setShowClientDialog(true);
+        // Carregar clientes existentes que ainda não têm User
+        try {
+            const allClients = await api.getClients();
+            const userEmails = new Set(users.map((u: any) => u.email?.toLowerCase()));
+            const withoutUser = allClients.filter((c: any) => c.email && !userEmails.has(c.email.toLowerCase()));
+            setExistingClients(withoutUser);
+        } catch { setExistingClients([]); }
+    };
+
+    const handleCreateClientAccount = async () => {
+        setSavingClient(true);
+        try {
+            if (clientMode === 'new') {
+                if (!clientForm.name || !clientForm.email) return;
+                const result = await api.createClient({
+                    name: clientForm.name,
+                    email: clientForm.email,
+                    phone: clientForm.phone || null,
+                });
+                setClientResult({
+                    name: clientForm.name,
+                    email: clientForm.email,
+                    portalPassword: result.portalPassword,
+                });
+                loadUsers();
+            } else {
+                if (!selectedClientId) return;
+                const selectedClient = existingClients.find((c: any) => c.id === selectedClientId);
+                const result = await api.generateClientPortalAccess(selectedClientId);
+                setClientResult({
+                    name: selectedClient?.name || 'Cliente',
+                    email: selectedClient?.email || '',
+                    portalPassword: result.portalPassword,
+                });
+                loadUsers();
+            }
+        } catch (error: any) {
+            alert(error?.response?.data?.message || 'Erro ao criar conta do cliente');
+        } finally {
+            setSavingClient(false);
+        }
+    };
+
     const handleResetPassword = async (user: any) => {
         if (!confirm(`Resetar a senha de ${user.name}? Uma nova senha será gerada.`)) return;
         setResettingPassword(true);
@@ -284,13 +347,23 @@ export default function AdminUsers() {
                     </h1>
                     <p className="text-slate-500 mt-1">Gerencie acesso, permissões e convites</p>
                 </div>
-                <Button
-                    onClick={() => { resetInviteForm(); setShowInviteDialog(true); }}
-                    className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium"
-                >
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Convidar Colaborador
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        onClick={openClientDialog}
+                        variant="outline"
+                        className="border-cyan-300 text-cyan-700 hover:bg-cyan-50 font-medium"
+                    >
+                        <Building2 className="w-4 h-4 mr-2" />
+                        Criar Conta Cliente
+                    </Button>
+                    <Button
+                        onClick={() => { resetInviteForm(); setShowInviteDialog(true); }}
+                        className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium"
+                    >
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Convidar Colaborador
+                    </Button>
+                </div>
             </div>
 
             {/* Search */}
@@ -839,6 +912,180 @@ export default function AdminUsers() {
                             >
                                 Fechar
                             </Button>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Dialog: Criar Conta Cliente */}
+            <Dialog open={showClientDialog} onOpenChange={(open) => { setShowClientDialog(open); if (!open) setClientResult(null); }}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Building2 className="w-5 h-5 text-cyan-500" />
+                            Criar Conta de Cliente
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {clientResult ? (
+                        /* Resultado — exibe credenciais */
+                        <div className="space-y-4">
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                                <UserCheck className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                                <h3 className="text-lg font-semibold text-green-800">Conta criada com sucesso!</h3>
+                                <p className="text-green-600 mt-1 text-sm">
+                                    O cliente pode acessar o portal com as credenciais abaixo.
+                                </p>
+                            </div>
+
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-2">
+                                <p className="text-sm text-slate-600">
+                                    <strong>Nome:</strong> {clientResult.name}
+                                </p>
+                                <p className="text-sm text-slate-600">
+                                    <strong>E-mail:</strong> {clientResult.email}
+                                </p>
+                                <div className="flex items-center gap-2 mt-2">
+                                    <p className="text-sm text-slate-600"><strong>Senha:</strong></p>
+                                    <code className="bg-slate-900 text-cyan-400 px-3 py-1 rounded text-base font-mono">
+                                        {clientResult.portalPassword}
+                                    </code>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(clientResult.portalPassword);
+                                            alert('Senha copiada!');
+                                        }}
+                                        className="p-1.5 rounded-md hover:bg-slate-200 transition-colors"
+                                        title="Copiar senha"
+                                    >
+                                        <Copy className="w-4 h-4 text-slate-500" />
+                                    </button>
+                                </div>
+                                <p className="text-xs text-red-500 mt-2">
+                                    ⚠️ Copie esta senha agora! Ela não será exibida novamente.
+                                </p>
+                            </div>
+
+                            <Button
+                                onClick={() => { setShowClientDialog(false); setClientResult(null); }}
+                                className="w-full bg-cyan-500 hover:bg-cyan-600 text-white"
+                            >
+                                Fechar
+                            </Button>
+                        </div>
+                    ) : (
+                        /* Formulário */
+                        <div className="space-y-4">
+                            {/* Toggle: Novo vs Vincular */}
+                            <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
+                                <button
+                                    onClick={() => setClientMode('new')}
+                                    className={cn(
+                                        'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-all',
+                                        clientMode === 'new'
+                                            ? 'bg-white text-cyan-700 shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-700'
+                                    )}
+                                >
+                                    <UserPlus className="w-4 h-4" />
+                                    Novo Cliente
+                                </button>
+                                <button
+                                    onClick={() => setClientMode('link')}
+                                    className={cn(
+                                        'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-all',
+                                        clientMode === 'link'
+                                            ? 'bg-white text-cyan-700 shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-700'
+                                    )}
+                                >
+                                    <Link2 className="w-4 h-4" />
+                                    Vincular Existente
+                                </button>
+                            </div>
+
+                            {clientMode === 'new' ? (
+                                /* Formulário simplificado para novo cliente */
+                                <div className="space-y-3">
+                                    <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-3">
+                                        <p className="text-xs text-cyan-700">
+                                            💡 Preencha apenas o básico. O cliente poderá completar os demais dados (CNPJ, endereço, etc.) pelo portal ou o admin pode editar na tela de Clientes.
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-slate-700">Nome completo *</label>
+                                        <Input
+                                            placeholder="Nome do cliente ou razão social"
+                                            value={clientForm.name}
+                                            onChange={e => setClientForm(prev => ({ ...prev, name: e.target.value }))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-slate-700">E-mail *</label>
+                                        <Input
+                                            type="email"
+                                            placeholder="cliente@email.com"
+                                            value={clientForm.email}
+                                            onChange={e => setClientForm(prev => ({ ...prev, email: e.target.value }))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                                            <Phone className="w-3.5 h-3.5" /> Telefone
+                                        </label>
+                                        <Input
+                                            placeholder="(00) 00000-0000"
+                                            value={clientForm.phone}
+                                            onChange={e => setClientForm(prev => ({ ...prev, phone: e.target.value }))}
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                /* Seleção de cliente existente */
+                                <div className="space-y-3">
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                        <p className="text-xs text-blue-700">
+                                            🔗 Selecione um cliente já cadastrado que ainda não possui acesso ao portal. Uma nova senha será gerada.
+                                        </p>
+                                    </div>
+                                    {existingClients.length === 0 ? (
+                                        <div className="text-center py-6 text-slate-400">
+                                            <UserCheck className="w-8 h-8 mx-auto mb-2 text-green-400" />
+                                            <p className="text-sm">Todos os clientes já possuem conta de acesso!</p>
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={selectedClientId}
+                                            onChange={e => setSelectedClientId(e.target.value)}
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                        >
+                                            <option value="">Selecione um cliente...</option>
+                                            {existingClients.map((c: any) => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.name} — {c.email}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="flex gap-3 justify-end pt-2">
+                                <Button variant="outline" onClick={() => setShowClientDialog(false)}>
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    onClick={handleCreateClientAccount}
+                                    disabled={
+                                        savingClient ||
+                                        (clientMode === 'new' && (!clientForm.name || !clientForm.email)) ||
+                                        (clientMode === 'link' && !selectedClientId)
+                                    }
+                                    className="bg-cyan-500 hover:bg-cyan-600 text-white"
+                                >
+                                    {savingClient ? 'Criando...' : clientMode === 'new' ? 'Criar Conta' : 'Gerar Acesso'}
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </DialogContent>
