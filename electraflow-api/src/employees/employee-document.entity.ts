@@ -19,10 +19,28 @@ export enum EmployeeDocumentType {
     TRAINING = 'training',
     CERTIFICATION = 'certification',
 
+    // Trabalhista / Mensal
+    HOLERITE = 'holerite',
+    FGTS_GUIA = 'fgts_guia',
+    INSS_GPS = 'inss_gps',
+    VALE_TRANSPORTE = 'vale_transporte',
+    PONTO = 'ponto',
+
     // Legacy
     IDENTIFICATION = 'identification',
     HEALTH = 'health',
     SAFETY = 'safety',
+    OTHER = 'other',
+}
+
+// Categorias ampliadas para agrupamento
+export enum EmployeeDocCategory {
+    SSMA = 'ssma',                 // Segurança, Saúde e Meio Ambiente
+    TRABALHISTA = 'trabalhista',   // Holerite, FGTS, INSS, Contrato
+    FISCAL = 'fiscal',             // CND, certidões
+    ADMINISTRATIVO = 'administrativo', // Crachá, foto, comprovante
+    IDENTIFICACAO = 'identificacao',   // RG, CPF, CTPS
+    QUALIFICACAO = 'qualificacao',     // NRs, certificações
     OTHER = 'other',
 }
 
@@ -47,6 +65,10 @@ export class EmployeeDocument {
     })
     type: EmployeeDocumentType;
 
+    // Categoria ampliada (ssma, trabalhista, fiscal, administrativo...)
+    @Column({ type: 'varchar', length: 50, default: 'other' })
+    documentCategory: string;
+
     @Column()
     url: string;
 
@@ -55,6 +77,10 @@ export class EmployeeDocument {
 
     @Column({ nullable: true })
     expiryDate: Date;
+
+    // Competência mensal (ex: "2026-04") — para holerite, FGTS, INSS
+    @Column({ type: 'varchar', length: 7, nullable: true })
+    referenceMonth: string;
 
     @Column({ default: false })
     clientVisible: boolean;

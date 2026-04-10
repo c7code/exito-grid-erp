@@ -11,6 +11,7 @@ export enum PortalContentType {
   SERVICE_ORDER = 'service_order',
   DOCUMENT = 'document',
   EMPLOYEE_DOC = 'employee_doc',
+  COMPANY_DOC = 'company_doc',
   FINANCIAL = 'financial',
 }
 

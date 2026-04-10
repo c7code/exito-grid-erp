@@ -73,6 +73,47 @@ export class PortalPublicationsController {
     await this.service.updateClientPortalModules(clientId, body.modules);
     return { success: true, modules: body.modules };
   }
+
+  @Post('batch')
+  @ApiOperation({ summary: 'Publicar lote de documentos de compliance ao portal do cliente' })
+  async batchPublish(@Body() body: {
+    clientId: string;
+    workId?: string;
+    items: Array<{
+      contentType: string;
+      contentId: string;
+      title: string;
+      description?: string;
+      metadata?: Record<string, any>;
+    }>;
+  }) {
+    const results = [];
+    for (const item of body.items) {
+      try {
+        // Check if already published to avoid duplicates
+        const existing = await this.service.isPublished(item.contentType, item.contentId);
+        if (existing) {
+          results.push({ contentId: item.contentId, status: 'skipped', reason: 'already_published' });
+          continue;
+        }
+        const pub = await this.service.publish({
+          clientId: body.clientId,
+          workId: body.workId,
+          ...item,
+        });
+        results.push({ contentId: item.contentId, status: 'published', id: pub.id });
+      } catch (err) {
+        results.push({ contentId: item.contentId, status: 'error', reason: err.message });
+      }
+    }
+    return {
+      total: body.items.length,
+      published: results.filter(r => r.status === 'published').length,
+      skipped: results.filter(r => r.status === 'skipped').length,
+      errors: results.filter(r => r.status === 'error').length,
+      results,
+    };
+  }
 }
 
 @ApiTags('Portal do Cliente - Publicações')

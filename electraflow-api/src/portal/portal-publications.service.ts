@@ -61,6 +61,15 @@ export class PortalPublicationsService implements OnModuleInit {
     } catch (err) {
       this.logger.warn('Index creation note: ' + err?.message);
     }
+
+    // ═══ Ensure employee_documents compliance columns ═══
+    try {
+      await this.dataSource.query(`ALTER TABLE employee_documents ADD COLUMN IF NOT EXISTS "documentCategory" VARCHAR(50) DEFAULT 'other'`);
+      await this.dataSource.query(`ALTER TABLE employee_documents ADD COLUMN IF NOT EXISTS "referenceMonth" VARCHAR(7)`);
+      this.logger.log('Employee document compliance columns ensured');
+    } catch (err) {
+      this.logger.warn('Employee doc migration note: ' + err?.message);
+    }
   }
 
   // ═══ ADMIN CRUD ═══════════════════════════════════════════════════════════
@@ -217,6 +226,31 @@ export class PortalPublicationsService implements OnModuleInit {
           const rows = await this.dataSource.query(
             `SELECT id, name, "fileName", url, "mimeType", size, description, "createdAt"
              FROM documents WHERE id = ANY($1) AND "deletedAt" IS NULL`,
+            [contentIds],
+          );
+          rows.forEach((r: any) => { enrichedData[r.id] = r; });
+          break;
+        }
+        case 'employee_doc': {
+          // Employee documents — enrich with employee name and document details
+          const rows = await this.dataSource.query(
+            `SELECT ed.id, ed.name, ed.type, ed."documentCategory", ed.url, ed."expiryDate",
+                    ed."referenceMonth", ed."issueDate",
+                    e.name AS "employeeName", e."jobFunction", e.specialty
+             FROM employee_documents ed
+             JOIN employees e ON e.id = ed."employeeId"
+             WHERE ed.id = ANY($1) AND ed."deletedAt" IS NULL`,
+            [contentIds],
+          );
+          rows.forEach((r: any) => { enrichedData[r.id] = r; });
+          break;
+        }
+        case 'company_doc': {
+          // Company-level compliance documents (CND, FGTS-CRF, etc.)
+          const rows = await this.dataSource.query(
+            `SELECT id, name, "documentGroup", "fileUrl" AS url, "fileName", description,
+                    "issueDate", "expiryDate", status, "responsibleName", "registrationNumber"
+             FROM company_documents WHERE id = ANY($1) AND "deletedAt" IS NULL`,
             [contentIds],
           );
           rows.forEach((r: any) => { enrichedData[r.id] = r; });
