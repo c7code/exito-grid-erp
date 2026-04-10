@@ -96,7 +96,8 @@ const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : 'â€
 function isAdmin(): boolean {
   try {
     const u = JSON.parse(localStorage.getItem('electraflow_user') || '{}');
-    return u.role === 'admin';
+    // All internal roles that access /admin routes should see financial data
+    return ['admin', 'commercial', 'engineer', 'finance'].includes(u.role);
   } catch { return false; }
 }
 
