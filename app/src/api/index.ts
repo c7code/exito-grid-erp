@@ -1312,6 +1312,55 @@ class ApiService {
     return response.data;
   }
 
+  // ═══ CLIENT SUB-USERS (ADMIN) ═══════════════════════════════════════
+
+  async getClientSubUsers(clientId?: string) {
+    const response = await this.client.get('/admin/client-sub-users', { params: { clientId } });
+    return response.data;
+  }
+
+  async createClientSubUser(data: any) {
+    const response = await this.client.post('/admin/client-sub-users', data);
+    return response.data;
+  }
+
+  async updateClientSubUser(id: string, data: any) {
+    const response = await this.client.put(`/admin/client-sub-users/${id}`, data);
+    return response.data;
+  }
+
+  async resetClientSubUserPassword(id: string) {
+    const response = await this.client.patch(`/admin/client-sub-users/${id}/reset-password`);
+    return response.data;
+  }
+
+  async deleteClientSubUser(id: string) {
+    const response = await this.client.delete(`/admin/client-sub-users/${id}`);
+    return response.data;
+  }
+
+  // ═══ CLIENT SUB-USERS (CLIENT PORTAL) ═══════════════════════════════
+
+  async getMySubUsers() {
+    const response = await this.client.get('/client/sub-users');
+    return response.data;
+  }
+
+  async createMySubUser(data: any) {
+    const response = await this.client.post('/client/sub-users', data);
+    return response.data;
+  }
+
+  async updateMySubUser(id: string, data: any) {
+    const response = await this.client.put(`/client/sub-users/${id}`, data);
+    return response.data;
+  }
+
+  async deleteMySubUser(id: string) {
+    const response = await this.client.delete(`/client/sub-users/${id}`);
+    return response.data;
+  }
+
   async createClientRequest(data: { type: string; subject: string; description: string; workId?: string; priority?: string }, files?: File[]) {
     const formData = new FormData();
     formData.append('type', data.type);

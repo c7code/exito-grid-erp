@@ -51,6 +51,7 @@ import AdminOeM from './pages/admin/OeM';
 import AdminSinapiAdmin from './pages/admin/SinapiAdmin';
 import AdminBudgets from './pages/admin/Budgets';
 import AdminSolarReports from './pages/admin/SolarReports';
+import AdminClientSubUsers from './pages/admin/ClientSubUsers';
 
 // Employee Pages (no longer used — employees redirect to admin layout)
 
@@ -158,6 +159,7 @@ function App() {
                 <Route path="/admin/companies" element={<AdminCompanies />} />
                 <Route path="/admin/activity-report" element={<AdminActivityReport />} />
                 <Route path="/admin/sinapi" element={<AdminSinapiAdmin />} />
+                <Route path="/admin/client-sub-users" element={<AdminClientSubUsers />} />
               </Route>
             </Route>
           </Route>

@@ -63,6 +63,7 @@ const navSections: NavSection[] = [
     items: [
       { path: '/admin/pipeline', label: 'Pipeline de Vendas', icon: Kanban, module: 'pipeline', roles: ['admin', 'commercial', 'employee'] },
       { path: '/admin/clients', label: 'Clientes', icon: UserCircle, module: 'clients', roles: ['admin', 'commercial', 'employee'] },
+      { path: '/admin/client-sub-users', label: 'Sub-Usuários Portal', icon: Users, module: 'clients', roles: ['admin'] },
       { path: '/admin/proposals', label: 'Propostas', icon: FileText, module: 'proposals', roles: ['admin', 'commercial', 'employee'] },
       { path: '/admin/client-requests', label: 'Solicitações', icon: MessageSquare, module: 'client-requests', roles: ['admin', 'commercial', 'employee'] },
       { path: '/admin/simulator', label: 'Simulador', icon: Calculator, module: 'finance-simulator', roles: ['admin', 'commercial', 'finance', 'employee'] },
