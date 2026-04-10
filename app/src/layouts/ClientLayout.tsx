@@ -23,11 +23,13 @@ import {
   ChevronDown,
   Menu,
   X,
+  FileText,
 } from 'lucide-react';
 
 const navItems = [
   { path: '/client/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/client/works', label: 'Minhas Obras', icon: Building2 },
+  { path: '/client/proposals', label: 'Propostas', icon: FileText },
   { path: '/client/documents', label: 'Documentos', icon: FolderOpen },
   { path: '/client/requests', label: 'Solicitações', icon: MessageSquare },
 ];

@@ -146,7 +146,7 @@ export default function AdminProposals() {
   const handleAccept = async (proposal: any) => {
     try {
       await api.acceptProposal(proposal.id);
-      toast.success('Proposta aprovada!');
+      toast.success('Proposta aprovada! Uma obra foi criada automaticamente.');
       loadProposals();
     } catch (error) {
       toast.error('Erro ao aprovar proposta.');
@@ -175,28 +175,28 @@ export default function AdminProposals() {
     }
   };
 
-  const handleTransferToWork = async (proposal: any) => {
-    if (!confirm(`Criar uma Obra a partir da proposta "${proposal.title || proposal.proposalNumber}"?`)) return;
+  const handleGoToWork = async (proposal: any) => {
     try {
-      toast.info('Criando obra...');
-      const clientName = proposal.client?.name || '';
-      const work = await api.createWork({
-        title: proposal.title || `Obra - ${proposal.proposalNumber}`,
-        type: proposal.activityType === 'solar' ? 'solar'
-            : proposal.activityType?.startsWith('manutencao_') ? 'maintenance'
-            : 'commercial',
-        clientId: proposal.clientId || proposal.client?.id || null,
-        totalValue: Number(proposal.total || 0),
-        description: `Obra gerada automaticamente a partir da proposta ${proposal.proposalNumber || ''}${clientName ? ` - Cliente: ${clientName}` : ''}`,
-        address: proposal.client?.address || null,
-        city: proposal.client?.city || null,
-        state: proposal.client?.state || null,
-        status: 'pending',
-      });
-      toast.success('Obra criada com sucesso!');
-      navigate(`/admin/works/${work.id}`);
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Erro ao criar obra.');
+      // Buscar obras do cliente ou por oportunidade vinculada
+      const works = await api.getWorks();
+      const worksList = Array.isArray(works) ? works : [];
+      // Procurar obra vinculada por clientId + título parecido
+      const linkedWork = worksList.find((w: any) =>
+        (w.clientId && w.clientId === (proposal.clientId || proposal.client?.id)) &&
+        (w.title?.includes(proposal.proposalNumber) || w.title?.includes(proposal.title) || w.description?.includes(proposal.proposalNumber))
+      ) || worksList.find((w: any) =>
+        w.clientId && w.clientId === (proposal.clientId || proposal.client?.id)
+        && new Date(w.createdAt).getTime() >= new Date(proposal.acceptedAt || proposal.updatedAt).getTime() - 60000
+      );
+
+      if (linkedWork) {
+        navigate(`/admin/works/${linkedWork.id}`);
+      } else {
+        toast.info('Obra não encontrada. Redirecionando para a lista de obras...');
+        navigate('/admin/works');
+      }
+    } catch {
+      navigate('/admin/works');
     }
   };
 
@@ -817,9 +817,9 @@ export default function AdminProposals() {
                               )}
                               {proposal.status === 'accepted' && (
                                 <>
-                                  <DropdownMenuItem onClick={() => handleTransferToWork(proposal)}>
+                                  <DropdownMenuItem onClick={() => handleGoToWork(proposal)}>
                                     <HardHat className="w-4 h-4 mr-2 text-emerald-600" />
-                                    Transferir para Obra
+                                    Ver Obra
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleRevertAcceptance(proposal)}>
                                     <RotateCcw className="w-4 h-4 mr-2 text-amber-600" />

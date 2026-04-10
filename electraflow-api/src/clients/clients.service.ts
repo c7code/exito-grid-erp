@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, Like, DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Client } from './client.entity';
 import { ClientDocument } from './client-document.entity';
@@ -26,6 +26,7 @@ export class ClientsService {
     private userRepository: Repository<User>,
     @InjectRepository(RequestAttachment)
     private attachmentRepository: Repository<RequestAttachment>,
+    private dataSource: DataSource,
   ) { }
 
   // ═══ CRUD ═════════════════════════════════════════════════════════════════
@@ -203,7 +204,26 @@ export class ClientsService {
     return { portalPassword: plainPassword };
   }
 
-  // ═══ PORTAL QUERIES ═══════════════════════════════════════════════════════
+  // ═══ PORTAL QUERIES ═════════════════════════════════════════════════════
+
+  async getClientProposals(clientId: string): Promise<any[]> {
+    try {
+      const proposals = await this.dataSource.query(
+        `SELECT p.id, p."proposalNumber", p.title, p.status, p.total, p."validUntil",
+                p."activityType", p."createdAt", p."sentAt", p."acceptedAt",
+                p."itemVisibilityMode", p.scope, p.deadline, p."paymentConditions"
+         FROM proposals p
+         WHERE p."clientId" = $1 AND p."deletedAt" IS NULL
+           AND p.status IN ('sent', 'viewed', 'accepted')
+         ORDER BY p."createdAt" DESC`,
+        [clientId],
+      );
+      return proposals;
+    } catch (error) {
+      this.logger.error(`Erro ao buscar propostas do cliente ${clientId}: ${error.message}`);
+      return [];
+    }
+  }
 
   async getClientWorks(clientId: string): Promise<Work[]> {
     return this.workRepository.find({

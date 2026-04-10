@@ -60,6 +60,7 @@ import ClientWorks from './pages/client/Works';
 import ClientWorkDetail from './pages/client/WorkDetail';
 import ClientDocuments from './pages/client/Documents';
 import ClientRequests from './pages/client/Requests';
+import ClientProposals from './pages/client/Proposals';
 
 // Protected Route
 import ProtectedRoute from './components/ProtectedRoute';
@@ -170,6 +171,7 @@ function App() {
               <Route path="/client/works" element={<ClientWorks />} />
               <Route path="/client/works/:id" element={<ClientWorkDetail />} />
               <Route path="/client/documents" element={<ClientDocuments />} />
+              <Route path="/client/proposals" element={<ClientProposals />} />
               <Route path="/client/requests" element={<ClientRequests />} />
             </Route>
           </Route>

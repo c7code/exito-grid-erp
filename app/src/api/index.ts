@@ -1253,6 +1253,11 @@ class ApiService {
     return response.data;
   }
 
+  async getClientMyProposals() {
+    const response = await this.client.get('/client-portal/my-proposals');
+    return response.data;
+  }
+
   async createClientRequest(data: { type: string; subject: string; description: string; workId?: string; priority?: string }, files?: File[]) {
     const formData = new FormData();
     formData.append('type', data.type);

@@ -164,6 +164,12 @@ export class ClientPortalController {
     return this.clientsService.getClientWorkDetail(req.user.userId, workId);
   }
 
+  @Get('my-proposals')
+  @ApiOperation({ summary: 'Propostas do cliente logado' })
+  async getMyProposals(@Request() req) {
+    return this.clientsService.getClientProposals(req.user.clientId || req.user.userId);
+  }
+
   @Get('my-requests')
   @ApiOperation({ summary: 'Solicitações do cliente logado' })
   async getMyRequests(@Request() req) {
