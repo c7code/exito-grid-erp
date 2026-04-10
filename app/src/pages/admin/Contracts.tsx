@@ -252,7 +252,18 @@ export default function Contracts() {
             if (!content) return;
             const printWindow = window.open('', '_blank');
             if (!printWindow) return;
-            printWindow.document.write(`<!DOCTYPE html><html><head><title>Contrato ${selectedContract?.contractNumber || ''}</title></head><body>`);
+            printWindow.document.write(`<!DOCTYPE html><html><head><title>Contrato ${selectedContract?.contractNumber || ''}</title>
+            <style>
+                @page { margin: 10mm 8mm 12mm 8mm; }
+                body { margin: 0; padding: 0; }
+                p { orphans: 3; widows: 3; }
+                div[style*="borderBottom"] { break-after: avoid; page-break-after: avoid; }
+                .pdf-clause { break-inside: avoid; page-break-inside: avoid; }
+                div[style*="sigArea"], div[style*="justifyContent: space-between"][style*="gap"] {
+                    break-inside: avoid; page-break-inside: avoid;
+                }
+            </style>
+            </head><body>`);
             printWindow.document.write(content.outerHTML);
             printWindow.document.write('</body></html>');
             printWindow.document.close();

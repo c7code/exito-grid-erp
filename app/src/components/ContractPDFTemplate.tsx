@@ -148,12 +148,12 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
         darkBarText: { color: '#E8620A', fontSize: '12px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' as const },
         darkBarRef: { color: '#888', fontSize: '9px' },
         body: { padding: '30px 36px' } as React.CSSProperties,
-        sectionTitle: { fontSize: '11px', fontWeight: '800', color: '#E8620A', textTransform: 'uppercase' as const, letterSpacing: '2px', borderBottom: '2px solid #E8620A', paddingBottom: '6px', marginTop: '28px', marginBottom: '14px' } as React.CSSProperties,
-        clauseHeading: { fontSize: '10.5px', fontWeight: '700', color: '#1a1a1a', margin: '16px 0 6px' } as React.CSSProperties,
-        para: { fontSize: '10px', textAlign: 'justify' as const, margin: '6px 0', color: '#2d2d2d', lineHeight: '1.6' } as React.CSSProperties,
+        sectionTitle: { fontSize: '11px', fontWeight: '800', color: '#E8620A', textTransform: 'uppercase' as const, letterSpacing: '2px', borderBottom: '2px solid #E8620A', paddingBottom: '6px', marginTop: '28px', marginBottom: '14px', breakAfter: 'avoid' as const, pageBreakAfter: 'avoid' as const } as React.CSSProperties,
+        clauseHeading: { fontSize: '10.5px', fontWeight: '700', color: '#1a1a1a', margin: '16px 0 6px', breakAfter: 'avoid' as const } as React.CSSProperties,
+        para: { fontSize: '10px', textAlign: 'justify' as const, margin: '6px 0', color: '#2d2d2d', lineHeight: '1.6', orphans: 3, widows: 3 } as React.CSSProperties,
         listItem: { fontSize: '9.5px', color: '#2d2d2d', padding: '3px 0', paddingLeft: '12px', position: 'relative' as const } as React.CSSProperties,
         bullet: { position: 'absolute' as const, left: 0, color: '#E8620A', fontWeight: '700' } as React.CSSProperties,
-        sigArea: { display: 'flex', justifyContent: 'space-between', gap: '60px', marginTop: '40px', paddingTop: '20px' } as React.CSSProperties,
+        sigArea: { display: 'flex', justifyContent: 'space-between', gap: '60px', marginTop: '40px', paddingTop: '20px', breakInside: 'avoid' as const, pageBreakInside: 'avoid' as const } as React.CSSProperties,
         sigBox: { flex: 1, textAlign: 'center' as const } as React.CSSProperties,
         sigLine: { borderTop: '1px solid #333', marginTop: '50px', paddingTop: '8px', fontSize: '9px', fontWeight: '600' } as React.CSSProperties,
         sigSub: { fontSize: '8px', color: '#777' } as React.CSSProperties,
@@ -166,6 +166,26 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
 
     return (
         <div id="contract-pdf-content" style={s.page}>
+            {/* Global CSS for page breaks — prevent text splitting across pages */}
+            <style>{`
+                @media print {
+                    @page { margin: 10mm 0 12mm 0; }
+                }
+                #contract-pdf-content { padding-bottom: 40px; }
+                #contract-pdf-content div[style*="sectionTitle"],
+                #contract-pdf-content div[style*="borderBottom"] {
+                    break-after: avoid;
+                    page-break-after: avoid;
+                }
+                #contract-pdf-content p {
+                    orphans: 3;
+                    widows: 3;
+                }
+                #contract-pdf-content .pdf-clause {
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                }
+            `}</style>
             {/* ═══ HEADER ═══ */}
             <div style={s.header}>
                 <div>
