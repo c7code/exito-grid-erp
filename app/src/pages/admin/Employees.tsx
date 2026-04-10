@@ -38,12 +38,14 @@ import {
   ShieldCheck,
   Download,
   AlertTriangle,
+  Upload,
 } from 'lucide-react';
 import { api } from '@/api';
 import type { Employee } from '@/types';
 import { toast } from 'sonner';
 import { EmployeeDialog } from '@/components/EmployeeDialog';
 import { EmployeeDocumentViewer } from '@/components/EmployeeDocumentViewer';
+import { EmployeePortalPublishDialog } from '@/components/EmployeePortalPublishDialog';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -84,6 +86,7 @@ export default function AdminEmployees() {
   // Expiry notifications
   const [expiringDocs, setExpiringDocs] = useState<any[]>([]);
   const [showExpiringDialog, setShowExpiringDialog] = useState(false);
+  const [showPortalDialog, setShowPortalDialog] = useState(false);
 
   useEffect(() => {
     loadEmployees();
@@ -458,6 +461,14 @@ export default function AdminEmployees() {
             <Download className="w-4 h-4" />
             Baixar Documentos
           </Button>
+          <Button
+            size="sm"
+            className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold gap-2"
+            onClick={() => setShowPortalDialog(true)}
+          >
+            <Upload className="w-4 h-4" />
+            Enviar ao Portal
+          </Button>
           <button
             onClick={() => setSelectedIds(new Set())}
             className="text-slate-400 hover:text-white text-sm"
@@ -593,6 +604,12 @@ export default function AdminEmployees() {
         open={isViewerOpen}
         onOpenChange={setIsViewerOpen}
         employee={viewingEmployee}
+      />
+
+      <EmployeePortalPublishDialog
+        open={showPortalDialog}
+        onOpenChange={setShowPortalDialog}
+        selectedEmployees={employees.filter(e => selectedIds.has(e.id))}
       />
     </div>
   );

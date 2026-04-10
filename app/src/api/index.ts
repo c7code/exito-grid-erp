@@ -1300,6 +1300,21 @@ class ApiService {
     return response.data;
   }
 
+  async batchPublishToPortal(data: {
+    clientId: string;
+    workId?: string;
+    items: Array<{
+      contentType: string;
+      contentId: string;
+      title: string;
+      description?: string;
+      metadata?: any;
+    }>;
+  }) {
+    const response = await this.client.post('/portal-publications/batch', data);
+    return response.data;
+  }
+
   // ═══ PORTAL PUBLICATIONS (Client-facing) ═══════════════════════════════════
 
   async getClientMyPublications(contentType?: string) {
