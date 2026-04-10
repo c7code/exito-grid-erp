@@ -29,7 +29,9 @@ import {
   ExternalLink,
   RefreshCw,
   Copy,
-  KeyRound
+  KeyRound,
+  Globe,
+  Settings,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -62,6 +64,21 @@ export default function AdminClients() {
   const [syncResults, setSyncResults] = useState<{ synced: { name: string; email: string; portalPassword: string }[]; skipped: string[]; errors: string[] } | null>(null);
   const [showSyncResults, setShowSyncResults] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  // Portal modules config
+  const [portalConfigClient, setPortalConfigClient] = useState<Client | null>(null);
+  const [portalModules, setPortalModules] = useState<string[]>([]);
+  const [savingModules, setSavingModules] = useState(false);
+
+  const AVAILABLE_PORTAL_MODULES = [
+    { key: 'obras', label: 'Obras', desc: 'Acompanhamento de obras' },
+    { key: 'propostas', label: 'Propostas', desc: 'Propostas comerciais' },
+    { key: 'contratos', label: 'Contratos', desc: 'Contratos assinados' },
+    { key: 'financeiro', label: 'Financeiro', desc: 'Recibos e medições' },
+    { key: 'documentos', label: 'Documentos', desc: 'Documentos gerais' },
+    { key: 'equipe', label: 'Equipe', desc: 'Docs de funcionários na obra' },
+    { key: 'solicitacoes', label: 'Solicitações', desc: 'Abertura de chamados' },
+  ];
 
   const loadClients = async () => {
     try {
@@ -117,6 +134,36 @@ export default function AdminClients() {
     } catch {
       toast.error('Erro ao copiar');
     }
+  };
+
+  const handleOpenPortalConfig = async (client: Client) => {
+    setPortalConfigClient(client);
+    try {
+      const data = await api.getClientPortalModules(client.id);
+      setPortalModules(data?.modules || ['obras', 'propostas', 'documentos', 'solicitacoes']);
+    } catch {
+      setPortalModules(['obras', 'propostas', 'documentos', 'solicitacoes']);
+    }
+  };
+
+  const handleSavePortalModules = async () => {
+    if (!portalConfigClient) return;
+    setSavingModules(true);
+    try {
+      await api.updateClientPortalModules(portalConfigClient.id, portalModules);
+      toast.success(`Módulos do portal de ${portalConfigClient.name} atualizados!`);
+      setPortalConfigClient(null);
+    } catch {
+      toast.error('Erro ao salvar módulos do portal.');
+    } finally {
+      setSavingModules(false);
+    }
+  };
+
+  const toggleModule = (key: string) => {
+    setPortalModules(prev =>
+      prev.includes(key) ? prev.filter(m => m !== key) : [...prev, key]
+    );
   };
 
   const filteredClients = clients.filter((client) =>
@@ -340,6 +387,14 @@ export default function AdminClients() {
                         >
                           <Trash2 className="w-4 h-4" /> Excluir Cliente
                         </DropdownMenuItem>
+                        {(client as any).hasPortalAccess && (
+                          <DropdownMenuItem
+                            className="rounded-lg gap-2 font-bold text-indigo-600 focus:bg-indigo-50 focus:text-indigo-600"
+                            onClick={() => handleOpenPortalConfig(client)}
+                          >
+                            <Settings className="w-4 h-4" /> Configurar Portal
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -446,6 +501,67 @@ export default function AdminClients() {
             >
               Fechar
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Portal Modules Config Dialog */}
+      <Dialog open={!!portalConfigClient} onOpenChange={(open) => { if (!open) setPortalConfigClient(null); }}>
+        <DialogContent className="max-w-md p-0 border-none shadow-2xl overflow-hidden">
+          <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 text-white">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                <Globe className="w-7 h-7" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold">Configurar Portal</DialogTitle>
+                <DialogDescription className="text-indigo-200 text-sm">
+                  {portalConfigClient?.name}
+                </DialogDescription>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-slate-500">Selecione quais módulos serão visíveis no portal deste cliente:</p>
+            <div className="space-y-2">
+              {AVAILABLE_PORTAL_MODULES.map((mod) => (
+                <label
+                  key={mod.key}
+                  className={cn(
+                    "flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all",
+                    portalModules.includes(mod.key)
+                      ? "border-indigo-300 bg-indigo-50"
+                      : "border-slate-200 hover:border-slate-300"
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={portalModules.includes(mod.key)}
+                    onChange={() => toggleModule(mod.key)}
+                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-slate-700">{mod.label}</p>
+                    <p className="text-xs text-slate-400">{mod.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setPortalConfigClient(null)}>
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                onClick={handleSavePortalModules}
+                disabled={savingModules}
+              >
+                {savingModules ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Globe className="w-4 h-4 mr-2" />}
+                Salvar Módulos
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

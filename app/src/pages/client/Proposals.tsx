@@ -26,10 +26,26 @@ export default function ClientProposals() {
   useEffect(() => {
     const loadProposals = async () => {
       try {
-        const data = await api.getClientMyProposals();
-        setProposals(data || []);
+        // Try to load from portal publications first (admin-published)
+        const pubData = await api.getClientMyPublications('proposal');
+        if (Array.isArray(pubData) && pubData.length > 0) {
+          // Use enriched data from publications
+          const enriched = pubData
+            .filter((p: any) => p.content)
+            .map((p: any) => ({ ...p.content, publicationTitle: p.title, publishedAt: p.publishedAt }));
+          setProposals(enriched);
+        } else {
+          // Fallback to direct proposals query
+          const data = await api.getClientMyProposals();
+          setProposals(data || []);
+        }
       } catch (err) {
         console.error('Erro ao carregar propostas:', err);
+        // Fallback
+        try {
+          const data = await api.getClientMyProposals();
+          setProposals(data || []);
+        } catch { /* empty */ }
       } finally {
         setIsLoading(false);
       }
@@ -119,7 +135,7 @@ export default function ClientProposals() {
                           {statusInfo.label}
                         </Badge>
                       </div>
-                      <h3 className="text-lg font-bold text-slate-900">{proposal.title || 'Proposta Comercial'}</h3>
+                      <h3 className="text-lg font-bold text-slate-900">{proposal.title || proposal.publicationTitle || 'Proposta Comercial'}</h3>
                       {proposal.scope && (
                         <p className="text-sm text-slate-500 mt-1 line-clamp-2">{proposal.scope}</p>
                       )}

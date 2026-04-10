@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -24,20 +24,47 @@ import {
   Menu,
   X,
   FileText,
+  DollarSign,
+  FileCheck,
+  Users,
 } from 'lucide-react';
+import { api } from '@/api';
 
-const navItems = [
-  { path: '/client/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/client/works', label: 'Minhas Obras', icon: Building2 },
-  { path: '/client/proposals', label: 'Propostas', icon: FileText },
-  { path: '/client/documents', label: 'Documentos', icon: FolderOpen },
-  { path: '/client/requests', label: 'Solicitações', icon: MessageSquare },
+// All possible nav items with their module keys
+const allNavItems = [
+  { path: '/client/dashboard', label: 'Dashboard', icon: LayoutDashboard, moduleKey: 'dashboard' },
+  { path: '/client/works', label: 'Minhas Obras', icon: Building2, moduleKey: 'obras' },
+  { path: '/client/proposals', label: 'Propostas', icon: FileText, moduleKey: 'propostas' },
+  { path: '/client/contracts', label: 'Contratos', icon: FileCheck, moduleKey: 'contratos' },
+  { path: '/client/financial', label: 'Financeiro', icon: DollarSign, moduleKey: 'financeiro' },
+  { path: '/client/documents', label: 'Documentos', icon: FolderOpen, moduleKey: 'documentos' },
+  { path: '/client/team', label: 'Equipe', icon: Users, moduleKey: 'equipe' },
+  { path: '/client/requests', label: 'Solicitações', icon: MessageSquare, moduleKey: 'solicitacoes' },
 ];
 
 export default function ClientLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [portalModules, setPortalModules] = useState<string[]>(['dashboard', 'obras', 'propostas', 'documentos', 'solicitacoes']);
+
+  useEffect(() => {
+    const loadModules = async () => {
+      try {
+        const data = await api.getClientMyPortalModules();
+        if (data?.modules && Array.isArray(data.modules)) {
+          // Always include dashboard
+          const mods = data.modules.includes('dashboard') ? data.modules : ['dashboard', ...data.modules];
+          setPortalModules(mods);
+        }
+      } catch {
+        // Fallback to defaults
+      }
+    };
+    loadModules();
+  }, []);
+
+  const navItems = allNavItems.filter(item => portalModules.includes(item.moduleKey));
 
   const handleLogout = () => {
     logout();

@@ -1258,6 +1258,60 @@ class ApiService {
     return response.data;
   }
 
+  // ═══ PORTAL PUBLICATIONS (Admin) ═══════════════════════════════════════════
+
+  async publishToPortal(data: { clientId: string; workId?: string; contentType: string; contentId: string; title: string; description?: string; metadata?: any }) {
+    const response = await this.client.post('/portal-publications', data);
+    return response.data;
+  }
+
+  async unpublishFromPortal(id: string) {
+    const response = await this.client.put(`/portal-publications/${id}/unpublish`);
+    return response.data;
+  }
+
+  async removePortalPublication(id: string) {
+    const response = await this.client.delete(`/portal-publications/${id}`);
+    return response.data;
+  }
+
+  async getPortalPublications(clientId?: string) {
+    const response = await this.client.get('/portal-publications', { params: { clientId } });
+    return response.data;
+  }
+
+  async checkPortalPublished(contentType: string, contentId: string) {
+    const response = await this.client.get('/portal-publications/check', { params: { contentType, contentId } });
+    return response.data;
+  }
+
+  async getPortalPublishedIds(contentType: string, clientId?: string) {
+    const response = await this.client.get('/portal-publications/published-ids', { params: { contentType, clientId } });
+    return response.data;
+  }
+
+  async getClientPortalModules(clientId: string) {
+    const response = await this.client.get(`/portal-publications/modules/${clientId}`);
+    return response.data;
+  }
+
+  async updateClientPortalModules(clientId: string, modules: string[]) {
+    const response = await this.client.put(`/portal-publications/modules/${clientId}`, { modules });
+    return response.data;
+  }
+
+  // ═══ PORTAL PUBLICATIONS (Client-facing) ═══════════════════════════════════
+
+  async getClientMyPublications(contentType?: string) {
+    const response = await this.client.get('/client-portal/my-publications', { params: { contentType } });
+    return response.data;
+  }
+
+  async getClientMyPortalModules() {
+    const response = await this.client.get('/client-portal/my-portal-modules');
+    return response.data;
+  }
+
   async createClientRequest(data: { type: string; subject: string; description: string; workId?: string; priority?: string }, files?: File[]) {
     const formData = new FormData();
     formData.append('type', data.type);

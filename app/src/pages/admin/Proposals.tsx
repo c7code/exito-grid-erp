@@ -51,6 +51,8 @@ import {
   RotateCcw,
   RefreshCw,
   HardHat,
+  Upload,
+  Globe,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -102,6 +104,9 @@ export default function AdminProposals() {
   const [signatureLinkDialogOpen, setSignatureLinkDialogOpen] = useState(false);
   const [signatureLink, setSignatureLink] = useState('');
 
+  // Portal publication tracking
+  const [publishedProposalIds, setPublishedProposalIds] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     loadProposals();
   }, []);
@@ -112,6 +117,12 @@ export default function AdminProposals() {
       const data = await api.getProposals();
       const list = Array.isArray(data) ? data : (data?.data ?? []);
       setProposals(list);
+
+      // Load published IDs
+      try {
+        const pubIds = await api.getPortalPublishedIds('proposal');
+        setPublishedProposalIds(new Set(Array.isArray(pubIds) ? pubIds : []));
+      } catch { /* non-critical */ }
     } catch (error) {
       console.error('Erro ao carregar propostas:', error);
       toast.error('Erro ao carregar propostas. Verifique se o servidor está rodando.');
@@ -197,6 +208,48 @@ export default function AdminProposals() {
       }
     } catch {
       navigate('/admin/works');
+    }
+  };
+
+  // ═══ PORTAL PUBLICATION ═══
+  const handlePublishToPortal = async (proposal: any) => {
+    const clientName = proposal.client?.name || 'cliente';
+    const clientId = proposal.clientId || proposal.client?.id;
+    if (!clientId) {
+      toast.error('Esta proposta não tem cliente vinculado. Vincule um cliente primeiro.');
+      return;
+    }
+    const isPublished = publishedProposalIds.has(proposal.id);
+    if (isPublished) {
+      // Unpublish
+      if (!confirm(`Remover proposta "${proposal.proposalNumber}" do portal de ${clientName}?`)) return;
+      try {
+        const pubs = await api.getPortalPublications(clientId);
+        const pub = (Array.isArray(pubs) ? pubs : []).find((p: any) => p.contentType === 'proposal' && p.contentId === proposal.id);
+        if (pub) {
+          await api.removePortalPublication(pub.id);
+        }
+        setPublishedProposalIds(prev => { const n = new Set(prev); n.delete(proposal.id); return n; });
+        toast.success('Proposta removida do portal do cliente.');
+      } catch {
+        toast.error('Erro ao remover do portal.');
+      }
+    } else {
+      // Publish
+      if (!confirm(`Publicar proposta "${proposal.proposalNumber}" no portal de ${clientName}?`)) return;
+      try {
+        await api.publishToPortal({
+          clientId,
+          contentType: 'proposal',
+          contentId: proposal.id,
+          title: proposal.title || proposal.proposalNumber,
+          description: `Proposta ${proposal.proposalNumber} - R$ ${Number(proposal.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        });
+        setPublishedProposalIds(prev => new Set(prev).add(proposal.id));
+        toast.success(`Proposta publicada no portal de ${clientName}!`);
+      } catch {
+        toast.error('Erro ao publicar no portal.');
+      }
     }
   };
 
@@ -683,6 +736,12 @@ export default function AdminProposals() {
                           <StatusIcon className="w-3 h-3" />
                           {statusInfo.label}
                         </Badge>
+                        {publishedProposalIds.has(proposal.id) && (
+                          <Badge variant="outline" className="bg-indigo-50 text-indigo-600 border-indigo-200 text-[10px] font-medium mt-1 flex items-center gap-1 w-fit">
+                            <Globe className="w-2.5 h-2.5" />
+                            Portal
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         {proposal.validUntil
@@ -826,6 +885,17 @@ export default function AdminProposals() {
                                     Reverter Aprovação
                                   </DropdownMenuItem>
                                 </>
+                              )}
+                              <DropdownMenuSeparator />
+                              {/* ═══ PORTAL ═══ */}
+                              {(proposal.clientId || proposal.client?.id) && (
+                                <DropdownMenuItem onClick={() => handlePublishToPortal(proposal)}>
+                                  {publishedProposalIds.has(proposal.id) ? (
+                                    <><Globe className="w-4 h-4 mr-2 text-emerald-600" /> Remover do Portal</>
+                                  ) : (
+                                    <><Upload className="w-4 h-4 mr-2 text-indigo-600" /> Publicar no Portal</>
+                                  )}
+                                </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
                               {/* ═══ ATALHOS FINANCEIROS ═══ */}
