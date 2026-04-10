@@ -172,16 +172,23 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                     @page { margin: 10mm 0 12mm 0; }
                 }
                 #contract-pdf-content { padding-bottom: 40px; }
-                #contract-pdf-content div[style*="sectionTitle"],
-                #contract-pdf-content div[style*="borderBottom"] {
-                    break-after: avoid;
-                    page-break-after: avoid;
+                #contract-pdf-content .pdf-section-title {
+                    break-after: avoid !important;
+                    page-break-after: avoid !important;
                 }
                 #contract-pdf-content p {
                     orphans: 3;
                     widows: 3;
                 }
                 #contract-pdf-content .pdf-clause {
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                }
+                #contract-pdf-content .sig-block {
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                }
+                #contract-pdf-content .pdf-keep-together {
                     break-inside: avoid;
                     page-break-inside: avoid;
                 }
@@ -210,7 +217,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
             <div style={s.body}>
 
                 {/* CL 1 — PARTES */}
-                <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS PARTES</div>
+                <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS PARTES</div>
                 <p style={s.para}>
                     <strong>CONTRATADA:</strong> {empresa.nome}, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº {empresa.cnpj}, com sede em {empresa.endereco}, doravante denominada simplesmente <strong>CONTRATADA</strong>.
                 </p>
@@ -224,7 +231,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 )}
 
                 {/* CL 2 — OBJETO */}
-                <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DO OBJETO</div>
+                <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause++}ª — DO OBJETO</div>
                 <p style={s.para}>
                     O presente instrumento tem por objeto a {(typeLabels[contract.type] || 'prestação de serviços').toLowerCase()} conforme descrito abaixo:
                 </p>
@@ -237,7 +244,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 )}
 
                 {/* CL 3 — VALOR */}
-                <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DO VALOR</div>
+                <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause++}ª — DO VALOR</div>
                 <div style={s.valueBox}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <span style={{ fontSize: '10px', color: '#92400e', fontWeight: 600 }}>VALOR DO CONTRATO</span>
@@ -255,7 +262,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 </p>
 
                 {/* CL 4 — PRAZO */}
-                <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DO PRAZO</div>
+                <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause++}ª — DO PRAZO</div>
                 <p style={s.para}>
                     {contract.startDate && contract.endDate
                         ? `O presente contrato terá vigência de ${new Date(contract.startDate).toLocaleDateString('pt-BR')} a ${new Date(contract.endDate).toLocaleDateString('pt-BR')}, podendo ser prorrogado mediante acordo entre as partes por meio de termo aditivo.`
@@ -263,7 +270,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 </p>
 
                 {/* CL 5 — PAGAMENTO */}
-                <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS CONDIÇÕES DE PAGAMENTO</div>
+                <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS CONDIÇÕES DE PAGAMENTO</div>
                 {renderStructuredText(contract.paymentTerms || 'O pagamento será efetuado conforme condições acordadas entre as partes, mediante emissão de nota fiscal pela CONTRATADA.', s.para)}
                 {contract.paymentBank && (
                     <>
@@ -273,7 +280,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 )}
 
                 {/* CL 6 — OBRIGAÇÕES CONTRATADA */}
-                <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS OBRIGAÇÕES DA CONTRATADA</div>
+                <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS OBRIGAÇÕES DA CONTRATADA</div>
                 {contract.contractorObligations
                     ? renderStructuredText(contract.contractorObligations, s.para)
                     : contractorObs.map((ob: string, i: number) => (
@@ -282,7 +289,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 }
 
                 {/* CL 7 — OBRIGAÇÕES CONTRATANTE */}
-                <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS OBRIGAÇÕES DO CONTRATANTE</div>
+                <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS OBRIGAÇÕES DO CONTRATANTE</div>
                 {contract.clientObligations
                     ? renderStructuredText(contract.clientObligations, s.para)
                     : clientObs.map((ob: string, i: number) => (
@@ -291,13 +298,13 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 }
 
                 {/* CL 8 — PENALIDADES */}
-                <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS PENALIDADES</div>
+                <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS PENALIDADES</div>
                 {renderStructuredText(contract.penalties || 'O descumprimento de quaisquer cláusulas deste contrato sujeitará a parte infratora ao pagamento de multa de 10% (dez por cento) sobre o valor total do contrato, além de perdas e danos eventualmente comprovados, sem prejuízo das demais cominações legais.', s.para)}
 
                 {/* CL 9 — GARANTIA (optional) */}
                 {(contract.warranty || contract.type === 'service') && (
                     <>
-                        <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DA GARANTIA</div>
+                        <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause++}ª — DA GARANTIA</div>
                         {renderStructuredText(contract.warranty || 'A CONTRATADA garantirá os serviços executados pelo prazo de 12 (doze) meses, contados da data de conclusão e aceite pelo CONTRATANTE, obrigando-se a corrigir, sem ônus, quaisquer vícios ou defeitos decorrentes da execução.', s.para)}
                     </>
                 )}
@@ -305,7 +312,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 {/* CL — CONFIDENCIALIDADE (optional) */}
                 {contract.confidentiality && (
                     <>
-                        <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DA CONFIDENCIALIDADE</div>
+                        <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause++}ª — DA CONFIDENCIALIDADE</div>
                         {renderStructuredText(contract.confidentiality, s.para)}
                     </>
                 )}
@@ -313,7 +320,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 {/* CL — RESCISÃO (optional) */}
                 {(contract.termination || true) && (
                     <>
-                        <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DA RESCISÃO</div>
+                        <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause++}ª — DA RESCISÃO</div>
                         {renderStructuredText(contract.termination || 'O presente contrato poderá ser rescindido por qualquer das partes, mediante notificação prévia por escrito, com antecedência mínima de 30 (trinta) dias, sendo devidos os pagamentos proporcionais aos serviços já executados e materiais já fornecidos.', s.para)}
                     </>
                 )}
@@ -321,13 +328,13 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 {/* CL — FORÇA MAIOR (optional) */}
                 {contract.forceMajeure && (
                     <>
-                        <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DA FORÇA MAIOR</div>
+                        <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause++}ª — DA FORÇA MAIOR</div>
                         {renderStructuredText(contract.forceMajeure, s.para)}
                     </>
                 )}
 
                 {/* CL — DISPOSIÇÕES GERAIS */}
-                <div style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS DISPOSIÇÕES GERAIS</div>
+                <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause++}ª — DAS DISPOSIÇÕES GERAIS</div>
                 {contract.generalProvisions
                     ? renderStructuredText(contract.generalProvisions, s.para)
                     : generalProv.map((p: string, i: number) => (
@@ -339,7 +346,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 }
 
                 {/* CL — FORO */}
-                <div style={s.sectionTitle}>CLÁUSULA {clause}ª — DO FORO</div>
+                <div className="pdf-section-title" style={s.sectionTitle}>CLÁUSULA {clause}ª — DO FORO</div>
                 {renderStructuredText(contract.jurisdiction || 'Fica eleito o foro da Comarca de Recife/PE para dirimir quaisquer questões oriundas do presente contrato, com renúncia expressa a qualquer outro, por mais privilegiado que seja.', s.para)}
                 <p style={{ ...s.para, marginTop: '14px', fontWeight: 600 }}>
                     E por estarem assim justas e contratadas, as partes assinam o presente instrumento em 2 (duas) vias de igual teor e forma, na presença das testemunhas abaixo.
@@ -353,7 +360,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 </div>
 
                 {/* ASSINATURAS */}
-                <div style={s.sigArea}>
+                <div className="sig-block" style={s.sigArea}>
                     <div style={s.sigBox}>
                         <div style={s.sigLine}>{empresa.nome}</div>
                         <div style={s.sigSub}>CNPJ: {empresa.cnpj}</div>
@@ -367,7 +374,7 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                 </div>
 
                 {/* TESTEMUNHAS */}
-                <div style={{ ...s.sigArea, marginTop: '30px', gap: '80px' }}>
+                <div className="sig-block" style={{ ...s.sigArea, marginTop: '30px', gap: '80px' }}>
                     <div style={s.sigBox}>
                         <div style={{ ...s.sigLine, marginTop: '40px' }}>{contract.witness1Name || 'Testemunha 1'}</div>
                         <div style={s.sigSub}>{contract.witness1Document ? `CPF: ${contract.witness1Document}` : ''}</div>

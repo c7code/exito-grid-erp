@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import html2pdf from 'html2pdf.js';
 import { api } from '@/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -247,28 +248,26 @@ export default function Contracts() {
 
     const handlePrint = () => {
         setView('pdf');
+        toast.info('Gerando PDF do contrato...');
         setTimeout(() => {
             const content = document.getElementById('contract-pdf-content');
-            if (!content) return;
-            const printWindow = window.open('', '_blank');
-            if (!printWindow) return;
-            printWindow.document.write(`<!DOCTYPE html><html><head><title>Contrato ${selectedContract?.contractNumber || ''}</title>
-            <style>
-                @page { margin: 10mm 8mm 12mm 8mm; }
-                body { margin: 0; padding: 0; }
-                p { orphans: 3; widows: 3; }
-                div[style*="borderBottom"] { break-after: avoid; page-break-after: avoid; }
-                .pdf-clause { break-inside: avoid; page-break-inside: avoid; }
-                div[style*="sigArea"], div[style*="justifyContent: space-between"][style*="gap"] {
-                    break-inside: avoid; page-break-inside: avoid;
-                }
-            </style>
-            </head><body>`);
-            printWindow.document.write(content.outerHTML);
-            printWindow.document.write('</body></html>');
-            printWindow.document.close();
-            printWindow.onload = () => { printWindow.print(); };
-        }, 300);
+            if (!content) { toast.error('Erro ao gerar PDF'); return; }
+
+            const opt = {
+                margin: [10, 0, 12, 0] as [number, number, number, number],
+                filename: `contrato_${selectedContract?.contractNumber || 'novo'}.pdf`,
+                image: { type: 'jpeg' as const, quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
+                jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
+                pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', '.pdf-clause', '.pdf-keep-together', '.sig-block', 'li', 'h3', 'h4'] },
+            };
+
+            html2pdf().from(content).set(opt).save().then(() => {
+                toast.success('PDF do contrato gerado!');
+            }).catch(() => {
+                toast.error('Erro ao gerar PDF');
+            });
+        }, 500);
     };
 
     const handleSelectChange = (field: string, value: string) => setForm((f: any) => ({ ...f, [field]: value === '__none__' ? '' : value }));
