@@ -280,9 +280,9 @@ export default function AdminFinance() {
     margin: [10, 0, 12, 0] as [number, number, number, number],
     filename,
     image: { type: 'jpeg' as const, quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: elWidth, windowWidth: elWidth },
+    html2canvas: { scale: 3, dpi: 192, useCORS: true, letterRendering: true, width: elWidth, windowWidth: elWidth },
     jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] } as any,
-    pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', '.pdf-keep-together', '.pdf-section-title', '.sig-block'] },
+    pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['tr', '.pdf-keep-together', '.pdf-section-title', '.sig-block', '.avoid-page-break'] },
   });
 
   const handleDownloadReceiptPDF = (receipt: any) => {

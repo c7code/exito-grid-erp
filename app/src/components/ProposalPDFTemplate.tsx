@@ -240,6 +240,8 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                 #proposal-pdf-content .sig-block { break-inside: avoid; }
                 #proposal-pdf-content .pdf-keep-together { break-inside: avoid; }
                 #proposal-pdf-content .pdf-section-title { break-inside: avoid; break-after: avoid; }
+                #proposal-pdf-content .avoid-page-break { break-inside: avoid; page-break-inside: avoid; }
+                #proposal-pdf-content .next-page { break-before: page; page-break-before: always; }
                 #proposal-pdf-content .pdf-fragmentable { break-inside: auto; }
                 #proposal-pdf-content .pdf-fragmentable > div,
                 #proposal-pdf-content .pdf-fragmentable > p { break-inside: auto; }

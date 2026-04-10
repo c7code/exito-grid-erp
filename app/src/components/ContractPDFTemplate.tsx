@@ -192,6 +192,14 @@ export function ContractPDFTemplate({ contract, company }: ContractPDFTemplatePr
                     break-inside: avoid;
                     page-break-inside: avoid;
                 }
+                #contract-pdf-content .avoid-page-break {
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                }
+                #contract-pdf-content .next-page {
+                    break-before: page;
+                    page-break-before: always;
+                }
             `}</style>
             {/* ═══ HEADER ═══ */}
             <div style={s.header}>

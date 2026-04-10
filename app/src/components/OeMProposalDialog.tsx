@@ -418,9 +418,9 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
             margin: [0, 0, 38, 0] as [number, number, number, number],
             filename: `proposta_oem_${servico?.usina?.nome?.replace(/\s/g, '_') || 'servico'}.pdf`,
             image: { type: 'jpeg' as const, quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
+            html2canvas: { scale: 3, dpi: 192, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
             jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
-            pagebreak: { mode: ['css'], avoid: ['tr', '.sig-block', '.pdf-keep-together', '.pdf-section-title'] },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['tr', '.sig-block', '.pdf-keep-together', '.pdf-section-title', '.avoid-page-break'] },
         };
 
         try {

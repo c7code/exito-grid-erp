@@ -506,8 +506,9 @@ export default function Step4Export({ result, selectedId, clientName, serviceDes
         margin: 0,
         filename: `proposta_simulacao_${clientName ? clientName.replace(/\s/g, '_') : 'cliente'}_${new Date().toISOString().slice(0, 10)}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
+        html2canvas: { scale: 3, dpi: 192, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
         jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['tr', '.sig-block', '.pdf-keep-together', '.avoid-page-break'] },
       };
 
       await html2pdf().from(element).set(opt).save();

@@ -173,6 +173,8 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                 #proposal-pdf-content .sig-block { break-inside: avoid; }
                 #proposal-pdf-content .pdf-keep-together { break-inside: avoid; }
                 #proposal-pdf-content .pdf-section-title { break-inside: avoid; break-after: avoid; }
+                #proposal-pdf-content .avoid-page-break { break-inside: avoid; page-break-inside: avoid; }
+                #proposal-pdf-content .next-page { break-before: page; page-break-before: always; }
                 #proposal-pdf-content .pdf-fragmentable { break-inside: auto; }
                 #proposal-pdf-content .pdf-fragmentable > div,
                 #proposal-pdf-content .pdf-fragmentable > p { break-inside: auto; orphans: 3; widows: 3; }
@@ -345,7 +347,7 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                             {benefits.map((b: string, i: number) => (
-                                <div key={i} style={s.benefitCard}>
+                                <div key={i} className="avoid-page-break" style={s.benefitCard}>
                                     <span style={{ fontSize: '13px', lineHeight: 1, color: '#f59e0b', fontWeight: 700, flexShrink: 0 }}>✓</span>
                                     <span style={{ fontSize: '9.5px', color: '#713f12', lineHeight: 1.55 }}>{b.replace(/^[•▸\-]\s*/, '')}</span>
                                 </div>
@@ -407,7 +409,7 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                 </p>
                 {items.length > 0 ? (
                     items.map((item: any, i: number) => (
-                        <div key={i} style={s.serviceRow}>
+                        <div key={i} className="avoid-page-break" style={s.serviceRow}>
                             <span style={{ fontSize: '14px', lineHeight: 1 }}>✅</span>
                             <div style={{ flex: 1 }}>
                                 <p style={{ fontSize: '10px', fontWeight: 700, color: '#166534', margin: 0 }}>{item.description}</p>
@@ -737,7 +739,7 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                         </div>
                         <div style={{ display: 'flex', gap: '14px' }}>
                             {contractorObligations && (
-                                <div style={{ ...s.oblCard, flex: 1 }}>
+                                <div className="avoid-page-break" style={{ ...s.oblCard, flex: 1 }}>
                                     <div style={s.oblTitle}>
                                         <span style={{ fontSize: '12px' }}>🏢</span>
                                         Contratada
@@ -746,7 +748,7 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                                 </div>
                             )}
                             {clientObligations && (
-                                <div style={{ ...s.oblCard, flex: 1, background: '#fffbeb', borderColor: '#fde68a' }}>
+                                <div className="avoid-page-break" style={{ ...s.oblCard, flex: 1, background: '#fffbeb', borderColor: '#fde68a' }}>
                                     <div style={{ ...s.oblTitle, color: '#92400e' }}>
                                         <span style={{ fontSize: '12px' }}>👤</span>
                                         Contratante

@@ -359,9 +359,9 @@ export default function SolarProjects() {
         margin: 0,
         filename: `proposta_solar_${currentProject.code || 'projeto'}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
+        html2canvas: { scale: 3, dpi: 192, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
         jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
-        pagebreak: { avoid: 'img' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['img', 'tr', '.sig-block', '.pdf-keep-together', '.pdf-section-title', '.avoid-page-break'] },
       };
 
       html2pdf().from(element).set(opt).save().then(() => {

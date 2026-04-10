@@ -1502,6 +1502,12 @@ export function SolarProposalPDFTemplate({ proposal, solarProject, company }: So
 
   return (
     <div id="proposal-pdf-content" style={{ background: C.white, maxWidth: 794, margin: '0 auto' }}>
+      <style>{`
+        #proposal-pdf-content tr { break-inside: avoid; }
+        #proposal-pdf-content .avoid-page-break { break-inside: avoid; page-break-inside: avoid; }
+        #proposal-pdf-content .next-page { break-before: page; page-break-before: always; }
+        #proposal-pdf-content .sig-block { break-inside: avoid; }
+      `}</style>
       <Page1 data={data} />
       <Page2 data={data} />
       <Page3 data={data} />

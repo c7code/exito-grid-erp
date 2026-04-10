@@ -257,9 +257,9 @@ export default function Contracts() {
                 margin: [10, 0, 12, 0] as [number, number, number, number],
                 filename: `contrato_${selectedContract?.contractNumber || 'novo'}.pdf`,
                 image: { type: 'jpeg' as const, quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
+                html2canvas: { scale: 3, dpi: 192, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
                 jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
-                pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', '.pdf-clause', '.pdf-keep-together', '.sig-block', 'li', 'h3', 'h4'] },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['tr', '.pdf-clause', '.pdf-keep-together', '.sig-block', '.avoid-page-break', 'li', 'h3', 'h4'] },
             };
 
             html2pdf().from(content).set(opt).save().then(() => {
