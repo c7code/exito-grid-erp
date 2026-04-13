@@ -186,13 +186,42 @@ export class PortalPublicationsService implements OnModuleInit {
     try {
       switch (contentType) {
         case 'proposal': {
+          // Fetch full proposal data for PDF template rendering
           const rows = await this.dataSource.query(
-            `SELECT id, "proposalNumber", title, status, total, "validUntil", "activityType",
-                    "createdAt", "sentAt", "acceptedAt", scope, deadline, "paymentConditions"
-             FROM proposals WHERE id = ANY($1) AND "deletedAt" IS NULL`,
+            `SELECT p.*, c.name AS "clientName", c.document AS "clientDocument", c.address AS "clientAddress",
+                    c.phone AS "clientPhone", c.email AS "clientEmail"
+             FROM proposals p
+             LEFT JOIN clients c ON c.id = p."clientId"
+             WHERE p.id = ANY($1) AND p."deletedAt" IS NULL`,
             [contentIds],
           );
-          rows.forEach((r: any) => { enrichedData[r.id] = r; });
+          // Fetch proposal items
+          const items = await this.dataSource.query(
+            `SELECT * FROM proposal_items WHERE "proposalId" = ANY($1) AND "deletedAt" IS NULL ORDER BY "createdAt" ASC`,
+            [contentIds],
+          );
+          // Group items by proposalId
+          const itemsByProposal: Record<string, any[]> = {};
+          items.forEach((item: any) => {
+            if (!itemsByProposal[item.proposalId]) itemsByProposal[item.proposalId] = [];
+            itemsByProposal[item.proposalId].push(item);
+          });
+          // Fetch primary company data for PDF header
+          let companyData = null;
+          try {
+            const companies = await this.dataSource.query(
+              `SELECT * FROM companies WHERE "deletedAt" IS NULL ORDER BY "isPrimary" DESC, "createdAt" ASC LIMIT 1`,
+            );
+            if (companies?.length > 0) companyData = companies[0];
+          } catch {}
+          rows.forEach((r: any) => {
+            enrichedData[r.id] = {
+              ...r,
+              items: itemsByProposal[r.id] || [],
+              client: { name: r.clientName, document: r.clientDocument, address: r.clientAddress, phone: r.clientPhone, email: r.clientEmail },
+              company: companyData,
+            };
+          });
           break;
         }
         case 'contract': {
@@ -251,6 +280,51 @@ export class PortalPublicationsService implements OnModuleInit {
             `SELECT id, name, "documentGroup", "fileUrl" AS url, "fileName", description,
                     "issueDate", "expiryDate", status, "responsibleName", "registrationNumber"
              FROM company_documents WHERE id = ANY($1) AND "deletedAt" IS NULL`,
+            [contentIds],
+          );
+          rows.forEach((r: any) => { enrichedData[r.id] = r; });
+          break;
+        }
+        case 'payment': {
+          const rows = await this.dataSource.query(
+            `SELECT p.id, p.description, p.amount, p."paidAmount", p.status, p.type,
+                    p."dueDate", p."paidAt", p."paymentMethod", p."invoiceNumber",
+                    p."boletoUrl", p."boletoFileName", p."pixQrCode", p."pixQrCodeImage",
+                    p."workId", p."clientId",
+                    w.title AS "workTitle", w.code AS "workCode",
+                    c.name AS "clientName"
+             FROM payments p
+             LEFT JOIN works w ON w.id = p."workId"
+             LEFT JOIN clients c ON c.id = p."clientId"
+             WHERE p.id = ANY($1) AND p."deletedAt" IS NULL`,
+            [contentIds],
+          );
+          rows.forEach((r: any) => { enrichedData[r.id] = r; });
+          break;
+        }
+        case 'fiscal_invoice': {
+          const rows = await this.dataSource.query(
+            `SELECT fi.id, fi.type, fi.status, fi."invoiceNumber", fi.series,
+                    fi."accessKey", fi."issueDate", fi."totalValue", fi.description,
+                    fi."recipientName", fi."recipientDocument",
+                    fi."danfePdfPath", fi."installmentNumber", fi."installmentTotal",
+                    fi."naturezaOperacao", fi."createdAt"
+             FROM fiscal_invoices fi
+             WHERE fi.id = ANY($1) AND fi."deletedAt" IS NULL`,
+            [contentIds],
+          );
+          rows.forEach((r: any) => { enrichedData[r.id] = r; });
+          break;
+        }
+        case 'payment_schedule': {
+          const rows = await this.dataSource.query(
+            `SELECT ps.id, ps.description, ps.amount, ps."dueDate",
+                    ps."installmentNumber", ps."totalInstallments", ps.status,
+                    ps.notes, ps."workId",
+                    w.title AS "workTitle", w.code AS "workCode"
+             FROM payment_schedules ps
+             LEFT JOIN works w ON w.id = ps."workId"
+             WHERE ps.id = ANY($1) AND ps."deletedAt" IS NULL`,
             [contentIds],
           );
           rows.forEach((r: any) => { enrichedData[r.id] = r; });

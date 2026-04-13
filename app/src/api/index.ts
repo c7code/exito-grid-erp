@@ -2775,6 +2775,34 @@ class ApiService {
     const response = await this.client.post(`/simulation-exceptions/${id}/reject`, data || {});
     return response.data;
   }
+
+  // ═══ SOLAR PLANS (Plano de Acesso Solar) ═══════════════════════════════
+
+  async getSolarPlans() { return (await this.client.get('/solar-plans')).data; }
+  async getSolarPlan(id: string) { return (await this.client.get(`/solar-plans/${id}`)).data; }
+  async createSolarPlan(data: any) { return (await this.client.post('/solar-plans', data)).data; }
+  async updateSolarPlan(id: string, data: any) { return (await this.client.put(`/solar-plans/${id}`, data)).data; }
+  async deleteSolarPlan(id: string) { return (await this.client.delete(`/solar-plans/${id}`)).data; }
+
+  async getSolarPlanDashboard() { return (await this.client.get('/solar-plans/dashboard')).data; }
+  async simulateSolarPlan(data: any) { return (await this.client.post('/solar-plans/simulate', data)).data; }
+
+  // Subscriptions (Adesões)
+  async getSolarPlanSubscriptions(status?: string) { return (await this.client.get('/solar-plans/subscriptions/all', { params: { status } })).data; }
+  async getSolarPlanSubscription(id: string) { return (await this.client.get(`/solar-plans/subscriptions/${id}`)).data; }
+  async createSolarPlanSubscription(data: any) { return (await this.client.post('/solar-plans/subscriptions', data)).data; }
+  async updateSolarPlanSubscription(id: string, data: any) { return (await this.client.put(`/solar-plans/subscriptions/${id}`, data)).data; }
+  async cancelSolarPlanSubscription(id: string, reason: string) { return (await this.client.post(`/solar-plans/subscriptions/${id}/cancel`, { reason })).data; }
+  async startSolarPlanInstallation(id: string) { return (await this.client.post(`/solar-plans/subscriptions/${id}/start-installation`)).data; }
+  async completeSolarPlanInstallation(id: string) { return (await this.client.post(`/solar-plans/subscriptions/${id}/complete-installation`)).data; }
+
+  // Installments (Parcelas)
+  async getSolarPlanInstallments(subscriptionId: string) { return (await this.client.get(`/solar-plans/subscriptions/${subscriptionId}/installments`)).data; }
+  async paySolarPlanInstallment(id: string, data: any) { return (await this.client.post(`/solar-plans/installments/${id}/pay`, data)).data; }
+  async updateSolarPlanInstallment(id: string, data: any) { return (await this.client.put(`/solar-plans/installments/${id}`, data)).data; }
+
+  // Client Portal
+  async getClientSolarPlanSubscriptions(clientId: string) { return (await this.client.get(`/solar-plans/client/${clientId}`)).data; }
 }
 
 export const api = new ApiService();

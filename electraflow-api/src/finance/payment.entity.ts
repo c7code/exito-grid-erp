@@ -193,6 +193,23 @@ export class Payment {
   @Column({ nullable: true })
   financialOrigin: string;
 
+  // ─── Boleto / PIX (Portal do Cliente) ───────────────────────────────────
+  /** URL/path do PDF de boleto */
+  @Column({ type: 'text', nullable: true })
+  boletoUrl: string;
+
+  /** Nome original do arquivo de boleto */
+  @Column({ nullable: true })
+  boletoFileName: string;
+
+  /** Código PIX copia e cola */
+  @Column({ type: 'text', nullable: true })
+  pixQrCode: string;
+
+  /** QR Code PIX em base64 (gerado pelo admin) */
+  @Column({ type: 'text', nullable: true })
+  pixQrCodeImage: string;
+
   // ─── Anexos ──────────────────────────────────────────────────────────────
   @Column({ type: 'simple-array', nullable: true })
   attachments: string[];

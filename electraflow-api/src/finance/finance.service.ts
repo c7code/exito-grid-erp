@@ -133,6 +133,15 @@ export class FinanceService {
         `ALTER TABLE clients ADD COLUMN IF NOT EXISTS "signatureImageUrl" VARCHAR`,
       ];
       for (const sql of sigCols) { await this.dataSource.query(sql).catch(() => {}); }
+
+      // ═══ Payment boleto/PIX columns ═══
+      const payBolCols = [
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "boletoUrl" TEXT`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "boletoFileName" VARCHAR`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "pixQrCode" TEXT`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "pixQrCodeImage" TEXT`,
+      ];
+      for (const sql of payBolCols) { await this.dataSource.query(sql).catch(() => {}); }
     } catch (e) { console.warn('Finance tables migration:', e?.message); }
   }
 

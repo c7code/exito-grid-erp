@@ -3,10 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import {
   Users, Building2, FileText, Check, ChevronRight, ChevronLeft,
   Loader2, Upload, AlertTriangle, ShieldCheck, Briefcase, FileCheck,
@@ -103,35 +99,28 @@ interface Props {
 export function EmployeePortalPublishDialog({ open, onOpenChange, selectedEmployees }: Props) {
   const [step, setStep] = useState(0);
   const [clients, setClients] = useState<any[]>([]);
-  const [works, setWorks] = useState<any[]>([]);
   const [companyDocs, setCompanyDocs] = useState<any[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState('');
-  const [selectedWorkId, setSelectedWorkId] = useState('');
+  const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set());
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [selectedCompanyDocIds, setSelectedCompanyDocIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [publishing, setPublishing] = useState(false);
+  const [publishProgress, setPublishProgress] = useState({ current: 0, total: 0 });
 
   // Load clients on open
   useEffect(() => {
     if (open) {
       setStep(0);
-      setSelectedClientId('');
-      setSelectedWorkId('');
+      setSelectedClientIds(new Set());
       setSelectedDocIds(new Set());
       setSelectedCompanyDocIds(new Set());
       setSearchTerm('');
+      setClientSearchTerm('');
       loadClients();
       loadCompanyDocs();
     }
   }, [open]);
-
-  // Load works when client changes
-  useEffect(() => {
-    if (selectedClientId) {
-      loadWorks(selectedClientId);
-    }
-  }, [selectedClientId]);
 
   const loadClients = async () => {
     try {
@@ -140,12 +129,24 @@ export function EmployeePortalPublishDialog({ open, onOpenChange, selectedEmploy
     } catch { /* empty */ }
   };
 
-  const loadWorks = async (clientId: string) => {
-    try {
-      const data = await api.getWorks();
-      setWorks(data.filter((w: any) => w.clientId === clientId));
-    } catch { /* empty */ }
+  // Toggle client selection
+  const toggleClient = (id: string) => {
+    setSelectedClientIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
+
+  const filteredClients = useMemo(() => {
+    if (!clientSearchTerm) return clients;
+    const s = clientSearchTerm.toLowerCase();
+    return clients.filter(c =>
+      c.name?.toLowerCase().includes(s) ||
+      c.company?.toLowerCase().includes(s) ||
+      c.email?.toLowerCase().includes(s)
+    );
+  }, [clients, clientSearchTerm]);
 
   const loadCompanyDocs = async () => {
     try {
@@ -229,13 +230,16 @@ export function EmployeePortalPublishDialog({ open, onOpenChange, selectedEmploy
     });
   };
 
-  // Publish
+  // Publish to ALL selected clients
   const handlePublish = async () => {
-    if (!selectedClientId) { toast.error('Selecione um cliente'); return; }
+    if (selectedClientIds.size === 0) { toast.error('Selecione pelo menos um cliente'); return; }
     const totalDocs = selectedDocIds.size + selectedCompanyDocIds.size;
     if (totalDocs === 0) { toast.error('Selecione pelo menos um documento'); return; }
 
     setPublishing(true);
+    const clientArray = Array.from(selectedClientIds);
+    setPublishProgress({ current: 0, total: clientArray.length });
+
     try {
       const items: any[] = [];
 
@@ -278,14 +282,34 @@ export function EmployeePortalPublishDialog({ open, onOpenChange, selectedEmploy
         });
       });
 
-      const result = await api.batchPublishToPortal({
-        clientId: selectedClientId,
-        workId: selectedWorkId || undefined,
-        items,
-      });
+      // Publish to EACH selected client
+      let totalPublished = 0;
+      let totalSkipped = 0;
+      let totalErrors = 0;
 
-      const clientName = clients.find(c => c.id === selectedClientId)?.name || 'Cliente';
-      toast.success(`${result.published} documento(s) publicado(s) no portal de ${clientName}! ${result.skipped > 0 ? `(${result.skipped} já existiam)` : ''}`);
+      for (let i = 0; i < clientArray.length; i++) {
+        const clientId = clientArray[i];
+        setPublishProgress({ current: i + 1, total: clientArray.length });
+        try {
+          const result = await api.batchPublishToPortal({
+            clientId,
+            items,
+          });
+          totalPublished += result.published;
+          totalSkipped += result.skipped;
+        } catch {
+          totalErrors++;
+        }
+      }
+
+
+
+
+      if (totalErrors > 0) {
+        toast.warning(`Publicado em ${clientArray.length - totalErrors} de ${clientArray.length} clientes. ${totalPublished} doc(s) publicado(s), ${totalSkipped} já existiam, ${totalErrors} erro(s).`);
+      } else {
+        toast.success(`${totalPublished} documento(s) publicado(s) para ${clientArray.length} cliente(s)!${totalSkipped > 0 ? ` (${totalSkipped} já existiam)` : ''}`);
+      }
       onOpenChange(false);
     } catch {
       toast.error('Erro ao publicar documentos no portal');
@@ -294,8 +318,7 @@ export function EmployeePortalPublishDialog({ open, onOpenChange, selectedEmploy
     }
   };
 
-  const selectedClient = clients.find(c => c.id === selectedClientId);
-  const selectedWork = works.find(w => w.id === selectedWorkId);
+  const selectedClientsList = clients.filter(c => selectedClientIds.has(c.id));
   const totalSelected = selectedDocIds.size + selectedCompanyDocIds.size;
 
   const STEPS = [
@@ -374,44 +397,78 @@ export function EmployeePortalPublishDialog({ open, onOpenChange, selectedEmploy
             </div>
           )}
 
-          {/* ═══ STEP 1: DESTINO (CLIENTE + OBRA) ═══ */}
+          {/* ═══ STEP 1: DESTINO (CLIENTES — MULTI SELECT) ═══ */}
           {step === 1 && (
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <Label className="font-semibold">Cliente *</Label>
-                <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o cliente destino" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.name} {c.company ? `(${c.company})` : ''}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {clients.length === 0 && (
-                  <p className="text-xs text-amber-600 flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5" /> Nenhum cliente com acesso ao portal.
-                  </p>
+            <div className="space-y-4">
+              <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+                <p className="text-sm font-medium text-indigo-800">
+                  Selecione um ou mais clientes que receberão os documentos no portal.
+                  O mesmo colaborador pode ser enviado para múltiplos clientes.
+                </p>
+              </div>
+
+              {/* Client search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  placeholder="Buscar cliente..."
+                  value={clientSearchTerm}
+                  onChange={e => setClientSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Quick actions */}
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => setSelectedClientIds(new Set(clients.map(c => c.id)))}>
+                  Selecionar Todos ({clients.length})
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setSelectedClientIds(new Set())}>
+                  Limpar
+                </Button>
+                {selectedClientIds.size > 0 && (
+                  <Badge className="bg-indigo-100 text-indigo-700 border border-indigo-200">
+                    {selectedClientIds.size} selecionado(s)
+                  </Badge>
                 )}
               </div>
-              {selectedClientId && (
-                <div className="space-y-2">
-                  <Label className="font-semibold">Obra (opcional)</Label>
-                  <Select value={selectedWorkId || '__none__'} onValueChange={v => setSelectedWorkId(v === '__none__' ? '' : v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sem obra específica" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Sem obra — envio administrativo</SelectItem>
-                      {works.map(w => (
-                        <SelectItem key={w.id} value={w.id}>{w.code ? `${w.code} — ` : ''}{w.title}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-slate-500">
-                    Vincule a uma obra para o cliente ver na aba da obra específica, ou deixe sem obra para envio administrativo mensal.
-                  </p>
+
+              {clients.length === 0 ? (
+                <p className="text-xs text-amber-600 flex items-center gap-1 p-3">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Nenhum cliente com acesso ao portal.
+                </p>
+              ) : (
+                <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
+                  {filteredClients.map(c => (
+                    <label
+                      key={c.id}
+                      className={cn(
+                        'flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all',
+                        selectedClientIds.has(c.id)
+                          ? 'border-indigo-400 bg-indigo-50/60 ring-1 ring-indigo-200'
+                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedClientIds.has(c.id)}
+                        onChange={() => toggleClient(c.id)}
+                        className="rounded border-slate-300 text-indigo-500 focus:ring-indigo-500"
+                      />
+                      <div className="w-9 h-9 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        {c.name?.charAt(0)?.toUpperCase() || '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-slate-800 truncate">{c.name}</p>
+                        <p className="text-xs text-slate-500 truncate">
+                          {c.company || c.email || ''}
+                        </p>
+                      </div>
+                      {selectedClientIds.has(c.id) && (
+                        <CheckCircle2 className="w-5 h-5 text-indigo-500 flex-shrink-0" />
+                      )}
+                    </label>
+                  ))}
                 </div>
               )}
             </div>
@@ -547,19 +604,14 @@ export function EmployeePortalPublishDialog({ open, onOpenChange, selectedEmploy
             <div className="space-y-4">
               <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5">
                 <h3 className="font-bold text-indigo-800 text-lg mb-3">Resumo do Envio</h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-3 gap-3 text-sm">
                   <div className="bg-white/70 rounded-lg p-3">
-                    <p className="text-slate-500 text-xs mb-1">Cliente</p>
-                    <p className="font-semibold text-slate-800">{selectedClient?.name || '—'}</p>
-                    {selectedClient?.company && <p className="text-xs text-slate-500">{selectedClient.company}</p>}
-                  </div>
-                  <div className="bg-white/70 rounded-lg p-3">
-                    <p className="text-slate-500 text-xs mb-1">Obra</p>
-                    <p className="font-semibold text-slate-800">{selectedWork?.title || 'Sem obra — Administrativo'}</p>
+                    <p className="text-slate-500 text-xs mb-1">Clientes Destino</p>
+                    <p className="font-semibold text-slate-800 text-lg">{selectedClientIds.size}</p>
                   </div>
                   <div className="bg-white/70 rounded-lg p-3">
                     <p className="text-slate-500 text-xs mb-1">Colaboradores</p>
-                    <p className="font-semibold text-slate-800">{selectedEmployees.length}</p>
+                    <p className="font-semibold text-slate-800 text-lg">{selectedEmployees.length}</p>
                   </div>
                   <div className="bg-white/70 rounded-lg p-3">
                     <p className="text-slate-500 text-xs mb-1">Documentos</p>
@@ -568,9 +620,22 @@ export function EmployeePortalPublishDialog({ open, onOpenChange, selectedEmploy
                 </div>
               </div>
 
+              {/* Clients list */}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-slate-600">Clientes que receberão os documentos:</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedClientsList.map(c => (
+                    <Badge key={c.id} className="bg-indigo-100 text-indigo-700 border border-indigo-200 gap-1.5 py-1">
+                      <Building2 className="w-3 h-3" />
+                      {c.name}{c.company ? ` (${c.company})` : ''}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
               {/* Breakdown */}
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-slate-600">Detalhamento:</p>
+                <p className="text-sm font-semibold text-slate-600">Detalhamento dos Documentos:</p>
                 {Object.entries(DOC_CATEGORIES).map(([catKey, catConfig]) => {
                   const count = (docsByCategory[catKey] || []).filter(d => selectedDocIds.has(d.id)).length;
                   if (count === 0) return null;
@@ -594,6 +659,13 @@ export function EmployeePortalPublishDialog({ open, onOpenChange, selectedEmploy
                     <Badge variant="outline">{selectedCompanyDocIds.size} doc(s)</Badge>
                   </div>
                 )}
+              </div>
+
+              {/* Total calculation */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
+                <p className="text-sm text-emerald-700">
+                  <strong>{totalSelected}</strong> documento(s) × <strong>{selectedClientIds.size}</strong> cliente(s) = <strong>{totalSelected * selectedClientIds.size}</strong> publicação(ões) no total
+                </p>
               </div>
 
               {/* Warning for expired */}
@@ -629,7 +701,7 @@ export function EmployeePortalPublishDialog({ open, onOpenChange, selectedEmploy
             {step < 3 ? (
               <Button
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                disabled={step === 1 && !selectedClientId}
+                disabled={step === 1 && selectedClientIds.size === 0}
                 onClick={() => setStep(step + 1)}
               >
                 Próximo <ChevronRight className="w-4 h-4 ml-1" />
@@ -640,8 +712,17 @@ export function EmployeePortalPublishDialog({ open, onOpenChange, selectedEmploy
                 disabled={publishing || totalSelected === 0}
                 onClick={handlePublish}
               >
-                {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                {publishing ? 'Publicando...' : `Publicar ${totalSelected} Documento(s)`}
+                {publishing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Publicando... ({publishProgress.current}/{publishProgress.total})
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Publicar para {selectedClientIds.size} Cliente(s)
+                  </>
+                )}
               </Button>
             )}
           </div>

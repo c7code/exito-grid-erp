@@ -17,7 +17,7 @@ import {
 import {
   TrendingUp, Wallet, ArrowUpRight, ArrowDownRight,
   Plus, Search, Filter, Loader2, Edit2, Trash2,
-  CheckCircle, MoreVertical, FileText, Upload,
+  CheckCircle, MoreVertical, FileText, Upload, Share2,
   Download, Building2, Banknote, X, GitBranch,
   Receipt, Package,
 } from 'lucide-react';
@@ -307,6 +307,41 @@ export default function AdminFinance() {
         .then(() => { setPOToPrint(null); toast.success('PDF do pedido gerado!'); })
         .catch(() => { toast.error('Erro ao gerar PDF'); setPOToPrint(null); });
     }, 600);
+  };
+
+  // ── Publish payment to client portal ──
+  const handlePublishPaymentToPortal = async (payment: any) => {
+    if (payment.type !== 'income') { toast.error('Apenas cobranças (receitas) podem ser publicadas no portal'); return; }
+    const clientId = payment.clientId || payment.work?.client?.id;
+    if (!clientId) { toast.error('Pagamento não possui cliente vinculado. Vincule uma obra ou cliente antes de publicar.'); return; }
+    try {
+      await api.publishToPortal({
+        clientId,
+        contentType: 'payment',
+        contentId: payment.id,
+        title: payment.description || 'Cobrança',
+        description: `Vencimento: ${payment.dueDate ? new Date(payment.dueDate).toLocaleDateString('pt-BR') : '—'} — R$ ${Number(payment.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        metadata: { amount: payment.amount, dueDate: payment.dueDate, paymentMethod: payment.paymentMethod, status: payment.status },
+      });
+      toast.success('Cobrança publicada no portal do cliente!');
+    } catch { toast.error('Erro ao publicar no portal'); }
+  };
+
+  // ── Publish receipt to client portal ──
+  const handlePublishReceiptToPortal = async (receipt: any) => {
+    const clientId = receipt.clientId;
+    if (!clientId) { toast.error('Recibo não possui cliente vinculado'); return; }
+    try {
+      await api.publishToPortal({
+        clientId,
+        contentType: 'receipt',
+        contentId: receipt.id,
+        title: `Recibo ${receipt.receiptNumber}`,
+        description: receipt.description || `R$ ${Number(receipt.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        metadata: { amount: receipt.amount, receiptNumber: receipt.receiptNumber, paymentMethod: receipt.paymentMethod },
+      });
+      toast.success('Recibo publicado no portal do cliente!');
+    } catch { toast.error('Erro ao publicar recibo no portal'); }
   };
 
   const handleEdit = (payment: any) => {
@@ -1078,6 +1113,11 @@ export default function AdminFinance() {
                                 <DropdownMenuItem onClick={() => handleEdit(payment)}>
                                   <Edit2 className="w-4 h-4 mr-2" /> Editar
                                 </DropdownMenuItem>
+                                {payment.type === 'income' && (
+                                  <DropdownMenuItem onClick={() => handlePublishPaymentToPortal(payment)}>
+                                    <Share2 className="w-4 h-4 mr-2" /> Publicar no Portal
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-rose-600" onClick={() => handleDelete(payment.id)}>
                                   <Trash2 className="w-4 h-4 mr-2" /> Excluir
@@ -1243,6 +1283,7 @@ export default function AdminFinance() {
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-500" title="Baixar PDF" onClick={() => handleDownloadReceiptPDF(r)}><Download className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-indigo-500" title="Publicar no Portal" onClick={() => handlePublishReceiptToPortal(r)}><Share2 className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEditReceipt(r)}><Edit2 className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-rose-500" onClick={() => handleDeleteReceipt(r.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                         </div>
