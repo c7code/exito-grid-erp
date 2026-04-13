@@ -27,7 +27,40 @@ export class ClientsService {
     @InjectRepository(RequestAttachment)
     private attachmentRepository: Repository<RequestAttachment>,
     private dataSource: DataSource,
-  ) { }
+  ) {
+    this.dropDocumentUniqueConstraint().catch(err =>
+      this.logger.warn('Auto-migration (drop document unique) skipped:', err.message),
+    );
+  }
+
+  /**
+   * Remove the UNIQUE constraint on clients.document so multiple clients
+   * can share the same CNPJ (e.g. branches / departments).
+   */
+  private async dropDocumentUniqueConstraint() {
+    const qr = this.dataSource.createQueryRunner();
+    try {
+      const table = await qr.getTable('clients');
+      if (!table) return;
+      const uniqueIdx = table.indices.find(
+        idx => idx.isUnique && idx.columnNames.includes('document'),
+      );
+      if (uniqueIdx) {
+        await qr.dropIndex('clients', uniqueIdx);
+        this.logger.log(`Dropped UNIQUE index on clients.document: ${uniqueIdx.name}`);
+      }
+      // Also check uniques array
+      const uniqueConstraint = table.uniques?.find(
+        u => u.columnNames.includes('document'),
+      );
+      if (uniqueConstraint) {
+        await qr.dropUniqueConstraint('clients', uniqueConstraint);
+        this.logger.log(`Dropped UNIQUE constraint on clients.document: ${uniqueConstraint.name}`);
+      }
+    } finally {
+      await qr.release();
+    }
+  }
 
   // ═══ CRUD ═════════════════════════════════════════════════════════════════
 

@@ -35,7 +35,7 @@ export class Client {
   @Column({ nullable: true })
   tradeName: string;              // Nome Fantasia
 
-  @Column({ unique: true, nullable: true })
+  @Column({ nullable: true })
   document: string;
 
   @Column({ nullable: true })
