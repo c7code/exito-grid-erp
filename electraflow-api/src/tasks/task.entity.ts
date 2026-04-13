@@ -10,6 +10,11 @@ export enum TaskPriority {
   CRITICAL = 'critical',
 }
 
+export enum TaskVisibility {
+  PUBLIC = 'public',
+  RESTRICTED = 'restricted',
+}
+
 export enum TaskStatus {
   PENDING = 'pending',
   IN_PROGRESS = 'in_progress',
@@ -130,6 +135,12 @@ export class Task {
 
   @Column({ nullable: true })
   recurrenceRule: string;
+
+  @Column({ type: 'varchar', default: 'public' })
+  visibility: string; // 'public' | 'restricted'
+
+  @Column({ type: 'simple-json', nullable: true })
+  visibleToIds: string[]; // employee IDs that can see this task when restricted
 
   @Column({ nullable: true })
   startDate: Date;

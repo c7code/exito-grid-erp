@@ -18,7 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { ClipboardList, Loader2, Link2, Link2Off, Users } from 'lucide-react';
+import { ClipboardList, Loader2, Link2, Link2Off, Users, Eye, EyeOff, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 
@@ -72,7 +72,9 @@ export default function NewTaskDialog({
         weightPercentage: '',
         dueDate: '',
         estimatedHours: '',
+        visibility: 'public',
     });
+    const [visibleToIds, setVisibleToIds] = useState<string[]>([]);
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -143,9 +145,11 @@ export default function NewTaskDialog({
             weightPercentage: '',
             dueDate: '',
             estimatedHours: '',
+            visibility: 'public',
         });
         setLinkedToWork(false);
         setSelectedResolvers([]);
+        setVisibleToIds([]);
         setErrors({});
     };
 
@@ -180,6 +184,12 @@ export default function NewTaskDialog({
 
             if (selectedResolvers.length > 0) {
                 payload.resolverIds = selectedResolvers;
+            }
+
+            // Visibility
+            payload.visibility = formData.visibility;
+            if (formData.visibility === 'restricted' && visibleToIds.length > 0) {
+                payload.visibleToIds = visibleToIds;
             }
 
             await api.createTask(payload);
@@ -484,6 +494,64 @@ export default function NewTaskDialog({
                             <p className="text-xs text-amber-600 font-medium">
                                 {selectedResolvers.length} resolvedor(es) selecionado(s)
                             </p>
+                        )}
+                    </div>
+
+                    {/* Visibilidade */}
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <Eye className="w-4 h-4" />
+                            Visibilidade
+                        </h3>
+                        <div className="flex items-center gap-4">
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, visibility: 'public' })}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all text-sm font-medium ${formData.visibility === 'public'
+                                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                                    }`}
+                            >
+                                <Globe className="w-4 h-4" />
+                                Todos
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, visibility: 'restricted' })}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all text-sm font-medium ${formData.visibility === 'restricted'
+                                    ? 'border-amber-500 bg-amber-50 text-amber-700'
+                                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                                    }`}
+                            >
+                                <EyeOff className="w-4 h-4" />
+                                Restrita
+                            </button>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                            {formData.visibility === 'public'
+                                ? '👁 Todos os colaboradores e administradores podem ver esta tarefa.'
+                                : '🔒 Apenas as pessoas selecionadas abaixo (e os resolvedores) poderão visualizar esta tarefa.'}
+                        </p>
+                        {formData.visibility === 'restricted' && (
+                            <div className="border rounded-lg max-h-36 overflow-y-auto divide-y">
+                                {employees.map((emp: any) => (
+                                    <label key={`vis-${emp.id}`} className="flex items-center gap-3 px-3 py-2 hover:bg-amber-50/50 cursor-pointer transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                                            checked={visibleToIds.includes(emp.id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setVisibleToIds([...visibleToIds, emp.id]);
+                                                } else {
+                                                    setVisibleToIds(visibleToIds.filter(id => id !== emp.id));
+                                                }
+                                            }}
+                                        />
+                                        <span className="text-sm text-slate-700">{emp.name}</span>
+                                    </label>
+                                ))}
+                            </div>
                         )}
                     </div>
 

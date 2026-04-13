@@ -13,8 +13,9 @@ export class TasksController {
 
   @Get()
   @ApiOperation({ summary: 'Listar tarefas' })
-  async findAll(@Query('assignedTo') assignedTo?: string) {
-    return this.tasksService.findAll(assignedTo);
+  async findAll(@Request() req) {
+    const isAdmin = req.user?.role === 'admin' || req.user?.role === 'superadmin';
+    return this.tasksService.findAll(req.user?.email, isAdmin);
   }
 
   @Get('my-tasks')

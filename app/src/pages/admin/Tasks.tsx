@@ -56,6 +56,7 @@ import {
   CheckCheck,
   CircleDot,
   UserCheck,
+  EyeOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -300,7 +301,12 @@ export default function AdminTasks() {
                 {filteredTasks.map((task) => (
                   <TableRow key={task.id}>
                     <TableCell>
-                      <p className="font-medium">{task.title}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium">{task.title}</p>
+                        {(task as any).visibility === 'restricted' && (
+                          <span title="Visibilidade restrita"><EyeOff className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" /></span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {task.work ? (

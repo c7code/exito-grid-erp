@@ -7,6 +7,7 @@ import { Work } from '../works/work.entity';
 import { Employee } from '../employees/employee.entity';
 import { User } from '../users/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { DataSource } from 'typeorm';
 
 @Injectable()
 export class TasksService {
@@ -24,15 +25,67 @@ export class TasksService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private notificationsService: NotificationsService,
-  ) { }
+    private dataSource: DataSource,
+  ) {
+    this.ensureColumns().catch(err => this.logger.warn('Auto-migration skipped:', err.message));
+  }
 
-  async findAll(assignedToId?: string): Promise<Task[]> {
-    const where: any = {};
-    if (assignedToId) where.assignedToId = assignedToId;
-    return this.taskRepository.find({
-      where,
+  /**
+   * Auto-create visibility columns if they don't exist yet.
+   */
+  private async ensureColumns() {
+    const qr = this.dataSource.createQueryRunner();
+    try {
+      const table = await qr.getTable('tasks');
+      if (!table) return;
+      const cols = table.columns.map(c => c.name);
+      if (!cols.includes('visibility')) {
+        await qr.query(`ALTER TABLE tasks ADD COLUMN "visibility" varchar(20) DEFAULT 'public'`);
+        this.logger.log('Added column: visibility');
+      }
+      if (!cols.includes('visibleToIds')) {
+        await qr.query(`ALTER TABLE tasks ADD COLUMN "visibleToIds" text DEFAULT NULL`);
+        this.logger.log('Added column: visibleToIds');
+      }
+    } finally {
+      await qr.release();
+    }
+  }
+
+  async findAll(userEmail?: string, isAdmin = true): Promise<Task[]> {
+    const tasks = await this.taskRepository.find({
       relations: ['work', 'resolvers', 'resolvers.employee'],
       order: { dueDate: 'ASC' },
+    });
+
+    // Admin sees everything
+    if (isAdmin) return tasks;
+
+    // Non-admin: find their employee ID
+    let employeeId: string | null = null;
+    if (userEmail) {
+      const emp = await this.employeeRepository.findOneBy({ email: userEmail });
+      if (emp) {
+        employeeId = emp.id;
+      } else {
+        const user = await this.userRepository.findOneBy({ email: userEmail });
+        if (user) {
+          const empByName = await this.employeeRepository.findOneBy({ name: user.name });
+          if (empByName) employeeId = empByName.id;
+        }
+      }
+    }
+
+    // Filter: show public tasks + restricted tasks where user is in visibleToIds or resolvers
+    return tasks.filter(task => {
+      if (task.visibility !== 'restricted') return true; // public tasks
+      if (!employeeId) return false;
+      // Check if user is in visibleToIds
+      const visIds = Array.isArray(task.visibleToIds) ? task.visibleToIds : [];
+      if (visIds.includes(employeeId)) return true;
+      // Check if user is a resolver
+      if (task.resolvers?.some(r => r.employeeId === employeeId)) return true;
+      return false;
     });
   }
 
