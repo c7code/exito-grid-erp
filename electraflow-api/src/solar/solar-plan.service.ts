@@ -24,6 +24,12 @@ export class SolarPlanService {
           name VARCHAR NOT NULL, description TEXT,
           status VARCHAR DEFAULT 'active',
           "minPowerKwp" DECIMAL(10,2) DEFAULT 0, "maxPowerKwp" DECIMAL(10,2) DEFAULT 0,
+          "systemPowerKwp" DECIMAL(10,2) DEFAULT 0,
+          "basePrice" DECIMAL(15,2) DEFAULT 0,
+          "equipmentCost" DECIMAL(15,2) DEFAULT 0,
+          "installationCost" DECIMAL(15,2) DEFAULT 0,
+          equipment TEXT,
+          "maxSlots" INT DEFAULT 0,
           "totalInstallments" INT DEFAULT 48,
           "enrollmentFeePercent" DECIMAL(5,2) DEFAULT 10,
           "contemplationThresholdPercent" DECIMAL(5,2) DEFAULT 50,
@@ -36,6 +42,18 @@ export class SolarPlanService {
           "createdAt" TIMESTAMP DEFAULT NOW(), "updatedAt" TIMESTAMP DEFAULT NOW(), "deletedAt" TIMESTAMP
         )
       `);
+      // Auto-migrate new columns for existing tables
+      const kitCols = [
+        ['solar_plans', 'systemPowerKwp', 'DECIMAL(10,2) DEFAULT 0'],
+        ['solar_plans', 'basePrice', 'DECIMAL(15,2) DEFAULT 0'],
+        ['solar_plans', 'equipmentCost', 'DECIMAL(15,2) DEFAULT 0'],
+        ['solar_plans', 'installationCost', 'DECIMAL(15,2) DEFAULT 0'],
+        ['solar_plans', 'equipment', 'TEXT'],
+        ['solar_plans', 'maxSlots', 'INT DEFAULT 0'],
+      ];
+      for (const [tbl, col, def] of kitCols) {
+        try { await this.dataSource.query(`ALTER TABLE ${tbl} ADD COLUMN IF NOT EXISTS "${col}" ${def}`); } catch { /* */ }
+      }
       await this.dataSource.query(`
         CREATE TABLE IF NOT EXISTS solar_plan_subscriptions (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -90,7 +108,12 @@ export class SolarPlanService {
   // ═══ PLANS CRUD ═══════════════════════════════════════════════════════════
 
   async findAllPlans(): Promise<SolarPlan[]> {
-    return this.planRepo.find({ order: { totalInstallments: 'ASC' } });
+    const plans = await this.planRepo.find({ order: { totalInstallments: 'ASC' }, relations: ['subscriptions'] });
+    // Add computed slots info
+    return plans.map(p => {
+      const activeCount = (p.subscriptions || []).filter(s => !['cancelled'].includes(s.status)).length;
+      return { ...p, usedSlots: activeCount, availableSlots: Number(p.maxSlots) > 0 ? Number(p.maxSlots) - activeCount : null };
+    });
   }
 
   async findOnePlan(id: string): Promise<SolarPlan> {
@@ -157,7 +180,21 @@ export class SolarPlanService {
   }): Promise<SolarPlanSubscription> {
     const plan = await this.findOnePlan(data.planId);
 
-    const totalValue = Number(data.totalValue);
+    // Validar vagas disponíveis
+    if (Number(plan.maxSlots) > 0) {
+      const activeCount = await this.subRepo.count({ where: { planId: data.planId } });
+      if (activeCount >= Number(plan.maxSlots)) {
+        throw new BadRequestException(`Kit esgotado! Todas as ${plan.maxSlots} vagas deste plano estão ocupadas.`);
+      }
+    }
+
+    // Auto-preencher valores do kit se não informados
+    const totalValue = Number(data.totalValue) || Number(plan.basePrice) || 0;
+    if (!totalValue) throw new BadRequestException('Informe o valor total ou configure o preço base do plano/kit');
+
+    const systemPower = Number(data.systemPowerKwp) || Number(plan.systemPowerKwp) || 0;
+    const eqCost = Number(data.equipmentCost) || Number(plan.equipmentCost) || 0;
+    const instCost = Number(data.installationCost) || Number(plan.installationCost) || 0;
     const enrollmentFee = Math.round(totalValue * Number(plan.enrollmentFeePercent) / 100 * 100) / 100;
     const remainingAfterFee = totalValue - enrollmentFee;
     const monthlyPayment = Math.round(remainingAfterFee / plan.totalInstallments * 100) / 100;
@@ -180,10 +217,10 @@ export class SolarPlanService {
       currentConsumptionKwh: Number(data.currentConsumptionKwh || 0),
       utilityCompany: data.utilityCompany || null,
       monthlySavingsFromDay1: savingsDay1,
-      systemPowerKwp: Number(data.systemPowerKwp || 0),
+      systemPowerKwp: systemPower,
       estimatedMonthlySavings: currentBill, // Após instalação, economia = toda a conta de luz
-      equipmentCost: Number(data.equipmentCost || 0),
-      installationCost: Number(data.installationCost || 0),
+      equipmentCost: eqCost,
+      installationCost: instCost,
       propertyAddress: data.propertyAddress,
       propertyCity: data.propertyCity,
       propertyState: data.propertyState,

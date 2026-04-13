@@ -68,6 +68,9 @@ export default function SolarPlans() {
     cancellationFeePercent: '20', gracePeriodDays: '7',
     adjustmentIndex: 'IGPM', safetyMarginPercent: '15',
     minPowerKwp: '', maxPowerKwp: '',
+    // Kit fields
+    systemPowerKwp: '', basePrice: '', equipmentCost: '', installationCost: '',
+    maxSlots: '0', equipment: [],
   });
 
   const [subForm, setSubForm] = useState<any>({
@@ -107,11 +110,13 @@ export default function SolarPlans() {
   const handleSavePlan = async () => {
     try {
       const payload: any = { ...planForm };
-      ['totalInstallments', 'gracePeriodDays'].forEach(k => { payload[k] = parseInt(payload[k] || '0'); });
+      ['totalInstallments', 'gracePeriodDays', 'maxSlots'].forEach(k => { payload[k] = parseInt(payload[k] || '0'); });
       ['enrollmentFeePercent', 'contemplationThresholdPercent', 'cancellationFeePercent',
-        'safetyMarginPercent', 'minPowerKwp', 'maxPowerKwp'].forEach(k => { payload[k] = parseFloat(payload[k] || '0'); });
-      if (editingPlan?.id) { await api.updateSolarPlan(editingPlan.id, payload); toast.success('Plano atualizado'); }
-      else { await api.createSolarPlan(payload); toast.success('Plano criado'); }
+        'safetyMarginPercent', 'minPowerKwp', 'maxPowerKwp',
+        'systemPowerKwp', 'basePrice', 'equipmentCost', 'installationCost',
+      ].forEach(k => { payload[k] = parseFloat(payload[k] || '0'); });
+      if (editingPlan?.id) { await api.updateSolarPlan(editingPlan.id, payload); toast.success('Plano/Kit atualizado'); }
+      else { await api.createSolarPlan(payload); toast.success('Plano/Kit criado'); }
       setPlanDialogOpen(false); setEditingPlan(null); loadAll();
     } catch { toast.error('Erro ao salvar plano'); }
   };
@@ -128,6 +133,12 @@ export default function SolarPlans() {
       adjustmentIndex: plan.adjustmentIndex || 'IGPM',
       safetyMarginPercent: String(plan.safetyMarginPercent || 15),
       minPowerKwp: String(plan.minPowerKwp || ''), maxPowerKwp: String(plan.maxPowerKwp || ''),
+      systemPowerKwp: String(plan.systemPowerKwp || ''),
+      basePrice: String(plan.basePrice || ''),
+      equipmentCost: String(plan.equipmentCost || ''),
+      installationCost: String(plan.installationCost || ''),
+      maxSlots: String(plan.maxSlots || '0'),
+      equipment: plan.equipment || [],
     });
     setPlanDialogOpen(true);
   };
@@ -143,9 +154,8 @@ export default function SolarPlans() {
       const payload: any = { ...subForm };
       ['totalValue', 'systemPowerKwp', 'currentMonthlyBill', 'currentConsumptionKwh',
         'equipmentCost', 'installationCost'].forEach(k => { payload[k] = parseFloat(payload[k] || '0'); });
-      if (!payload.planId) { toast.error('Selecione um plano'); return; }
+      if (!payload.planId) { toast.error('Selecione um plano/kit'); return; }
       if (!payload.clientId) { toast.error('Selecione um cliente'); return; }
-      if (!payload.totalValue) { toast.error('Informe o valor total'); return; }
       await api.createSolarPlanSubscription(payload);
       toast.success('Adesão criada com parcelas geradas!');
       setSubDialogOpen(false); loadAll();
@@ -337,13 +347,13 @@ export default function SolarPlans() {
         {/* ═══ TAB: PLANOS ═══ */}
         <TabsContent value="plans" className="mt-4 space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => { setEditingPlan(null); setPlanForm({ name: '', description: '', totalInstallments: '48', enrollmentFeePercent: '10', contemplationThresholdPercent: '50', cancellationFeePercent: '20', gracePeriodDays: '7', adjustmentIndex: 'IGPM', safetyMarginPercent: '15', minPowerKwp: '', maxPowerKwp: '' }); setPlanDialogOpen(true); }} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold">
-              <Plus className="w-4 h-4 mr-2" /> Novo Plano
+            <Button onClick={() => { setEditingPlan(null); setPlanForm({ name: '', description: '', totalInstallments: '48', enrollmentFeePercent: '10', contemplationThresholdPercent: '50', cancellationFeePercent: '20', gracePeriodDays: '7', adjustmentIndex: 'IGPM', safetyMarginPercent: '15', minPowerKwp: '', maxPowerKwp: '', systemPowerKwp: '', basePrice: '', equipmentCost: '', installationCost: '', maxSlots: '0', equipment: [] }); setPlanDialogOpen(true); }} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold">
+              <Plus className="w-4 h-4 mr-2" /> Novo Kit/Plano
             </Button>
           </div>
 
           {plans.length === 0 ? (
-            <div className="text-center py-16 text-slate-400"><CreditCard className="w-12 h-12 mx-auto mb-3 opacity-40" /><p className="font-medium">Nenhum plano cadastrado — crie o primeiro!</p></div>
+            <div className="text-center py-16 text-slate-400"><CreditCard className="w-12 h-12 mx-auto mb-3 opacity-40" /><p className="font-medium">Nenhum kit/plano cadastrado — crie o primeiro!</p></div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {plans.map((plan: any) => (
@@ -363,13 +373,29 @@ export default function SolarPlans() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                    {/* Kit info */}
+                    {Number(plan.basePrice) > 0 && (
+                      <div className="mt-3 bg-gradient-to-r from-amber-50 to-emerald-50 rounded-lg p-3 border border-amber-100">
+                        <div className="flex items-center justify-between">
+                          <div><p className="text-lg font-bold text-amber-800">{fmt(plan.basePrice)}</p><p className="text-[10px] text-amber-600 uppercase font-bold">Preço do Kit</p></div>
+                          {Number(plan.systemPowerKwp) > 0 && <div className="text-right"><p className="text-lg font-bold text-blue-700">{Number(plan.systemPowerKwp).toFixed(1)} kWp</p><p className="text-[10px] text-blue-600 uppercase font-bold">Potência</p></div>}
+                        </div>
+                      </div>
+                    )}
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                       <div className="bg-slate-50 rounded-lg p-2 text-center"><p className="text-lg font-bold text-slate-900">{plan.totalInstallments}x</p><p className="text-[10px] text-slate-500 uppercase font-bold">Parcelas</p></div>
                       <div className="bg-amber-50 rounded-lg p-2 text-center"><p className="text-lg font-bold text-amber-700">{plan.contemplationThresholdPercent}%</p><p className="text-[10px] text-amber-600 uppercase font-bold">Contemplação</p></div>
                       <div className="bg-blue-50 rounded-lg p-2 text-center"><p className="text-lg font-bold text-blue-700">{plan.enrollmentFeePercent}%</p><p className="text-[10px] text-blue-600 uppercase font-bold">Taxa Adesão</p></div>
                       <div className="bg-red-50 rounded-lg p-2 text-center"><p className="text-lg font-bold text-red-700">{plan.cancellationFeePercent}%</p><p className="text-[10px] text-red-600 uppercase font-bold">Multa Cancel.</p></div>
                     </div>
-                    <Badge variant="outline" className="mt-3 text-xs">{plan.status === 'active' ? '✅ Ativo' : '❌ Inativo'}</Badge>
+                    <div className="flex items-center gap-2 mt-3">
+                      <Badge variant="outline" className="text-xs">{plan.status === 'active' ? '✅ Ativo' : '❌ Inativo'}</Badge>
+                      {Number(plan.maxSlots) > 0 && (
+                        <Badge variant="outline" className={`text-xs ${plan.availableSlots <= 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                          {plan.availableSlots > 0 ? `${plan.usedSlots}/${plan.maxSlots} vagas usadas` : '⚠ ESGOTADO'}
+                        </Badge>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -380,23 +406,61 @@ export default function SolarPlans() {
 
       {/* ═══ DIALOG: PLANO ═══ */}
       <Dialog open={planDialogOpen} onOpenChange={setPlanDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader><DialogTitle>{editingPlan ? 'Editar' : 'Novo'} Plano de Acesso</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-4">
-            <div className="space-y-2 col-span-2"><Label>Nome *</Label><Input value={planForm.name} onChange={e => setPlanForm({ ...planForm, name: e.target.value })} placeholder="Ex: Plano Solar 48x" /></div>
-            <div className="space-y-2 col-span-2"><Label>Descrição</Label><Input value={planForm.description} onChange={e => setPlanForm({ ...planForm, description: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Total de Parcelas</Label><Input type="number" value={planForm.totalInstallments} onChange={e => setPlanForm({ ...planForm, totalInstallments: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Taxa de Adesão (%)</Label><Input type="number" step="0.1" value={planForm.enrollmentFeePercent} onChange={e => setPlanForm({ ...planForm, enrollmentFeePercent: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Contemplação em (%)</Label><Input type="number" step="0.1" value={planForm.contemplationThresholdPercent} onChange={e => setPlanForm({ ...planForm, contemplationThresholdPercent: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Multa Cancelamento (%)</Label><Input type="number" step="0.1" value={planForm.cancellationFeePercent} onChange={e => setPlanForm({ ...planForm, cancellationFeePercent: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Carência (dias)</Label><Input type="number" value={planForm.gracePeriodDays} onChange={e => setPlanForm({ ...planForm, gracePeriodDays: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Índice de Reajuste</Label>
-              <Select value={planForm.adjustmentIndex} onValueChange={v => setPlanForm({ ...planForm, adjustmentIndex: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="IGPM">IGPM</SelectItem><SelectItem value="IPCA">IPCA</SelectItem><SelectItem value="NONE">Sem reajuste</SelectItem></SelectContent></Select>
+        <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editingPlan ? 'Editar' : 'Novo'} Kit / Plano de Acesso</DialogTitle></DialogHeader>
+          <div className="space-y-5 py-4">
+            {/* Identity */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 col-span-2"><Label>Nome do Kit/Plano *</Label><Input value={planForm.name} onChange={e => setPlanForm({ ...planForm, name: e.target.value })} placeholder="Ex: Kit Solar 5.5 kWp - 48x" /></div>
+              <div className="space-y-2 col-span-2"><Label>Descrição</Label><Input value={planForm.description} onChange={e => setPlanForm({ ...planForm, description: e.target.value })} placeholder="Ex: Sistema completo para consumo de até 600 kWh/mês" /></div>
             </div>
+
+            {/* Kit System */}
+            <div className="bg-amber-50 rounded-lg p-4 border border-amber-200 space-y-3">
+              <p className="text-sm font-bold text-amber-800 flex items-center gap-2"><Sun className="w-4 h-4" /> Configuração do Kit</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1"><Label className="text-xs">Potência (kWp)</Label><Input type="number" step="0.1" value={planForm.systemPowerKwp} onChange={e => setPlanForm({ ...planForm, systemPowerKwp: e.target.value })} placeholder="Ex: 5.5" className="bg-white" /></div>
+                <div className="space-y-1"><Label className="text-xs">Preço Base (R$)</Label><Input type="number" value={planForm.basePrice} onChange={e => setPlanForm({ ...planForm, basePrice: e.target.value })} placeholder="Ex: 28000" className="bg-white" /></div>
+                <div className="space-y-1"><Label className="text-xs">Máx. Vagas (0 = ilimitado)</Label><Input type="number" value={planForm.maxSlots} onChange={e => setPlanForm({ ...planForm, maxSlots: e.target.value })} placeholder="Ex: 10" className="bg-white" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1"><Label className="text-xs">Custo Equipamento (R$)</Label><Input type="number" value={planForm.equipmentCost} onChange={e => setPlanForm({ ...planForm, equipmentCost: e.target.value })} className="bg-white" /></div>
+                <div className="space-y-1"><Label className="text-xs">Custo Instalação (R$)</Label><Input type="number" value={planForm.installationCost} onChange={e => setPlanForm({ ...planForm, installationCost: e.target.value })} className="bg-white" /></div>
+              </div>
+            </div>
+
+            {/* Financial */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2"><Label>Parcelas</Label><Input type="number" value={planForm.totalInstallments} onChange={e => setPlanForm({ ...planForm, totalInstallments: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Taxa Adesão (%)</Label><Input type="number" step="0.1" value={planForm.enrollmentFeePercent} onChange={e => setPlanForm({ ...planForm, enrollmentFeePercent: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Contemplação (%)</Label><Input type="number" step="0.1" value={planForm.contemplationThresholdPercent} onChange={e => setPlanForm({ ...planForm, contemplationThresholdPercent: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Multa Cancel. (%)</Label><Input type="number" step="0.1" value={planForm.cancellationFeePercent} onChange={e => setPlanForm({ ...planForm, cancellationFeePercent: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Carência (dias)</Label><Input type="number" value={planForm.gracePeriodDays} onChange={e => setPlanForm({ ...planForm, gracePeriodDays: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Reajuste</Label>
+                <Select value={planForm.adjustmentIndex} onValueChange={v => setPlanForm({ ...planForm, adjustmentIndex: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="IGPM">IGPM</SelectItem><SelectItem value="IPCA">IPCA</SelectItem><SelectItem value="NONE">Sem reajuste</SelectItem></SelectContent></Select>
+              </div>
+            </div>
+
+            {/* Preview */}
+            {Number(planForm.basePrice) > 0 && (() => {
+              const total = Number(planForm.basePrice);
+              const enrollment = total * Number(planForm.enrollmentFeePercent || 10) / 100;
+              const monthly = (total - enrollment) / Number(planForm.totalInstallments || 48);
+              return (
+                <div className="bg-slate-900 rounded-lg p-4 text-white">
+                  <p className="text-xs uppercase font-bold text-amber-400 tracking-wider mb-2">📊 Pré-visualização</p>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div><p className="text-lg font-bold">{fmt(enrollment)}</p><p className="text-[10px] text-slate-400">TAXA ADESÃO</p></div>
+                    <div><p className="text-lg font-bold text-amber-400">{fmt(monthly)}</p><p className="text-[10px] text-slate-400">PARCELA MENSAL</p></div>
+                    <div><p className="text-lg font-bold">{fmt(total)}</p><p className="text-[10px] text-slate-400">VALOR TOTAL</p></div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPlanDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSavePlan} className="bg-amber-500 hover:bg-amber-600 text-slate-900">Salvar Plano</Button>
+            <Button onClick={handleSavePlan} className="bg-amber-500 hover:bg-amber-600 text-slate-900">Salvar Kit/Plano</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -406,9 +470,21 @@ export default function SolarPlans() {
         <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nova Adesão — Plano de Acesso Solar</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
-            <div className="space-y-2"><Label>Plano *</Label>
-              <Select value={subForm.planId} onValueChange={v => setSubForm({ ...subForm, planId: v })}><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-              <SelectContent>{plans.filter((p: any) => p.status === 'active').map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name} ({p.totalInstallments}x)</SelectItem>)}</SelectContent></Select>
+            <div className="space-y-2"><Label>Kit/Plano *</Label>
+              <Select value={subForm.planId} onValueChange={v => {
+                const plan = plans.find((p: any) => p.id === v);
+                setSubForm({ ...subForm, planId: v,
+                  totalValue: plan?.basePrice ? String(plan.basePrice) : subForm.totalValue,
+                  systemPowerKwp: plan?.systemPowerKwp ? String(plan.systemPowerKwp) : subForm.systemPowerKwp,
+                  equipmentCost: plan?.equipmentCost ? String(plan.equipmentCost) : subForm.equipmentCost,
+                  installationCost: plan?.installationCost ? String(plan.installationCost) : subForm.installationCost,
+                });
+              }}><SelectTrigger><SelectValue placeholder="Selecione o kit..." /></SelectTrigger>
+              <SelectContent>{plans.filter((p: any) => p.status === 'active').map((p: any) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name} ({p.totalInstallments}x){Number(p.basePrice) > 0 ? ` — ${fmt(p.basePrice)}` : ''}{Number(p.maxSlots) > 0 ? ` [${p.availableSlots ?? '?'} vagas]` : ''}
+                </SelectItem>
+              ))}</SelectContent></Select>
             </div>
             <div className="space-y-2"><Label>Cliente *</Label>
               <Select value={subForm.clientId} onValueChange={v => setSubForm({ ...subForm, clientId: v })}><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
@@ -422,7 +498,7 @@ export default function SolarPlans() {
                 <div><Label className="text-xs">Concessionária</Label><Input value={subForm.utilityCompany} onChange={e => setSubForm({ ...subForm, utilityCompany: e.target.value })} placeholder="Ex: ENEL" className="bg-white" /></div>
               </div>
             </div>
-            <div className="space-y-2"><Label>Valor Total do Plano (R$) *</Label><Input type="number" value={subForm.totalValue} onChange={e => setSubForm({ ...subForm, totalValue: e.target.value })} placeholder="Ex: 28000" /></div>
+            <div className="space-y-2"><Label>Valor Total (R$) <span className="text-[10px] text-amber-600">← auto do kit</span></Label><Input type="number" value={subForm.totalValue} onChange={e => setSubForm({ ...subForm, totalValue: e.target.value })} placeholder="Auto-preenchido pelo kit" className={subForm.totalValue ? 'bg-amber-50 border-amber-200' : ''} /></div>
             <div className="space-y-2"><Label>Potência (kWp)</Label><Input type="number" value={subForm.systemPowerKwp} onChange={e => setSubForm({ ...subForm, systemPowerKwp: e.target.value })} /></div>
             <div className="space-y-2"><Label>Custo Equipamentos (R$)</Label><Input type="number" value={subForm.equipmentCost} onChange={e => setSubForm({ ...subForm, equipmentCost: e.target.value })} /></div>
             <div className="space-y-2"><Label>Custo Instalação (R$)</Label><Input type="number" value={subForm.installationCost} onChange={e => setSubForm({ ...subForm, installationCost: e.target.value })} /></div>

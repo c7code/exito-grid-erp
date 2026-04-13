@@ -22,12 +22,41 @@ export class SolarPlan {
   @Column({ type: 'varchar', default: 'active' })
   status: string;                            // active | inactive
 
-  // ═══ CONFIGURAÇÃO DO SISTEMA SOLAR ═══
+  // ═══ CONFIGURAÇÃO DO SISTEMA SOLAR (KIT) ═══
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  minPowerKwp: number;                       // Potência mínima (kWp)
+  minPowerKwp: number;                       // Potência mínima (kWp) — para range
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  maxPowerKwp: number;                       // Potência máxima (kWp)
+  maxPowerKwp: number;                       // Potência máxima (kWp) — para range
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  systemPowerKwp: number;                    // Potência fixa do kit (ex: 5.5 kWp)
+
+  /** Preço tabelado do kit (auto-preenche na adesão) */
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  basePrice: number;
+
+  /** Custo do equipamento do kit */
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  equipmentCost: number;
+
+  /** Custo de instalação do kit */
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  installationCost: number;
+
+  /** Equipamentos inclusos no kit (JSON) */
+  @Column({ type: 'simple-json', nullable: true })
+  equipment: {
+    type: string;         // module, inverter, structure, cable, protection, other
+    description: string;
+    brand?: string;
+    model?: string;
+    quantity: number;
+  }[];
+
+  /** Máximo de vagas (0 = ilimitado) */
+  @Column({ type: 'int', default: 0 })
+  maxSlots: number;
 
   // ═══ CONFIGURAÇÃO FINANCEIRA ═══
   @Column({ type: 'int', default: 48 })
