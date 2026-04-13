@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { api } from '@/api';
 import { toast } from 'sonner';
+import { ClientDialog } from '@/components/ClientDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +25,7 @@ import {
   Wallet, Plus, Search, Loader2, Users, TrendingUp, DollarSign,
   Sun, Calendar, CheckCircle2, Clock, AlertTriangle, MoreVertical,
   Zap, XCircle, Wrench, Edit2, Trash2,
-  Calculator, CreditCard,
+  Calculator, CreditCard, UserPlus,
 } from 'lucide-react';
 
 const fmt = (v: number) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
@@ -60,6 +61,7 @@ export default function SolarPlans() {
   const [selectedSub, setSelectedSub] = useState<any>(null);
   const [payDialogOpen, setPayDialogOpen] = useState(false);
   const [selectedInstallment, setSelectedInstallment] = useState<any>(null);
+  const [clientDialogOpen, setClientDialogOpen] = useState(false);
 
   // Form states
   const [planForm, setPlanForm] = useState<any>({
@@ -486,7 +488,13 @@ export default function SolarPlans() {
                 </SelectItem>
               ))}</SelectContent></Select>
             </div>
-            <div className="space-y-2"><Label>Cliente *</Label>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Cliente *</Label>
+                <Button type="button" variant="ghost" size="sm" className="h-6 text-[10px] text-amber-600 hover:text-amber-700 gap-1 px-1.5" onClick={() => setClientDialogOpen(true)}>
+                  <UserPlus className="w-3 h-3" /> Novo Cliente
+                </Button>
+              </div>
               <Select value={subForm.clientId} onValueChange={v => setSubForm({ ...subForm, clientId: v })}><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
               <SelectContent>{clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
             </div>
@@ -680,6 +688,25 @@ export default function SolarPlans() {
           )}
         </DialogContent>
       </Dialog>
+      {/* ═══ CLIENT DIALOG (inline create) ═══ */}
+      <ClientDialog
+        open={clientDialogOpen}
+        onOpenChange={setClientDialogOpen}
+        onSuccess={async () => {
+          // Recarregar clientes e auto-selecionar o novo
+          try {
+            const c = await api.getClients();
+            const list = Array.isArray(c) ? c : (c?.data ?? []);
+            setClients(list);
+            // Selecionar o último criado (mais recente)
+            if (list.length > 0) {
+              const newest = list.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+              setSubForm((prev: any) => ({ ...prev, clientId: newest.id }));
+              toast.success(`Cliente "${newest.name}" selecionado!`);
+            }
+          } catch { /* */ }
+        }}
+      />
     </div>
   );
 }
