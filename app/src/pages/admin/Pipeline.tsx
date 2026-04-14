@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +52,8 @@ import {
   AlertTriangle,
   MapPin,
   Search,
+  UserPlus,
+  X,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ClientDetailViewer } from '@/components/ClientDetailViewer';
@@ -207,6 +209,21 @@ export default function AdminPipeline() {
   const [clientsList, setClientsList] = useState<Client[]>([]);
   const [clientSearch, setClientSearch] = useState('');
   const [showClientSearch, setShowClientSearch] = useState(false);
+  const [creatingClient, setCreatingClient] = useState(false);
+  const clientSearchRef = useRef<HTMLDivElement>(null);
+
+  // Close client search dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (clientSearchRef.current && !clientSearchRef.current.contains(e.target as Node)) {
+        setShowClientSearch(false);
+      }
+    };
+    if (showClientSearch) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showClientSearch]);
 
   // Load clients for search when form opens
   useEffect(() => {
@@ -503,6 +520,40 @@ export default function AdminPipeline() {
       linkedClientId: opp.clientId || '',
     });
     setIsFormOpen(true);
+  };
+
+  // ── Create client inline from form data ──
+  const handleCreateClientFromForm = async () => {
+    if (!formData.clientName?.trim()) {
+      toast.error('Preencha pelo menos o nome do cliente.');
+      return;
+    }
+    setCreatingClient(true);
+    try {
+      const clientPayload: any = {
+        name: formData.clientName,
+        email: formData.clientEmail || `pipeline-${Date.now()}@sem-email.com`,
+        phone: formData.clientPhone || undefined,
+        document: formData.clientDocument || undefined,
+        address: formData.clientAddress || undefined,
+        neighborhood: formData.clientNeighborhood || undefined,
+        city: formData.clientCity || undefined,
+        state: formData.clientState || undefined,
+        zipCode: formData.clientCep || undefined,
+        segment: 'commercial',
+        type: (formData.clientDocument?.replace(/\D/g, '').length || 0) > 11 ? 'company' : 'individual',
+      };
+      const newClient = await api.createClient(clientPayload);
+      setFormData(prev => ({ ...prev, linkedClientId: newClient.id }));
+      // Refresh client list
+      const updated = await api.getClients();
+      setClientsList(updated);
+      toast.success(`Cliente "${formData.clientName}" cadastrado com sucesso!`);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Erro ao cadastrar cliente.');
+    } finally {
+      setCreatingClient(false);
+    }
   };
 
   const handleSave = async () => {
@@ -976,29 +1027,38 @@ export default function AdminPipeline() {
               </div>
 
               {/* Client search */}
-              <div className="relative">
+              <div className="relative" ref={clientSearchRef}>
                 <Label className="text-xs text-slate-500 mb-1 block">Buscar Cliente Existente</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
                     placeholder="Digite nome, email ou CNPJ para buscar..."
-                    className="pl-10 h-10"
+                    className="pl-10 h-10 pr-10"
                     value={clientSearch}
                     onChange={(e) => { setClientSearch(e.target.value); setShowClientSearch(true); }}
                     onFocus={() => setShowClientSearch(true)}
                   />
+                  {showClientSearch && (
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      onClick={() => { setShowClientSearch(false); setClientSearch(''); }}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-                {showClientSearch && filteredClientsList.length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                {showClientSearch && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-40 overflow-y-auto">
                     {filteredClientsList.map(c => (
                       <button
                         key={c.id}
                         type="button"
-                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-amber-50 transition-colors text-left border-b last:border-b-0"
-                        onClick={() => handleSelectClient(c)}
+                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-amber-50 transition-colors text-left border-b last:border-b-0"
+                        onClick={() => { handleSelectClient(c); setShowClientSearch(false); }}
                       >
-                        <Avatar className="w-7 h-7 shrink-0">
-                          <AvatarFallback className="bg-amber-100 text-amber-600 text-[10px] font-bold">{c.name.charAt(0)}</AvatarFallback>
+                        <Avatar className="w-6 h-6 shrink-0">
+                          <AvatarFallback className="bg-amber-100 text-amber-600 text-[9px] font-bold">{c.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-slate-700 truncate">{c.name}</p>
@@ -1007,9 +1067,14 @@ export default function AdminPipeline() {
                         {c.city && <span className="text-[10px] text-slate-400 shrink-0">{c.city}/{c.state}</span>}
                       </button>
                     ))}
+                    {filteredClientsList.length === 0 && clientSearch.trim() && (
+                      <div className="px-3 py-3 text-center text-sm text-slate-400">
+                        Nenhum cliente encontrado para "{clientSearch}"
+                      </div>
+                    )}
                   </div>
                 )}
-                {formData.linkedClientId && (
+                {formData.linkedClientId ? (
                   <div className="mt-1.5 flex items-center gap-2">
                     <Badge className="bg-emerald-100 text-emerald-700 text-[10px] border-none">
                       <CheckCircle2 className="w-3 h-3 mr-1" />
@@ -1022,6 +1087,27 @@ export default function AdminPipeline() {
                     >
                       desvincular
                     </button>
+                  </div>
+                ) : (
+                  <div className="mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs border-dashed border-amber-300 text-amber-700 hover:bg-amber-50 hover:border-amber-400"
+                      disabled={creatingClient || !formData.clientName?.trim()}
+                      onClick={handleCreateClientFromForm}
+                    >
+                      {creatingClient ? (
+                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                      ) : (
+                        <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+                      )}
+                      {creatingClient ? 'Cadastrando...' : 'Cadastrar como cliente'}
+                    </Button>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Preencha ao menos o nome abaixo. Telefone ou email são opcionais.
+                    </p>
                   </div>
                 )}
               </div>
