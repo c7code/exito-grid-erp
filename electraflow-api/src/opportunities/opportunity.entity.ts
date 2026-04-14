@@ -69,6 +69,19 @@ export class Opportunity {
   @Column({ type: 'text', nullable: true })
   lossReason: string;
 
+  // ── Dados Preliminares do Contato (antes de virar cliente) ──
+  @Column({ nullable: true })
+  clientName: string;
+
+  @Column({ nullable: true })
+  clientPhone: string;
+
+  @Column({ nullable: true })
+  clientEmail: string;
+
+  @Column({ nullable: true })
+  source: string; // website, whatsapp, referral, social_media, other
+
   @Column({ default: false })
   isRecurring: boolean;
 

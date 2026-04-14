@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Opportunity, OpportunityStage } from './opportunity.entity';
 import { ProposalsService } from '../proposals/proposals.service';
 import { WorksService } from '../works/works.service';
@@ -8,13 +8,43 @@ import { FinanceService } from '../finance/finance.service';
 
 @Injectable()
 export class OpportunitiesService {
+  private readonly logger = new Logger(OpportunitiesService.name);
+
   constructor(
     @InjectRepository(Opportunity)
     private opportunityRepository: Repository<Opportunity>,
     private proposalsService: ProposalsService,
     private worksService: WorksService,
     private financeService: FinanceService,
-  ) { }
+    private dataSource: DataSource,
+  ) {
+    this.ensureColumns().catch(err =>
+      this.logger.warn('Auto-migration skipped:', err.message),
+    );
+  }
+
+  private async ensureColumns() {
+    const qr = this.dataSource.createQueryRunner();
+    try {
+      const table = await qr.getTable('opportunities');
+      if (!table) return;
+      const cols = table.columns.map(c => c.name);
+      const toAdd: [string, string][] = [
+        ['clientName', 'varchar(255)'],
+        ['clientPhone', 'varchar(100)'],
+        ['clientEmail', 'varchar(255)'],
+        ['source', 'varchar(100)'],
+      ];
+      for (const [name, type] of toAdd) {
+        if (!cols.includes(name)) {
+          await qr.query(`ALTER TABLE opportunities ADD COLUMN "${name}" ${type} DEFAULT NULL`);
+          this.logger.log(`Added column opportunities.${name}`);
+        }
+      }
+    } finally {
+      await qr.release();
+    }
+  }
 
   async findAll(stage?: string): Promise<Opportunity[]> {
     const where: any = {};
