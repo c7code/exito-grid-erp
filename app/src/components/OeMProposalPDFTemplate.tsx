@@ -79,10 +79,8 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
     const clientObligations = proposal.clientObligations || null;
     const generalProvisions = proposal.generalProvisions || null;
     const complianceText = proposal.complianceText || null;
-    const workDeadlineText = proposal.workDeadlineText || null;
     const rawValidUntil = proposal.validUntil || proposal.proposalValidUntil;
     const validUntilStr = rawValidUntil ? new Date(rawValidUntil).toLocaleDateString('pt-BR') : '30 dias';
-    const deadlineStr = proposal.deadline || null;
 
     // ── Section Toggles — controla renderização condicional das seções ──
     let toggles: Record<string, boolean> = {};
