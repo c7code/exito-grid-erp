@@ -14,23 +14,27 @@ const fmtCurrency = (v: number) => `R$ ${fmt(v)}`;
 // ═══ PARSER DE TEXTO ESTRUTURADO (inline — sem dependência externa) ═══
 function renderStructuredText(text: string | undefined | null, baseStyle: React.CSSProperties): React.ReactNode {
     if (!text) return null;
-    const lines = text.split('\n').filter(l => l.trim());
-    if (lines.length === 0) return null;
+    // Split preserving blank lines (don't filter here — blank lines are visual spacers)
+    const lines = text.split('\n');
+    const nonEmpty = lines.filter(l => l.trim());
+    if (nonEmpty.length === 0) return null;
     if (lines.length === 1) return <p style={{ ...baseStyle, whiteSpace: 'pre-line' }}>{text}</p>;
     return (
         <div>
             {lines.map((line, i) => {
                 const trimmed = line.trim();
+                // Blank line → visual spacer (preserves intentional spacing between items)
+                if (!trimmed) return <div key={i} style={{ height: '5px' }} />;
                 const isNumbered = /^\d+[\.\)]\s/.test(trimmed);
-                const isBullet = /^[•▸\-—–]\s/.test(trimmed);
-                const isHeader = /^[A-ZÁÉÍÓÚÂÊÔÃ][A-ZÁÉÍÓÚÂÊÔÃ\s:]+:?\s*$/.test(trimmed);
-                const indent = isNumbered ? 8 : isBullet ? 12 : 0;
+                const isBullet = /^[•▸▪\-—–\*]\s/.test(trimmed);
+                const isHeader = /^[A-ZÁÉÍÓÚÂÊÔÃÇÀÜ][A-ZÁÉÍÓÚÂÊÔÃÇÀÜ\s]{3,}:?\s*$/.test(trimmed);
+                const indent = isNumbered ? 16 : isBullet ? 16 : 0;
                 return (
                     <div key={i} style={{
                         ...baseStyle,
                         paddingLeft: `${indent}px`,
-                        fontWeight: isHeader ? 700 : undefined,
-                        margin: isHeader ? '10px 0 4px' : '2px 0',
+                        fontWeight: isHeader ? 700 : baseStyle.fontWeight,
+                        margin: isHeader ? '8px 0 3px' : '1.5px 0',
                     }}>
                         {trimmed}
                     </div>
@@ -119,7 +123,7 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
         accentBar: { height: '4px', background: 'linear-gradient(90deg, #f59e0b 0%, #ef4444 45%, #8b5cf6 100%)' } as React.CSSProperties,
         body: { padding: '32px 44px' } as React.CSSProperties,
         // Sections
-        sectionTitle: { fontSize: '12px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '2px', borderBottom: '3px solid #f59e0b', paddingBottom: '10px', marginTop: '34px', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '12px', breakInside: 'avoid' as const, breakAfter: 'avoid' as const } as React.CSSProperties,
+        sectionTitle: { fontSize: '12px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '2px', borderBottom: '3px solid #f59e0b', paddingBottom: '8px', marginTop: '20px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px', breakInside: 'avoid' as const, breakAfter: 'avoid' as const } as React.CSSProperties,
         sectionIcon: { width: '30px', height: '30px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', fontWeight: 700, flexShrink: 0 } as React.CSSProperties,
         sectionNum: { fontSize: '10px', fontWeight: 800, color: '#f59e0b', minWidth: '18px' } as React.CSSProperties,
         para: { fontSize: '10px', textAlign: 'justify' as const, margin: '6px 0', color: '#334155', lineHeight: '1.7' } as React.CSSProperties,
@@ -765,8 +769,8 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                     <span style={s.sectionNum}>{nextSection()}.</span>
                     Condições de Pagamento
                 </div>
-                <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '10px', padding: '16px 22px' }}>
-                    <p style={{ ...s.para, color: '#3730a3' }}>{paymentConditions}</p>
+                <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '10px', padding: '14px 22px' }}>
+                    {renderStructuredText(paymentConditions, { ...s.para, color: '#3730a3' })}
                 </div>
                 <div style={{ margin: '12px 0', fontSize: '9px', color: '#334155', lineHeight: 2 }}>
                     <div>▸ Esta proposta tem validade de <strong>{validUntilStr}</strong></div>

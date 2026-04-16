@@ -41,9 +41,11 @@ function renderStructuredText(text: string | undefined | null, baseStyle: React.
     processed = processed.replace(/[;:]\s*(?=\d{1,3}\)\s)/g, ';\n');
     // Bullet chars: • ▸ — –
     processed = processed.replace(/[;:]\s*(?=[•▸—–]\s)/g, ';\n');
-    const lines = processed.split('\n').filter(l => l.trim());
-    if (lines.length === 0) return null;
-    const hasStructure = lines.some(l => detectLineLevel(l).level >= 0);
+    // Split preserving blank lines (serve as visual spacers)
+    const lines = processed.split('\n');
+    const nonEmpty = lines.filter(l => l.trim());
+    if (nonEmpty.length === 0) return null;
+    const hasStructure = nonEmpty.some(l => detectLineLevel(l).level >= 0);
     if (!hasStructure) {
         return <p style={{ ...baseStyle, whiteSpace: 'pre-line' }}>{text}</p>;
     }
@@ -52,6 +54,8 @@ function renderStructuredText(text: string | undefined | null, baseStyle: React.
         <div>
             {lines.map((line, i) => {
                 const trimmed = line.trim();
+                // Blank line → visual spacer
+                if (!trimmed) return <div key={i} style={{ height: '5px' }} />;
                 const { level, isBold } = detectLineLevel(trimmed);
                 const indent = level >= 0 ? indentMap[level] || 0 : 12;
                 return (
@@ -205,8 +209,8 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
         darkBar: { background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)', padding: '10px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } as React.CSSProperties,
         darkBarText: { color: '#E8620A', fontSize: '12px', fontWeight: '700', letterSpacing: '3px', textTransform: 'uppercase' as const },
         darkBarRef: { color: '#888', fontSize: '9px' },
-        body: { padding: '30px 36px' } as React.CSSProperties,
-        sectionTitle: { fontSize: '11px', fontWeight: '800', color: '#E8620A', textTransform: 'uppercase' as const, letterSpacing: '2px', borderBottom: '2px solid #E8620A', paddingBottom: '6px', marginTop: '28px', marginBottom: '14px' } as React.CSSProperties,
+        body: { padding: '22px 36px' } as React.CSSProperties,
+        sectionTitle: { fontSize: '11px', fontWeight: '800', color: '#E8620A', textTransform: 'uppercase' as const, letterSpacing: '2px', borderBottom: '2px solid #E8620A', paddingBottom: '6px', marginTop: '18px', marginBottom: '10px' } as React.CSSProperties,
         clauseHeading: { fontSize: '10.5px', fontWeight: '700', color: '#1a1a1a', margin: '16px 0 6px' } as React.CSSProperties,
         para: { fontSize: '10px', textAlign: 'justify' as const, margin: '6px 0', color: '#2d2d2d', lineHeight: '1.6' } as React.CSSProperties,
         table: { width: '100%', borderCollapse: 'collapse' as const, marginTop: '10px', marginBottom: '16px' } as React.CSSProperties,
