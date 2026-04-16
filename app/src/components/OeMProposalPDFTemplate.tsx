@@ -426,24 +426,74 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
                     </div>
                 )}
 
-                {/* ─── PRAZO DE EXECUÇÃO (se disponível) ─── */}
-                {(workDeadlineText || deadlineStr) && (
-                    <>
-                        <div className="pdf-section-title" style={s.sectionTitle}>
-                            <div style={{ ...s.sectionIcon, background: '#0ea5e9' }}>📅</div>
-                            <span style={s.sectionNum}>{nextSection()}.</span>
-                            Prazo de Execução
-                        </div>
-                        <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '10px', padding: '16px 22px' }}>
-                            <p style={{ ...s.para, color: '#0c4a6e' }}>
-                                {workDeadlineText || `Prazo de execução: ${deadlineStr}.`}
+                {/* ─── PRAZO DE EXECUÇÃO ─── */}
+                {(() => {
+                    const workDeadlineDays = proposal.workDeadlineDays || '';
+                    const workDeadlineType = proposal.workDeadlineType || 'calendar_days';
+                    const deadlineTypeLabel = workDeadlineType === 'business_days' ? 'dias úteis' : 'dias corridos';
+                    const workDeadlineCustomText = proposal.workDeadlineText || '';
+                    const deadlineStr = proposal.deadline || null;
+
+                    let tpDeadlines: any[] = [];
+                    try {
+                        const raw = proposal.thirdPartyDeadlines;
+                        if (raw) tpDeadlines = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                    } catch { tpDeadlines = []; }
+
+                    const hasDeadline = workDeadlineDays || deadlineStr || workDeadlineCustomText || tpDeadlines.length > 0;
+                    if (!hasDeadline) return null;
+
+                    return (
+                        <>
+                            <div className="pdf-section-title" style={s.sectionTitle}>
+                                <div style={{ ...s.sectionIcon, background: '#0ea5e9' }}>📅</div>
+                                <span style={s.sectionNum}>{nextSection()}.</span>
+                                Prazo de Execução
+                            </div>
+                            <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '10px', padding: '16px 22px' }}>
+                                <p style={{ ...s.para, color: '#0c4a6e' }}>
+                                    {workDeadlineDays
+                                        ? `O prazo estimado para execução completa dos serviços é de ${workDeadlineDays} (${numberToWords(Number(workDeadlineDays))}) ${deadlineTypeLabel}, ${workDeadlineCustomText || 'contados a partir da data de aprovação desta proposta e mobilização da equipe técnica.'}`
+                                        : (workDeadlineCustomText || (deadlineStr ? `Prazo de execução: ${deadlineStr}.` : 'A definir em comum acordo entre as partes.'))}
+                                </p>
+
+                                {/* Tabela de Prazos de Terceiros */}
+                                {tpDeadlines.length > 0 && (
+                                    <div style={{ marginTop: '14px' }}>
+                                        <p style={{ fontSize: '9px', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '8px' }}>
+                                            Prazos de Terceiros:
+                                        </p>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
+                                            <thead>
+                                                <tr style={{ background: '#0369a1' }}>
+                                                    <th style={{ padding: '7px 12px', textAlign: 'left', color: '#bae6fd', fontWeight: 700 }}>Responsável</th>
+                                                    <th style={{ padding: '7px 8px', textAlign: 'right', color: '#bae6fd', fontWeight: 700 }}>Prazo</th>
+                                                    <th style={{ padding: '7px 8px', textAlign: 'center', color: '#bae6fd', fontWeight: 700 }}>Tipo</th>
+                                                    <th style={{ padding: '7px 12px', textAlign: 'left', color: '#bae6fd', fontWeight: 700 }}>Descrição</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {tpDeadlines.map((tp: any, i: number) => (
+                                                    <tr key={i} style={{ background: i % 2 === 0 ? '#f0f9ff' : '#fff', borderBottom: '1px solid #e0f2fe' }}>
+                                                        <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0f172a' }}>{tp.name || '—'}</td>
+                                                        <td style={{ padding: '8px 8px', textAlign: 'right', color: '#0369a1', fontWeight: 700 }}>{tp.days} dias</td>
+                                                        <td style={{ padding: '8px 8px', textAlign: 'center', color: '#334155' }}>{tp.type === 'business_days' ? 'Úteis' : 'Corridos'}</td>
+                                                        <td style={{ padding: '8px 12px', color: '#475569' }}>{tp.description || '—'}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                            <p style={{ fontSize: '8.5px', fontStyle: 'italic', color: '#64748b', margin: '6px 0 0 0', lineHeight: '1.5' }}>
+                                Nota: Os prazos aqui estipulados referentes a fornecedores, fabricantes, logística de terceiros ou órgãos públicos são de responsabilidade exclusiva dos respectivos entes, não cabendo à {empresa.nome} a responsabilidade por eventuais atrasos destes.
                             </p>
-                        </div>
-                        <p style={{ fontSize: '8.5px', fontStyle: 'italic', color: '#64748b', margin: '6px 0 0 0', lineHeight: '1.5' }}>
-                            Nota: Os prazos aqui estipulados referentes a fornecedores, fabricantes, logística de terceiros ou órgãos públicos são de responsabilidade exclusiva dos respectivos entes, não cabendo à {empresa.nome} a responsabilidade por eventuais atrasos destes.
-                        </p>
-                    </>
-                )}
+                        </>
+                    );
+                })()}
+
+
 
                 {/* ─── SLA ─── */}
                 {sec('sla') && (<>
@@ -862,4 +912,22 @@ export function OeMProposalPDFTemplate({ proposal, company, signatures, idOverri
             </div>
         </div>
     );
+}
+
+// Helper: número por extenso simplificado
+function numberToWords(n: number): string {
+    if (isNaN(n) || n <= 0) return '';
+    const units = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+    const tens = ['', 'dez', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+    const teens = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+    const hundreds = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+    if (n === 100) return 'cem';
+    const h = Math.floor(n / 100);
+    const t = Math.floor((n % 100) / 10);
+    const u = n % 10;
+    const parts: string[] = [];
+    if (h > 0) parts.push(hundreds[h]);
+    if (t === 1) { parts.push(teens[u]); }
+    else { if (t > 0) parts.push(tens[t]); if (u > 0) parts.push(units[u]); }
+    return parts.join(' e ') || String(n);
 }

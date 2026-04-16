@@ -13,7 +13,7 @@ import html2pdf from 'html2pdf.js';
 import { FileText, Settings, Wrench, Package, ClipboardList,
     Plus, Trash2, Download, Eye, Loader2, ChevronRight,
     Sun, Zap, BarChart3, Shield, CreditCard, Scale, BookOpen,
-    Building2, Hash,
+    Building2, Hash, Clock,
 } from 'lucide-react';
 import OeMServiceItemsPanel, { type OemServiceItem } from './OeMServiceItemsPanel';
 
@@ -124,7 +124,13 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
     const [incluirMateriaisNoTotal, setIncluirMateriaisNoTotal] = useState(false);
     const [exibirSubtotalMateriais, setExibirSubtotalMateriais] = useState(true);
 
-    // ── Aba 5: Textos
+    // ── Aba 5: Prazos
+    const [workDeadlineDays, setWorkDeadlineDays] = useState('');
+    const [workDeadlineType, setWorkDeadlineType] = useState<'calendar_days' | 'business_days'>('calendar_days');
+    const [workDeadlineText, setWorkDeadlineText] = useState('');
+    const [thirdPartyDeadlines, setThirdPartyDeadlines] = useState<{ name: string; days: string; type: string; description: string }[]>([]);
+
+    // ── Aba 6: Textos
     const [diagnostico, setDiagnostico] = useState('');
     const [contractorObligations, setContractorObligations] = useState('');
     const [clientObligations, setClientObligations] = useState('');
@@ -246,6 +252,15 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
         // Display mode dos itens
         setOemDisplayMode(servico.oemItemDisplayMode || 'com_valor');
 
+        // Prazos
+        setWorkDeadlineDays(servico.workDeadlineDays || '');
+        setWorkDeadlineType(servico.workDeadlineType || 'calendar_days');
+        setWorkDeadlineText(servico.workDeadlineText || '');
+        try {
+            const tp = servico.thirdPartyDeadlines ? JSON.parse(servico.thirdPartyDeadlines) : [];
+            setThirdPartyDeadlines(Array.isArray(tp) ? tp : []);
+        } catch { setThirdPartyDeadlines([]); }
+
         // Textos defaults (podem ter sido salvos no servico)
         setDiagnostico(servico.diagnostico || '');
         setWorkDescription(servico.descricao || defaultTitle);
@@ -325,6 +340,11 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                 totalMateriais,
                 diagnostico,
                 descricao: workDescription,
+                // Prazos
+                workDeadlineDays,
+                workDeadlineType,
+                workDeadlineText,
+                thirdPartyDeadlines: JSON.stringify(thirdPartyDeadlines),
                 // Textos editáveis da proposta
                 paymentConditions,
                 contractorObligations,
@@ -396,9 +416,14 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
             clientObligations,
             generalProvisions,
             complianceText,
+            // Prazos
+            workDeadlineDays,
+            workDeadlineType,
+            workDeadlineText,
+            thirdPartyDeadlines: JSON.stringify(thirdPartyDeadlines),
             proposalNumber: servico?.oemProposalId || servico?.proposalId || `OEM-${Date.now()}`,
         };
-    }, [title, validUntil, proposalMode, toggles, materiais, incluirMateriaisNoTotal, exibirSubtotalMateriais, totalMateriais, totalServicos, grandTotal, unifiedItems, oemDisplayMode, diagnostico, workDescription, beneficios, paymentConditions, contractorObligations, clientObligations, generalProvisions, complianceText, servico]);
+    }, [title, validUntil, proposalMode, toggles, materiais, incluirMateriaisNoTotal, exibirSubtotalMateriais, totalMateriais, totalServicos, grandTotal, unifiedItems, oemDisplayMode, diagnostico, workDescription, beneficios, paymentConditions, contractorObligations, clientObligations, generalProvisions, complianceText, workDeadlineDays, workDeadlineType, workDeadlineText, thirdPartyDeadlines, servico]);
 
     const handlePreview = () => {
         setPreviewData(buildPreviewData());
@@ -435,6 +460,7 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
         { icon: Settings, label: 'Seções PDF' },
         { icon: Wrench, label: 'Serviços' },
         { icon: Package, label: 'Materiais' },
+        { icon: Clock, label: 'Prazos' },
         { icon: ClipboardList, label: 'Textos' },
     ];
 
@@ -823,8 +849,165 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                             </div>
                         )}
 
-                        {/* ══ ABA 5: TEXTOS ══ */}
+                        {/* ══ ABA 5: PRAZOS ══ */}
                         {tab === 4 && (
+                            <div className="space-y-5 max-w-2xl">
+                                {/* Prazo principal */}
+                                <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="w-4 h-4 text-sky-500" />
+                                        <h3 className="text-sm font-bold text-slate-800">Prazo de Execução</h3>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label className="text-xs font-semibold text-slate-600">Prazo (dias)</Label>
+                                            <Input
+                                                type="text"
+                                                inputMode="decimal"
+                                                placeholder="Ex: 5"
+                                                value={workDeadlineDays}
+                                                onChange={e => setWorkDeadlineDays(e.target.value)}
+                                                className="mt-1.5 bg-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs font-semibold text-slate-600">Tipo de Prazo</Label>
+                                            <select
+                                                value={workDeadlineType}
+                                                onChange={e => setWorkDeadlineType(e.target.value as any)}
+                                                className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                            >
+                                                <option value="calendar_days">Dias Corridos</option>
+                                                <option value="business_days">Dias Úteis</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs font-semibold text-slate-600">Texto do Prazo (deixe em branco para usar o padrão)</Label>
+                                        <Textarea
+                                            value={workDeadlineText}
+                                            onChange={e => setWorkDeadlineText(e.target.value)}
+                                            rows={2}
+                                            className="mt-1.5 bg-white resize-none text-sm"
+                                            placeholder="Ex: contados a partir da data de aprovação desta proposta e mobilização da equipe."
+                                        />
+                                    </div>
+
+                                    {/* Preview do prazo */}
+                                    {workDeadlineDays && (
+                                        <div className="bg-sky-50 border border-sky-200 rounded-lg p-3">
+                                            <p className="text-[10px] font-semibold text-sky-700 mb-1">Prévia do texto no PDF:</p>
+                                            <p className="text-xs text-sky-800">
+                                                O prazo estimado para execução completa dos serviços é de <strong>{workDeadlineDays}</strong> {workDeadlineType === 'business_days' ? 'dias úteis' : 'dias corridos'}, {workDeadlineText || 'contados a partir da data de aprovação desta proposta e mobilização da equipe técnica.'}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Prazos de Terceiros */}
+                                <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Building2 className="w-4 h-4 text-slate-500" />
+                                            <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Prazos de Terceiros</Label>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 text-xs gap-1 border-slate-300"
+                                            onClick={() => setThirdPartyDeadlines(prev => [...prev, { name: '', days: '', type: 'calendar_days', description: '' }])}
+                                        >
+                                            <Plus className="w-3 h-3" /> Adicionar
+                                        </Button>
+                                    </div>
+
+                                    {thirdPartyDeadlines.length === 0 ? (
+                                        <p className="text-xs text-slate-400 italic">Nenhum prazo de terceiro cadastrado. Use o botão acima para incluir dependências de fornecedores ou fabricantes.</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {thirdPartyDeadlines.map((tp, idx) => (
+                                                <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                                                    <div className="col-span-3">
+                                                        {idx === 0 && <Label className="text-[10px] text-slate-500">Responsável</Label>}
+                                                        <Input
+                                                            placeholder="Ex: Fabricante"
+                                                            className="h-8 text-xs mt-1"
+                                                            value={tp.name}
+                                                            onChange={e => {
+                                                                const arr = [...thirdPartyDeadlines];
+                                                                arr[idx] = { ...arr[idx], name: e.target.value };
+                                                                setThirdPartyDeadlines(arr);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        {idx === 0 && <Label className="text-[10px] text-slate-500">Dias</Label>}
+                                                        <Input
+                                                            placeholder="Dias"
+                                                            className="h-8 text-xs mt-1"
+                                                            type="text"
+                                                            inputMode="decimal"
+                                                            value={tp.days}
+                                                            onChange={e => {
+                                                                const arr = [...thirdPartyDeadlines];
+                                                                arr[idx] = { ...arr[idx], days: e.target.value };
+                                                                setThirdPartyDeadlines(arr);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-3">
+                                                        {idx === 0 && <Label className="text-[10px] text-slate-500">Tipo</Label>}
+                                                        <select
+                                                            value={tp.type || 'calendar_days'}
+                                                            onChange={e => {
+                                                                const arr = [...thirdPartyDeadlines];
+                                                                arr[idx] = { ...arr[idx], type: e.target.value };
+                                                                setThirdPartyDeadlines(arr);
+                                                            }}
+                                                            className="mt-1 h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                                        >
+                                                            <option value="calendar_days">Corridos</option>
+                                                            <option value="business_days">Úteis</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="col-span-3">
+                                                        {idx === 0 && <Label className="text-[10px] text-slate-500">Descrição</Label>}
+                                                        <Input
+                                                            placeholder="Ex: Entrega do inversor"
+                                                            className="h-8 text-xs mt-1"
+                                                            value={tp.description}
+                                                            onChange={e => {
+                                                                const arr = [...thirdPartyDeadlines];
+                                                                arr[idx] = { ...arr[idx], description: e.target.value };
+                                                                setThirdPartyDeadlines(arr);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-1 flex justify-center">
+                                                        <button
+                                                            onClick={() => setThirdPartyDeadlines(prev => prev.filter((_, i) => i !== idx))}
+                                                            className="mt-1 text-red-400 hover:text-red-600 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Cláusula de isenção — informativa */}
+                                    <div className="mt-3 p-3 bg-sky-50 border border-sky-200 rounded-lg">
+                                        <p className="text-[10px] text-sky-700 italic leading-relaxed">
+                                            <strong>Nota automática no PDF:</strong> Os prazos aqui estipulados referentes a fornecedores, fabricantes, logística de terceiros ou órgãos públicos são de responsabilidade exclusiva dos respectivos entes, não cabendo à empresa a responsabilidade por eventuais atrasos destes.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ══ ABA 6: TEXTOS ══ */}
+                        {tab === 5 && (
                             <div className="space-y-4 max-w-2xl">
                                 {toggles.diagnostico && (
                                     <div>
@@ -910,6 +1093,7 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
                                     Próximo <ChevronRight className="w-3.5 h-3.5" />
                                 </Button>
                             )}
+
                             <Button
                                 size="sm"
                                 onClick={handleSave}
