@@ -143,6 +143,49 @@ export default function AdminWorkDetail() {
   const [newCost, setNewCost] = useState({ description: '', category: 'material', quantity: '1', unit: 'un', unitPrice: '', supplierId: '', employeeId: '', date: '', invoiceNumber: '', notes: '' });
   const [newSchedule, setNewSchedule] = useState({ description: '', amount: '', dueDate: '', installmentNumber: '1', totalInstallments: '1', supplierId: '', employeeId: '', notes: '' });
   const [costLoading, setCostLoading] = useState(false);
+
+  // ── Work Payment (Lançamento Financeiro da Obra) ──
+  const emptyWorkPayment = { origem: 'receita_contratual', description: '', amount: '', dueDate: new Date().toISOString().split('T')[0], invoiceNumber: '', notes: '' };
+  const [workPaymentOpen, setWorkPaymentOpen] = useState(false);
+  const [workPaymentForm, setWorkPaymentForm] = useState<any>(emptyWorkPayment);
+  const [workPaymentLoading, setWorkPaymentLoading] = useState(false);
+
+  const handleCreateWorkPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!workPaymentForm.description.trim() || !workPaymentForm.amount || !workPaymentForm.dueDate) {
+      toast.error('Preencha descrição, valor e vencimento.');
+      return;
+    }
+    setWorkPaymentLoading(true);
+    try {
+      const originMap: Record<string, { type: string; category: string }> = {
+        receita_contratual: { type: 'income', category: 'project' },
+        aditivo:            { type: 'income', category: 'project' },
+        ganho_extra:        { type: 'income', category: 'other' },
+        despesa_extra:      { type: 'expense', category: 'other' },
+      };
+      const { type, category } = originMap[workPaymentForm.origem] || originMap.receita_contratual;
+      const origemLabel = { receita_contratual: '[Contratual]', aditivo: '[Aditivo]', ganho_extra: '[Ganho Extra]', despesa_extra: '[Despesa Extra]' }[workPaymentForm.origem] || '';
+      await api.createPayment({
+        workId: id,
+        type,
+        category,
+        description: workPaymentForm.description,
+        amount: Number(workPaymentForm.amount),
+        dueDate: workPaymentForm.dueDate || null,
+        invoiceNumber: workPaymentForm.invoiceNumber || undefined,
+        notes: [`${origemLabel}`, workPaymentForm.notes].filter(Boolean).join(' — ') || undefined,
+      });
+      toast.success('Lançamento criado!');
+      setWorkPaymentOpen(false);
+      setWorkPaymentForm(emptyWorkPayment);
+      fetchPayments();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Erro ao criar lançamento.');
+    } finally {
+      setWorkPaymentLoading(false);
+    }
+  };
   const admin = isAdmin();
 
   // ── Fetch functions ──────────────────────────────────────────────────────
@@ -905,52 +948,105 @@ export default function AdminWorkDetail() {
         {/* ═══ FINANCE TAB (ADMIN ONLY) ═══════════════════════════════════ */}
         {admin && (
           <TabsContent value="finance" className="space-y-6">
-            <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-red-700 text-sm">
-              <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-              <span className="font-semibold">INFORMAÇÕES CONFIDENCIAIS — Visível apenas para Administradores</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-red-700 text-sm flex-1 mr-4">
+                <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                <span className="font-semibold">INFORMAÇÕES CONFIDENCIAIS — Visível apenas para Administradores</span>
+              </div>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 shrink-0" onClick={() => setWorkPaymentOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />Novo Lançamento
+              </Button>
             </div>
 
-            {/* Finance Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="border-l-4 border-l-blue-500">
-                <CardContent className="p-4"><p className="text-xs text-slate-500">Valor da Obra</p><p className="text-xl font-bold font-mono">R$ {fmt(work.totalValue)}</p></CardContent>
-              </Card>
-              <Card className="border-l-4 border-l-rose-500">
-                <CardContent className="p-4"><p className="text-xs text-slate-500">Custo</p><p className="text-xl font-bold font-mono text-rose-600">R$ {fmt(work.cost)}</p></CardContent>
-              </Card>
-              <Card className="border-l-4 border-l-emerald-500">
-                <CardContent className="p-4"><p className="text-xs text-slate-500">Recebido</p><p className="text-xl font-bold font-mono text-emerald-600">R$ {fmt(totalReceived)}</p></CardContent>
-              </Card>
-              <Card className="border-l-4 border-l-amber-500">
-                <CardContent className="p-4"><p className="text-xs text-slate-500">A Receber</p><p className="text-xl font-bold font-mono text-amber-600">R$ {fmt(totalPending)}</p></CardContent>
-              </Card>
-            </div>
+            {/* ── Painel de Saldo do Orçamento ── */}
+            {(() => {
+              const additives = payments.filter((p: any) => p.type === 'income' && (p.notes || '').includes('[Aditivo]'));
+              const additivesTotal = additives.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+              const incomeReceived = payments.filter((p: any) => p.type === 'income' && p.status === 'paid').reduce((s: number, p: any) => s + Number(p.paidAmount || p.amount || 0), 0);
+              const incomePending = payments.filter((p: any) => p.type === 'income' && p.status !== 'paid' && p.status !== 'cancelled').reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+              const ganhoExtra = payments.filter((p: any) => p.type === 'income' && (p.notes || '').includes('[Ganho Extra]')).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+              const despesaExtra = payments.filter((p: any) => p.type === 'expense' && (p.notes || '').includes('[Despesa Extra]')).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+              const base = Number(work.totalValue || 0);
+              const saldo = base + additivesTotal - incomeReceived;
+              return (
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+                  <Card className="border-l-4 border-l-blue-500">
+                    <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Valor Base</p><p className="text-lg font-bold font-mono">R$ {fmt(base)}</p></CardContent>
+                  </Card>
+                  <Card className="border-l-4 border-l-indigo-500">
+                    <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Aditivos</p><p className="text-lg font-bold font-mono text-indigo-600">R$ {fmt(additivesTotal)}</p></CardContent>
+                  </Card>
+                  <Card className="border-l-4 border-l-emerald-500">
+                    <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Recebido</p><p className="text-lg font-bold font-mono text-emerald-600">R$ {fmt(incomeReceived)}</p></CardContent>
+                  </Card>
+                  <Card className="border-l-4 border-l-amber-500">
+                    <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">A Receber</p><p className="text-lg font-bold font-mono text-amber-600">R$ {fmt(incomePending)}</p></CardContent>
+                  </Card>
+                  <Card className={`border-l-4 ${saldo >= 0 ? 'border-l-teal-500' : 'border-l-red-500'}`}>
+                    <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Saldo Disponível</p><p className={`text-lg font-bold font-mono ${saldo >= 0 ? 'text-teal-600' : 'text-red-600'}`}>R$ {fmt(saldo)}</p></CardContent>
+                  </Card>
+                  <Card className="border-l-4 border-l-rose-500">
+                    <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Despesas Extra</p><p className="text-lg font-bold font-mono text-rose-600">R$ {fmt(despesaExtra)}</p></CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
 
-            {/* Payments */}
+            {/* ── Lançamentos / Pagamentos ── */}
             <Card>
-              <CardHeader><CardTitle className="text-lg flex items-center gap-2"><DollarSign className="w-5 h-5" />Pagamentos</CardTitle></CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2"><DollarSign className="w-5 h-5" />Lançamentos ({payments.length})</CardTitle>
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setWorkPaymentOpen(true)}>
+                  <Plus className="w-4 h-4 mr-1" />Novo Lançamento
+                </Button>
+              </CardHeader>
               <CardContent>
                 {payments.length === 0 ? (
-                  <p className="text-slate-400 text-center py-4">Nenhum pagamento registrado.</p>
+                  <div className="text-center py-10 text-slate-400">
+                    <DollarSign className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                    <p className="font-medium">Nenhum lançamento registrado.</p>
+                    <Button size="sm" className="mt-3 bg-emerald-600 hover:bg-emerald-700" onClick={() => setWorkPaymentOpen(true)}>
+                      <Plus className="w-4 h-4 mr-1" />Criar Primeiro Lançamento
+                    </Button>
+                  </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead><tr className="border-b text-left text-slate-500">
-                        <th className="pb-2">Descrição</th><th className="pb-2">Valor</th><th className="pb-2">Vencimento</th><th className="pb-2">Status</th>
+                      <thead><tr className="border-b text-left text-slate-500 text-xs uppercase">
+                        <th className="pb-2 pr-3">Origem</th>
+                        <th className="pb-2 pr-3">Descrição</th>
+                        <th className="pb-2 pr-3">Tipo</th>
+                        <th className="pb-2 pr-3 text-right">Valor</th>
+                        <th className="pb-2 pr-3">Vencimento</th>
+                        <th className="pb-2">Status</th>
                       </tr></thead>
                       <tbody>
-                        {payments.map((p: any) => (
-                          <tr key={p.id} className="border-b last:border-0">
-                            <td className="py-2">{p.description || p.type || '—'}</td>
-                            <td className="py-2 font-mono">R$ {fmt(p.amount)}</td>
-                            <td className="py-2">{fmtDate(p.dueDate)}</td>
-                            <td className="py-2">
-                              <Badge className={p.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : p.status === 'overdue' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}>
-                                {p.status === 'paid' ? 'Pago' : p.status === 'overdue' ? 'Atrasado' : 'Pendente'}
-                              </Badge>
-                            </td>
-                          </tr>
-                        ))}
+                        {payments.map((p: any) => {
+                          const notes = p.notes || '';
+                          const isAditivo = notes.includes('[Aditivo]');
+                          const isGanho = notes.includes('[Ganho Extra]');
+                          const isDespExtra = notes.includes('[Despesa Extra]');
+                          const origemLabel = isAditivo ? 'Aditivo' : isGanho ? 'Ganho Extra' : isDespExtra ? 'Despesa Extra' : p.type === 'income' ? 'Contratual' : 'Despesa';
+                          const origemColor = isAditivo ? 'bg-indigo-100 text-indigo-700' : isGanho ? 'bg-teal-100 text-teal-700' : isDespExtra ? 'bg-rose-100 text-rose-700' : p.type === 'income' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700';
+                          return (
+                            <tr key={p.id} className="border-b last:border-0 hover:bg-slate-50">
+                              <td className="py-2 pr-3"><Badge className={`${origemColor} text-[10px] font-medium`}>{origemLabel}</Badge></td>
+                              <td className="py-2 pr-3 max-w-[200px] truncate">{p.description || '—'}</td>
+                              <td className="py-2 pr-3">
+                                <span className={`text-xs font-medium ${p.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                  {p.type === 'income' ? '▲ Receita' : '▼ Despesa'}
+                                </span>
+                              </td>
+                              <td className="py-2 pr-3 text-right font-mono font-medium">R$ {fmt(p.amount)}</td>
+                              <td className="py-2 pr-3 text-slate-500">{fmtDate(p.dueDate)}</td>
+                              <td className="py-2">
+                                <Badge className={p.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : p.status === 'overdue' ? 'bg-red-100 text-red-700' : p.status === 'cancelled' ? 'bg-slate-100 text-slate-500' : 'bg-yellow-100 text-yellow-700'}>
+                                  {p.status === 'paid' ? 'Pago' : p.status === 'overdue' ? 'Atrasado' : p.status === 'cancelled' ? 'Cancelado' : 'Pendente'}
+                                </Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1437,6 +1533,90 @@ export default function AdminWorkDetail() {
 
       <ClientDetailViewer open={isClientViewerOpen} onOpenChange={setIsClientViewerOpen} client={work.client} />
       <MeasurementDialog isOpen={isMeasurementDialogOpen} onClose={() => setIsMeasurementDialogOpen(false)} workId={id!} work={work} onSuccess={fetchWork} />
+
+      {/* ── Dialog: Novo Lançamento Financeiro da Obra ──────────────────── */}
+      <Dialog open={workPaymentOpen} onOpenChange={setWorkPaymentOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-emerald-600" />
+              Novo Lançamento Financeiro
+            </DialogTitle>
+            <p className="text-xs text-slate-500 mt-1">Obra: <span className="font-semibold text-slate-700">{work.title}</span></p>
+          </DialogHeader>
+          <form onSubmit={handleCreateWorkPayment} className="space-y-4 pt-2">
+            {/* Origem */}
+            <div className="space-y-1.5">
+              <Label>Origem do Lançamento *</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 'receita_contratual', label: '📋 Receita Contratual', desc: 'Dentro do escopo do contrato', color: 'border-blue-400 bg-blue-50 text-blue-800' },
+                  { value: 'aditivo', label: '➕ Aditivo Contratual', desc: 'Extensão aprovada do contrato', color: 'border-indigo-400 bg-indigo-50 text-indigo-800' },
+                  { value: 'ganho_extra', label: '💡 Ganho Extra', desc: 'Receita fora do escopo contratual', color: 'border-teal-400 bg-teal-50 text-teal-800' },
+                  { value: 'despesa_extra', label: '⚠️ Despesa Extra', desc: 'Custo não previsto no contrato', color: 'border-rose-400 bg-rose-50 text-rose-800' },
+                ].map(opt => (
+                  <button key={opt.value} type="button"
+                    className={`text-left p-3 rounded-lg border-2 transition-all ${workPaymentForm.origem === opt.value ? opt.color + ' border-2' : 'border-slate-200 hover:border-slate-300 bg-white'}`}
+                    onClick={() => setWorkPaymentForm({ ...workPaymentForm, origem: opt.value })}>
+                    <p className="font-semibold text-xs">{opt.label}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">{opt.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Descrição */}
+            <div className="space-y-1.5">
+              <Label htmlFor="wp-desc">Descrição *</Label>
+              <Input id="wp-desc" placeholder="Ex: Parcela 1 — Serviço de instalação" value={workPaymentForm.description}
+                onChange={e => setWorkPaymentForm({ ...workPaymentForm, description: e.target.value })} required />
+            </div>
+            {/* Valor + Vencimento */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="wp-amount">Valor (R$) *</Label>
+                <Input id="wp-amount" type="text" inputMode="decimal" placeholder="0,00" value={workPaymentForm.amount}
+                  onChange={e => setWorkPaymentForm({ ...workPaymentForm, amount: e.target.value })} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="wp-due">Vencimento *</Label>
+                <Input id="wp-due" type="date" value={workPaymentForm.dueDate}
+                  onChange={e => setWorkPaymentForm({ ...workPaymentForm, dueDate: e.target.value })} required />
+              </div>
+            </div>
+            {/* NF */}
+            <div className="space-y-1.5">
+              <Label htmlFor="wp-nf">Nº Nota Fiscal</Label>
+              <Input id="wp-nf" placeholder="Ex: NF-001234" value={workPaymentForm.invoiceNumber}
+                onChange={e => setWorkPaymentForm({ ...workPaymentForm, invoiceNumber: e.target.value })} />
+            </div>
+            {/* Obs */}
+            <div className="space-y-1.5">
+              <Label htmlFor="wp-notes">Observações</Label>
+              <Textarea id="wp-notes" placeholder="Informações adicionais..." rows={2} value={workPaymentForm.notes}
+                onChange={e => setWorkPaymentForm({ ...workPaymentForm, notes: e.target.value })} />
+            </div>
+            {/* Summary strip */}
+            <div className={`rounded-lg px-4 py-3 text-sm flex items-center justify-between ${
+              workPaymentForm.origem === 'despesa_extra' ? 'bg-rose-50 border border-rose-200' :
+              workPaymentForm.origem === 'aditivo' ? 'bg-indigo-50 border border-indigo-200' :
+              workPaymentForm.origem === 'ganho_extra' ? 'bg-teal-50 border border-teal-200' :
+              'bg-emerald-50 border border-emerald-200'
+            }`}>
+              <span className="text-slate-600">Lançando como <strong>{workPaymentForm.origem === 'despesa_extra' ? 'Despesa' : 'Receita'}</strong></span>
+              <span className="font-bold font-mono text-lg">
+                {workPaymentForm.origem === 'despesa_extra' ? '−' : '+'} R$ {fmt(Number(workPaymentForm.amount) || 0)}
+              </span>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => { setWorkPaymentOpen(false); setWorkPaymentForm(emptyWorkPayment); }}>Cancelar</Button>
+              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={workPaymentLoading}>
+                {workPaymentLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                Criar Lançamento
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
