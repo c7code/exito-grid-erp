@@ -167,14 +167,29 @@ export class FinanceService {
     return payment;
   }
 
+  private sanitizePaymentData(data: Partial<Payment>): Partial<Payment> {
+    const d: any = { ...data };
+    // UUID fields: empty string or 'none' → null
+    for (const f of ['workId', 'clientId', 'supplierId', 'measurementId', 'employeeId']) {
+      if (!d[f] || d[f] === 'none') d[f] = null;
+    }
+    // Date fields: empty string → null
+    for (const f of ['dueDate', 'billingDate', 'scheduledPaymentDate', 'paidAt']) {
+      if (d[f] === '' || d[f] === undefined) d[f] = null;
+    }
+    return d;
+  }
+
   async create(paymentData: Partial<Payment>): Promise<Payment> {
-    const payment = this.paymentRepository.create(paymentData);
+    const clean = this.sanitizePaymentData(paymentData);
+    const payment = this.paymentRepository.create(clean);
     return this.paymentRepository.save(payment);
   }
 
   async update(id: string, paymentData: Partial<Payment>): Promise<Payment> {
     const payment = await this.findOne(id);
-    Object.assign(payment, paymentData);
+    const clean = this.sanitizePaymentData(paymentData);
+    Object.assign(payment, clean);
     return this.paymentRepository.save(payment);
   }
 
