@@ -445,6 +445,16 @@ export default function AdminFinance() {
         amount: Number(i.amount),
       }));
 
+      // ── Sanitize UUID fields: 'none' or '' → null ──
+      if (!payload.workId || payload.workId === 'none') payload.workId = null;
+      if (!payload.clientId || payload.clientId === 'none') payload.clientId = null;
+      if (!payload.supplierId || payload.supplierId === 'none') payload.supplierId = null;
+
+      // ── Sanitize empty date strings → null ──
+      if (!payload.billingDate) payload.billingDate = null;
+      if (!payload.scheduledPaymentDate) payload.scheduledPaymentDate = null;
+      if (!payload.dueDate) payload.dueDate = null;
+
       let savedId = editingPaymentId;
       if (editingPaymentId) {
         await api.updatePayment(editingPaymentId, payload);
