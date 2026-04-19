@@ -13,16 +13,32 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Production stage - simple static server
-FROM node:20-alpine
+# Production stage - nginx for reliable static file serving
+FROM nginx:alpine
 
-WORKDIR /app
+# Copy built assets
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-RUN npm install -g serve
-
-COPY --from=builder /app/dist ./dist
+# Custom nginx config for SPA routing
+RUN echo 'server { \
+    listen 3000; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    \
+    # Serve static assets with correct MIME types and caching \
+    location /assets/ { \
+        expires 1y; \
+        add_header Cache-Control "public, immutable"; \
+        try_files $uri =404; \
+    } \
+    \
+    # SPA fallback - only for non-file routes \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
 
 ENV PORT=3000
 EXPOSE 3000
 
-CMD ["sh", "-c", "serve dist -s -l $PORT"]
+CMD ["nginx", "-g", "daemon off;"]
