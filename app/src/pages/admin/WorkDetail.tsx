@@ -1489,10 +1489,13 @@ export default function AdminWorkDetail() {
         <TabsContent value="materiais" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold flex items-center gap-2"><Warehouse className="w-5 h-5 text-teal-500" />Materiais / Movimentações</h3>
-            <Button variant="outline" size="sm" asChild><a href="/admin/inventory">Ver Estoque</a></Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" className="bg-teal-600 hover:bg-teal-700" asChild><a href={`/admin/inventory?workId=${id}`}><Plus className="w-4 h-4 mr-1" />Nova Movimentação</a></Button>
+              <Button variant="outline" size="sm" asChild><a href="/admin/inventory">Ver Estoque</a></Button>
+            </div>
           </div>
           {inventoryMovements.length === 0 ? (
-            <Card><CardContent className="p-8 text-center text-slate-400"><Warehouse className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma movimentação de material para esta obra.</p></CardContent></Card>
+            <Card><CardContent className="p-8 text-center text-slate-400"><Warehouse className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma movimentação de material para esta obra.</p><Button size="sm" className="mt-3 bg-teal-600 hover:bg-teal-700" asChild><a href={`/admin/inventory?workId=${id}`}><Plus className="w-4 h-4 mr-1" />Registrar Movimentação</a></Button></CardContent></Card>
           ) : (
             <Card>
               <CardContent className="p-0">
@@ -1529,10 +1532,13 @@ export default function AdminWorkDetail() {
         <TabsContent value="cotacoes" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold flex items-center gap-2"><DollarSign className="w-5 h-5 text-blue-500" />Cotações da Obra</h3>
-            <Button variant="outline" size="sm" asChild><a href="/admin/quotations">Ver Todas</a></Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700" asChild><a href={`/admin/quotations?workId=${id}&create=true`}><Plus className="w-4 h-4 mr-1" />Nova Cotação</a></Button>
+              <Button variant="outline" size="sm" asChild><a href="/admin/quotations">Ver Todas</a></Button>
+            </div>
           </div>
           {workQuotations.length === 0 ? (
-            <Card><CardContent className="p-8 text-center text-slate-400"><DollarSign className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma cotação vinculada a esta obra.</p></CardContent></Card>
+            <Card><CardContent className="p-8 text-center text-slate-400"><DollarSign className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma cotação vinculada a esta obra.</p><Button size="sm" className="mt-3 bg-blue-600 hover:bg-blue-700" asChild><a href={`/admin/quotations?workId=${id}&create=true`}><Plus className="w-4 h-4 mr-1" />Criar Primeira Cotação</a></Button></CardContent></Card>
           ) : (
             <div className="space-y-3">
               {workQuotations.map((q: any) => {
