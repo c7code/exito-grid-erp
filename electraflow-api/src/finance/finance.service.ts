@@ -272,9 +272,97 @@ export class FinanceService {
     return cost;
   }
 
-  async createWorkCost(data: Partial<WorkCost>): Promise<WorkCost> { return this.workCostRepository.save(this.workCostRepository.create(data)); }
-  async updateWorkCost(id: string, data: Partial<WorkCost>): Promise<WorkCost> { const c = await this.findOneWorkCost(id); Object.assign(c, data); return this.workCostRepository.save(c); }
-  async removeWorkCost(id: string): Promise<void> { await this.workCostRepository.softDelete(id); }
+  /** Map work-cost categories → finance transaction categories */
+  private mapCostCategoryToTransaction(cat: string): TransactionCategory {
+    const map: Record<string, TransactionCategory> = {
+      material: TransactionCategory.MATERIALS,
+      labor: TransactionCategory.LABOR,
+      equipment: TransactionCategory.EQUIPMENT,
+      tax: TransactionCategory.TAX,
+      subcontract: TransactionCategory.OTHER,
+      transport: TransactionCategory.OTHER,
+      rental: TransactionCategory.OTHER,
+      ppe: TransactionCategory.MATERIALS,
+      food: TransactionCategory.OTHER,
+      lodging: TransactionCategory.OTHER,
+      other: TransactionCategory.OTHER,
+    };
+    return map[cat] || TransactionCategory.OTHER;
+  }
+
+  async createWorkCost(data: Partial<WorkCost>): Promise<WorkCost> {
+    // 1. Create the work cost
+    const cost = this.workCostRepository.create(data);
+    const saved = await this.workCostRepository.save(cost);
+
+    // 2. Auto-create a linked Payment (expense) in the finance module
+    try {
+      const payment = this.paymentRepository.create({
+        workId: saved.workId,
+        type: PaymentType.EXPENSE,
+        category: this.mapCostCategoryToTransaction(saved.category || 'other'),
+        description: `[Custo Obra] ${saved.description}`,
+        amount: Number(saved.totalPrice) || 0,
+        status: PaymentStatus.PENDING,
+        dueDate: saved.date || new Date(),
+        invoiceNumber: saved.invoiceNumber || null,
+        supplierId: saved.supplierId || null,
+        employeeId: saved.employeeId || null,
+        notes: saved.notes || null,
+      });
+      const savedPayment = await this.paymentRepository.save(payment);
+
+      // 3. Link the payment back to the work cost
+      saved.paymentId = savedPayment.id;
+      await this.workCostRepository.save(saved);
+    } catch (err) {
+      // Don't fail cost creation if payment auto-link fails
+      console.warn('[WorkCost→Payment] Auto-link failed:', err?.message);
+    }
+
+    return saved;
+  }
+
+  async updateWorkCost(id: string, data: Partial<WorkCost>): Promise<WorkCost> {
+    const cost = await this.findOneWorkCost(id);
+    Object.assign(cost, data);
+    const saved = await this.workCostRepository.save(cost);
+
+    // Sync the linked Payment if it exists
+    if (saved.paymentId) {
+      try {
+        const payment = await this.paymentRepository.findOne({ where: { id: saved.paymentId } });
+        if (payment) {
+          payment.description = `[Custo Obra] ${saved.description}`;
+          payment.amount = Number(saved.totalPrice) || 0;
+          payment.category = this.mapCostCategoryToTransaction(saved.category || 'other');
+          payment.dueDate = saved.date || payment.dueDate;
+          payment.invoiceNumber = saved.invoiceNumber || payment.invoiceNumber;
+          payment.supplierId = saved.supplierId || payment.supplierId;
+          payment.employeeId = saved.employeeId || payment.employeeId;
+          payment.notes = saved.notes || payment.notes;
+          await this.paymentRepository.save(payment);
+        }
+      } catch (err) {
+        console.warn('[WorkCost→Payment] Sync update failed:', err?.message);
+      }
+    }
+
+    return saved;
+  }
+
+  async removeWorkCost(id: string): Promise<void> {
+    // Also soft-delete the linked payment
+    const cost = await this.workCostRepository.findOne({ where: { id } });
+    if (cost?.paymentId) {
+      try {
+        await this.paymentRepository.softDelete(cost.paymentId);
+      } catch (err) {
+        console.warn('[WorkCost→Payment] Sync delete failed:', err?.message);
+      }
+    }
+    await this.workCostRepository.softDelete(id);
+  }
 
   // ═══ PAYMENT SCHEDULES ═══════════════════════════════════════════════════
 
