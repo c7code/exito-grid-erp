@@ -150,6 +150,26 @@ export default function AdminWorkDetail() {
   const [showQuickEmployee, setShowQuickEmployee] = useState(false);
   const [quickEmployee, setQuickEmployee] = useState({ name: '', role: 'operational', phone: '' });
 
+  // ── Edição de custo existente ──
+  const [editingCost, setEditingCost] = useState<any>(null);
+
+  const openEditCost = (cost: any) => {
+    setNewCost({
+      description: cost.description || '',
+      category: cost.category || 'material',
+      quantity: String(cost.quantity || 1),
+      unit: cost.unit || 'un',
+      unitPrice: String(cost.unitPrice || ''),
+      supplierId: cost.supplierId || cost.supplier?.id || '',
+      employeeId: cost.employeeId || cost.employee?.id || '',
+      date: cost.date ? cost.date.split('T')[0] : '',
+      invoiceNumber: cost.invoiceNumber || '',
+      notes: cost.notes || '',
+    });
+    setEditingCost(cost);
+    setNewCostOpen(true);
+  };
+
   const handleQuickCreateSupplier = async () => {
     if (!quickSupplier.name.trim()) { toast.error('Nome obrigatório'); return; }
     try {
@@ -1059,28 +1079,48 @@ export default function AdminWorkDetail() {
               const incomePending = payments.filter((p: any) => p.type === 'income' && p.status !== 'paid' && p.status !== 'cancelled').reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
               // ganhoExtra is tagged in notes but not shown as separate KPI card
               const despesaExtra = payments.filter((p: any) => p.type === 'expense' && (p.notes || '').includes('[Despesa Extra]')).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+              const custosTotal = workCosts.reduce((s: number, c: any) => s + Number(c.totalPrice || 0), 0);
               const base = Number(work.totalValue || 0);
+              const saldoReal = base + additivesTotal - custosTotal;
               const saldo = base + additivesTotal - incomeReceived;
               return (
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-                  <Card className="border-l-4 border-l-blue-500">
-                    <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Valor Base</p><p className="text-lg font-bold font-mono">R$ {fmt(base)}</p></CardContent>
-                  </Card>
-                  <Card className="border-l-4 border-l-indigo-500">
-                    <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Aditivos</p><p className="text-lg font-bold font-mono text-indigo-600">R$ {fmt(additivesTotal)}</p></CardContent>
-                  </Card>
-                  <Card className="border-l-4 border-l-emerald-500">
-                    <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Recebido</p><p className="text-lg font-bold font-mono text-emerald-600">R$ {fmt(incomeReceived)}</p></CardContent>
-                  </Card>
-                  <Card className="border-l-4 border-l-amber-500">
-                    <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">A Receber</p><p className="text-lg font-bold font-mono text-amber-600">R$ {fmt(incomePending)}</p></CardContent>
-                  </Card>
-                  <Card className={`border-l-4 ${saldo >= 0 ? 'border-l-teal-500' : 'border-l-red-500'}`}>
-                    <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Saldo Disponível</p><p className={`text-lg font-bold font-mono ${saldo >= 0 ? 'text-teal-600' : 'text-red-600'}`}>R$ {fmt(saldo)}</p></CardContent>
-                  </Card>
-                  <Card className="border-l-4 border-l-rose-500">
-                    <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Despesas Extra</p><p className="text-lg font-bold font-mono text-rose-600">R$ {fmt(despesaExtra)}</p></CardContent>
-                  </Card>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <Card className="border-l-4 border-l-blue-500">
+                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Orçamento Base</p><p className="text-xl font-bold font-mono">R$ {fmt(base)}</p></CardContent>
+                    </Card>
+                    <Card className="border-l-4 border-l-indigo-500">
+                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">+ Aditivos</p><p className="text-xl font-bold font-mono text-indigo-600">R$ {fmt(additivesTotal)}</p></CardContent>
+                    </Card>
+                    <Card className="border-l-4 border-l-rose-500">
+                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">- Custo Total Obra</p><p className="text-xl font-bold font-mono text-rose-600">R$ {fmt(custosTotal)}</p></CardContent>
+                    </Card>
+                    <Card className={`border-l-4 ${saldoReal >= 0 ? 'border-l-teal-500' : 'border-l-red-600'}`}>
+                      <CardContent className="p-3">
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">= Saldo Real Disponível</p>
+                        <p className={`text-xl font-bold font-mono ${saldoReal >= 0 ? 'text-teal-600' : 'text-red-600'}`}>R$ {fmt(saldoReal)}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">{saldoReal >= 0 ? 'Orçamento − Custos lancados' : '⚠️ Custos excedem o orçamento!'}</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <Card className="border-l-4 border-l-emerald-500">
+                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Receitas Recebidas</p><p className="text-lg font-bold font-mono text-emerald-600">R$ {fmt(incomeReceived)}</p></CardContent>
+                    </Card>
+                    <Card className="border-l-4 border-l-amber-500">
+                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">A Receber</p><p className="text-lg font-bold font-mono text-amber-600">R$ {fmt(incomePending)}</p></CardContent>
+                    </Card>
+                    <Card className="border-l-4 border-l-orange-400">
+                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Despesas Extra</p><p className="text-lg font-bold font-mono text-orange-600">R$ {fmt(despesaExtra)}</p></CardContent>
+                    </Card>
+                    <Card className={`border-l-4 ${saldo >= 0 ? 'border-l-cyan-500' : 'border-l-red-400'}`}>
+                      <CardContent className="p-3">
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">Saldo Financeiro</p>
+                        <p className={`text-lg font-bold font-mono ${saldo >= 0 ? 'text-cyan-600' : 'text-red-600'}`}>R$ {fmt(saldo)}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Orçamento − Recebido</p>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </div>
               );
             })()}
@@ -1264,7 +1304,12 @@ export default function AdminWorkDetail() {
                           <td className="py-2 text-right">R$ {fmt(cost.unitPrice)}</td>
                           <td className="py-2 text-right font-medium">R$ {fmt(cost.totalPrice)}</td>
                           <td className="py-2"><Badge className={cost.status === 'paid' ? 'bg-emerald-500' : cost.status === 'approved' ? 'bg-blue-500' : cost.status === 'cancelled' ? 'bg-red-500' : 'bg-yellow-500'}>{cost.status}</Badge></td>
-                          <td className="py-2"><Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={async () => { await api.deleteWorkCost(cost.id); fetchWorkCosts(); toast.success('Custo removido'); }}><Trash2 className="w-3.5 h-3.5" /></Button></td>
+                          <td className="py-2">
+                            <div className="flex items-center gap-1">
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500 hover:text-blue-700" onClick={() => openEditCost(cost)} title="Editar custo"><Edit className="w-3.5 h-3.5" /></Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={async () => { if (confirm('Remover este custo?')) { await api.deleteWorkCost(cost.id); fetchWorkCosts(); toast.success('Custo removido'); } }} title="Excluir"><Trash2 className="w-3.5 h-3.5" /></Button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1707,8 +1752,11 @@ export default function AdminWorkDetail() {
       {/* ── Novo Custo Dialog ────────────────────────────────────────── */}
       <Dialog open={newCostOpen} onOpenChange={setNewCostOpen}>
         <DialogContent className="sm:max-w-[760px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Registrar Custo na Obra</DialogTitle></DialogHeader>
-          <form onSubmit={async (e) => { e.preventDefault(); setCostLoading(true); try { const qty = Number(newCost.quantity) || 1; const up = Number(newCost.unitPrice) || 0; await api.createWorkCost({ workId: id, description: newCost.description, category: newCost.category, quantity: qty, unit: newCost.unit, unitPrice: up, totalPrice: qty * up, date: newCost.date || new Date().toISOString(), invoiceNumber: newCost.invoiceNumber || undefined, supplierId: newCost.supplierId || undefined, employeeId: newCost.employeeId || undefined, notes: newCost.notes || undefined }); toast.success('Custo registrado!'); setNewCostOpen(false); setNewCost({ description: '', category: 'material', quantity: '1', unit: 'un', unitPrice: '', supplierId: '', employeeId: '', date: '', invoiceNumber: '', notes: '' }); fetchWorkCosts(); } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao registrar custo.'); } finally { setCostLoading(false); } }} className="space-y-4">
+          <DialogHeader>
+            <DialogTitle>{editingCost ? 'Editar Custo da Obra' : 'Registrar Custo na Obra'}</DialogTitle>
+            {editingCost && <p className="text-xs text-slate-500 mt-1">Editando: <span className="font-semibold">{editingCost.description}</span></p>}
+          </DialogHeader>
+          <form onSubmit={async (e) => { e.preventDefault(); setCostLoading(true); try { const qty = Number(newCost.quantity) || 1; const up = Number(newCost.unitPrice) || 0; const payload = { workId: id, description: newCost.description, category: newCost.category, quantity: qty, unit: newCost.unit, unitPrice: up, totalPrice: qty * up, date: newCost.date || new Date().toISOString(), invoiceNumber: newCost.invoiceNumber || undefined, supplierId: newCost.supplierId || undefined, employeeId: newCost.employeeId || undefined, notes: newCost.notes || undefined }; if (editingCost) { await api.updateWorkCost(editingCost.id, payload); toast.success('Custo atualizado!'); } else { await api.createWorkCost(payload); toast.success('Custo registrado!'); } setNewCostOpen(false); setEditingCost(null); setNewCost({ description: '', category: 'material', quantity: '1', unit: 'un', unitPrice: '', supplierId: '', employeeId: '', date: '', invoiceNumber: '', notes: '' }); fetchWorkCosts(); } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao salvar custo.'); } finally { setCostLoading(false); } }} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div><Label>Descrição *</Label><Input placeholder="Ex: Cabo 10mm" value={newCost.description} onChange={e => setNewCost({ ...newCost, description: e.target.value })} required /></div>
               <div><Label>Categoria</Label><Select value={newCost.category} onValueChange={v => setNewCost({ ...newCost, category: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="material">Material</SelectItem><SelectItem value="labor">Mão de Obra</SelectItem><SelectItem value="subcontract">Subcontrato</SelectItem><SelectItem value="equipment">Equipamento</SelectItem><SelectItem value="transport">Transporte</SelectItem><SelectItem value="tax">Impostos</SelectItem><SelectItem value="rental">Aluguel</SelectItem><SelectItem value="ppe">EPI</SelectItem><SelectItem value="food">Alimentação</SelectItem><SelectItem value="lodging">Hospedagem</SelectItem><SelectItem value="other">Outro</SelectItem></SelectContent></Select></div>
@@ -1781,8 +1829,8 @@ export default function AdminWorkDetail() {
             </div>
             <div><Label>Observações</Label><Textarea placeholder="Observações..." value={newCost.notes} onChange={e => setNewCost({ ...newCost, notes: e.target.value })} rows={2} /></div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { setNewCostOpen(false); setShowQuickSupplier(false); setShowQuickEmployee(false); }}>Cancelar</Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={costLoading}>{costLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}Registrar</Button>
+              <Button type="button" variant="outline" onClick={() => { setNewCostOpen(false); setEditingCost(null); setShowQuickSupplier(false); setShowQuickEmployee(false); }}>Cancelar</Button>
+              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={costLoading}>{costLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : editingCost ? <Edit className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}{editingCost ? 'Salvar Alterações' : 'Registrar'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
