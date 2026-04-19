@@ -150,6 +150,71 @@ export default function AdminWorkDetail() {
   const [workPaymentForm, setWorkPaymentForm] = useState<any>(emptyWorkPayment);
   const [workPaymentLoading, setWorkPaymentLoading] = useState(false);
 
+  // ── Nova OS (Ordem de Serviço) ──
+  const emptyOs = { title: '', description: '', priority: 'medium', scheduledDate: '', assignedToId: 'none', notes: '' };
+  const [newOsOpen, setNewOsOpen] = useState(false);
+  const [newOsForm, setNewOsForm] = useState<any>(emptyOs);
+  const [osLoading, setOsLoading] = useState(false);
+
+  const handleCreateOs = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOsForm.title.trim()) { toast.error('Título é obrigatório.'); return; }
+    setOsLoading(true);
+    try {
+      await api.createServiceOrder({
+        workId: id,
+        title: newOsForm.title,
+        description: newOsForm.description || undefined,
+        priority: newOsForm.priority,
+        scheduledDate: newOsForm.scheduledDate || null,
+        assignedToId: newOsForm.assignedToId !== 'none' ? newOsForm.assignedToId : undefined,
+        notes: newOsForm.notes || undefined,
+      });
+      toast.success('Ordem de Serviço criada!');
+      setNewOsOpen(false);
+      setNewOsForm(emptyOs);
+      fetchServiceOrders();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Erro ao criar OS.');
+    } finally { setOsLoading(false); }
+  };
+
+  // ── Novo Diário de Obra ──
+  const today = new Date().toISOString().split('T')[0];
+  const emptyLog = { date: today, weatherMorning: '', weatherAfternoon: '', workforcePresentCount: '', workforceAbsentCount: '', workHoursStart: '07:00', workHoursEnd: '17:00', activities: '', notes: '' };
+  const [newLogOpen, setNewLogOpen] = useState(false);
+  const [newLogForm, setNewLogForm] = useState<any>(emptyLog);
+  const [logLoading, setLogLoading] = useState(false);
+
+  const handleCreateLog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLogForm.date) { toast.error('Data é obrigatória.'); return; }
+    setLogLoading(true);
+    try {
+      const activities = newLogForm.activities
+        ? newLogForm.activities.split('\n').filter((l: string) => l.trim()).map((l: string) => ({ description: l.trim() }))
+        : [];
+      await api.createDailyLog({
+        workId: id,
+        date: newLogForm.date,
+        weatherMorning: newLogForm.weatherMorning || undefined,
+        weatherAfternoon: newLogForm.weatherAfternoon || undefined,
+        workforcePresentCount: newLogForm.workforcePresentCount ? Number(newLogForm.workforcePresentCount) : undefined,
+        workforceAbsentCount: newLogForm.workforceAbsentCount ? Number(newLogForm.workforceAbsentCount) : undefined,
+        workHoursStart: newLogForm.workHoursStart || undefined,
+        workHoursEnd: newLogForm.workHoursEnd || undefined,
+        activities: activities.length > 0 ? activities : undefined,
+        notes: newLogForm.notes || undefined,
+      });
+      toast.success('Registro de diário criado!');
+      setNewLogOpen(false);
+      setNewLogForm({ ...emptyLog, date: today });
+      fetchDailyLogs();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Erro ao criar diário.');
+    } finally { setLogLoading(false); }
+  };
+
   const handleCreateWorkPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!workPaymentForm.description.trim() || !workPaymentForm.amount || !workPaymentForm.dueDate) {
@@ -1259,11 +1324,14 @@ export default function AdminWorkDetail() {
         {/* ═══ DIÁRIO DE OBRA TAB ═══════════════════════════════════════ */}
         <TabsContent value="diario" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold flex items-center gap-2"><ClipboardList className="w-5 h-5 text-orange-500" />Diário de Obra</h3>
-            <Button variant="outline" size="sm" asChild><a href="/admin/daily-logs">Ver Todos</a></Button>
+            <h3 className="text-lg font-semibold flex items-center gap-2"><ClipboardList className="w-5 h-5 text-orange-500" />Diário de Obra ({dailyLogs.length})</h3>
+            <div className="flex gap-2">
+              <Button className="bg-orange-500 hover:bg-orange-600" size="sm" onClick={() => setNewLogOpen(true)}><Plus className="w-4 h-4 mr-1" />Novo Registro</Button>
+              <Button variant="outline" size="sm" asChild><a href="/admin/daily-logs">Ver Todos</a></Button>
+            </div>
           </div>
           {dailyLogs.length === 0 ? (
-            <Card><CardContent className="p-8 text-center text-slate-400"><ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhum diário registrado para esta obra.</p></CardContent></Card>
+            <Card><CardContent className="p-8 text-center text-slate-400"><ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhum diário registrado para esta obra.</p><Button size="sm" className="mt-3 bg-orange-500 hover:bg-orange-600" onClick={() => setNewLogOpen(true)}><Plus className="w-4 h-4 mr-1" />Criar Primeiro Registro</Button></CardContent></Card>
           ) : (
             <div className="space-y-3">
               {dailyLogs.map((log: any) => (
@@ -1305,11 +1373,14 @@ export default function AdminWorkDetail() {
         {/* ═══ OS TAB ═══════════════════════════════════════════════════ */}
         <TabsContent value="os" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold flex items-center gap-2"><Wrench className="w-5 h-5 text-amber-500" />Ordens de Serviço</h3>
-            <Button variant="outline" size="sm" asChild><a href="/admin/service-orders">Ver Todas</a></Button>
+            <h3 className="text-lg font-semibold flex items-center gap-2"><Wrench className="w-5 h-5 text-amber-500" />Ordens de Serviço ({serviceOrders.length})</h3>
+            <div className="flex gap-2">
+              <Button className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" onClick={() => setNewOsOpen(true)}><Plus className="w-4 h-4 mr-1" />Nova OS</Button>
+              <Button variant="outline" size="sm" asChild><a href="/admin/service-orders">Ver Todas</a></Button>
+            </div>
           </div>
           {serviceOrders.length === 0 ? (
-            <Card><CardContent className="p-8 text-center text-slate-400"><Wrench className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma OS vinculada a esta obra.</p></CardContent></Card>
+            <Card><CardContent className="p-8 text-center text-slate-400"><Wrench className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma OS vinculada a esta obra.</p><Button size="sm" className="mt-3 bg-amber-500 hover:bg-amber-600 text-slate-900" onClick={() => setNewOsOpen(true)}><Plus className="w-4 h-4 mr-1" />Criar Primeira OS</Button></CardContent></Card>
           ) : (
             <div className="space-y-3">
               {serviceOrders.map((os: any) => (
@@ -1417,6 +1488,139 @@ export default function AdminWorkDetail() {
       </Tabs>
 
       {/* ── Dialogs ────────────────────────────────────────────────────── */}
+
+      {/* ── Dialog: Nova OS ──────────────────────────────────────────── */}
+      <Dialog open={newOsOpen} onOpenChange={setNewOsOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Wrench className="w-5 h-5 text-amber-500" />Nova Ordem de Serviço</DialogTitle>
+            <p className="text-xs text-slate-500 mt-1">Obra: <span className="font-semibold text-slate-700">{work.title}</span></p>
+          </DialogHeader>
+          <form onSubmit={handleCreateOs} className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="os-title">Título *</Label>
+              <Input id="os-title" placeholder="Ex: Instalação do Quadro Elétrico" value={newOsForm.title} onChange={e => setNewOsForm({ ...newOsForm, title: e.target.value })} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="os-desc">Descrição</Label>
+              <Textarea id="os-desc" placeholder="Descreva o serviço a ser executado..." rows={3} value={newOsForm.description} onChange={e => setNewOsForm({ ...newOsForm, description: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Prioridade</Label>
+                <Select value={newOsForm.priority} onValueChange={v => setNewOsForm({ ...newOsForm, priority: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Baixa</SelectItem>
+                    <SelectItem value="medium">Média</SelectItem>
+                    <SelectItem value="high">Alta</SelectItem>
+                    <SelectItem value="urgent">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="os-date">Data Agendada</Label>
+                <Input id="os-date" type="date" value={newOsForm.scheduledDate} onChange={e => setNewOsForm({ ...newOsForm, scheduledDate: e.target.value })} />
+              </div>
+            </div>
+            {employees.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Responsável</Label>
+                <Select value={newOsForm.assignedToId} onValueChange={v => setNewOsForm({ ...newOsForm, assignedToId: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar colaborador..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {employees.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="os-notes">Observações</Label>
+              <Textarea id="os-notes" placeholder="Informações adicionais..." rows={2} value={newOsForm.notes} onChange={e => setNewOsForm({ ...newOsForm, notes: e.target.value })} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => { setNewOsOpen(false); setNewOsForm(emptyOs); }}>Cancelar</Button>
+              <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-slate-900" disabled={osLoading}>
+                {osLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}Criar OS
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Novo Registro Diário ──────────────────────────────── */}
+      <Dialog open={newLogOpen} onOpenChange={setNewLogOpen}>
+        <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><ClipboardList className="w-5 h-5 text-orange-500" />Novo Registro de Diário</DialogTitle>
+            <p className="text-xs text-slate-500 mt-1">Obra: <span className="font-semibold text-slate-700">{work.title}</span></p>
+          </DialogHeader>
+          <form onSubmit={handleCreateLog} className="space-y-4 pt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                <Label htmlFor="log-date">Data *</Label>
+                <Input id="log-date" type="date" value={newLogForm.date} onChange={e => setNewLogForm({ ...newLogForm, date: e.target.value })} required />
+              </div>
+              <div className="grid grid-cols-2 gap-2 col-span-2 sm:col-span-1">
+                <div className="space-y-1.5">
+                  <Label htmlFor="log-start">Início</Label>
+                  <Input id="log-start" type="time" value={newLogForm.workHoursStart} onChange={e => setNewLogForm({ ...newLogForm, workHoursStart: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="log-end">Término</Label>
+                  <Input id="log-end" type="time" value={newLogForm.workHoursEnd} onChange={e => setNewLogForm({ ...newLogForm, workHoursEnd: e.target.value })} />
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="log-wm">Tempo Manhã</Label>
+                <Select value={newLogForm.weatherMorning} onValueChange={v => setNewLogForm({ ...newLogForm, weatherMorning: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {['Ensolarado','Nublado','Chuvoso','Parcialmente nublado','Ventoso'].map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="log-wa">Tempo Tarde</Label>
+                <Select value={newLogForm.weatherAfternoon} onValueChange={v => setNewLogForm({ ...newLogForm, weatherAfternoon: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {['Ensolarado','Nublado','Chuvoso','Parcialmente nublado','Ventoso'].map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="log-present">Colaboradores Presentes</Label>
+                <Input id="log-present" type="number" min="0" placeholder="0" value={newLogForm.workforcePresentCount} onChange={e => setNewLogForm({ ...newLogForm, workforcePresentCount: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="log-absent">Ausentes</Label>
+                <Input id="log-absent" type="number" min="0" placeholder="0" value={newLogForm.workforceAbsentCount} onChange={e => setNewLogForm({ ...newLogForm, workforceAbsentCount: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="log-activities">Atividades Realizadas</Label>
+              <Textarea id="log-activities" placeholder="Uma atividade por linha. Ex:\nInstalação de cabos\nFixação de suportes" rows={4} value={newLogForm.activities} onChange={e => setNewLogForm({ ...newLogForm, activities: e.target.value })} />
+              <p className="text-xs text-slate-400">Uma atividade por linha</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="log-notes">Observações</Label>
+              <Textarea id="log-notes" placeholder="Observações gerais..." rows={2} value={newLogForm.notes} onChange={e => setNewLogForm({ ...newLogForm, notes: e.target.value })} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => { setNewLogOpen(false); setNewLogForm({ ...emptyLog, date: today }); }}>Cancelar</Button>
+              <Button type="submit" className="bg-orange-500 hover:bg-orange-600" disabled={logLoading}>
+                {logLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}Registrar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       {editOpen && <EditWorkDialog open={editOpen} onOpenChange={setEditOpen} work={work} onWorkUpdated={handleRefresh} />}
       {progressOpen && <WorkProgressDialog open={progressOpen} onOpenChange={setProgressOpen} work={work} onProgressUpdated={handleRefresh} />}
       {deleteOpen && <DeleteWorkDialog open={deleteOpen} onOpenChange={setDeleteOpen} work={work} onWorkDeleted={() => window.location.href = '/admin/works'} />}
