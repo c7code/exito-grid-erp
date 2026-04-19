@@ -144,70 +144,41 @@ export default function AdminWorkDetail() {
   const [newSchedule, setNewSchedule] = useState({ description: '', amount: '', dueDate: '', installmentNumber: '1', totalInstallments: '1', supplierId: '', employeeId: '', notes: '' });
   const [costLoading, setCostLoading] = useState(false);
 
+  // ── Quick-create Fornecedor/Colaborador dentro do modal de Custo ──
+  const [showQuickSupplier, setShowQuickSupplier] = useState(false);
+  const [quickSupplier, setQuickSupplier] = useState({ name: '', phone: '', email: '' });
+  const [showQuickEmployee, setShowQuickEmployee] = useState(false);
+  const [quickEmployee, setQuickEmployee] = useState({ name: '', role: 'operational', phone: '' });
+
+  const handleQuickCreateSupplier = async () => {
+    if (!quickSupplier.name.trim()) { toast.error('Nome obrigatório'); return; }
+    try {
+      const created = await api.createSupplier({ name: quickSupplier.name, phone: quickSupplier.phone || undefined, email: quickSupplier.email || undefined });
+      await fetchSuppliers();
+      setNewCost(prev => ({ ...prev, supplierId: created.id }));
+      setShowQuickSupplier(false);
+      setQuickSupplier({ name: '', phone: '', email: '' });
+      toast.success('Fornecedor criado!');
+    } catch { toast.error('Erro ao criar fornecedor'); }
+  };
+
+  const handleQuickCreateEmployee = async () => {
+    if (!quickEmployee.name.trim()) { toast.error('Nome obrigatório'); return; }
+    try {
+      const created = await api.createEmployee({ name: quickEmployee.name, role: quickEmployee.role, phone: quickEmployee.phone || undefined });
+      await fetchEmployees();
+      setNewCost(prev => ({ ...prev, employeeId: created.id }));
+      setShowQuickEmployee(false);
+      setQuickEmployee({ name: '', role: 'operational', phone: '' });
+      toast.success('Colaborador criado!');
+    } catch { toast.error('Erro ao criar colaborador'); }
+  };
+
   // ── Work Payment (Lançamento Financeiro da Obra) ──
   const emptyWorkPayment = { origem: 'receita_contratual', description: '', amount: '', dueDate: new Date().toISOString().split('T')[0], invoiceNumber: '', notes: '' };
   const [workPaymentOpen, setWorkPaymentOpen] = useState(false);
   const [workPaymentForm, setWorkPaymentForm] = useState<any>(emptyWorkPayment);
   const [workPaymentLoading, setWorkPaymentLoading] = useState(false);
-
-  // ── Estoque / Materiais ──
-  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
-  const emptyMovement = { itemId: 'none', type: 'exit', quantity: '1', reason: '', notes: '' };
-  const [newMovOpen, setNewMovOpen] = useState(false);
-  const [newMovForm, setNewMovForm] = useState<any>(emptyMovement);
-  const [movLoading, setMovLoading] = useState(false);
-
-  const loadInventoryItems = async () => {
-    try { const d = await api.getInventoryItems(); setInventoryItems(Array.isArray(d) ? d : (d?.data ?? [])); }
-    catch { setInventoryItems([]); }
-  };
-
-  const handleCreateMovement = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMovForm.itemId || newMovForm.itemId === 'none') { toast.error('Selecione um item do estoque.'); return; }
-    if (!newMovForm.quantity || Number(newMovForm.quantity) <= 0) { toast.error('Quantidade deve ser maior que zero.'); return; }
-    setMovLoading(true);
-    try {
-      await api.createInventoryMovement({
-        itemId: newMovForm.itemId,
-        workId: id,
-        type: newMovForm.type,
-        quantity: Number(newMovForm.quantity),
-        reason: newMovForm.reason || undefined,
-        notes: newMovForm.notes || undefined,
-      });
-      toast.success('Movimentação registrada!');
-      setNewMovOpen(false);
-      setNewMovForm(emptyMovement);
-      fetchInventoryMovements();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Erro ao registrar movimentação.');
-    } finally { setMovLoading(false); }
-  };
-
-  // ── Upload de Documento ──
-  const [newDocOpen, setNewDocOpen] = useState(false);
-  const [docFile, setDocFile] = useState<File | null>(null);
-  const [docName, setDocName] = useState('');
-  const [docType, setDocType] = useState('technical');
-  const [docLoading, setDocLoading] = useState(false);
-
-  const handleUploadDocument = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!docFile) { toast.error('Selecione um arquivo.'); return; }
-    setDocLoading(true);
-    try {
-      await api.uploadDocument(docFile, { name: docName || docFile.name, workId: id, type: docType });
-      toast.success('Documento enviado!');
-      setNewDocOpen(false);
-      setDocFile(null);
-      setDocName('');
-      setDocType('technical');
-      fetchDocuments();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Erro ao enviar documento.');
-    } finally { setDocLoading(false); }
-  };
 
   // ── Nova OS (Ordem de Serviço) ──
   const emptyOs = { title: '', description: '', priority: 'medium', scheduledDate: '', assignedToId: 'none', notes: '' };
@@ -764,11 +735,10 @@ export default function AdminWorkDetail() {
         {/* ═══ DOCUMENTS TAB ══════════════════════════════════════════════ */}
         <TabsContent value="documents" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold flex items-center gap-2"><FileText className="w-5 h-5" />Documentos da Obra ({documents.length})</h3>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => setNewDocOpen(true)}><Plus className="w-4 h-4 mr-1" />Enviar Documento</Button>
+            <h3 className="text-lg font-semibold flex items-center gap-2"><FileText className="w-5 h-5" />Documentos da Obra</h3>
           </div>
           {documents.length === 0 ? (
-            <Card><CardContent className="p-8 text-center text-slate-400"><FileText className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhum documento vinculado.</p><Button size="sm" className="mt-3 bg-blue-600 hover:bg-blue-700" onClick={() => setNewDocOpen(true)}><Plus className="w-4 h-4 mr-1" />Enviar Primeiro Documento</Button></CardContent></Card>
+            <Card><CardContent className="p-8 text-center text-slate-400"><FileText className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhum documento vinculado.</p></CardContent></Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {documents.map((doc: any) => (
@@ -1473,14 +1443,11 @@ export default function AdminWorkDetail() {
         {/* ═══ MATERIAIS TAB ═══════════════════════════════════════════ */}
         <TabsContent value="materiais" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold flex items-center gap-2"><Warehouse className="w-5 h-5 text-teal-500" />Materiais / Movimentações ({inventoryMovements.length})</h3>
-            <div className="flex gap-2">
-              <Button className="bg-teal-600 hover:bg-teal-700" size="sm" onClick={() => { loadInventoryItems(); setNewMovOpen(true); }}><Plus className="w-4 h-4 mr-1" />Nova Movimentação</Button>
-              <Button variant="outline" size="sm" asChild><a href="/admin/inventory">Ver Estoque</a></Button>
-            </div>
+            <h3 className="text-lg font-semibold flex items-center gap-2"><Warehouse className="w-5 h-5 text-teal-500" />Materiais / Movimentações</h3>
+            <Button variant="outline" size="sm" asChild><a href="/admin/inventory">Ver Estoque</a></Button>
           </div>
           {inventoryMovements.length === 0 ? (
-            <Card><CardContent className="p-8 text-center text-slate-400"><Warehouse className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma movimentação de material para esta obra.</p><Button size="sm" className="mt-3 bg-teal-600 hover:bg-teal-700" onClick={() => { loadInventoryItems(); setNewMovOpen(true); }}><Plus className="w-4 h-4 mr-1" />Registrar Movimentação</Button></CardContent></Card>
+            <Card><CardContent className="p-8 text-center text-slate-400"><Warehouse className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma movimentação de material para esta obra.</p></CardContent></Card>
           ) : (
             <Card>
               <CardContent className="p-0">
@@ -1549,113 +1516,6 @@ export default function AdminWorkDetail() {
       </Tabs>
 
       {/* ── Dialogs ────────────────────────────────────────────────────── */}
-
-      {/* ── Dialog: Upload de Documento ────────────────────────────────── */}
-      <Dialog open={newDocOpen} onOpenChange={setNewDocOpen}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><FileText className="w-5 h-5 text-blue-600" />Enviar Documento</DialogTitle>
-            <p className="text-xs text-slate-500 mt-1">Obra: <span className="font-semibold text-slate-700">{work.title}</span></p>
-          </DialogHeader>
-          <form onSubmit={handleUploadDocument} className="space-y-4 pt-1">
-            <div className="space-y-1.5">
-              <Label>Arquivo *</Label>
-              <div className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${docFile ? 'border-blue-400 bg-blue-50' : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}`}
-                onClick={() => document.getElementById('doc-file-input')?.click()}>
-                <input id="doc-file-input" type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setDocFile(f); if (!docName) setDocName(f.name); } }} />
-                {docFile ? (
-                  <><FileText className="w-8 h-8 mx-auto mb-2 text-blue-500" /><p className="font-medium text-sm text-blue-700">{docFile.name}</p><p className="text-xs text-slate-400 mt-1">{(docFile.size / 1024).toFixed(0)} KB</p></>
-                ) : (
-                  <><FileText className="w-8 h-8 mx-auto mb-2 text-slate-300" /><p className="text-sm text-slate-500">Clique para selecionar o arquivo</p><p className="text-xs text-slate-400 mt-1">PDF, Word, Excel, Imagens...</p></>
-                )}
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="doc-name">Nome do Documento</Label>
-              <Input id="doc-name" placeholder="Ex: Projeto Elétrico Revisado" value={docName} onChange={e => setDocName(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Tipo</Label>
-              <Select value={docType} onValueChange={setDocType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="technical">Técnico</SelectItem>
-                  <SelectItem value="contract">Contrato</SelectItem>
-                  <SelectItem value="permit">Alvará / Licença</SelectItem>
-                  <SelectItem value="report">Relatório</SelectItem>
-                  <SelectItem value="invoice">Nota Fiscal</SelectItem>
-                  <SelectItem value="photo">Foto</SelectItem>
-                  <SelectItem value="other">Outro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { setNewDocOpen(false); setDocFile(null); setDocName(''); }}>Cancelar</Button>
-              <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={docLoading || !docFile}>
-                {docLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}Enviar
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Dialog: Nova Movimentação de Material ───────────────────────── */}
-      <Dialog open={newMovOpen} onOpenChange={setNewMovOpen}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Warehouse className="w-5 h-5 text-teal-600" />Nova Movimentação de Material</DialogTitle>
-            <p className="text-xs text-slate-500 mt-1">Obra: <span className="font-semibold text-slate-700">{work.title}</span></p>
-          </DialogHeader>
-          <form onSubmit={handleCreateMovement} className="space-y-4 pt-1">
-            <div className="space-y-1.5">
-              <Label>Item do Estoque *</Label>
-              <Select value={newMovForm.itemId} onValueChange={v => setNewMovForm({ ...newMovForm, itemId: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecionar item..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Selecionar...</SelectItem>
-                  {inventoryItems.map((item: any) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name} {item.currentStock != null ? `(Estoque: ${item.currentStock} ${item.unit || ''})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {inventoryItems.length === 0 && <p className="text-xs text-amber-600">Nenhum item no estoque. Cadastre itens em Estoque &gt; Itens.</p>}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Tipo de Movimentação</Label>
-                <Select value={newMovForm.type} onValueChange={v => setNewMovForm({ ...newMovForm, type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="exit">📤 Saída (uso na obra)</SelectItem>
-                    <SelectItem value="entry">📥 Entrada (devolução)</SelectItem>
-                    <SelectItem value="transfer">🔄 Transferência</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="mov-qty">Quantidade *</Label>
-                <Input id="mov-qty" type="number" min="0.01" step="0.01" placeholder="1" value={newMovForm.quantity} onChange={e => setNewMovForm({ ...newMovForm, quantity: e.target.value })} required />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="mov-reason">Motivo / Descrição</Label>
-              <Input id="mov-reason" placeholder="Ex: Instalação do painel elétrico" value={newMovForm.reason} onChange={e => setNewMovForm({ ...newMovForm, reason: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="mov-notes">Observações</Label>
-              <Textarea id="mov-notes" placeholder="Informações adicionais..." rows={2} value={newMovForm.notes} onChange={e => setNewMovForm({ ...newMovForm, notes: e.target.value })} />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { setNewMovOpen(false); setNewMovForm(emptyMovement); }}>Cancelar</Button>
-              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={movLoading}>
-                {movLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}Registrar
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Dialog: Nova OS ──────────────────────────────────────────── */}
       <Dialog open={newOsOpen} onOpenChange={setNewOsOpen}>
@@ -1846,7 +1706,7 @@ export default function AdminWorkDetail() {
 
       {/* ── Novo Custo Dialog ────────────────────────────────────────── */}
       <Dialog open={newCostOpen} onOpenChange={setNewCostOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[760px] max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Registrar Custo na Obra</DialogTitle></DialogHeader>
           <form onSubmit={async (e) => { e.preventDefault(); setCostLoading(true); try { const qty = Number(newCost.quantity) || 1; const up = Number(newCost.unitPrice) || 0; await api.createWorkCost({ workId: id, description: newCost.description, category: newCost.category, quantity: qty, unit: newCost.unit, unitPrice: up, totalPrice: qty * up, date: newCost.date || new Date().toISOString(), invoiceNumber: newCost.invoiceNumber || undefined, supplierId: newCost.supplierId || undefined, employeeId: newCost.employeeId || undefined, notes: newCost.notes || undefined }); toast.success('Custo registrado!'); setNewCostOpen(false); setNewCost({ description: '', category: 'material', quantity: '1', unit: 'un', unitPrice: '', supplierId: '', employeeId: '', date: '', invoiceNumber: '', notes: '' }); fetchWorkCosts(); } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao registrar custo.'); } finally { setCostLoading(false); } }} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -1859,17 +1719,69 @@ export default function AdminWorkDetail() {
               <div><Label>Preço Unitário *</Label><Input type="text" inputMode="decimal" step="0.01" min="0" placeholder="0.00" value={newCost.unitPrice} onChange={e => setNewCost({ ...newCost, unitPrice: e.target.value })} required /></div>
               <div><Label>Total</Label><Input disabled value={`R$ ${fmt((Number(newCost.quantity) || 0) * (Number(newCost.unitPrice) || 0))}`} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>Fornecedor</Label><Select value={newCost.supplierId} onValueChange={v => setNewCost({ ...newCost, supplierId: v })}><SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent>{suppliers.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.tradeName || s.name}</SelectItem>)}</SelectContent></Select></div>
-              <div><Label>Colaborador</Label><Select value={newCost.employeeId} onValueChange={v => setNewCost({ ...newCost, employeeId: v })}><SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger><SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}</SelectContent></Select></div>
+
+            {/* Fornecedor com quick-create */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Fornecedor</Label>
+                <button type="button" className="text-xs flex items-center gap-1 text-emerald-600 hover:text-emerald-700 font-medium" onClick={() => setShowQuickSupplier(v => !v)}>
+                  <Plus className="w-3.5 h-3.5" />{showQuickSupplier ? 'Cancelar' : 'Novo Fornecedor'}
+                </button>
+              </div>
+              <Select value={newCost.supplierId} onValueChange={v => setNewCost({ ...newCost, supplierId: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecionar fornecedor..." /></SelectTrigger>
+                <SelectContent>{suppliers.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.tradeName || s.name}</SelectItem>)}</SelectContent>
+              </Select>
+              {showQuickSupplier && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-semibold text-emerald-700">Cadastro Rápido de Fornecedor</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2"><Input placeholder="Nome / Razão Social *" value={quickSupplier.name} onChange={e => setQuickSupplier(p => ({ ...p, name: e.target.value }))} className="h-8 text-sm" /></div>
+                    <div><Input placeholder="Telefone" value={quickSupplier.phone} onChange={e => setQuickSupplier(p => ({ ...p, phone: e.target.value }))} className="h-8 text-sm" /></div>
+                    <div className="col-span-2"><Input placeholder="E-mail" type="email" value={quickSupplier.email} onChange={e => setQuickSupplier(p => ({ ...p, email: e.target.value }))} className="h-8 text-sm" /></div>
+                    <div><Button type="button" size="sm" className="w-full h-8 bg-emerald-600 hover:bg-emerald-700 text-xs" onClick={handleQuickCreateSupplier}>Salvar</Button></div>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Colaborador com quick-create */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Colaborador</Label>
+                <button type="button" className="text-xs flex items-center gap-1 text-blue-600 hover:text-blue-700 font-medium" onClick={() => setShowQuickEmployee(v => !v)}>
+                  <Plus className="w-3.5 h-3.5" />{showQuickEmployee ? 'Cancelar' : 'Novo Colaborador'}
+                </button>
+              </div>
+              <Select value={newCost.employeeId} onValueChange={v => setNewCost({ ...newCost, employeeId: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecionar colaborador..." /></SelectTrigger>
+                <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}</SelectContent>
+              </Select>
+              {showQuickEmployee && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-semibold text-blue-700">Cadastro Rápido de Colaborador</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2"><Input placeholder="Nome *" value={quickEmployee.name} onChange={e => setQuickEmployee(p => ({ ...p, name: e.target.value }))} className="h-8 text-sm" /></div>
+                    <div><Input placeholder="Telefone" value={quickEmployee.phone} onChange={e => setQuickEmployee(p => ({ ...p, phone: e.target.value }))} className="h-8 text-sm" /></div>
+                    <div className="col-span-2">
+                      <Select value={quickEmployee.role} onValueChange={v => setQuickEmployee(p => ({ ...p, role: v }))}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="operational">Operacional</SelectItem><SelectItem value="engineering">Engenharia</SelectItem><SelectItem value="administrative">Administrativo</SelectItem></SelectContent>
+                      </Select>
+                    </div>
+                    <div><Button type="button" size="sm" className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-xs" onClick={handleQuickCreateEmployee}>Salvar</Button></div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div><Label>Data</Label><Input type="date" value={newCost.date} onChange={e => setNewCost({ ...newCost, date: e.target.value })} /></div>
               <div><Label>Nº Nota Fiscal</Label><Input placeholder="NF-e" value={newCost.invoiceNumber} onChange={e => setNewCost({ ...newCost, invoiceNumber: e.target.value })} /></div>
             </div>
             <div><Label>Observações</Label><Textarea placeholder="Observações..." value={newCost.notes} onChange={e => setNewCost({ ...newCost, notes: e.target.value })} rows={2} /></div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setNewCostOpen(false)}>Cancelar</Button>
+              <Button type="button" variant="outline" onClick={() => { setNewCostOpen(false); setShowQuickSupplier(false); setShowQuickEmployee(false); }}>Cancelar</Button>
               <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={costLoading}>{costLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}Registrar</Button>
             </DialogFooter>
           </form>
