@@ -230,7 +230,7 @@ export default function AdminWorkDetail() {
         despesa_extra:      { type: 'expense', category: 'other' },
       };
       const { type, category } = originMap[workPaymentForm.origem] || originMap.receita_contratual;
-      const origemLabel = { receita_contratual: '[Contratual]', aditivo: '[Aditivo]', ganho_extra: '[Ganho Extra]', despesa_extra: '[Despesa Extra]' }[workPaymentForm.origem] || '';
+      const origemLabel = ({ receita_contratual: '[Contratual]', aditivo: '[Aditivo]', ganho_extra: '[Ganho Extra]', despesa_extra: '[Despesa Extra]' } as Record<string, string>)[workPaymentForm.origem] || '';
       await api.createPayment({
         workId: id,
         type,
@@ -454,9 +454,7 @@ export default function AdminWorkDetail() {
   const taskAssignees = new Set(tasks.map((t: any) => t.assignedToId || t.assignedTo?.id).filter(Boolean));
   const teamMembers = employees.filter((e: any) => taskAssignees.has(e.id) || e.id === work.assignedEngineerId || e.id === work.assignedDesignerId);
 
-  // Finance totals
-  const totalReceived = payments.filter((p: any) => p.status === 'paid').reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-  const totalPending = payments.filter((p: any) => p.status !== 'paid' && p.status !== 'cancelled').reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+  // Finance totals (now computed inside the finance tab IIFE panel)
 
   return (
     <div className="space-y-6">
@@ -1029,7 +1027,7 @@ export default function AdminWorkDetail() {
               const additivesTotal = additives.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
               const incomeReceived = payments.filter((p: any) => p.type === 'income' && p.status === 'paid').reduce((s: number, p: any) => s + Number(p.paidAmount || p.amount || 0), 0);
               const incomePending = payments.filter((p: any) => p.type === 'income' && p.status !== 'paid' && p.status !== 'cancelled').reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-              const ganhoExtra = payments.filter((p: any) => p.type === 'income' && (p.notes || '').includes('[Ganho Extra]')).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+              // ganhoExtra is tagged in notes but not shown as separate KPI card
               const despesaExtra = payments.filter((p: any) => p.type === 'expense' && (p.notes || '').includes('[Despesa Extra]')).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
               const base = Number(work.totalValue || 0);
               const saldo = base + additivesTotal - incomeReceived;
