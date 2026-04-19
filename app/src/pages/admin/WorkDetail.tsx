@@ -150,6 +150,65 @@ export default function AdminWorkDetail() {
   const [workPaymentForm, setWorkPaymentForm] = useState<any>(emptyWorkPayment);
   const [workPaymentLoading, setWorkPaymentLoading] = useState(false);
 
+  // ── Estoque / Materiais ──
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const emptyMovement = { itemId: 'none', type: 'exit', quantity: '1', reason: '', notes: '' };
+  const [newMovOpen, setNewMovOpen] = useState(false);
+  const [newMovForm, setNewMovForm] = useState<any>(emptyMovement);
+  const [movLoading, setMovLoading] = useState(false);
+
+  const loadInventoryItems = async () => {
+    try { const d = await api.getInventoryItems(); setInventoryItems(Array.isArray(d) ? d : (d?.data ?? [])); }
+    catch { setInventoryItems([]); }
+  };
+
+  const handleCreateMovement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMovForm.itemId || newMovForm.itemId === 'none') { toast.error('Selecione um item do estoque.'); return; }
+    if (!newMovForm.quantity || Number(newMovForm.quantity) <= 0) { toast.error('Quantidade deve ser maior que zero.'); return; }
+    setMovLoading(true);
+    try {
+      await api.createInventoryMovement({
+        itemId: newMovForm.itemId,
+        workId: id,
+        type: newMovForm.type,
+        quantity: Number(newMovForm.quantity),
+        reason: newMovForm.reason || undefined,
+        notes: newMovForm.notes || undefined,
+      });
+      toast.success('Movimentação registrada!');
+      setNewMovOpen(false);
+      setNewMovForm(emptyMovement);
+      fetchInventoryMovements();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Erro ao registrar movimentação.');
+    } finally { setMovLoading(false); }
+  };
+
+  // ── Upload de Documento ──
+  const [newDocOpen, setNewDocOpen] = useState(false);
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docName, setDocName] = useState('');
+  const [docType, setDocType] = useState('technical');
+  const [docLoading, setDocLoading] = useState(false);
+
+  const handleUploadDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!docFile) { toast.error('Selecione um arquivo.'); return; }
+    setDocLoading(true);
+    try {
+      await api.uploadDocument(docFile, { name: docName || docFile.name, workId: id, type: docType });
+      toast.success('Documento enviado!');
+      setNewDocOpen(false);
+      setDocFile(null);
+      setDocName('');
+      setDocType('technical');
+      fetchDocuments();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Erro ao enviar documento.');
+    } finally { setDocLoading(false); }
+  };
+
   // ── Nova OS (Ordem de Serviço) ──
   const emptyOs = { title: '', description: '', priority: 'medium', scheduledDate: '', assignedToId: 'none', notes: '' };
   const [newOsOpen, setNewOsOpen] = useState(false);
@@ -705,10 +764,11 @@ export default function AdminWorkDetail() {
         {/* ═══ DOCUMENTS TAB ══════════════════════════════════════════════ */}
         <TabsContent value="documents" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold flex items-center gap-2"><FileText className="w-5 h-5" />Documentos da Obra</h3>
+            <h3 className="text-lg font-semibold flex items-center gap-2"><FileText className="w-5 h-5" />Documentos da Obra ({documents.length})</h3>
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => setNewDocOpen(true)}><Plus className="w-4 h-4 mr-1" />Enviar Documento</Button>
           </div>
           {documents.length === 0 ? (
-            <Card><CardContent className="p-8 text-center text-slate-400"><FileText className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhum documento vinculado.</p></CardContent></Card>
+            <Card><CardContent className="p-8 text-center text-slate-400"><FileText className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhum documento vinculado.</p><Button size="sm" className="mt-3 bg-blue-600 hover:bg-blue-700" onClick={() => setNewDocOpen(true)}><Plus className="w-4 h-4 mr-1" />Enviar Primeiro Documento</Button></CardContent></Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {documents.map((doc: any) => (
@@ -1413,11 +1473,14 @@ export default function AdminWorkDetail() {
         {/* ═══ MATERIAIS TAB ═══════════════════════════════════════════ */}
         <TabsContent value="materiais" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold flex items-center gap-2"><Warehouse className="w-5 h-5 text-teal-500" />Materiais / Movimentações</h3>
-            <Button variant="outline" size="sm" asChild><a href="/admin/inventory">Ver Estoque</a></Button>
+            <h3 className="text-lg font-semibold flex items-center gap-2"><Warehouse className="w-5 h-5 text-teal-500" />Materiais / Movimentações ({inventoryMovements.length})</h3>
+            <div className="flex gap-2">
+              <Button className="bg-teal-600 hover:bg-teal-700" size="sm" onClick={() => { loadInventoryItems(); setNewMovOpen(true); }}><Plus className="w-4 h-4 mr-1" />Nova Movimentação</Button>
+              <Button variant="outline" size="sm" asChild><a href="/admin/inventory">Ver Estoque</a></Button>
+            </div>
           </div>
           {inventoryMovements.length === 0 ? (
-            <Card><CardContent className="p-8 text-center text-slate-400"><Warehouse className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma movimentação de material para esta obra.</p></CardContent></Card>
+            <Card><CardContent className="p-8 text-center text-slate-400"><Warehouse className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma movimentação de material para esta obra.</p><Button size="sm" className="mt-3 bg-teal-600 hover:bg-teal-700" onClick={() => { loadInventoryItems(); setNewMovOpen(true); }}><Plus className="w-4 h-4 mr-1" />Registrar Movimentação</Button></CardContent></Card>
           ) : (
             <Card>
               <CardContent className="p-0">
@@ -1486,6 +1549,113 @@ export default function AdminWorkDetail() {
       </Tabs>
 
       {/* ── Dialogs ────────────────────────────────────────────────────── */}
+
+      {/* ── Dialog: Upload de Documento ────────────────────────────────── */}
+      <Dialog open={newDocOpen} onOpenChange={setNewDocOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><FileText className="w-5 h-5 text-blue-600" />Enviar Documento</DialogTitle>
+            <p className="text-xs text-slate-500 mt-1">Obra: <span className="font-semibold text-slate-700">{work.title}</span></p>
+          </DialogHeader>
+          <form onSubmit={handleUploadDocument} className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label>Arquivo *</Label>
+              <div className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${docFile ? 'border-blue-400 bg-blue-50' : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}`}
+                onClick={() => document.getElementById('doc-file-input')?.click()}>
+                <input id="doc-file-input" type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setDocFile(f); if (!docName) setDocName(f.name); } }} />
+                {docFile ? (
+                  <><FileText className="w-8 h-8 mx-auto mb-2 text-blue-500" /><p className="font-medium text-sm text-blue-700">{docFile.name}</p><p className="text-xs text-slate-400 mt-1">{(docFile.size / 1024).toFixed(0)} KB</p></>
+                ) : (
+                  <><FileText className="w-8 h-8 mx-auto mb-2 text-slate-300" /><p className="text-sm text-slate-500">Clique para selecionar o arquivo</p><p className="text-xs text-slate-400 mt-1">PDF, Word, Excel, Imagens...</p></>
+                )}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="doc-name">Nome do Documento</Label>
+              <Input id="doc-name" placeholder="Ex: Projeto Elétrico Revisado" value={docName} onChange={e => setDocName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tipo</Label>
+              <Select value={docType} onValueChange={setDocType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="technical">Técnico</SelectItem>
+                  <SelectItem value="contract">Contrato</SelectItem>
+                  <SelectItem value="permit">Alvará / Licença</SelectItem>
+                  <SelectItem value="report">Relatório</SelectItem>
+                  <SelectItem value="invoice">Nota Fiscal</SelectItem>
+                  <SelectItem value="photo">Foto</SelectItem>
+                  <SelectItem value="other">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => { setNewDocOpen(false); setDocFile(null); setDocName(''); }}>Cancelar</Button>
+              <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={docLoading || !docFile}>
+                {docLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}Enviar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Nova Movimentação de Material ───────────────────────── */}
+      <Dialog open={newMovOpen} onOpenChange={setNewMovOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Warehouse className="w-5 h-5 text-teal-600" />Nova Movimentação de Material</DialogTitle>
+            <p className="text-xs text-slate-500 mt-1">Obra: <span className="font-semibold text-slate-700">{work.title}</span></p>
+          </DialogHeader>
+          <form onSubmit={handleCreateMovement} className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label>Item do Estoque *</Label>
+              <Select value={newMovForm.itemId} onValueChange={v => setNewMovForm({ ...newMovForm, itemId: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecionar item..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Selecionar...</SelectItem>
+                  {inventoryItems.map((item: any) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name} {item.currentStock != null ? `(Estoque: ${item.currentStock} ${item.unit || ''})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {inventoryItems.length === 0 && <p className="text-xs text-amber-600">Nenhum item no estoque. Cadastre itens em Estoque &gt; Itens.</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Tipo de Movimentação</Label>
+                <Select value={newMovForm.type} onValueChange={v => setNewMovForm({ ...newMovForm, type: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="exit">📤 Saída (uso na obra)</SelectItem>
+                    <SelectItem value="entry">📥 Entrada (devolução)</SelectItem>
+                    <SelectItem value="transfer">🔄 Transferência</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mov-qty">Quantidade *</Label>
+                <Input id="mov-qty" type="number" min="0.01" step="0.01" placeholder="1" value={newMovForm.quantity} onChange={e => setNewMovForm({ ...newMovForm, quantity: e.target.value })} required />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="mov-reason">Motivo / Descrição</Label>
+              <Input id="mov-reason" placeholder="Ex: Instalação do painel elétrico" value={newMovForm.reason} onChange={e => setNewMovForm({ ...newMovForm, reason: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="mov-notes">Observações</Label>
+              <Textarea id="mov-notes" placeholder="Informações adicionais..." rows={2} value={newMovForm.notes} onChange={e => setNewMovForm({ ...newMovForm, notes: e.target.value })} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => { setNewMovOpen(false); setNewMovForm(emptyMovement); }}>Cancelar</Button>
+              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={movLoading}>
+                {movLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}Registrar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Dialog: Nova OS ──────────────────────────────────────────── */}
       <Dialog open={newOsOpen} onOpenChange={setNewOsOpen}>
