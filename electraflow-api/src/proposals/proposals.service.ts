@@ -209,19 +209,18 @@ export class ProposalsService implements OnModuleInit {
     const year = new Date().getFullYear();
     const prefix = `PROP-${year}-`;
 
-    // MUST include soft-deleted proposals to avoid duplicate key on unique proposalNumber
-    const lastProposal = await this.proposalRepository
-      .createQueryBuilder('p')
-      .withDeleted()
-      .where('p.proposalNumber LIKE :prefix', { prefix: `${prefix}%` })
-      .orderBy('p.proposalNumber', 'DESC')
-      .getOne();
+    // Use raw SQL with CAST to extract the numeric suffix correctly,
+    // avoiding string-based ordering issues (e.g. "099" vs "100").
+    // Also includes soft-deleted rows to prevent duplicate key violations.
+    const result = await this.dataSource.query(
+      `SELECT MAX(CAST(REPLACE("proposalNumber", $1, '') AS INTEGER)) as max_num
+       FROM proposals
+       WHERE "proposalNumber" LIKE $2`,
+      [prefix, `${prefix}%`],
+    );
 
-    let nextNumber = 1;
-    if (lastProposal) {
-      const lastNumber = parseInt(lastProposal.proposalNumber.replace(prefix, ''), 10);
-      nextNumber = lastNumber + 1;
-    }
+    const maxNum = Number(result?.[0]?.max_num) || 0;
+    const nextNumber = maxNum + 1;
 
     return `${prefix}${String(nextNumber).padStart(3, '0')}`;
   }
