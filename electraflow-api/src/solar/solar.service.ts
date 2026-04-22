@@ -316,9 +316,17 @@ export class SolarService {
             throw new NotFoundException('Execute o dimensionamento e cálculo financeiro antes de gerar a proposta');
         }
 
-        // Generate proposal number
-        const count = await this.proposalRepo.count();
-        const proposalNumber = `SOL-${String(count + 1).padStart(4, '0')}`;
+        // Generate proposal number — use MAX to include soft-deleted and avoid duplicate key
+        const prefix = `PROP-${new Date().getFullYear()}-`;
+        const result = await this.proposalRepo
+            .createQueryBuilder('p')
+            .withDeleted()
+            .select(`MAX(CAST(REPLACE(p.proposalNumber, :prefix, '') AS INTEGER))`, 'max_num')
+            .setParameter('prefix', prefix)
+            .where('p.proposalNumber LIKE :pattern', { pattern: `${prefix}%` })
+            .getRawOne();
+        const nextNum = (Number(result?.max_num) || 0) + 1;
+        const proposalNumber = `${prefix}${String(nextNum).padStart(3, '0')}`;
 
         // Build title
         const client = await this.clientRepo.findOne({ where: { id: project.clientId } });
