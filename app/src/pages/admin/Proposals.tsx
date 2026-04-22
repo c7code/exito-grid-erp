@@ -545,17 +545,26 @@ export default function AdminProposals() {
     setProposalToPrint(freshProposal);
 
     // Delay to ensure the template renders
-    setTimeout(() => {
-      const element = document.getElementById('proposal-pdf-content');
+    const isSolar = freshProposal.activityType === 'energia_solar' && solarData;
+    const pdfElementId = isSolar ? 'solar-proposal-pdf-content' : 'proposal-pdf-content';
+
+    const tryCapturePDF = (attempt = 0) => {
+      const element = document.getElementById(pdfElementId);
       if (!element) {
+        if (attempt < 3) {
+          setTimeout(() => tryCapturePDF(attempt + 1), 500);
+          return;
+        }
         toast.error('Erro ao gerar PDF: Elemento não encontrado.');
         setProposalToPrint(null);
         return;
       }
 
       const opt = {
-        margin: [0, 0, 38, 0] as [number, number, number, number], // top, left, bottom (1cm ≈ 38px), right
-        filename: `proposta_${proposal.proposalNumber}.pdf`,
+        margin: isSolar ? 0 : [0, 0, 38, 0] as [number, number, number, number],
+        filename: isSolar
+          ? `proposta_solar_${proposal.proposalNumber}.pdf`
+          : `proposta_${proposal.proposalNumber}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 3, dpi: 192, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
         jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
@@ -571,7 +580,9 @@ export default function AdminProposals() {
         console.error('PDF Error:', err);
         toast.error('Erro ao gerar PDF.');
       });
-    }, 800);
+    };
+
+    setTimeout(() => tryCapturePDF(), 1200);
   };
 
   const handleShareWhatsApp = (proposal: any) => {
