@@ -22,6 +22,9 @@ RUN npm install -g serve
 
 COPY --from=builder /app/dist ./dist
 
+# serve.json prevents caching of index.html so browsers always get the latest JS/CSS hashes
+RUN echo '{"headers":[{"source":"index.html","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"},{"key":"Pragma","value":"no-cache"},{"key":"Expires","value":"0"}]},{"source":"assets/**","headers":[{"key":"Cache-Control","value":"public, max-age=31536000, immutable"}]}]}' > dist/serve.json
+
 ENV PORT=3000
 EXPOSE 3000
 
