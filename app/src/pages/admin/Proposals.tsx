@@ -409,6 +409,21 @@ export default function AdminProposals() {
 
       let coData = null;
       try { coData = await api.getPrimaryCompany(); } catch {}
+
+      // If solar proposal, load solar project data for preview
+      if (freshProposal.activityType === 'energia_solar') {
+        try {
+          const sData = await api.getSolarProjectByProposal(freshProposal.id);
+          setSolarProjectData(sData);
+          // Use solar project's company if available
+          if (sData?.companyId) {
+            try { coData = await api.getCompany(sData.companyId); } catch {}
+          }
+        } catch (err) {
+          console.warn('Could not load solar project for preview:', err);
+        }
+      }
+
       setPreviewProposalData(freshProposal);
       setCompanyData(coData);
       // Resolve signatures — try API first, fallback to client-side resolution
@@ -1319,15 +1334,17 @@ export default function AdminProposals() {
             )}
             <div className="mx-auto shadow-xl rounded-lg overflow-hidden" style={{ maxWidth: 794 }}>
               {previewProposalData && (
-                previewProposalData.activityType === 'plano_oem'
-                  ? <OeMProposalPDFTemplate proposal={previewProposalData} company={companyData} signatures={resolvedSignatures} />
-                  : <ProposalPDFTemplate
-                      proposal={previewProposalData}
-                      client={previewProposalData.client || previewProposalData.opportunity?.client}
-                      company={companyData}
-                      hideFinancialValues={hideFinancialValues}
-                      signatures={resolvedSignatures}
-                    />
+                previewProposalData.activityType === 'energia_solar'
+                  ? <SolarProposalPDFTemplate proposal={previewProposalData} solarProject={solarProjectData || {}} company={companyData} />
+                  : previewProposalData.activityType === 'plano_oem'
+                    ? <OeMProposalPDFTemplate proposal={previewProposalData} company={companyData} signatures={resolvedSignatures} />
+                    : <ProposalPDFTemplate
+                        proposal={previewProposalData}
+                        client={previewProposalData.client || previewProposalData.opportunity?.client}
+                        company={companyData}
+                        hideFinancialValues={hideFinancialValues}
+                        signatures={resolvedSignatures}
+                      />
               )}
             </div>
           </div>
@@ -1337,8 +1354,8 @@ export default function AdminProposals() {
       {/* Hidden container for PDF generation */}
       <div className="fixed -left-[9999px] top-0">
         {proposalToPrint && (
-          proposalToPrint.activityType === 'energia_solar' && solarProjectData
-            ? <SolarProposalPDFTemplate proposal={proposalToPrint} solarProject={solarProjectData} company={companyData} />
+          proposalToPrint.activityType === 'energia_solar'
+            ? <SolarProposalPDFTemplate proposal={proposalToPrint} solarProject={solarProjectData || {}} company={companyData} />
             : proposalToPrint.activityType === 'plano_oem'
               ? <OeMProposalPDFTemplate proposal={proposalToPrint} company={companyData} signatures={resolvedSignatures} />
               : <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} company={companyData} hideFinancialValues={hideFinancialValues} signatures={resolvedSignatures} />
