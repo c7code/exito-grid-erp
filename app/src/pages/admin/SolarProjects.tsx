@@ -346,9 +346,14 @@ export default function SolarProjects() {
     setShowPdfRender(true);
 
     // Wait for render then generate PDF
-    setTimeout(() => {
-      const element = document.getElementById('proposal-pdf-content');
+    const tryCapture = (attempt = 0) => {
+      const element = document.getElementById('solar-proposal-pdf-content');
       if (!element) {
+        if (attempt < 3) {
+          // Retry after a short delay (rendering may not be complete yet)
+          setTimeout(() => tryCapture(attempt + 1), 500);
+          return;
+        }
         toast.error('Erro ao gerar PDF: elemento não encontrado.');
         setShowPdfRender(false);
         setPdfGenerating(false);
@@ -375,7 +380,9 @@ export default function SolarProjects() {
         setPdfGenerating(false);
         toast.error('Erro ao gerar PDF.');
       });
-    }, 1000);
+    };
+
+    setTimeout(() => tryCapture(), 1500);
   };
 
   // ═══ DELETE ═══

@@ -1501,12 +1501,12 @@ export function SolarProposalPDFTemplate({ proposal, solarProject, company }: So
   const hasKits = data.kits && data.kits.length > 0;
 
   return (
-    <div id="proposal-pdf-content" style={{ background: C.white, maxWidth: 794, margin: '0 auto' }}>
+    <div id="solar-proposal-pdf-content" style={{ background: C.white, maxWidth: 794, margin: '0 auto' }}>
       <style>{`
-        #proposal-pdf-content tr { break-inside: avoid; }
-        #proposal-pdf-content .avoid-page-break { break-inside: avoid; page-break-inside: avoid; }
-        #proposal-pdf-content .next-page { break-before: page; page-break-before: always; }
-        #proposal-pdf-content .sig-block { break-inside: avoid; }
+        #solar-proposal-pdf-content tr { break-inside: avoid; }
+        #solar-proposal-pdf-content .avoid-page-break { break-inside: avoid; page-break-inside: avoid; }
+        #solar-proposal-pdf-content .next-page { break-before: page; page-break-before: always; }
+        #solar-proposal-pdf-content .sig-block { break-inside: avoid; }
       `}</style>
       <Page1 data={data} />
       <Page2 data={data} />
