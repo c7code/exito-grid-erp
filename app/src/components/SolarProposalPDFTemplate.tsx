@@ -1509,14 +1509,14 @@ export function SolarProposalPDFTemplate({ proposal, solarProject, company }: So
         #solar-proposal-pdf-content .sig-block { break-inside: avoid; }
       `}</style>
       <Page1 data={data} />
-      <Page2 data={data} />
-      <Page3 data={data} />
-      <Page4 data={data} />
-      <Page5 data={data} />
-      <Page6 data={data} />
-      <Page7 data={data} />
-      {hasKits && <Page8 data={data} />}
-      <Page9 data={data} />
+      <div className="next-page"><Page2 data={data} /></div>
+      <div className="next-page"><Page3 data={data} /></div>
+      <div className="next-page"><Page4 data={data} /></div>
+      <div className="next-page"><Page5 data={data} /></div>
+      <div className="next-page"><Page6 data={data} /></div>
+      <div className="next-page"><Page7 data={data} /></div>
+      {hasKits && <div className="next-page"><Page8 data={data} /></div>}
+      <div className="next-page"><Page9 data={data} /></div>
     </div>
   );
 }
