@@ -10,6 +10,8 @@ ENV VITE_API_URL=$VITE_API_URL
 COPY package*.json ./
 RUN npm ci
 
+# Force Docker cache invalidation on every deploy
+ARG CACHEBUST=1
 COPY . .
 RUN npm run build
 
