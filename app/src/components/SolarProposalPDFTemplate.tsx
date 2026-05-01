@@ -57,6 +57,28 @@ function buildData(proposal: any, solarProject: any, company: any) {
     ? monthlyData.map((m: any) => N(m.kwh))
     : Array(12).fill(consumo);
 
+  // ─── HELPERS: extract useful info from description ──────────────────────
+  const cleanBrand = (brand: string) => (brand || '').replace(/^-\s*/, '').trim() || '—';
+  const extractModel = (eq: any): string => {
+    if (eq.model && eq.model.trim()) return eq.model.trim();
+    // Fallback: use description, removing brand prefix for cleaner display
+    const desc = (eq.description || '').trim();
+    if (!desc) return '—';
+    const brand = (eq.brand || '').trim();
+    // Remove brand from beginning of description if present
+    let model = desc;
+    if (brand && model.toUpperCase().startsWith(brand.toUpperCase())) {
+      model = model.substring(brand.length).trim();
+    }
+    // Also try removing common prefixes like "PAINEL", "MICROINVERSOR", "INVERSOR"
+    model = model.replace(/^(PAINEL|MÓDULO|MODULO|MICROINVERSOR|INVERSOR|ESTRUTURA)\s+/i, '').trim();
+    // Remove brand again if it appears after the prefix removal
+    if (brand && model.toUpperCase().startsWith(brand.toUpperCase())) {
+      model = model.substring(brand.length).trim();
+    }
+    return model || desc;
+  };
+
   // Map kits from ERP format
   const erpKits: any[] = p.commercialKits || [];
   const kits = erpKits.map((kit: any) => {
@@ -77,9 +99,9 @@ function buildData(proposal: any, solarProject: any, company: any) {
     return {
       nome: kit.name || `Kit ${kit.name}`,
       badge: kit.isRecommended ? "★ RECOMENDADO" : null,
-      modulo: { marca: mod.brand || '—', modelo: mod.model || '—', qtd: N(mod.quantity) || N(p.moduleCount) },
-      inversor: { marca: inv.brand || '—', modelo: inv.model || '—', qtd: N(inv.quantity) || 1 },
-      estrutura: { fabricante: str.brand || '—', modelo: str.model || '—' },
+      modulo: { marca: cleanBrand(mod.brand), modelo: extractModel(mod), qtd: N(mod.quantity) || N(p.moduleCount) },
+      inversor: { marca: cleanBrand(inv.brand), modelo: extractModel(inv), qtd: N(inv.quantity) || 1 },
+      estrutura: { fabricante: cleanBrand(str.brand), modelo: extractModel(str) },
       precoOriginal: realValue || kitPrice,
       desconto: discount,
       precoFinal: kitPrice,
@@ -164,6 +186,42 @@ function buildData(proposal: any, solarProject: any, company: any) {
     consumoMeses,
     kits,
     equipment: p.equipment || [],
+    // ─── IMPACTO AMBIENTAL (proporcional ao projeto) ────────────────
+    ambiental: (() => {
+      const kwp = N(p.systemPowerKwp);
+      const hsp = N(p.hspValue) || 5.0;
+      const genAnualKwh = kwp * hsp * 365 * 0.82;
+      const genAnualMwh = genAnualKwh / 1000;
+      const co2TonAno = genAnualMwh * 0.075;
+      const co2Ton25 = co2TonAno * 25;
+      const arvores = Math.round((co2TonAno * 1000) / 22);
+      const aguaLitrosAno = Math.round(genAnualMwh * 1500);
+      const kmNaoRodados = Math.round(co2TonAno * 4000);
+      const casasAbastecidas = +(genAnualKwh / 12 / 150).toFixed(1);
+      const barrisPetroleo = +(genAnualMwh * 0.25).toFixed(1);
+      const creditoCarbono = co2Ton25 * 150;
+      const salarios = N(p.savings25Years) / 1518;
+      const pessoasAgua = +(aguaLitrosAno / (250 * 365)).toFixed(1);
+      const viagensRecSP = +(kmNaoRodados / 2660).toFixed(1);
+      return {
+        co2TonAno: +co2TonAno.toFixed(2),
+        co2Ton25: +co2Ton25.toFixed(1),
+        arvores,
+        aguaLitrosAno,
+        aguaLitros25: aguaLitrosAno * 25,
+        kmNaoRodados,
+        casasAbastecidas,
+        barrisPetroleo,
+        barris25: +(barrisPetroleo * 25).toFixed(0),
+        creditoCarbonoR$: +creditoCarbono.toFixed(0),
+        salariosMinimos: +salarios.toFixed(0),
+        pessoasAgua,
+        viagensRecSP,
+        geracaoAnualKwh: Math.round(genAnualKwh),
+      };
+    })(),
+    savings25Years: N(p.savings25Years),
+    cashFlow: p.cashFlow || [],
   };
 }
 
@@ -566,7 +624,7 @@ const FlowArrow = ({ label, sublabel, color = C.gold, vertical = false }: { labe
 );
 
 const Page3 = ({ data }: { data: any }) => {
-  const { empresa } = data;
+  const { empresa, sistema } = data;
   return (
     <Page bg={C.navy} style={{ color: C.white }}>
       <div style={{ padding: "0 0 80px" }}>
@@ -721,7 +779,7 @@ const Page3 = ({ data }: { data: any }) => {
                   color: "rgba(255,255,255,0.7)", textAlign: "center", lineHeight: 1.5,
                 }}>
                   Energia usada em tempo real<br />
-                  <strong style={{ color: C.greenLight }}>≈ 95% da conta zerada</strong>
+                  <strong style={{ color: C.greenLight }}>≈ {sistema.compensacaoPerc}% da conta zerada</strong>
                 </div>
               </div>
 
@@ -735,7 +793,7 @@ const Page3 = ({ data }: { data: any }) => {
                   boxShadow: `0 0 0 4px rgba(232,146,10,0.2), 0 6px 20px rgba(0,0,0,0.35)`,
                   marginBottom: 8,
                 }}>🏢</div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: C.white }}>Neoenergia</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: C.white }}>{sistema.concessionaria}</div>
                 <div style={{ fontSize: 9, color: C.gold, fontWeight: 700, marginBottom: 6 }}>Rede distribuidora</div>
                 <div style={{
                   backgroundColor: "rgba(232,146,10,0.12)", border: `1px solid rgba(232,146,10,0.3)`,
@@ -777,7 +835,7 @@ const Page3 = ({ data }: { data: any }) => {
           {/* ── 4 BENEFÍCIOS ─────────────────────────────────────── */}
           <div style={{ display: "flex", gap: 10 }}>
             {[
-              { icon: "💰", title: "Economia até 95%", desc: "Energia solar gratuita reduz a conta desde o 1º mês.", color: C.green },
+              { icon: "💰", title: `Economia até ${sistema.compensacaoPerc}%`, desc: "Energia solar gratuita reduz a conta desde o 1º mês.", color: C.green },
               { icon: "🏡", title: "Valorização 3–6%", desc: "Imóvel solar vale mais no mercado imobiliário.", color: C.gold },
               { icon: "🛡️", title: "Proteção Tarifária", desc: "Blindagem real contra reajustes anuais da energia.", color: "#60A5FA" },
               { icon: "🌱", title: "Sustentabilidade", desc: "Zero emissões de CO₂ — energia 100% limpa.", color: C.greenLight },
@@ -827,8 +885,8 @@ const Page4 = ({ data }: { data: any }) => {
             </div>
             <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.15)" }} />
             {[
-              { l: "Irradiação Média", v: "5,2 kWh/m²/dia", c: C.gold },
-              { l: "Horas de Sol Pleno", v: "5,2 h/dia", c: C.greenLight },
+              { l: "Irradiação Média", v: `${sistema.hspValue.toFixed(1).replace('.', ',')} kWh/m²/dia`, c: C.gold },
+              { l: "Horas de Sol Pleno", v: `${sistema.hspValue.toFixed(1).replace('.', ',')} h/dia`, c: C.greenLight },
               { l: "Tipo de Instalação", v: sistema.localInstalacao, c: C.white },
               { l: "Fornecimento", v: sistema.tipoFornecimento, c: C.white },
             ].map(item => (
@@ -917,13 +975,35 @@ const Page5 = ({ data }: { data: any }) => {
     { type: 'module', description: 'Painel Monocristalino', brand: '—', model: '—', quantity: sistema.modulosQtd },
     { type: 'inverter', description: 'Inversor On-Grid', brand: '—', model: '—', quantity: 1 },
     { type: 'structure', description: 'Estrutura de Fixação', brand: '—', model: '—', quantity: 1 },
-  ]).map((eq: any) => ({
-    tipo: typeLabels[eq.type] || eq.type || '—',
-    desc: eq.description || '—',
-    marca: eq.brand || '—',
-    modelo: eq.model || '—',
-    qtd: eq.quantity || 1,
-  }));
+  ]).map((eq: any) => {
+    const brand = (eq.brand || '').replace(/^-\s*/, '').trim() || '—';
+    // Use model if available, otherwise extract from description
+    let modelo = (eq.model || '').trim();
+    if (!modelo) {
+      const desc = (eq.description || '').trim();
+      if (desc) {
+        let extracted = desc;
+        const brandClean = brand !== '—' ? brand : '';
+        if (brandClean && extracted.toUpperCase().startsWith(brandClean.toUpperCase())) {
+          extracted = extracted.substring(brandClean.length).trim();
+        }
+        extracted = extracted.replace(/^(PAINEL|MÓDULO|MODULO|MICROINVERSOR|INVERSOR|ESTRUTURA|PRISIONEIRO)\s+/i, '').trim();
+        if (brandClean && extracted.toUpperCase().startsWith(brandClean.toUpperCase())) {
+          extracted = extracted.substring(brandClean.length).trim();
+        }
+        modelo = extracted || desc;
+      } else {
+        modelo = '—';
+      }
+    }
+    return {
+      tipo: typeLabels[eq.type] || eq.type || '—',
+      desc: eq.description || '—',
+      marca: brand,
+      modelo,
+      qtd: eq.quantity || 1,
+    };
+  });
   return (
     <Page style={{ color: C.white }}>
       <div style={{ padding: "0 0 80px" }}>
@@ -1368,6 +1448,159 @@ const Page8 = ({ data }: { data: any }) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════
+// PÁGINA 9 — SEU IMPACTO NO PLANETA (proporcional ao projeto)
+// ══════════════════════════════════════════════════════════════════════════
+const Page9Env = ({ data }: { data: any }) => {
+  const { empresa, sistema, ambiental: a, savings25Years } = data;
+  const fmtK = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')} mil` : n.toLocaleString('pt-BR');
+
+  const ImpactCard = ({ icon, value, unit, label, detail, color, detailColor }: any) => (
+    <div style={{
+      flex: 1, minWidth: '30%', backgroundColor: 'rgba(255,255,255,0.05)',
+      border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10,
+      padding: '16px 14px', borderTop: `3px solid ${color}`,
+      textAlign: 'center',
+    }}>
+      <div style={{ fontSize: 28, marginBottom: 6 }}>{icon}</div>
+      <div style={{ fontSize: 22, fontWeight: 900, color }}>{value}<span style={{ fontSize: 11, fontWeight: 600 }}> {unit}</span></div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: C.white, marginTop: 4, marginBottom: 6 }}>{label}</div>
+      <div style={{
+        fontSize: 9, color: detailColor || 'rgba(255,255,255,0.55)', lineHeight: 1.5,
+        backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '6px 8px',
+      }}>{detail}</div>
+    </div>
+  );
+
+  return (
+    <Page style={{ color: C.white }}>
+      <div style={{ padding: '0 0 80px' }}>
+        <SectionHeader num="09" title="Seu Impacto no Planeta" subtitle={`O que ${sistema.potenciaKwp.toFixed(1)}kWp de energia solar fazem pelo mundo em 25 anos`} />
+
+        <div style={{ padding: '0 40px' }}>
+
+          {/* ── ROW 1: 3 grandes métricas ── */}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+            <ImpactCard
+              icon="🏭" value={a.co2Ton25.toFixed(1).replace('.', ',')} unit="ton"
+              label="CO₂ Evitado em 25 Anos"
+              detail={<>Equivale a <strong style={{ color: C.gold }}>R$ {fmtK(a['creditoCarbonoR$'])}</strong> em créditos de carbono no mercado voluntário brasileiro</>}
+              color={C.green}
+            />
+            <ImpactCard
+              icon="🌳" value={a.arvores} unit="árvores"
+              label="Plantadas por Ano (equivalente)"
+              detail={<>Cada árvore absorve ~22kg CO₂/ano. Seu sistema compensa o equivalente a <strong style={{ color: C.greenLight }}>{a.arvores} árvores da Mata Atlântica</strong></>}
+              color={C.greenLight}
+            />
+            <ImpactCard
+              icon="💧" value={fmtK(a.aguaLitros25)} unit="litros"
+              label="Água Preservada em 25 Anos"
+              detail={<>Diferença vs. termelétricas. Abastece <strong style={{ color: '#60A5FA' }}>{a.pessoasAgua} pessoas</strong> por 1 ano inteiro (250L/dia per capita ONU)</>}
+              color="#60A5FA"
+            />
+          </div>
+
+          {/* ── ROW 2: 3 métricas complementares ── */}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+            <ImpactCard
+              icon="🚗" value={fmtK(a.kmNaoRodados)} unit="km/ano"
+              label="Emissões Veiculares Evitadas"
+              detail={<>Equivale a <strong style={{ color: C.gold }}>{a.viagensRecSP} viagens</strong> Recife→São Paulo sem emitir CO₂</>}
+              color={C.gold}
+            />
+            <ImpactCard
+              icon="🛢️" value={a.barris25} unit="barris"
+              label="Petróleo Não Queimado (25 anos)"
+              detail={<>Cada MWh solar evita ~0,25 barril de combustível fóssil. <strong style={{ color: '#F97316' }}>Independência energética real</strong></>}
+              color="#F97316"
+            />
+            <ImpactCard
+              icon="🏠" value={a.casasAbastecidas} unit="casas/mês"
+              label="Residências Iluminadas"
+              detail={<>Base: consumo médio brasileiro de 150 kWh/mês (ANEEL). Seu sistema gera energia para <strong style={{ color: C.greenLight }}>{a.casasAbastecidas} residências</strong></>}
+              color={C.green}
+            />
+          </div>
+
+          {/* ── BLOCO: O que isso significa para a economia ── */}
+          <div style={{
+            backgroundColor: C.navy, borderRadius: 10, padding: '20px 24px', marginBottom: 16,
+            border: `1px solid rgba(232,146,10,0.3)`,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.gold, marginBottom: 14 }}>
+              💰 Valor Econômico do Seu Impacto Ambiental
+            </div>
+            <div style={{ display: 'flex', gap: 16 }}>
+              {[
+                { icon: '📈', label: 'Créditos de Carbono', value: `R$ ${fmtK(a['creditoCarbonoR$'])}`, sub: 'Valor no mercado voluntário brasileiro (R$ 150/ton CO₂)', color: C.gold },
+                { icon: '💡', label: 'Economia em 25 Anos', value: `R$ ${fmt(savings25Years)}`, sub: `Equivale a ${a.salariosMinimos} salários mínimos (R$ 1.518)`, color: C.greenLight },
+                { icon: '🌊', label: 'Água Preservada', value: `${fmtK(a.aguaLitros25)}L`, sub: 'Economia hídrica vs. geração termelétrica a gás/carvão', color: '#60A5FA' },
+                { icon: '⛽', label: 'Combustível Evitado', value: `${a.barris25} barris`, sub: 'Petróleo que deixa de ser extraído e queimado', color: '#F97316' },
+              ].map(item => (
+                <div key={item.label} style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 22, marginBottom: 4 }}>{item.icon}</div>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: item.color }}>{item.value}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.white, marginTop: 2 }}>{item.label}</div>
+                  <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', marginTop: 4, lineHeight: 1.4 }}>{item.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Barra de CO₂ por década ── */}
+          <div style={{
+            backgroundColor: C.white, border: `1px solid ${C.gray200}`, borderRadius: 10,
+            padding: '16px 24px', marginBottom: 16,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 12 }}>
+              🏭 CO₂ Evitado ao Longo do Tempo
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, height: 80 }}>
+              {[
+                { label: 'Ano 1', val: a.co2TonAno },
+                { label: '5 Anos', val: a.co2TonAno * 5 },
+                { label: '10 Anos', val: a.co2TonAno * 10 },
+                { label: '15 Anos', val: a.co2TonAno * 15 },
+                { label: '25 Anos', val: a.co2Ton25 },
+              ].map((bar) => {
+                const maxVal = a.co2Ton25;
+                const h = maxVal > 0 ? (bar.val / maxVal) * 65 : 0;
+                return (
+                  <div key={bar.label} style={{ flex: 1, textAlign: 'center' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: C.navy, marginBottom: 4 }}>
+                      {bar.val.toFixed(1).replace('.', ',')}t
+                    </div>
+                    <div style={{
+                      height: h, borderRadius: '4px 4px 0 0',
+                      background: `linear-gradient(180deg, ${C.green}, ${C.greenDark})`,
+                      margin: '0 auto', width: '70%',
+                    }} />
+                    <div style={{ fontSize: 8, color: C.gray400, marginTop: 4 }}>{bar.label}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── Referências ── */}
+          <div style={{
+            fontSize: 8, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6,
+            padding: '10px 16px', backgroundColor: 'rgba(255,255,255,0.03)',
+            borderRadius: 6, border: '1px solid rgba(255,255,255,0.06)',
+          }}>
+            <strong style={{ color: 'rgba(255,255,255,0.55)' }}>Referências científicas:</strong> Fator de emissão SIN Brasil: 0,075 tCO₂/MWh (MCT/ANEEL 2023) · 
+            1 árvore absorve ~22kg CO₂/ano (EPA) · Consumo per capita água: 250L/dia (ONU) · 
+            Consumo residencial médio: 150 kWh/mês (ANEEL) · Crédito de carbono: R$ 150/ton (mercado voluntário BR 2024) · 
+            1 MWh solar preserva ~1.500L de água vs. termelétrica · Salário mínimo 2026: R$ 1.518,00
+          </div>
+        </div>
+      </div>
+      <PageFooter empresa={empresa} pageNum="09" />
+    </Page>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════════════
 // PÁGINA 9 — GARANTIAS + CRONOGRAMA + ASSINATURAS
 // ══════════════════════════════════════════════════════════════════════════
 const Page9 = ({ data }: { data: any }) => {
@@ -1375,7 +1608,7 @@ const Page9 = ({ data }: { data: any }) => {
   return (
     <Page style={{ color: C.white }}>
       <div style={{ padding: "0 0 80px" }}>
-        <SectionHeader num="09" title="Garantias, Cronograma & Formalização" subtitle="Proteção total do seu investimento e próximos passos" />
+        <SectionHeader num="10" title="Garantias, Cronograma & Formalização" subtitle="Proteção total do seu investimento e próximos passos" />
 
         <div style={{ padding: "0 40px" }}>
           {/* 6 Cards de garantias */}
@@ -1486,7 +1719,7 @@ const Page9 = ({ data }: { data: any }) => {
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>{empresa.fone}</div>
           <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>{empresa.email}</div>
-          <div style={{ fontSize: 9, color: C.gold, fontWeight: 700 }}>09 / 09</div>
+          <div style={{ fontSize: 9, color: C.gold, fontWeight: 700 }}>10 / 10</div>
         </div>
       </div>
     </Page>
@@ -1516,6 +1749,7 @@ export function SolarProposalPDFTemplate({ proposal, solarProject, company }: So
       <div className="next-page"><Page6 data={data} /></div>
       <div className="next-page"><Page7 data={data} /></div>
       {hasKits && <div className="next-page"><Page8 data={data} /></div>}
+      <div className="next-page"><Page9Env data={data} /></div>
       <div className="next-page"><Page9 data={data} /></div>
     </div>
   );
