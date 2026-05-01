@@ -55,10 +55,28 @@ export class SolarService {
     }
 
     async findByProposalId(proposalId: string): Promise<SolarProject | null> {
-        return this.solarRepo.findOne({
+        // 1. Direct match: solar project linked to this proposal
+        const direct = await this.solarRepo.findOne({
             where: { proposalId },
             relations: ['client', 'proposal'],
         });
+        if (direct) return direct;
+
+        // 2. Fallback: find by same client (for proposals created outside Solar Projects flow)
+        const proposal = await this.proposalRepo.findOne({ where: { id: proposalId } });
+        if (proposal?.clientId) {
+            const byClient = await this.solarRepo.findOne({
+                where: { clientId: proposal.clientId },
+                relations: ['client', 'proposal'],
+                order: { createdAt: 'DESC' },
+            });
+            if (byClient) {
+                this.logger.log(`Fallback: linked proposal ${proposalId} to solar project ${byClient.code} via client ${proposal.clientId}`);
+                return byClient;
+            }
+        }
+
+        return null;
     }
 
     /**
