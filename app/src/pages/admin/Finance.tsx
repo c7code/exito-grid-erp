@@ -118,6 +118,7 @@ export default function AdminFinance() {
   useEffect(() => {
     const tab = searchParams.get('tab');
     const proposalId = searchParams.get('proposalId');
+    if (!tab && !proposalId) return; // ← guard: nothing to process
     if (tab) setActiveTab(tab);
     if (tab === 'receipts' && proposalId) {
       setTimeout(() => {
@@ -135,7 +136,7 @@ export default function AdminFinance() {
           proposalNumber: searchParams.get('proposalNumber') || '',
         });
         setReceiptDialogOpen(true);
-        setSearchParams({});
+        setSearchParams({}, { replace: true });
       }, 500);
     } else if (tab === 'purchase-orders' && proposalId) {
       setTimeout(async () => {
@@ -172,10 +173,10 @@ export default function AdminFinance() {
           setPOItems([{ description: '', quantity: '1', unit: 'un', unitPrice: '0', totalPrice: '0', internalCost: '' }]);
         }
         setPODialogOpen(true);
-        setSearchParams({});
+        setSearchParams({}, { replace: true });
       }, 500);
     } else if (tab) {
-      setSearchParams({});
+      setSearchParams({}, { replace: true });
     }
   }, [searchParams]);
 
