@@ -234,19 +234,242 @@ export class FinanceService {
       where: { paidAt: Between(startDate, endDate), status: PaymentStatus.PAID },
       order: { category: 'ASC' },
     });
-    const report: any = { income: {}, expense: {}, totalIncome: 0, totalExpense: 0, revenue: 0, taxes: 0, netRevenue: 0, netProfit: 0, netResult: 0 };
+
+    // ── Categorize all transactions ──
+    const income: Record<string, number> = {};
+    const expense: Record<string, number> = {};
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    // ── Individual tax totals from income records ──
+    let taxISS = 0, taxPISCOFINS = 0, taxIRRF = 0, taxCSLL = 0, taxICMS = 0, taxWithholding = 0;
+
     transactions.forEach(t => {
       const category = t.category || TransactionCategory.OTHER;
       const amount = Number(t.paidAmount || 0);
-      const typeKey = t.type === PaymentType.INCOME ? 'income' : 'expense';
-      report[typeKey][category] = (report[typeKey][category] || 0) + amount;
-      if (t.type === PaymentType.INCOME) { report.totalIncome += amount; report.revenue += amount; }
-      else { report.totalExpense += amount; if (category === TransactionCategory.TAX) report.taxes += amount; }
+      if (t.type === PaymentType.INCOME) {
+        income[category] = (income[category] || 0) + amount;
+        totalIncome += amount;
+        // Accumulate tax details from income records
+        taxISS += Number(t.taxISSAmount || 0);
+        taxPISCOFINS += Number(t.taxPISCOFINSAmount || 0);
+        taxIRRF += Number(t.taxIRRFAmount || 0);
+        taxCSLL += Number(t.taxCSLLAmount || 0);
+        taxICMS += Number(t.taxICMSAmount || 0);
+        taxWithholding += Number(t.taxWithholding || 0);
+      } else {
+        expense[category] = (expense[category] || 0) + amount;
+        totalExpense += amount;
+      }
     });
-    report.netRevenue = report.revenue - report.taxes;
-    report.netProfit = report.totalIncome - report.totalExpense;
-    report.netResult = report.netProfit;
-    return report;
+
+    // ── Deductions (taxes from income) ──
+    const totalDeductions = taxISS + taxPISCOFINS + taxIRRF + taxCSLL + taxICMS + taxWithholding;
+    // Also include expense-category taxes
+    const expenseTaxes = Number(expense[TransactionCategory.TAX] || 0);
+
+    // ── Net Revenue ──
+    const netRevenue = totalIncome - totalDeductions;
+
+    // ── Cost of Services (CPV): materials, labor, equipment ──
+    const cpvMaterials = Number(expense[TransactionCategory.MATERIALS] || 0);
+    const cpvLabor = Number(expense[TransactionCategory.LABOR] || 0);
+    const cpvEquipment = Number(expense[TransactionCategory.EQUIPMENT] || 0);
+    const totalCPV = cpvMaterials + cpvLabor + cpvEquipment;
+
+    // ── Gross Profit ──
+    const grossProfit = netRevenue - totalCPV;
+    const grossMargin = totalIncome > 0 ? (grossProfit / totalIncome) * 100 : 0;
+
+    // ── Operational Expenses (not CPV, not taxes) ──
+    const opexOffice = Number(expense[TransactionCategory.OFFICE] || 0);
+    const opexUtilities = Number(expense[TransactionCategory.UTILITIES] || 0);
+    const opexMarketing = Number(expense[TransactionCategory.MARKETING] || 0);
+    const opexProject = Number(expense[TransactionCategory.PROJECT] || 0);
+    const opexOther = Number(expense[TransactionCategory.OTHER] || 0);
+    const totalOpex = opexOffice + opexUtilities + opexMarketing + opexProject + opexOther;
+
+    // ── EBITDA ──
+    const ebitda = grossProfit - totalOpex;
+    const ebitdaMargin = totalIncome > 0 ? (ebitda / totalIncome) * 100 : 0;
+
+    // ── Net Profit ──
+    const netProfit = ebitda - expenseTaxes;
+    const netMargin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
+
+    // ── Transaction count ──
+    const incomeCount = transactions.filter(t => t.type === PaymentType.INCOME).length;
+    const expenseCount = transactions.filter(t => t.type === PaymentType.EXPENSE).length;
+    const ticketMedio = incomeCount > 0 ? totalIncome / incomeCount : 0;
+
+    return {
+      // Legacy compatibility
+      income, expense, totalIncome, totalExpense,
+      revenue: totalIncome,
+      taxes: totalDeductions + expenseTaxes,
+      netRevenue,
+      netProfit,
+      netResult: netProfit,
+
+      // ── Professional DRE Structure ──
+      dre: {
+        receitaBruta: totalIncome,
+        deducoes: {
+          iss: taxISS,
+          pisCofins: taxPISCOFINS,
+          irrf: taxIRRF,
+          csll: taxCSLL,
+          icms: taxICMS,
+          retencaoContratual: taxWithholding,
+          total: totalDeductions,
+        },
+        receitaLiquida: netRevenue,
+        cpv: {
+          materiais: cpvMaterials,
+          maoDeObra: cpvLabor,
+          equipamentos: cpvEquipment,
+          total: totalCPV,
+        },
+        lucroBruto: grossProfit,
+        margemBruta: grossMargin,
+        despesasOperacionais: {
+          administrativas: opexOffice,
+          utilidades: opexUtilities,
+          marketing: opexMarketing,
+          projetos: opexProject,
+          outras: opexOther,
+          total: totalOpex,
+        },
+        ebitda,
+        margemEbitda: ebitdaMargin,
+        impostosSobreLucro: expenseTaxes,
+        lucroLiquido: netProfit,
+        margemLiquida: netMargin,
+      },
+
+      // ── Metrics ──
+      metrics: {
+        ticketMedio,
+        totalLancamentos: incomeCount + expenseCount,
+        lancamentosReceita: incomeCount,
+        lancamentosDespesa: expenseCount,
+      },
+    };
+  }
+
+  // ── Extended Summary with Period Comparison ──
+  async getSummaryExtended(startDate: Date, endDate: Date): Promise<any> {
+    const currentSummary = await this.getSummary();
+
+    // Calculate previous period (same duration, shifted back)
+    const durationMs = endDate.getTime() - startDate.getTime();
+    const prevStart = new Date(startDate.getTime() - durationMs);
+    const prevEnd = new Date(startDate.getTime());
+
+    // Current period totals
+    const [currentIncome, currentExpense] = await Promise.all([
+      this.paymentRepository.createQueryBuilder('p')
+        .where('p.type = :type', { type: PaymentType.INCOME })
+        .andWhere('p.status = :status', { status: PaymentStatus.PAID })
+        .andWhere('p.paidAt >= :start AND p.paidAt <= :end', { start: startDate, end: endDate })
+        .select('SUM(p.paidAmount)', 'total').getRawOne(),
+      this.paymentRepository.createQueryBuilder('p')
+        .where('p.type = :type', { type: PaymentType.EXPENSE })
+        .andWhere('p.status = :status', { status: PaymentStatus.PAID })
+        .andWhere('p.paidAt >= :start AND p.paidAt <= :end', { start: startDate, end: endDate })
+        .select('SUM(p.paidAmount)', 'total').getRawOne(),
+    ]);
+
+    // Previous period totals
+    const [prevIncome, prevExpense] = await Promise.all([
+      this.paymentRepository.createQueryBuilder('p')
+        .where('p.type = :type', { type: PaymentType.INCOME })
+        .andWhere('p.status = :status', { status: PaymentStatus.PAID })
+        .andWhere('p.paidAt >= :start AND p.paidAt <= :end', { start: prevStart, end: prevEnd })
+        .select('SUM(p.paidAmount)', 'total').getRawOne(),
+      this.paymentRepository.createQueryBuilder('p')
+        .where('p.type = :type', { type: PaymentType.EXPENSE })
+        .andWhere('p.status = :status', { status: PaymentStatus.PAID })
+        .andWhere('p.paidAt >= :start AND p.paidAt <= :end', { start: prevStart, end: prevEnd })
+        .select('SUM(p.paidAmount)', 'total').getRawOne(),
+    ]);
+
+    const curInc = Number(currentIncome?.total || 0);
+    const curExp = Number(currentExpense?.total || 0);
+    const prvInc = Number(prevIncome?.total || 0);
+    const prvExp = Number(prevExpense?.total || 0);
+
+    // Overdue count
+    const overdueCount = await this.paymentRepository.createQueryBuilder('p')
+      .where('p.status = :status', { status: PaymentStatus.OVERDUE })
+      .getCount();
+
+    const totalPending = await this.paymentRepository.createQueryBuilder('p')
+      .where('p.type = :type', { type: PaymentType.INCOME })
+      .andWhere('p.status IN (:...statuses)', { statuses: [PaymentStatus.PENDING, PaymentStatus.PARTIAL, PaymentStatus.OVERDUE] })
+      .getCount();
+
+    const inadimplencia = totalPending > 0 ? (overdueCount / totalPending) * 100 : 0;
+
+    return {
+      ...currentSummary,
+      period: {
+        currentIncome: curInc,
+        currentExpense: curExp,
+        currentProfit: curInc - curExp,
+        previousIncome: prvInc,
+        previousExpense: prvExp,
+        previousProfit: prvInc - prvExp,
+        incomeVariation: prvInc > 0 ? ((curInc - prvInc) / prvInc) * 100 : 0,
+        expenseVariation: prvExp > 0 ? ((curExp - prvExp) / prvExp) * 100 : 0,
+        profitVariation: (prvInc - prvExp) !== 0 ? (((curInc - curExp) - (prvInc - prvExp)) / Math.abs(prvInc - prvExp)) * 100 : 0,
+      },
+      inadimplencia,
+      overdueCount,
+    };
+  }
+
+  // ── Monthly Evolution (last N months) ──
+  async getMonthlyEvolution(months = 6): Promise<any[]> {
+    const now = new Date();
+    const result: any[] = [];
+
+    for (let i = months - 1; i >= 0; i--) {
+      const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+
+      const [incomeRow, expenseRow] = await Promise.all([
+        this.paymentRepository.createQueryBuilder('p')
+          .where('p.type = :type', { type: PaymentType.INCOME })
+          .andWhere('p.status = :status', { status: PaymentStatus.PAID })
+          .andWhere('p.paidAt >= :start AND p.paidAt <= :end', { start, end })
+          .select('SUM(p.paidAmount)', 'total')
+          .addSelect('COUNT(*)', 'count')
+          .getRawOne(),
+        this.paymentRepository.createQueryBuilder('p')
+          .where('p.type = :type', { type: PaymentType.EXPENSE })
+          .andWhere('p.status = :status', { status: PaymentStatus.PAID })
+          .andWhere('p.paidAt >= :start AND p.paidAt <= :end', { start, end })
+          .select('SUM(p.paidAmount)', 'total')
+          .addSelect('COUNT(*)', 'count')
+          .getRawOne(),
+      ]);
+
+      const inc = Number(incomeRow?.total || 0);
+      const exp = Number(expenseRow?.total || 0);
+
+      result.push({
+        month: start.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+        monthFull: start.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+        receitas: inc,
+        despesas: exp,
+        lucro: inc - exp,
+        receitaCount: Number(incomeRow?.count || 0),
+        despesaCount: Number(expenseRow?.count || 0),
+      });
+    }
+
+    return result;
   }
 
   async remove(id: string): Promise<void> { await this.paymentRepository.softDelete(id); }

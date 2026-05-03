@@ -19,7 +19,8 @@ import {
   Plus, Search, Filter, Loader2, Edit2, Trash2,
   CheckCircle, MoreVertical, FileText, Upload, Share2,
   Download, Building2, Banknote, X, GitBranch,
-  Receipt, Package,
+  Receipt, Package, Calendar, TrendingDown, Minus,
+  BarChart3, PieChart as PieChartIcon, Target, AlertTriangle,
 } from 'lucide-react';
 import {
   BarChart,
@@ -32,6 +33,11 @@ import {
   PieChart,
   Pie,
   Cell,
+  AreaChart,
+  Area,
+  Line,
+  ComposedChart,
+  Legend,
 } from 'recharts';
 import { api } from '@/api';
 import { toast } from 'sonner';
@@ -72,14 +78,40 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: '#94a3b8',
 };
 
+// ── Period helpers ──
+const PERIOD_OPTIONS = [
+  { value: 'current_month', label: 'Mês Atual' },
+  { value: 'last_month', label: 'Mês Anterior' },
+  { value: 'last_quarter', label: 'Último Trimestre' },
+  { value: 'last_semester', label: 'Último Semestre' },
+  { value: 'current_year', label: 'Ano Atual' },
+];
+
+function getPeriodDates(period: string): { start: Date; end: Date } {
+  const now = new Date();
+  switch (period) {
+    case 'last_month': return { start: new Date(now.getFullYear(), now.getMonth() - 1, 1), end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59) };
+    case 'last_quarter': return { start: new Date(now.getFullYear(), now.getMonth() - 3, 1), end: now };
+    case 'last_semester': return { start: new Date(now.getFullYear(), now.getMonth() - 6, 1), end: now };
+    case 'current_year': return { start: new Date(now.getFullYear(), 0, 1), end: now };
+    default: return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now };
+  }
+}
+
+const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pctOf = (v: number, base: number) => base > 0 ? ((v / base) * 100).toFixed(1) + '%' : '0.0%';
+
 export default function AdminFinance() {
   const [summary, setSummary] = useState<any>(null);
+  const [summaryExt, setSummaryExt] = useState<any>(null);
   const [dre, setDre] = useState<any>(null);
   const [payments, setPayments] = useState<any[]>([]);
   const [works, setWorks] = useState<any[]>([]);
+  const [monthlyEvolution, setMonthlyEvolution] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [drePeriod, setDrePeriod] = useState('current_month');
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Handle URL params from Proposals/Contracts shortcuts
@@ -204,20 +236,24 @@ export default function AdminFinance() {
     loadClients();
   }, []);
 
+  useEffect(() => { loadData(); }, [drePeriod]);
+
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [sum, dreData, paymentsData] = await Promise.all([
+      const { start, end } = getPeriodDates(drePeriod);
+      const [sum, dreData, paymentsData, evolution, extSummary] = await Promise.all([
         api.getFinanceSummary(),
-        api.getDREReport(
-          new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
-          new Date().toISOString()
-        ),
+        api.getDREReport(start.toISOString(), end.toISOString()),
         api.getPayments(),
+        api.getMonthlyEvolution(6).catch(() => []),
+        api.getSummaryExtended(start.toISOString(), end.toISOString()).catch(() => null),
       ]);
       setSummary(sum);
       setDre(dreData);
       setPayments(paymentsData);
+      setMonthlyEvolution(evolution);
+      if (extSummary) setSummaryExt(extSummary);
       // Load company data for PDF templates
       try { const cos = await api.getCompanies(); if (cos?.length) setCompanyData(cos[0]); } catch {}
     } catch (err) {
@@ -854,114 +890,106 @@ export default function AdminFinance() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card className="border-slate-200">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">Saldo Atual</CardTitle>
-                <Wallet className="w-4 h-4 text-amber-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl md:text-2xl font-bold text-slate-900">
-                  R$ {(summary?.currentBalance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">Receitas</CardTitle>
-                <ArrowUpRight className="w-4 h-4 text-emerald-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-emerald-600">
-                  R$ {(summary?.receivedThisMonth || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </div>
-                <p className="text-xs text-slate-400 mt-1">Neste mês</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">Despesas</CardTitle>
-                <ArrowDownRight className="w-4 h-4 text-rose-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-rose-600">
-                  R$ {(summary?.paidThisMonth || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </div>
-                <p className="text-xs text-slate-400 mt-1">Neste mês</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">Lucro Projetado</CardTitle>
-                <TrendingUp className="w-4 h-4 text-blue-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">
-                  R$ {(summary?.projectedProfit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </div>
-              </CardContent>
-            </Card>
+          {/* ── Period Selector ── */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 text-sm text-slate-500"><Calendar className="w-4 h-4" /> Período:</div>
+            {PERIOD_OPTIONS.map(p => (
+              <button key={p.value} onClick={() => setDrePeriod(p.value)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${drePeriod === p.value ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                {p.label}
+              </button>
+            ))}
           </div>
 
+          {/* ── KPI Cards ── */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[
+              { title: 'Receitas do Período', value: summaryExt?.period?.currentIncome ?? summary?.receivedThisMonth ?? 0, icon: ArrowUpRight, color: 'emerald', variation: summaryExt?.period?.incomeVariation },
+              { title: 'Despesas do Período', value: summaryExt?.period?.currentExpense ?? summary?.paidThisMonth ?? 0, icon: ArrowDownRight, color: 'rose', variation: summaryExt?.period?.expenseVariation },
+              { title: 'Resultado do Período', value: summaryExt?.period?.currentProfit ?? (summary?.receivedThisMonth || 0) - (summary?.paidThisMonth || 0), icon: TrendingUp, color: 'blue', variation: summaryExt?.period?.profitVariation },
+              { title: 'A Receber (Pendente)', value: summary?.toReceive ?? 0, icon: Wallet, color: 'amber' },
+            ].map((kpi, i) => (
+              <Card key={i} className="border-slate-200 hover:shadow-md transition-shadow">
+                <CardHeader className="flex flex-row items-center justify-between pb-1">
+                  <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wide">{kpi.title}</CardTitle>
+                  <kpi.icon className={`w-4 h-4 text-${kpi.color}-500`} />
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-xl font-bold text-${kpi.color}-600`}>R$ {fmtBRL(kpi.value)}</div>
+                  {kpi.variation !== undefined && (
+                    <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${kpi.variation >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {kpi.variation >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                      {Math.abs(kpi.variation).toFixed(1)}% vs período anterior
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* ── Mini KPIs ── */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {[
+              { label: 'Margem Bruta', value: dre?.dre?.margemBruta != null ? `${dre.dre.margemBruta.toFixed(1)}%` : '—', icon: Target, color: 'emerald' },
+              { label: 'Margem Líquida', value: dre?.dre?.margemLiquida != null ? `${dre.dre.margemLiquida.toFixed(1)}%` : '—', icon: TrendingUp, color: 'blue' },
+              { label: 'EBITDA', value: dre?.dre?.ebitda != null ? `R$ ${fmtBRL(dre.dre.ebitda)}` : '—', icon: BarChart3, color: 'purple' },
+              { label: 'Ticket Médio', value: dre?.metrics?.ticketMedio != null ? `R$ ${fmtBRL(dre.metrics.ticketMedio)}` : '—', icon: Receipt, color: 'cyan' },
+              { label: 'Inadimplência', value: summaryExt?.inadimplencia != null ? `${summaryExt.inadimplencia.toFixed(1)}%` : '—', icon: AlertTriangle, color: (summaryExt?.inadimplencia || 0) > 20 ? 'rose' : 'slate' },
+            ].map((m, i) => (
+              <div key={i} className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 hover:shadow-sm transition-shadow">
+                <div className={`w-8 h-8 rounded-lg bg-${m.color}-50 flex items-center justify-center`}><m.icon className={`w-4 h-4 text-${m.color}-500`} /></div>
+                <div><p className="text-[10px] text-slate-400 uppercase tracking-wider">{m.label}</p><p className="text-sm font-bold text-slate-800">{m.value}</p></div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Charts Row ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Evolution Chart */}
             <Card className="border-slate-200">
-              <CardHeader>
-                <CardTitle className="text-lg">Receitas vs Despesas</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg flex items-center gap-2"><BarChart3 className="w-5 h-5 text-blue-500" /> Evolução Mensal</CardTitle></CardHeader>
               <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={revenueVsExpense}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="name" />
-                      <YAxis tickFormatter={(val) => `R$ ${val / 1000}k`} />
-                      <Tooltip
-                        formatter={(value: any) => `R$ ${value.toLocaleString('pt-BR')}`}
-                        cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                      />
-                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                        {revenueVsExpense.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={index === 0 ? '#10b981' : '#f43f5e'} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="h-[280px]">
+                  {monthlyEvolution.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={monthlyEvolution}>
+                        <defs>
+                          <linearGradient id="gradReceita" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
+                          <linearGradient id="gradDespesa" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/><stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/></linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                        <YAxis tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} tick={{ fontSize: 11 }} />
+                        <Tooltip formatter={(v: any) => `R$ ${Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2})}`} />
+                        <Legend />
+                        <Area type="monotone" dataKey="receitas" name="Receitas" stroke="#10b981" fill="url(#gradReceita)" strokeWidth={2} />
+                        <Area type="monotone" dataKey="despesas" name="Despesas" stroke="#f43f5e" fill="url(#gradDespesa)" strokeWidth={2} />
+                        <Line type="monotone" dataKey="lucro" name="Lucro" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  ) : <div className="flex items-center justify-center h-full text-slate-400 text-sm">Sem dados de evolução</div>}
                 </div>
               </CardContent>
             </Card>
 
+            {/* Expense Pie */}
             <Card className="border-slate-200">
-              <CardHeader>
-                <CardTitle className="text-lg">Despesas por Categoria</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg flex items-center gap-2"><PieChartIcon className="w-5 h-5 text-purple-500" /> Despesas por Categoria</CardTitle></CardHeader>
               <CardContent>
-                <div className="h-[300px]">
+                <div className="h-[280px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie
-                        data={expenseByCategory}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {expenseByCategory.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[expenseByCategory[index].key] || '#94a3b8'} />
-                        ))}
+                      <Pie data={expenseByCategory} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={4} dataKey="value">
+                        {expenseByCategory.map((_, idx) => <Cell key={idx} fill={CATEGORY_COLORS[expenseByCategory[idx].key] || '#94a3b8'} />)}
                       </Pie>
-                      <Tooltip formatter={(value: any) => `R$ ${value.toLocaleString('pt-BR')}`} />
+                      <Tooltip formatter={(v: any) => `R$ ${v.toLocaleString('pt-BR')}`} />
                     </PieChart>
                   </ResponsiveContainer>
-                  <div className="grid grid-cols-2 gap-2 mt-4">
-                    {expenseByCategory.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[item.key] || '#94a3b8' }} />
-                        <span className="text-xs text-slate-500">{item.name}</span>
+                  <div className="grid grid-cols-2 gap-1.5 mt-2">
+                    {expenseByCategory.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[item.key] || '#94a3b8' }} />
+                        <span className="text-[11px] text-slate-500 truncate">{item.name}: <span className="font-medium text-slate-700">R$ {fmtBRL(item.value)}</span></span>
                       </div>
                     ))}
                   </div>
@@ -970,70 +998,76 @@ export default function AdminFinance() {
             </Card>
           </div>
 
-          <Card className="border-slate-200 overflow-hidden">
-            <CardHeader className="bg-slate-50 border-b">
-              <CardTitle className="text-lg">Demonstrativo de Resultados (DRE)</CardTitle>
+          {/* ── Professional DRE ── */}
+          <Card className="border-slate-200 overflow-hidden shadow-sm">
+            <CardHeader className="bg-gradient-to-r from-slate-800 to-slate-700 border-b flex flex-row items-center justify-between">
+              <CardTitle className="text-lg text-white flex items-center gap-2"><FileText className="w-5 h-5" /> Demonstrativo de Resultados (DRE)</CardTitle>
+              <span className="text-xs text-slate-300">{PERIOD_OPTIONS.find(p => p.value === drePeriod)?.label}</span>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50/50">
-                    <TableHead className="w-[300px]">Item</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                    <TableHead className="text-right">% Receita</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow className="font-bold bg-emerald-50/30">
-                    <TableCell className="flex items-center gap-2">
-                      <ArrowUpRight className="w-4 h-4 text-emerald-500" />
-                      Receita Operacional Bruta
-                    </TableCell>
-                    <TableCell className="text-right">R$ {(dre?.revenue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right">100%</TableCell>
-                  </TableRow>
-
-                  <TableRow>
-                    <TableCell className="pl-8 text-slate-500 italic">(-) Impostos e Deduções</TableCell>
-                    <TableCell className="text-right text-rose-500">R$ {(dre?.taxes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right text-slate-400">
-                      {dre?.revenue > 0 ? `${((dre.taxes / dre.revenue) * 100).toFixed(1)}%` : '0%'}
-                    </TableCell>
-                  </TableRow>
-
-                  <TableRow className="font-semibold bg-slate-50/50">
-                    <TableCell className="pl-4">(=) Receita Líquida</TableCell>
-                    <TableCell className="text-right">R$ {(dre?.netRevenue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right">
-                      {dre?.revenue > 0 ? `${((dre.netRevenue / dre.revenue) * 100).toFixed(1)}%` : '0%'}
-                    </TableCell>
-                  </TableRow>
-
-                  {expenseByCategory.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="pl-8 text-slate-500 flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[item.key] || '#94a3b8' }} />
-                        {item.name}
-                      </TableCell>
-                      <TableCell className="text-right text-rose-500">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
-                      <TableCell className="text-right text-slate-400">
-                        {dre?.revenue > 0 ? `${((item.value / dre.revenue) * 100).toFixed(1)}%` : '0%'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-
-                  <TableRow className="font-bold border-t-2 border-slate-200 bg-amber-50/30">
-                    <TableCell className="flex items-center gap-2 uppercase tracking-tight">
-                      <TrendingUp className="w-4 h-4 text-amber-600" />
-                      Lucro Líquido do Período
-                    </TableCell>
-                    <TableCell className="text-right text-lg text-amber-600">R$ {(dre?.netProfit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right font-medium text-amber-600">
-                      {dre?.revenue > 0 ? `${((dre.netProfit / dre.revenue) * 100).toFixed(1)}%` : '0%'}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              {(() => {
+                const d = dre?.dre;
+                const rb = d?.receitaBruta || dre?.revenue || 0;
+                const pct = (v: number) => pctOf(v, rb);
+                type DRELine = { label: string; value: number; level: number; type: 'income'|'expense'|'subtotal'|'result'; bold?: boolean };
+                const lines: DRELine[] = [
+                  { label: 'RECEITA OPERACIONAL BRUTA', value: rb, level: 0, type: 'income', bold: true },
+                  ...(d ? [
+                    { label: '(-) ISS', value: d.deducoes.iss, level: 2, type: 'expense' as const },
+                    { label: '(-) PIS/COFINS', value: d.deducoes.pisCofins, level: 2, type: 'expense' as const },
+                    { label: '(-) IRRF', value: d.deducoes.irrf, level: 2, type: 'expense' as const },
+                    { label: '(-) CSLL', value: d.deducoes.csll, level: 2, type: 'expense' as const },
+                    { label: '(-) ICMS', value: d.deducoes.icms, level: 2, type: 'expense' as const },
+                    { label: '(-) Retenção Contratual', value: d.deducoes.retencaoContratual, level: 2, type: 'expense' as const },
+                    { label: '(=) RECEITA OPERACIONAL LÍQUIDA', value: d.receitaLiquida, level: 0, type: 'subtotal' as const, bold: true },
+                    { label: '(-) Materiais', value: d.cpv.materiais, level: 2, type: 'expense' as const },
+                    { label: '(-) Mão de Obra', value: d.cpv.maoDeObra, level: 2, type: 'expense' as const },
+                    { label: '(-) Equipamentos', value: d.cpv.equipamentos, level: 2, type: 'expense' as const },
+                    { label: '(=) LUCRO BRUTO', value: d.lucroBruto, level: 0, type: 'subtotal' as const, bold: true },
+                    { label: '(-) Despesas Administrativas', value: d.despesasOperacionais.administrativas, level: 2, type: 'expense' as const },
+                    { label: '(-) Utilidades', value: d.despesasOperacionais.utilidades, level: 2, type: 'expense' as const },
+                    { label: '(-) Marketing', value: d.despesasOperacionais.marketing, level: 2, type: 'expense' as const },
+                    { label: '(-) Projetos', value: d.despesasOperacionais.projetos, level: 2, type: 'expense' as const },
+                    { label: '(-) Outras Despesas', value: d.despesasOperacionais.outras, level: 2, type: 'expense' as const },
+                    { label: '(=) EBITDA', value: d.ebitda, level: 0, type: 'subtotal' as const, bold: true },
+                    { label: '(-) Impostos sobre Lucro', value: d.impostosSobreLucro, level: 2, type: 'expense' as const },
+                    { label: '(=) LUCRO LÍQUIDO DO EXERCÍCIO', value: d.lucroLiquido, level: 0, type: 'result' as const, bold: true },
+                  ] : [
+                    { label: '(-) Impostos e Deduções', value: dre?.taxes || 0, level: 1, type: 'expense' as const },
+                    { label: '(=) Receita Líquida', value: dre?.netRevenue || 0, level: 0, type: 'subtotal' as const, bold: true },
+                    ...expenseByCategory.map(item => ({ label: `(-) ${item.name}`, value: item.value, level: 2, type: 'expense' as const })),
+                    { label: '(=) Lucro Líquido', value: dre?.netProfit || 0, level: 0, type: 'result' as const, bold: true },
+                  ]),
+                ];
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50">
+                        <TableHead className="w-[380px] text-xs uppercase tracking-wider">Descrição</TableHead>
+                        <TableHead className="text-right text-xs uppercase tracking-wider">Valor (R$)</TableHead>
+                        <TableHead className="text-right text-xs uppercase tracking-wider w-[100px]">% Receita</TableHead>
+                        <TableHead className="w-[120px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {lines.filter(l => l.value !== 0 || l.bold).map((line, idx) => {
+                        const bgClass = line.type === 'result' ? 'bg-gradient-to-r from-amber-50 to-amber-100/50 border-t-2 border-amber-200' : line.type === 'subtotal' ? 'bg-slate-50/80 border-t border-slate-200' : line.type === 'income' && line.bold ? 'bg-emerald-50/40' : '';
+                        const textClass = line.type === 'result' ? 'text-amber-700' : line.type === 'subtotal' ? 'text-slate-800' : line.type === 'expense' ? 'text-rose-600' : 'text-emerald-700';
+                        const barPct = rb > 0 ? Math.min((Math.abs(line.value) / rb) * 100, 100) : 0;
+                        const barColor = line.type === 'expense' ? '#fecaca' : line.type === 'result' ? '#fde68a' : line.type === 'subtotal' ? '#e2e8f0' : '#bbf7d0';
+                        return (
+                          <TableRow key={idx} className={`${bgClass} ${line.bold ? 'font-semibold' : ''}`}>
+                            <TableCell style={{ paddingLeft: `${16 + line.level * 20}px` }} className={`${line.bold ? 'text-sm' : 'text-[13px]'} ${line.type === 'expense' && !line.bold ? 'text-slate-500' : textClass}`}>{line.label}{line.type === 'subtotal' && line.label.includes('BRUTO') && d ? <span className="ml-2 text-xs font-normal text-slate-400">({d.margemBruta.toFixed(1)}%)</span> : ''}{line.label.includes('EBITDA') && d ? <span className="ml-2 text-xs font-normal text-slate-400">({d.margemEbitda.toFixed(1)}%)</span> : ''}</TableCell>
+                            <TableCell className={`text-right tabular-nums ${line.bold ? 'text-sm' : 'text-[13px]'} ${textClass}`}>{line.type === 'expense' ? '-' : ''} R$ {fmtBRL(Math.abs(line.value))}</TableCell>
+                            <TableCell className="text-right text-xs text-slate-400">{pct(Math.abs(line.value))}</TableCell>
+                            <TableCell className="pr-4"><div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, backgroundColor: barColor }} /></div></TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>

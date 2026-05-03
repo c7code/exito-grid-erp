@@ -946,6 +946,20 @@ class ApiService {
     return response.data;
   }
 
+  async getSummaryExtended(startDate: string, endDate: string) {
+    const response = await this.client.get('/finance/summary-extended', {
+      params: { startDate, endDate },
+    });
+    return response.data;
+  }
+
+  async getMonthlyEvolution(months = 6) {
+    const response = await this.client.get('/finance/monthly-evolution', {
+      params: { months },
+    });
+    return response.data;
+  }
+
   async getPayments(status?: string, workId?: string) {
     const params: any = {};
     if (status) params.status = status;

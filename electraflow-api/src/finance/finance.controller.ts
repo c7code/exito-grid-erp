@@ -110,6 +110,21 @@ export class FinanceController {
     return this.financeService.getDREReport(new Date(startDate), new Date(endDate));
   }
 
+  @Get('summary-extended')
+  @ApiOperation({ summary: 'Resumo financeiro estendido com comparação de período' })
+  async getSummaryExtended(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    return this.financeService.getSummaryExtended(new Date(startDate), new Date(endDate));
+  }
+
+  @Get('monthly-evolution')
+  @ApiOperation({ summary: 'Evolução mensal de receitas/despesas' })
+  async getMonthlyEvolution(@Query('months') months?: string) {
+    return this.financeService.getMonthlyEvolution(months ? parseInt(months) : 6);
+  }
+
   // ═══ WORK COSTS ══════════════════════════════════════════════════════════
 
   @Get('work-costs')
