@@ -114,6 +114,7 @@ const navSections: NavSection[] = [
     items: [
       { path: '/admin/finance', label: 'Financeiro', icon: DollarSign, module: 'finance', roles: ['admin', 'finance', 'employee'] },
       { path: '/admin/fiscal', label: 'Fiscal', icon: Receipt, module: 'fiscal', roles: ['admin', 'finance', 'employee'] },
+      { path: '/admin/finance-config', label: 'Opções Auxiliares', icon: Settings, module: 'finance', roles: ['admin', 'finance'] },
     ],
   },
   {

@@ -960,6 +960,40 @@ class ApiService {
     return response.data;
   }
 
+  // ═══ Finance Config — Opções Auxiliares ══════════════════════
+  // DRE Categories
+  async getDreCategories() { return (await this.client.get('/finance/config/dre-categories')).data; }
+  async getDreCategoriesTree() { return (await this.client.get('/finance/config/dre-categories/tree')).data; }
+  async createDreCategory(data: any) { return (await this.client.post('/finance/config/dre-categories', data)).data; }
+  async updateDreCategory(id: string, data: any) { return (await this.client.put(`/finance/config/dre-categories/${id}`, data)).data; }
+  async deleteDreCategory(id: string) { return (await this.client.delete(`/finance/config/dre-categories/${id}`)).data; }
+  async seedDreCategories() { return (await this.client.post('/finance/config/dre-categories/seed')).data; }
+  // Bank Accounts
+  async getBankAccounts() { return (await this.client.get('/finance/config/bank-accounts')).data; }
+  async createBankAccount(data: any) { return (await this.client.post('/finance/config/bank-accounts', data)).data; }
+  async updateBankAccount(id: string, data: any) { return (await this.client.put(`/finance/config/bank-accounts/${id}`, data)).data; }
+  async deleteBankAccount(id: string) { return (await this.client.delete(`/finance/config/bank-accounts/${id}`)).data; }
+  // Cost Centers
+  async getCostCenters() { return (await this.client.get('/finance/config/cost-centers')).data; }
+  async createCostCenter(data: any) { return (await this.client.post('/finance/config/cost-centers', data)).data; }
+  async updateCostCenter(id: string, data: any) { return (await this.client.put(`/finance/config/cost-centers/${id}`, data)).data; }
+  async deleteCostCenter(id: string) { return (await this.client.delete(`/finance/config/cost-centers/${id}`)).data; }
+  // Chart of Accounts
+  async getChartOfAccounts() { return (await this.client.get('/finance/config/chart-of-accounts')).data; }
+  async createChartAccount(data: any) { return (await this.client.post('/finance/config/chart-of-accounts', data)).data; }
+  async updateChartAccount(id: string, data: any) { return (await this.client.put(`/finance/config/chart-of-accounts/${id}`, data)).data; }
+  async deleteChartAccount(id: string) { return (await this.client.delete(`/finance/config/chart-of-accounts/${id}`)).data; }
+  // Cash Registers
+  async getCashRegisters() { return (await this.client.get('/finance/config/cash-registers')).data; }
+  async createCashRegister(data: any) { return (await this.client.post('/finance/config/cash-registers', data)).data; }
+  async updateCashRegister(id: string, data: any) { return (await this.client.put(`/finance/config/cash-registers/${id}`, data)).data; }
+  async deleteCashRegister(id: string) { return (await this.client.delete(`/finance/config/cash-registers/${id}`)).data; }
+  // Payment Methods Config
+  async getPaymentMethodsConfig() { return (await this.client.get('/finance/config/payment-methods')).data; }
+  async createPaymentMethodConfig(data: any) { return (await this.client.post('/finance/config/payment-methods', data)).data; }
+  async updatePaymentMethodConfig(id: string, data: any) { return (await this.client.put(`/finance/config/payment-methods/${id}`, data)).data; }
+  async deletePaymentMethodConfig(id: string) { return (await this.client.delete(`/finance/config/payment-methods/${id}`)).data; }
+
   async getPayments(status?: string, workId?: string) {
     const params: any = {};
     if (status) params.status = status;

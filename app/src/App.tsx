@@ -53,6 +53,7 @@ import AdminBudgets from './pages/admin/Budgets';
 import AdminSolarReports from './pages/admin/SolarReports';
 import AdminSolarPlans from './pages/admin/SolarPlans';
 import AdminClientSubUsers from './pages/admin/ClientSubUsers';
+import AdminFinanceConfig from './pages/admin/FinanceConfig';
 
 // Employee Pages (no longer used — employees redirect to admin layout)
 
@@ -129,6 +130,7 @@ function App() {
               <Route path="/admin/documents" element={<AdminDocuments />} />
               <Route path="/admin/clients" element={<AdminClients />} />
               <Route path="/admin/finance" element={<AdminFinance />} />
+              <Route path="/admin/finance-config" element={<AdminFinanceConfig />} />
               <Route path="/admin/finance-simulator" element={<AdminFinanceSimulator />} />
               <Route path="/admin/simulator" element={<AdminSimulatorWizard />} />
               <Route path="/admin/catalog" element={<AdminCatalogManagement />} />

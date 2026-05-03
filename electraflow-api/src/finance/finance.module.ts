@@ -14,10 +14,16 @@ import { PurchaseOrder, PurchaseOrderItem } from './purchase-order.entity';
 import { MeasurementsService } from './measurements.service';
 import { MeasurementsController } from './measurements.controller';
 import { Task } from '../tasks/task.entity';
+import { DreCategory, BankAccount, CostCenter, ChartOfAccounts, CashRegister, PaymentMethodConfig } from './finance-config.entity';
+import { FinanceConfigService } from './finance-config.service';
+import { FinanceConfigController } from './finance-config.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Payment, Measurement, MeasurementItem, Task, WorkCost, PaymentSchedule, PaymentReceipt, PurchaseOrder, PurchaseOrderItem]),
+    TypeOrmModule.forFeature([
+      Payment, Measurement, MeasurementItem, Task, WorkCost, PaymentSchedule, PaymentReceipt, PurchaseOrder, PurchaseOrderItem,
+      DreCategory, BankAccount, CostCenter, ChartOfAccounts, CashRegister, PaymentMethodConfig,
+    ]),
     MulterModule.register({
       storage: diskStorage({
         destination: './uploads/invoices',
@@ -29,8 +35,8 @@ import { Task } from '../tasks/task.entity';
       }),
     }),
   ],
-  controllers: [FinanceController, MeasurementsController],
-  providers: [FinanceService, MeasurementsService],
-  exports: [FinanceService, MeasurementsService],
+  controllers: [FinanceController, MeasurementsController, FinanceConfigController],
+  providers: [FinanceService, MeasurementsService, FinanceConfigService],
+  exports: [FinanceService, MeasurementsService, FinanceConfigService],
 })
 export class FinanceModule { }
