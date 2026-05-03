@@ -37,14 +37,15 @@ export default function Login() {
 
         if (user?.role === 'admin') {
           navigate('/admin/dashboard');
-        } else if (['commercial', 'engineer', 'finance'].includes(user?.role)) {
+        } else if (['commercial', 'engineer', 'finance', 'viewer'].includes(user?.role)) {
           // Roles com acesso direto ao admin layout
           navigate('/admin/dashboard');
         } else if (user?.role === 'employee') {
           // Funcionário back-office → mesma tela do admin com tema azul
           navigate('/admin/dashboard');
         } else {
-          navigate('/client/dashboard');
+          // Fallback seguro — todos os users internos vão para admin
+          navigate('/admin/dashboard');
         }
       }
     } catch (err: any) {

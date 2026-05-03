@@ -116,7 +116,7 @@ function App() {
           </Route>
 
           {/* Admin Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['admin', 'commercial', 'engineer', 'finance', 'employee']} />}>
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'commercial', 'engineer', 'finance', 'employee', 'viewer']} />}>
             <Route element={<AdminLayout />}>
               <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
