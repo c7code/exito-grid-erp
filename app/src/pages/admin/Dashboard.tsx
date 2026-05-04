@@ -90,12 +90,9 @@ function KPI({ icon: Icon, label, value, sub, color = 'text-slate-700', accent =
 export default function AdminDashboard() {
   const { user } = useAuth();
 
-  // ── Guard: only admin can access the dashboard
-  if (user?.role !== 'admin') {
-    const redirectTo = user?.role === 'employee' ? '/employee/dashboard'
-      : user?.role === 'client' ? '/client/dashboard'
-      : '/admin/works';
-    return <Navigate to={redirectTo} replace />;
+  // ── Guard: redirect clients to their own dashboard
+  if (user?.role === 'client') {
+    return <Navigate to="/client/dashboard" replace />;
   }
 
   // ── RAW DATA ────────────────────────────────────────────────────────
