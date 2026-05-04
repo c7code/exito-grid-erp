@@ -18,6 +18,7 @@ import {
     CheckCircle2, XCircle, Upload, Download, History, Eye,
     FileText, Search, RefreshCw, ChevronDown, ChevronRight,
     ThumbsUp, ThumbsDown, HelpCircle, Loader2, Plus, Pencil, Trash2,
+    Maximize2, X, Image as ImageIcon, FileSpreadsheet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -164,6 +165,7 @@ export default function EmployeeCompliance() {
     const [naJustification, setNaJustification] = useState('');
     const [renamingDocType, setRenamingDocType] = useState<{open: boolean; docTypeId?: string; currentName?: string}>({open: false});
     const [renameValue, setRenameValue] = useState('');
+    const [viewerDialog, setViewerDialog] = useState<{ open: boolean; url?: string; fileName?: string; mimeType?: string }>({ open: false });
 
     useEffect(() => {
         if (employeeId) loadAll();
@@ -343,6 +345,18 @@ export default function EmployeeCompliance() {
         // fileUrl is like "/api/compliance/files/uuid.pdf"
         const filename = fileUrl.split('/').pop() || '';
         api.downloadComplianceFile(filename);
+    }
+
+    function getFilePreviewUrl(fileUrl: string): string {
+        const base = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api$/, '');
+        const token = localStorage.getItem('electraflow_token');
+        const filename = fileUrl.split('/').pop() || '';
+        return `${base}/api/compliance/files/${filename}/download?token=${token}`;
+    }
+
+    function openFileViewer(version: DocVersion) {
+        const url = getFilePreviewUrl(version.fileUrl);
+        setViewerDialog({ open: true, url, fileName: version.fileName, mimeType: version.mimeType });
     }
 
     async function handleDeleteDocument(doc: ComplianceDoc) {
@@ -699,13 +713,22 @@ export default function EmployeeCompliance() {
                                                 </Button>
 
                                                 {lastVersion && (
-                                                    <Button
-                                                        variant="ghost" size="icon" className="h-8 w-8"
-                                                        title="Download última versão"
-                                                        onClick={() => handleDownloadFile(lastVersion.fileUrl)}
-                                                    >
-                                                        <Download className="h-4 w-4" />
-                                                    </Button>
+                                                    <>
+                                                        <Button
+                                                            variant="ghost" size="icon" className="h-8 w-8"
+                                                            title="Visualizar documento"
+                                                            onClick={() => openFileViewer(lastVersion)}
+                                                        >
+                                                            <Eye className="h-4 w-4 text-blue-500" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost" size="icon" className="h-8 w-8"
+                                                            title="Download última versão"
+                                                            onClick={() => handleDownloadFile(lastVersion.fileUrl)}
+                                                        >
+                                                            <Download className="h-4 w-4" />
+                                                        </Button>
+                                                    </>
                                                 )}
 
                                                 {doc && (
@@ -1208,6 +1231,60 @@ export default function EmployeeCompliance() {
                         <Button variant="outline" onClick={() => setRenamingDocType({open: false})}>Cancelar</Button>
                         <Button onClick={handleRenameDocType}>Salvar</Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ═══ Document Viewer Dialog ═══ */}
+            <Dialog open={viewerDialog.open} onOpenChange={v => !v && setViewerDialog({ open: false })}>
+                <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0 gap-0">
+                    <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+                        <div className="flex items-center gap-3 min-w-0">
+                            {viewerDialog.mimeType?.startsWith('image/') ? (
+                                <ImageIcon className="h-5 w-5 text-blue-500 shrink-0" />
+                            ) : viewerDialog.mimeType?.includes('pdf') ? (
+                                <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                            ) : (
+                                <FileSpreadsheet className="h-5 w-5 text-green-500 shrink-0" />
+                            )}
+                            <span className="font-medium text-sm truncate">{viewerDialog.fileName || 'Documento'}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            {viewerDialog.url && (
+                                <Button
+                                    variant="ghost" size="sm"
+                                    onClick={() => window.open(viewerDialog.url, '_blank')}
+                                    title="Abrir em nova aba"
+                                >
+                                    <Maximize2 className="h-4 w-4 mr-1" /> Nova Aba
+                                </Button>
+                            )}
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewerDialog({ open: false })}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="flex-1 overflow-hidden bg-slate-100">
+                        {viewerDialog.url && viewerDialog.mimeType?.startsWith('image/') ? (
+                            <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
+                                <img src={viewerDialog.url} alt={viewerDialog.fileName} className="max-w-full max-h-full object-contain rounded-lg shadow-lg" />
+                            </div>
+                        ) : viewerDialog.url && viewerDialog.mimeType?.includes('pdf') ? (
+                            <iframe
+                                src={viewerDialog.url}
+                                className="w-full h-full border-0"
+                                title={viewerDialog.fileName}
+                            />
+                        ) : viewerDialog.url ? (
+                            <div className="flex flex-col items-center justify-center h-full gap-4">
+                                <FileText className="h-16 w-16 text-slate-300" />
+                                <p className="text-sm text-muted-foreground">Visualização não disponível para este tipo de arquivo</p>
+                                <p className="text-xs text-muted-foreground">({viewerDialog.mimeType})</p>
+                                <Button onClick={() => window.open(viewerDialog.url, '_blank')}>
+                                    <Download className="h-4 w-4 mr-2" /> Baixar Arquivo
+                                </Button>
+                            </div>
+                        ) : null}
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
