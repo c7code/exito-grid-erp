@@ -19,12 +19,10 @@ import {
   Plus, Search, Filter, Loader2, Edit2, Trash2,
   CheckCircle, MoreVertical, FileText, Upload, Share2,
   Download, Building2, Banknote, X, GitBranch,
-  Receipt, Package, Calendar, TrendingDown, Minus,
+  Receipt, Package, Calendar, TrendingDown,
   BarChart3, PieChart as PieChartIcon, Target, AlertTriangle,
 } from 'lucide-react';
 import {
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -33,7 +31,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  AreaChart,
   Area,
   Line,
   ComposedChart,
@@ -520,10 +517,7 @@ export default function AdminFinance() {
     }
   };
 
-  const revenueVsExpense = [
-    { name: 'Receitas', value: summary?.receivedThisMonth || 0 },
-    { name: 'Despesas', value: summary?.paidThisMonth || 0 },
-  ];
+
 
   const expenseByCategory = dre?.expense ? Object.entries(dre.expense).map(([name, value]) => ({
     name: name.charAt(0).toUpperCase() + name.slice(1),

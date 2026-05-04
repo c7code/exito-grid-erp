@@ -7,11 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit2, Trash2, Loader2, Building2, Landmark, Tag, Layers, Wallet, CreditCard, CheckCircle, X, Settings } from 'lucide-react';
+import { Plus, Edit2, Trash2, Loader2, Landmark, Tag, Layers, Wallet, CreditCard, CheckCircle, X, Settings } from 'lucide-react';
 import { api } from '@/api';
 import { toast } from 'sonner';
 
-type ConfigEntity = { id?: string; name: string; [key: string]: any };
+
 
 // Generic CRUD table component
 function ConfigTable({ title, icon: Icon, items, fields, onAdd, onEdit, onDelete, loading }: {
