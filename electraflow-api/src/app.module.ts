@@ -39,6 +39,7 @@ import { SolarReportsModule } from './solar-reports/solar-reports.module';
 import { SignaturesModule } from './signatures/signatures.module';
 import { SimulationsModule } from './simulations/simulations.module';
 import { PortalModule } from './portal/portal.module';
+import { EquipmentModule } from './equipment/equipment.module';
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { PortalModule } from './portal/portal.module';
     SignaturesModule,
     SimulationsModule,
     PortalModule,
+    EquipmentModule,
   ],
 })
 export class AppModule { }

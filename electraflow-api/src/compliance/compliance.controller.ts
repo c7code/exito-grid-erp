@@ -392,9 +392,22 @@ export class ComplianceController {
 
     @Get('files/:filename')
     @ApiOperation({ summary: 'Download/visualizar arquivo' })
-    async downloadFile(@Param('filename') filename: string, @Res() res: Response) {
-        const filePath = path.join(UPLOAD_DIR, filename);
+    async downloadFile(
+        @Param('filename') filename: string,
+        @Query('token') token: string,
+        @Res() res: Response,
+    ) {
+        // Validate token from query if present (for iframe/img preview)
+        if (token) {
+            try {
+                const jwt = require('jsonwebtoken');
+                jwt.verify(token, process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production');
+            } catch {
+                return res.status(401).json({ message: 'Token inválido' });
+            }
+        }
 
+        const filePath = path.join(UPLOAD_DIR, filename);
         if (!fs.existsSync(filePath)) {
             throw new NotFoundException('Arquivo não encontrado');
         }
@@ -410,9 +423,22 @@ export class ComplianceController {
 
     @Get('files/:filename/download')
     @ApiOperation({ summary: 'Forçar download do arquivo' })
-    async forceDownloadFile(@Param('filename') filename: string, @Res() res: Response) {
-        const filePath = path.join(UPLOAD_DIR, filename);
+    async forceDownloadFile(
+        @Param('filename') filename: string,
+        @Query('token') token: string,
+        @Res() res: Response,
+    ) {
+        // Validate token from query if present (for iframe/img preview)
+        if (token) {
+            try {
+                const jwt = require('jsonwebtoken');
+                jwt.verify(token, process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production');
+            } catch {
+                return res.status(401).json({ message: 'Token inválido' });
+            }
+        }
 
+        const filePath = path.join(UPLOAD_DIR, filename);
         if (!fs.existsSync(filePath)) {
             throw new NotFoundException('Arquivo não encontrado');
         }
