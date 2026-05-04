@@ -2851,6 +2851,28 @@ class ApiService {
 
   // Client Portal
   async getClientSolarPlanSubscriptions(clientId: string) { return (await this.client.get(`/solar-plans/client/${clientId}`)).data; }
+
+  // ═══ EQUIPMENT / LOCAÇÃO ═══════════════════════════════════════
+  async getEquipment() { return (await this.client.get('/equipment')).data; }
+  async getEquipmentById(id: string) { return (await this.client.get(`/equipment/${id}`)).data; }
+  async createEquipment(data: any) { return (await this.client.post('/equipment', data)).data; }
+  async updateEquipment(id: string, data: any) { return (await this.client.put(`/equipment/${id}`, data)).data; }
+  async deleteEquipment(id: string) { return (await this.client.delete(`/equipment/${id}`)).data; }
+  async getEquipmentStats() { return (await this.client.get('/equipment/stats')).data; }
+
+  // Rentals
+  async getEquipmentRentals() { return (await this.client.get('/equipment/rentals/all')).data; }
+  async getEquipmentRentalById(id: string) { return (await this.client.get(`/equipment/rentals/${id}`)).data; }
+  async createEquipmentRental(data: any) { return (await this.client.post('/equipment/rentals', data)).data; }
+  async updateEquipmentRental(id: string, data: any) { return (await this.client.put(`/equipment/rentals/${id}`, data)).data; }
+  async updateEquipmentRentalStatus(id: string, status: string) { return (await this.client.patch(`/equipment/rentals/${id}/status`, { status })).data; }
+  async deleteEquipmentRental(id: string) { return (await this.client.delete(`/equipment/rentals/${id}`)).data; }
+
+  // Maintenance
+  async getEquipmentMaintenance(equipmentId?: string) { return (await this.client.get('/equipment/maintenance/all', { params: { equipmentId } })).data; }
+  async createEquipmentMaintenance(data: any) { return (await this.client.post('/equipment/maintenance', data)).data; }
+  async updateEquipmentMaintenance(id: string, data: any) { return (await this.client.put(`/equipment/maintenance/${id}`, data)).data; }
+  async deleteEquipmentMaintenance(id: string) { return (await this.client.delete(`/equipment/maintenance/${id}`)).data; }
 }
 
 export const api = new ApiService();
