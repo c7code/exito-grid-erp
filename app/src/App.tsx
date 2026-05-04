@@ -54,6 +54,7 @@ import AdminSolarReports from './pages/admin/SolarReports';
 import AdminSolarPlans from './pages/admin/SolarPlans';
 import AdminClientSubUsers from './pages/admin/ClientSubUsers';
 import AdminFinanceConfig from './pages/admin/FinanceConfig';
+import AdminEquipment from './pages/admin/Equipment';
 
 // Employee Pages (no longer used — employees redirect to admin layout)
 
@@ -149,6 +150,7 @@ function App() {
               <Route path="/admin/orcamentos" element={<AdminBudgets />} />
               <Route path="/admin/solar-reports" element={<AdminSolarReports />} />
               <Route path="/admin/solar-plans" element={<AdminSolarPlans />} />
+              <Route path="/admin/equipment" element={<AdminEquipment />} />
 
               <Route path="/admin/employees" element={<AdminEmployees />} />
               <Route path="/admin/employees/:id/compliance" element={<AdminEmployeeCompliance />} />

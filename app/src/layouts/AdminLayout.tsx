@@ -104,6 +104,12 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    section: 'LOCAÇÃO',
+    items: [
+      { path: '/admin/equipment', label: 'Equipamentos', icon: Truck, module: 'equipment', roles: ['admin', 'commercial', 'employee'] },
+    ],
+  },
+  {
     section: 'DOCUMENTAÇÃO',
     items: [
       { path: '/admin/documents', label: 'Documentos', icon: FolderOpen, module: 'documents', roles: ['admin', 'engineer', 'commercial', 'finance', 'employee'] },
