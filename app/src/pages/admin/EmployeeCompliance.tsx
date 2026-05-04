@@ -348,10 +348,10 @@ export default function EmployeeCompliance() {
     }
 
     function getFilePreviewUrl(fileUrl: string): string {
-        const base = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api$/, '');
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
         const token = localStorage.getItem('electraflow_token');
         const filename = fileUrl.split('/').pop() || '';
-        return `${base}/api/compliance/files/${filename}?token=${token}`;
+        return `${apiBase}/compliance/files/${filename}?token=${token}`;
     }
 
     function openFileViewer(version: DocVersion) {
