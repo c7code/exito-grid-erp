@@ -17,6 +17,7 @@ import { Employee } from '../employees/employee.entity';
 import { Supplier } from '../supply/supply.entity';
 import { ComplianceService } from './compliance.service';
 import { ComplianceController } from './compliance.controller';
+import { ComplianceFilesController } from './compliance-files.controller';
 
 @Module({
     imports: [
@@ -39,7 +40,7 @@ import { ComplianceController } from './compliance.controller';
             Supplier,
         ]),
     ],
-    controllers: [ComplianceController],
+    controllers: [ComplianceController, ComplianceFilesController],
     providers: [ComplianceService],
     exports: [ComplianceService],
 })
