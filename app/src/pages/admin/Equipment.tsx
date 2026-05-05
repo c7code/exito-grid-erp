@@ -8,6 +8,7 @@ import EquipmentDashboard from './equipment/EquipmentDashboard';
 import EquipmentList from './equipment/EquipmentList';
 import RentalTab from './equipment/RentalTab';
 import DailyLogTab from './equipment/DailyLogTab';
+import MeasurementTab from './equipment/MeasurementTab';
 import ServiceTab from './equipment/ServiceTab';
 import MaintenanceTab from './equipment/MaintenanceTab';
 import ChecklistTab from './equipment/ChecklistTab';
@@ -15,13 +16,14 @@ import ChecklistTab from './equipment/ChecklistTab';
 // ═══════════════════════════════════════════════════════════════
 // TAB DEFINITIONS
 // ═══════════════════════════════════════════════════════════════
-type TabKey = 'dash' | 'equip' | 'rent' | 'daily' | 'service' | 'maint' | 'check';
+type TabKey = 'dash' | 'equip' | 'rent' | 'daily' | 'measure' | 'service' | 'maint' | 'check';
 
 const TABS: { key: TabKey; label: string; icon: any; color: string }[] = [
   { key: 'dash',    label: 'Dashboard',     icon: LayoutDashboard, color: 'text-indigo-500' },
   { key: 'equip',   label: 'Equipamentos',  icon: Package,         color: 'text-orange-500' },
   { key: 'rent',    label: 'Locações',      icon: FileText,        color: 'text-blue-500' },
   { key: 'daily',   label: 'Diárias',       icon: Clock,           color: 'text-cyan-500' },
+  { key: 'measure', label: 'Medição',       icon: FileText,        color: 'text-emerald-500' },
   { key: 'service', label: 'Serviços',      icon: Zap,             color: 'text-purple-500' },
   { key: 'maint',   label: 'Manutenções',   icon: Wrench,          color: 'text-amber-500' },
   { key: 'check',   label: 'Vistorias',     icon: ClipboardCheck,  color: 'text-teal-500' },
@@ -155,6 +157,15 @@ export default function EquipmentPage() {
             rentals={rentals}
             equipment={equipment}
             employees={employees}
+            reload={loadAll}
+          />
+        )}
+
+        {tab === 'measure' && (
+          <MeasurementTab
+            rentals={rentals}
+            equipment={equipment}
+            dailyLogs={dailyLogs}
             reload={loadAll}
           />
         )}

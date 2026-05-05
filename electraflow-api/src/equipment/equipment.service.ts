@@ -90,6 +90,40 @@ export class EquipmentService implements OnModuleInit {
       { table: 'equipment', col: 'operatorIds', type: 'TEXT' },
       { table: 'equipment_rentals', col: 'checklistDepartureId', type: 'UUID' },
       { table: 'equipment_rentals', col: 'checklistReturnId', type: 'UUID' },
+      // Rental: modalidade e adicionais
+      { table: 'equipment_rentals', col: 'billingModality', type: 'VARCHAR DEFAULT \'daily\'' },
+      { table: 'equipment_rentals', col: 'contractedPeriodDays', type: 'INT' },
+      { table: 'equipment_rentals', col: 'contractedHoursPerDay', type: 'NUMERIC(6,2) DEFAULT 8' },
+      { table: 'equipment_rentals', col: 'overtimeMode', type: 'VARCHAR DEFAULT \'percent\'' },
+      { table: 'equipment_rentals', col: 'overtimeRate', type: 'NUMERIC(15,2) DEFAULT 50' },
+      { table: 'equipment_rentals', col: 'nightMode', type: 'VARCHAR DEFAULT \'percent\'' },
+      { table: 'equipment_rentals', col: 'nightRate', type: 'NUMERIC(15,2) DEFAULT 30' },
+      { table: 'equipment_rentals', col: 'holidayMode', type: 'VARCHAR DEFAULT \'percent\'' },
+      { table: 'equipment_rentals', col: 'holidayRate', type: 'NUMERIC(15,2) DEFAULT 100' },
+      { table: 'equipment_rentals', col: 'weekendMode', type: 'VARCHAR DEFAULT \'percent\'' },
+      { table: 'equipment_rentals', col: 'weekendRate', type: 'NUMERIC(15,2) DEFAULT 50' },
+      { table: 'equipment_rentals', col: 'includesOperator', type: 'BOOLEAN DEFAULT true' },
+      { table: 'equipment_rentals', col: 'operatorCostPerDay', type: 'NUMERIC(15,2) DEFAULT 0' },
+      { table: 'equipment_rentals', col: 'proposalClauses', type: 'TEXT' },
+      { table: 'equipment_rentals', col: 'accessRestrictions', type: 'TEXT' },
+      { table: 'equipment_rentals', col: 'clientResponsibilities', type: 'TEXT' },
+      { table: 'equipment_rentals', col: 'measurementNotes', type: 'TEXT' },
+      // DailyLog: detalhamento de horas
+      { table: 'equipment_daily_logs', col: 'normalHours', type: 'NUMERIC(6,2) DEFAULT 0' },
+      { table: 'equipment_daily_logs', col: 'overtimeHours', type: 'NUMERIC(6,2) DEFAULT 0' },
+      { table: 'equipment_daily_logs', col: 'nightHours', type: 'NUMERIC(6,2) DEFAULT 0' },
+      { table: 'equipment_daily_logs', col: 'isHoliday', type: 'BOOLEAN DEFAULT false' },
+      { table: 'equipment_daily_logs', col: 'isWeekend', type: 'BOOLEAN DEFAULT false' },
+      { table: 'equipment_daily_logs', col: 'normalValue', type: 'NUMERIC(15,2) DEFAULT 0' },
+      { table: 'equipment_daily_logs', col: 'overtimeValue', type: 'NUMERIC(15,2) DEFAULT 0' },
+      { table: 'equipment_daily_logs', col: 'nightValue', type: 'NUMERIC(15,2) DEFAULT 0' },
+      { table: 'equipment_daily_logs', col: 'holidayValue', type: 'NUMERIC(15,2) DEFAULT 0' },
+      { table: 'equipment_daily_logs', col: 'weekendValue', type: 'NUMERIC(15,2) DEFAULT 0' },
+      { table: 'equipment_daily_logs', col: 'startTime', type: 'VARCHAR' },
+      { table: 'equipment_daily_logs', col: 'endTime', type: 'VARCHAR' },
+      { table: 'equipment_daily_logs', col: 'workLocation', type: 'VARCHAR' },
+      { table: 'equipment_daily_logs', col: 'clientApproval', type: 'VARCHAR DEFAULT \'pending\'' },
+      { table: 'equipment_daily_logs', col: 'clientApprovalNote', type: 'TEXT' },
     ];
     for (const { table, col, type } of cols) {
       try {
@@ -216,10 +250,69 @@ export class EquipmentService implements OnModuleInit {
   }
 
   async createDailyLog(data: Partial<EquipmentDailyLog>): Promise<EquipmentDailyLog> {
-    const totalValue = Number(data.dailyRate || 0) * Math.max(Number(data.hoursWorked || 0) / 8, 1);
-    const log = this.dailyRepo.create({ ...data, totalValue });
+    // Auto-calculate values based on rental rates
+    if (data.rentalId) {
+      try {
+        const rental = await this.rentalRepo.findOneBy({ id: data.rentalId });
+        if (rental) {
+          const baseRate = Number(data.dailyRate || rental.unitRate || 0);
+          const contractedHours = Number(rental.contractedHoursPerDay || 8);
+          const hourlyBase = baseRate / contractedHours;
+
+          const normalH = Number(data.normalHours || data.hoursWorked || 0);
+          const overtimeH = Number(data.overtimeHours || 0);
+          const nightH = Number(data.nightHours || 0);
+          const isHoliday = data.isHoliday || false;
+          const isWeekend = data.isWeekend || false;
+
+          // Normal value
+          data.normalValue = normalH * hourlyBase;
+
+          // Overtime
+          if (overtimeH > 0) {
+            data.overtimeValue = rental.overtimeMode === 'fixed'
+              ? overtimeH * Number(rental.overtimeRate || 0)
+              : overtimeH * hourlyBase * (1 + Number(rental.overtimeRate || 50) / 100);
+          }
+
+          // Night
+          if (nightH > 0) {
+            data.nightValue = rental.nightMode === 'fixed'
+              ? nightH * Number(rental.nightRate || 0)
+              : nightH * hourlyBase * (Number(rental.nightRate || 30) / 100);
+          }
+
+          // Holiday
+          if (isHoliday) {
+            const totalH = normalH + overtimeH;
+            data.holidayValue = rental.holidayMode === 'fixed'
+              ? Number(rental.holidayRate || 0)
+              : totalH * hourlyBase * (Number(rental.holidayRate || 100) / 100);
+          }
+
+          // Weekend
+          if (isWeekend && !isHoliday) {
+            const totalH = normalH + overtimeH;
+            data.weekendValue = rental.weekendMode === 'fixed'
+              ? Number(rental.weekendRate || 0)
+              : totalH * hourlyBase * (Number(rental.weekendRate || 50) / 100);
+          }
+
+          data.totalValue = Number(data.normalValue || 0) + Number(data.overtimeValue || 0)
+            + Number(data.nightValue || 0) + Number(data.holidayValue || 0) + Number(data.weekendValue || 0);
+          data.hoursWorked = normalH + overtimeH;
+          data.dailyRate = baseRate;
+        }
+      } catch (e) { this.logger.warn('Auto-calc error: ' + e?.message); }
+    }
+
+    // Fallback: simple calculation if no rental-based calc happened
+    if (!data.totalValue) {
+      data.totalValue = Number(data.dailyRate || 0) * Math.max(Number(data.hoursWorked || 0) / 8, 1);
+    }
+
+    const log = this.dailyRepo.create(data);
     const saved = await this.dailyRepo.save(log);
-    // Update equipment hours
     if (data.hoursWorked && data.equipmentId) {
       await this.equipRepo.increment({ id: data.equipmentId }, 'totalHoursUsed', Number(data.hoursWorked));
     }
@@ -268,6 +361,63 @@ export class EquipmentService implements OnModuleInit {
 
     this.logger.log(`💰 Faturadas ${unbilled.length} diárias de ${rental.code}: R$ ${totalValue}`);
     return { paymentId: pId, totalValue, count: unbilled.length };
+  }
+
+  // ═══ MEASUREMENT REPORT (Boletim de Medição) ═════════════════
+  async getMeasurementReport(rentalId: string, startDate?: string, endDate?: string) {
+    const rental = await this.getRentalById(rentalId);
+    const qb = this.dailyRepo.createQueryBuilder('dl')
+      .where('dl.rentalId = :rentalId', { rentalId })
+      .andWhere('dl.deletedAt IS NULL')
+      .orderBy('dl.date', 'ASC');
+
+    if (startDate) qb.andWhere('dl.date >= :startDate', { startDate });
+    if (endDate) qb.andWhere('dl.date <= :endDate', { endDate });
+
+    const logs = await qb.getMany();
+
+    const summary = {
+      totalDays: logs.length,
+      totalNormalHours: 0, totalOvertimeHours: 0, totalNightHours: 0,
+      totalNormalValue: 0, totalOvertimeValue: 0, totalNightValue: 0,
+      totalHolidayValue: 0, totalWeekendValue: 0, totalValue: 0,
+      holidayDays: 0, weekendDays: 0,
+    };
+
+    for (const log of logs) {
+      summary.totalNormalHours += Number(log.normalHours || 0);
+      summary.totalOvertimeHours += Number(log.overtimeHours || 0);
+      summary.totalNightHours += Number(log.nightHours || 0);
+      summary.totalNormalValue += Number(log.normalValue || 0);
+      summary.totalOvertimeValue += Number(log.overtimeValue || 0);
+      summary.totalNightValue += Number(log.nightValue || 0);
+      summary.totalHolidayValue += Number(log.holidayValue || 0);
+      summary.totalWeekendValue += Number(log.weekendValue || 0);
+      summary.totalValue += Number(log.totalValue || 0);
+      if (log.isHoliday) summary.holidayDays++;
+      if (log.isWeekend) summary.weekendDays++;
+    }
+
+    return {
+      rental: {
+        id: rental.id, code: rental.code,
+        equipment: rental.equipment, client: rental.client,
+        operatorName: rental.operatorName,
+        billingModality: rental.billingModality,
+        unitRate: rental.unitRate,
+        contractedHoursPerDay: rental.contractedHoursPerDay,
+        overtimeMode: rental.overtimeMode, overtimeRate: rental.overtimeRate,
+        nightMode: rental.nightMode, nightRate: rental.nightRate,
+        holidayMode: rental.holidayMode, holidayRate: rental.holidayRate,
+        weekendMode: rental.weekendMode, weekendRate: rental.weekendRate,
+        includesOperator: rental.includesOperator,
+        proposalClauses: rental.proposalClauses,
+        startDate: rental.startDate, endDate: rental.endDate,
+      },
+      period: { startDate, endDate },
+      logs,
+      summary,
+    };
   }
 
   // ═══ SERVICES CRUD ═══════════════════════════════════════════

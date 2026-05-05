@@ -2882,6 +2882,7 @@ class ApiService {
   async updateEquipmentDailyLog(id: string, data: any) { return (await this.client.put(`/equipment/daily-logs/${id}`, data)).data; }
   async deleteEquipmentDailyLog(id: string) { return (await this.client.delete(`/equipment/daily-logs/${id}`)).data; }
   async billEquipmentDailyLogs(rentalId: string) { return (await this.client.post(`/equipment/daily-logs/bill/${rentalId}`)).data; }
+  async getMeasurementReport(rentalId: string, startDate?: string, endDate?: string) { return (await this.client.get(`/equipment/rentals/${rentalId}/measurement-report`, { params: { startDate, endDate } })).data; }
 
   // Services (Pontuais)
   async getEquipmentServices() { return (await this.client.get('/equipment/services/all')).data; }

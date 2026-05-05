@@ -186,6 +186,64 @@ export class EquipmentRental {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  // ─── Modalidade e Adicionais ───
+  @Column({ type: 'varchar', default: 'daily' })
+  billingModality: string; // 'daily' | 'monthly' | 'hourly' | 'fixed_period'
+
+  @Column({ type: 'int', nullable: true })
+  contractedPeriodDays: number;
+
+  @Column({ type: 'decimal', precision: 6, scale: 2, default: 8 })
+  contractedHoursPerDay: number;
+
+  // Adicional Hora Extra
+  @Column({ type: 'varchar', default: 'percent' })
+  overtimeMode: string; // 'percent' | 'fixed'
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 50 })
+  overtimeRate: number; // % ou valor fixo
+
+  // Adicional Noturno
+  @Column({ type: 'varchar', default: 'percent' })
+  nightMode: string;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 30 })
+  nightRate: number;
+
+  // Adicional Feriado
+  @Column({ type: 'varchar', default: 'percent' })
+  holidayMode: string;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 100 })
+  holidayRate: number;
+
+  // Adicional Fim de Semana
+  @Column({ type: 'varchar', default: 'percent' })
+  weekendMode: string;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 50 })
+  weekendRate: number;
+
+  // Operador
+  @Column({ default: true })
+  includesOperator: boolean;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  operatorCostPerDay: number;
+
+  // Cláusulas e Responsabilidades
+  @Column({ type: 'simple-json', nullable: true })
+  proposalClauses: Array<{ text: string; enabled: boolean }>;
+
+  @Column({ type: 'text', nullable: true })
+  accessRestrictions: string;
+
+  @Column({ type: 'text', nullable: true })
+  clientResponsibilities: string;
+
+  @Column({ type: 'text', nullable: true })
+  measurementNotes: string;
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -290,6 +348,52 @@ export class EquipmentDailyLog {
 
   @Column({ type: 'text', nullable: true })
   description: string;
+
+  // ─── Detalhamento de Horas ───
+  @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
+  normalHours: number;
+
+  @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
+  overtimeHours: number;
+
+  @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
+  nightHours: number;
+
+  @Column({ default: false })
+  isHoliday: boolean;
+
+  @Column({ default: false })
+  isWeekend: boolean;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  normalValue: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  overtimeValue: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  nightValue: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  holidayValue: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  weekendValue: number;
+
+  @Column({ nullable: true })
+  startTime: string; // "07:00"
+
+  @Column({ nullable: true })
+  endTime: string; // "17:00"
+
+  @Column({ nullable: true })
+  workLocation: string;
+
+  @Column({ type: 'varchar', default: 'pending' })
+  clientApproval: string; // 'pending' | 'approved' | 'disputed'
+
+  @Column({ type: 'text', nullable: true })
+  clientApprovalNote: string;
 
   @Column({ type: 'varchar', default: 'registered' })
   status: string; // 'registered' | 'billed' | 'cancelled'

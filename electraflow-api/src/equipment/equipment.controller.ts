@@ -94,6 +94,14 @@ export class EquipmentController {
   @ApiOperation({ summary: 'Faturar diárias de uma locação' })
   billDailyLogs(@Param('rentalId') rentalId: string) { return this.svc.billDailyLogs(rentalId); }
 
+  @Get('rentals/:id/measurement-report')
+  @ApiOperation({ summary: 'Boletim de medição da locação' })
+  getMeasurementReport(
+    @Param('id') id: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) { return this.svc.getMeasurementReport(id, startDate, endDate); }
+
   // ═══ SERVICES (Pontuais) ═══
   @Get('services/all')
   @ApiOperation({ summary: 'Listar serviços pontuais' })
