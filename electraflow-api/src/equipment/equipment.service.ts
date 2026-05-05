@@ -787,4 +787,193 @@ export class EquipmentService implements OnModuleInit {
   async removeLiftingPlan(id: string): Promise<void> {
     await this.liftingRepo.softDelete(id);
   }
+
+  // ═══ GENERATE RENTAL PROPOSAL ═════════════════════════════════
+  // Creates a full Proposal from a Rental, with category-specific clauses
+  // ═══════════════════════════════════════════════════════════════
+  async generateRentalProposal(rentalId: string): Promise<any> {
+    const rental = await this.getRentalById(rentalId);
+    if (!rental) throw new NotFoundException('Locação não encontrada');
+
+    const equipment = rental.equipment;
+    if (!equipment) throw new NotFoundException('Equipamento da locação não encontrado');
+
+    // ── Generate proposal number ──
+    const year = new Date().getFullYear();
+    const prefix = `PROP-${year}-`;
+    const result = await this.dataSource.query(
+      `SELECT MAX(CAST(REPLACE("proposalNumber", $1, '') AS INTEGER)) as max_num
+       FROM proposals WHERE "proposalNumber" LIKE $2`,
+      [prefix, `${prefix}%`],
+    );
+    const maxNum = Number(result?.[0]?.max_num) || 0;
+    const proposalNumber = `${prefix}${String(maxNum + 1).padStart(3, '0')}`;
+
+    // ── Category label ──
+    const CAT_LABELS: Record<string, string> = {
+      munck: 'Munck', crane: 'Guindaste', truck: 'Caminhão', flatbed_truck: 'Caminhão Prancha',
+      excavator: 'Retroescavadeira', backhoe: 'Pá Carregadeira', generator: 'Gerador',
+      compressor: 'Compressor', aerial_platform: 'Plataforma Elevatória', forklift: 'Empilhadeira',
+      concrete_mixer: 'Betoneira', welding_machine: 'Máquina de Solda', drill: 'Perfuratriz/Furadeira',
+      roller: 'Rolo Compactador', mini_excavator: 'Mini Escavadeira', skid_loader: 'Mini Carregadeira',
+      tractor: 'Trator', trailer: 'Carreta/Reboque', container: 'Container', scaffold: 'Andaime',
+      water_truck: 'Caminhão Pipa', dump_truck: 'Caminhão Caçamba', boom_truck: 'Caminhão com Lança',
+    };
+    const catLabel = CAT_LABELS[equipment.category] || equipment.customCategory || equipment.category || 'Equipamento';
+
+    // ── Billing modality ──
+    const BILLING_LABELS: Record<string, string> = {
+      daily: 'Diária', monthly: 'Mensal', hourly: 'Por Hora', fixed_period: 'Período Fechado',
+    };
+    const billingLabel = BILLING_LABELS[rental.billingModality || rental.billingType] || 'Diária';
+
+    // ── Build title ──
+    const title = `Locação de ${catLabel} — ${equipment.name}`;
+
+    // ── Build scope with equipment specs ──
+    const specs = equipment.specifications || {};
+    const specLines = Object.entries(specs)
+      .filter(([, v]) => v !== undefined && v !== null && v !== '')
+      .map(([k, v]) => `• ${k}: ${v}`)
+      .join('\n');
+
+    const scope = [
+      `EQUIPAMENTO: ${equipment.name}`,
+      equipment.brand ? `Marca: ${equipment.brand}` : null,
+      equipment.model ? `Modelo: ${equipment.model}` : null,
+      equipment.year ? `Ano: ${equipment.year}` : null,
+      equipment.plate ? `Placa: ${equipment.plate}` : null,
+      equipment.serialNumber ? `Nº Série: ${equipment.serialNumber}` : null,
+      `Categoria: ${catLabel}`,
+      '',
+      specLines ? `ESPECIFICAÇÕES TÉCNICAS:\n${specLines}` : null,
+      '',
+      `CONDIÇÕES DA LOCAÇÃO:`,
+      `• Modalidade: ${billingLabel}`,
+      `• Valor Unitário: R$ ${Number(rental.unitRate || 0).toFixed(2)}`,
+      `• Quantidade: ${rental.quantity || 1}`,
+      rental.contractedPeriodDays ? `• Período Contratado: ${rental.contractedPeriodDays} dias` : null,
+      `• Horas/Dia Contratadas: ${rental.contractedHoursPerDay || 8}h`,
+      `• Tipo: ${rental.rentalType === 'with_operator' ? 'Com Operador' : 'Sem Operador'}`,
+      rental.includesOperator ? `• Operador: ${rental.operatorName || 'A definir'}` : null,
+      '',
+      rental.deliveryAddress ? `LOCAL DE ENTREGA:\n${rental.deliveryAddress}${rental.deliveryCity ? ', ' + rental.deliveryCity : ''}${rental.deliveryState ? '/' + rental.deliveryState : ''}` : null,
+    ].filter(Boolean).join('\n');
+
+    // ── Build clauses JSON ──
+    const enabledClauses = (rental.proposalClauses || [])
+      .filter((c: any) => c.enabled)
+      .map((c: any) => c.text);
+
+    // ── Build rental snapshot (adicionais, operador, etc.) ──
+    const rentalSnapshot = JSON.stringify({
+      rentalId: rental.id,
+      rentalCode: rental.code,
+      equipmentId: equipment.id,
+      equipmentCode: equipment.code,
+      equipmentName: equipment.name,
+      equipmentCategory: equipment.category,
+      equipmentBrand: equipment.brand,
+      equipmentModel: equipment.model,
+      equipmentYear: equipment.year,
+      equipmentPlate: equipment.plate,
+      equipmentSerialNumber: equipment.serialNumber,
+      equipmentSpecs: equipment.specifications,
+      billingModality: rental.billingModality || rental.billingType,
+      unitRate: rental.unitRate,
+      quantity: rental.quantity,
+      totalValue: rental.totalValue,
+      contractedPeriodDays: rental.contractedPeriodDays,
+      contractedHoursPerDay: rental.contractedHoursPerDay,
+      rentalType: rental.rentalType,
+      includesOperator: rental.includesOperator,
+      operatorName: rental.operatorName,
+      operatorCostPerDay: rental.operatorCostPerDay,
+      startDate: rental.startDate,
+      endDate: rental.endDate,
+      deliveryAddress: rental.deliveryAddress,
+      deliveryCity: rental.deliveryCity,
+      deliveryState: rental.deliveryState,
+      overtimeMode: rental.overtimeMode,
+      overtimeRate: rental.overtimeRate,
+      nightMode: rental.nightMode,
+      nightRate: rental.nightRate,
+      holidayMode: rental.holidayMode,
+      holidayRate: rental.holidayRate,
+      weekendMode: rental.weekendMode,
+      weekendRate: rental.weekendRate,
+      clauses: enabledClauses,
+      accessRestrictions: rental.accessRestrictions,
+      clientResponsibilities: rental.clientResponsibilities,
+      notes: rental.notes,
+    });
+
+    // ── Contractor obligations ──
+    const contractorObligations = [
+      'Disponibilizar o equipamento em perfeitas condições de operação e segurança.',
+      rental.includesOperator ? 'Fornecer operador habilitado e certificado para operação do equipamento.' : null,
+      'Realizar manutenções preventivas e corretivas de responsabilidade da CONTRATADA.',
+      'Providenciar a mobilização e desmobilização do equipamento, salvo acordo em contrário.',
+      'Manter documentação técnica e legal do equipamento atualizada.',
+    ].filter(Boolean).join('\n');
+
+    // ── Client obligations (from rental form + standard) ──
+    const clientObl = [
+      rental.clientResponsibilities || null,
+      'Garantir acesso adequado e seguro ao local de operação do equipamento.',
+      'Responsabilizar-se por danos causados por mau uso, negligência ou descumprimento das orientações técnicas.',
+      'Efetuar os pagamentos nas datas e condições acordadas nesta proposta.',
+    ].filter(Boolean).join('\n');
+
+    // ── Insert proposal via raw SQL (avoids circular DI with ProposalsModule) ──
+    const totalValue = Number(rental.totalValue) || (Number(rental.unitRate || 0) * Number(rental.quantity || 1));
+    const validUntil = new Date(Date.now() + 30 * 86400000).toISOString();
+    const startStr = rental.startDate ? new Date(rental.startDate).toISOString() : null;
+    const endStr = rental.endDate ? new Date(rental.endDate).toISOString() : null;
+    const deadlineDays = rental.contractedPeriodDays || null;
+
+    const insertResult = await this.dataSource.query(
+      `INSERT INTO proposals (
+        id, "proposalNumber", title, "clientId", status, subtotal, total, "validUntil",
+        scope, "paymentConditions", "activityType", "contractorObligations", "clientObligations",
+        "pricingEngineData", "workDeadlineDays", "notes",
+        "createdAt", "updatedAt"
+      ) VALUES (
+        gen_random_uuid(), $1, $2, $3, 'draft', $4, $4, $5,
+        $6, $7, 'locacao_equipamento', $8, $9,
+        $10, $11, $12,
+        NOW(), NOW()
+      ) RETURNING id`,
+      [
+        proposalNumber,                                        // $1
+        title,                                                 // $2
+        rental.clientId || null,                               // $3
+        totalValue,                                            // $4
+        validUntil,                                            // $5
+        scope,                                                 // $6
+        `Pagamento conforme acordado entre as partes.`,        // $7
+        contractorObligations,                                 // $8
+        clientObl,                                             // $9
+        rentalSnapshot,                                        // $10
+        deadlineDays,                                          // $11
+        rental.notes || null,                                  // $12
+      ],
+    );
+
+    const proposalId = insertResult?.[0]?.id;
+    if (!proposalId) throw new Error('Falha ao criar proposta de locação');
+
+    // ── Link rental to proposal ──
+    await this.rentalRepo.update(rentalId, { proposalId });
+
+    this.logger.log(`✅ Proposta de locação ${proposalNumber} criada para rental ${rental.code} (equip: ${equipment.name})`);
+
+    return {
+      id: proposalId,
+      proposalNumber,
+      title,
+      total: totalValue,
+      rentalCode: rental.code,
+    };
+  }
 }

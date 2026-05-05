@@ -2874,6 +2874,7 @@ class ApiService {
   async updateEquipmentRental(id: string, data: any) { return (await this.client.put(`/equipment/rentals/${id}`, data)).data; }
   async updateEquipmentRentalStatus(id: string, status: string) { return (await this.client.patch(`/equipment/rentals/${id}/status`, { status })).data; }
   async deleteEquipmentRental(id: string) { return (await this.client.delete(`/equipment/rentals/${id}`)).data; }
+  async generateRentalProposal(rentalId: string) { return (await this.client.post(`/equipment/rentals/${rentalId}/generate-proposal`)).data; }
 
   // Maintenance
   async getEquipmentMaintenance(equipmentId?: string) { return (await this.client.get('/equipment/maintenance/all', { params: { equipmentId } })).data; }

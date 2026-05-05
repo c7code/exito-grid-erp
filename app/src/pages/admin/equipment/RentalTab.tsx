@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, FileText, Pencil, Trash2, ChevronDown, ChevronUp, Shield, AlertTriangle, Clock } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2, ChevronDown, ChevronUp, Shield, AlertTriangle, Clock, FileCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { RENT_STATUS, BILLING_MODALITY, DEFAULT_CLAUSES, fmt, fD } from './EquipmentTypes';
@@ -34,6 +35,7 @@ const defaultForm: Record<string, any> = {
 };
 
 export default function RentalTab({ rentals, equipment, clients, employees, reload }: Props) {
+  const navigate = useNavigate();
   const [dlgOpen, setDlgOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, any>>({ ...defaultForm });
@@ -119,6 +121,21 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
     active: { label: 'Concluir', next: 'completed' },
   };
 
+  async function generateProposal(rentalId: string, rentalCode: string) {
+    if (!confirm(`Gerar proposta comercial para a locação ${rentalCode}?`)) return;
+    try {
+      const result = await api.generateRentalProposal(rentalId);
+      toast.success(`Proposta ${result.proposalNumber} gerada com sucesso!`, {
+        action: { label: 'Ver Proposta', onClick: () => navigate('/admin/proposals') },
+        duration: 8000,
+      });
+      reload();
+    } catch (e: any) {
+      console.error('Erro ao gerar proposta:', e);
+      toast.error(e?.response?.data?.message || 'Erro ao gerar proposta de locação');
+    }
+  }
+
   function toggleClause(idx: number) {
     const cls = [...(form.proposalClauses || [])];
     cls[idx] = { ...cls[idx], enabled: !cls[idx].enabled };
@@ -202,6 +219,9 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
                       {statusActions[r.status].label}
                     </Button>
                   )}
+                  <Button size="sm" variant="outline" className="text-emerald-700 border-emerald-300 hover:bg-emerald-50" onClick={() => generateProposal(r.id, r.code)} title="Gerar Proposta de Locação">
+                    <FileCheck className="h-3.5 w-3.5 mr-1" />Proposta
+                  </Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r)}>
                     <Pencil className="h-4 w-4" />
                   </Button>

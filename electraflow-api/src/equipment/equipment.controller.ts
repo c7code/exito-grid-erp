@@ -71,6 +71,10 @@ export class EquipmentController {
   @Delete('rentals/:id')
   removeRental(@Param('id') id: string) { return this.svc.removeRental(id); }
 
+  @Post('rentals/:id/generate-proposal')
+  @ApiOperation({ summary: 'Gerar proposta comercial a partir de uma locação' })
+  generateRentalProposal(@Param('id') id: string) { return this.svc.generateRentalProposal(id); }
+
   // ═══ MAINTENANCE ═══
   @Get('maintenance/all')
   @ApiOperation({ summary: 'Listar manutenções' })

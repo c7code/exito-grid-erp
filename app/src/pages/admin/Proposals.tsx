@@ -60,6 +60,7 @@ import NewProposalDialog from '@/components/NewProposalDialog';
 import { ProposalPDFTemplate } from '@/components/ProposalPDFTemplate';
 import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate';
 import { OeMProposalPDFTemplate } from '@/components/OeMProposalPDFTemplate';
+import { RentalProposalPDFTemplate } from '@/components/RentalProposalPDFTemplate';
 import { SignatureSelector } from '@/components/SignatureSelector';
 import ProposalAttachments from '@/components/ProposalAttachments';
 import html2pdf from 'html2pdf.js';
@@ -561,7 +562,8 @@ export default function AdminProposals() {
 
     // Delay to ensure the template renders
     const isSolar = freshProposal.activityType === 'energia_solar' && solarData;
-    const pdfElementId = isSolar ? 'solar-proposal-pdf-content' : 'proposal-pdf-content';
+    const isRental = freshProposal.activityType === 'locacao_equipamento';
+    const pdfElementId = isSolar ? 'solar-proposal-pdf-content' : isRental ? 'rental-proposal-pdf-content' : 'proposal-pdf-content';
 
     const tryCapturePDF = (attempt = 0) => {
       const element = document.getElementById(pdfElementId);
@@ -1340,13 +1342,15 @@ export default function AdminProposals() {
                   ? <SolarProposalPDFTemplate proposal={previewProposalData} solarProject={solarProjectData || {}} company={companyData} />
                   : previewProposalData.activityType === 'plano_oem'
                     ? <OeMProposalPDFTemplate proposal={previewProposalData} company={companyData} signatures={resolvedSignatures} />
-                    : <ProposalPDFTemplate
-                        proposal={previewProposalData}
-                        client={previewProposalData.client || previewProposalData.opportunity?.client}
-                        company={companyData}
-                        hideFinancialValues={hideFinancialValues}
-                        signatures={resolvedSignatures}
-                      />
+                    : previewProposalData.activityType === 'locacao_equipamento'
+                      ? <RentalProposalPDFTemplate proposal={previewProposalData} company={companyData} signatures={resolvedSignatures} />
+                      : <ProposalPDFTemplate
+                          proposal={previewProposalData}
+                          client={previewProposalData.client || previewProposalData.opportunity?.client}
+                          company={companyData}
+                          hideFinancialValues={hideFinancialValues}
+                          signatures={resolvedSignatures}
+                        />
               )}
             </div>
           </div>
@@ -1360,7 +1364,9 @@ export default function AdminProposals() {
             ? <SolarProposalPDFTemplate proposal={proposalToPrint} solarProject={solarProjectData || {}} company={companyData} />
             : proposalToPrint.activityType === 'plano_oem'
               ? <OeMProposalPDFTemplate proposal={proposalToPrint} company={companyData} signatures={resolvedSignatures} />
-              : <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} company={companyData} hideFinancialValues={hideFinancialValues} signatures={resolvedSignatures} />
+              : proposalToPrint.activityType === 'locacao_equipamento'
+                ? <RentalProposalPDFTemplate proposal={proposalToPrint} company={companyData} signatures={resolvedSignatures} />
+                : <ProposalPDFTemplate proposal={proposalToPrint} client={proposalToPrint.client || proposalToPrint.opportunity?.client} company={companyData} hideFinancialValues={hideFinancialValues} signatures={resolvedSignatures} />
         )}
       </div>
 

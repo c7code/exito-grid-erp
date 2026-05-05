@@ -163,5 +163,197 @@ export const DEFAULT_CLAUSES = [
   'A mobilização e desmobilização do equipamento serão de responsabilidade da CONTRATADA, salvo acordo em contrário.',
 ];
 
+// ═══ CLÁUSULAS INTELIGENTES POR CATEGORIA (proteção patrimonial) ═══
+export const CATEGORY_CLAUSES: Record<string, string[]> = {
+  // ── Pesado: Içamento ──
+  munck: [
+    'Operação exclusiva por operador habilitado e certificado pela CONTRATADA.',
+    'ART de serviço de içamento/movimentação de carga é obrigatória e emitida pela CONTRATADA.',
+    'O CONTRATANTE deve garantir solo firme, nivelado e com capacidade de suporte para estabilizadores hidráulicos.',
+    'É proibido exceder a capacidade de carga conforme tabela de momentos do equipamento.',
+    'Área de isolamento de segurança é obrigatória durante toda a operação de içamento.',
+    'O CONTRATANTE deve informar previamente o peso e dimensões da carga a ser movimentada.',
+  ],
+  crane: [
+    'Operação exclusiva por operador habilitado com curso de rigger/sinaleiro.',
+    'ART de serviço de içamento obrigatória, emitida por engenheiro responsável.',
+    'Plano de rigging obrigatório para cargas acima de 50% da capacidade nominal.',
+    'Solo deve suportar a pressão dos estabilizadores conforme manual do fabricante.',
+    'É proibido exceder a capacidade de carga conforme tabela de momentos e raio de operação.',
+    'Isolamento de área num raio mínimo de 1,5x o comprimento da lança durante operação.',
+  ],
+  boom_truck: [
+    'Operação exclusiva por operador habilitado e certificado.',
+    'O CONTRATANTE deve garantir acesso rodoviário compatível com o gabarito do veículo.',
+    'Solo firme e nivelado para estabilizadores durante operação da lança.',
+    'Proibido exceder capacidade de carga conforme tabela de momentos do equipamento.',
+    'Isolamento da área durante operação de movimentação de carga.',
+  ],
+
+  // ── Pesado: Veicular ──
+  truck: [
+    'Documentação veicular (CRLV) em dia, sob responsabilidade da CONTRATADA.',
+    'O CONTRATANTE deve garantir vias de acesso compatíveis com peso bruto e gabarito do veículo.',
+    'Proibido tráfego em vias com restrição de peso ou altura sem autorização prévia.',
+    'Abastecimento de combustível conforme acordado nesta proposta.',
+    'Danos causados por sobrecarga são de responsabilidade integral do CONTRATANTE.',
+  ],
+  flatbed_truck: [
+    'Documentação veicular (CRLV) em dia, sob responsabilidade da CONTRATADA.',
+    'O CONTRATANTE deve garantir vias de acesso compatíveis com peso bruto e comprimento do veículo.',
+    'Carga e descarga são de responsabilidade do CONTRATANTE, salvo acordo em contrário.',
+    'Amarração e acondicionamento de carga devem seguir normas do CONTRAN.',
+    'Proibido exceder a capacidade de carga indicada no documento do veículo.',
+  ],
+  dump_truck: [
+    'Documentação veicular (CRLV) em dia, sob responsabilidade da CONTRATADA.',
+    'O CONTRATANTE deve garantir vias e área de basculamento compatíveis com o veículo.',
+    'Proibido basculamento próximo a redes elétricas ou estruturas sem distância de segurança.',
+    'Material a ser transportado deve ser informado previamente para verificação de compatibilidade.',
+  ],
+  water_truck: [
+    'Documentação veicular (CRLV) em dia, sob responsabilidade da CONTRATADA.',
+    'Abastecimento de água é de responsabilidade do CONTRATANTE, salvo acordo em contrário.',
+    'Uso restrito a água potável ou água para construção civil conforme especificado.',
+    'O CONTRATANTE deve fornecer ponto de abastecimento acessível ao veículo.',
+  ],
+
+  // ── Pesado: Terraplenagem ──
+  excavator: [
+    'O CONTRATANTE deve sinalizar e informar redes subterrâneas (água, gás, elétrica, telecom) na área de operação.',
+    'Proibida operação em taludes com inclinação superior a 30° sem análise prévia de engenheiro.',
+    'Abastecimento de combustível é de responsabilidade do CONTRATANTE, salvo acordo em contrário.',
+    'Área de operação deve ser demarcada e sinalizada durante o trabalho.',
+    'O CONTRATANTE é responsável por eventuais danos a redes subterrâneas não informadas.',
+  ],
+  backhoe: [
+    'O CONTRATANTE deve informar e sinalizar redes subterrâneas na área de operação.',
+    'Proibida operação em solos instáveis sem avaliação prévia.',
+    'Abastecimento de combustível conforme acordado nesta proposta.',
+    'Área de operação deve ser demarcada e sinalizada.',
+  ],
+  mini_excavator: [
+    'O CONTRATANTE deve informar e sinalizar redes subterrâneas na área de operação.',
+    'Garantir acesso adequado para transporte e deslocamento do equipamento.',
+    'Abastecimento conforme acordado nesta proposta.',
+    'Proibido uso em áreas confinadas sem ventilação adequada.',
+  ],
+  skid_loader: [
+    'O CONTRATANTE deve garantir piso com capacidade de suporte para o equipamento.',
+    'Sinalizar redes subterrâneas e obstáculos na área de operação.',
+    'Abastecimento de combustível conforme acordado nesta proposta.',
+  ],
+  roller: [
+    'O CONTRATANTE deve garantir que o material a ser compactado esteja preparado conforme especificação técnica.',
+    'Abastecimento de água (para rolos lisos) é de responsabilidade do CONTRATANTE.',
+    'Abastecimento de combustível conforme acordado nesta proposta.',
+  ],
+  tractor: [
+    'Via de acesso compatível com dimensões e peso do equipamento.',
+    'Verificar embreamento e acoplamento de implementos antes de cada operação.',
+    'Velocidade máxima de operação conforme condições do terreno.',
+    'Abastecimento de combustível conforme acordado nesta proposta.',
+  ],
+
+  // ── Médio: Energia/Ar ──
+  generator: [
+    'O CONTRATANTE deve fornecer local ventilado, protegido de intempéries e com piso nivelado.',
+    'Instalação elétrica de interligação e quadro de transferência são de responsabilidade do CONTRATANTE.',
+    'Abastecimento de combustível é de responsabilidade do CONTRATANTE, salvo acordo em contrário.',
+    'Proibido exceder a carga nominal (kVA) do equipamento.',
+    'O CONTRATANTE deve providenciar aterramento adequado no local de instalação.',
+  ],
+  compressor: [
+    'O CONTRATANTE deve fornecer local ventilado e protegido para operação do equipamento.',
+    'Mangueiras e conexões pneumáticas são de responsabilidade do CONTRATANTE, salvo se incluídas.',
+    'Abastecimento de combustível (modelos diesel) conforme acordado nesta proposta.',
+    'Proibido exceder a pressão máxima de operação indicada no manômetro.',
+  ],
+  welding_machine: [
+    'O CONTRATANTE deve fornecer local com ventilação adequada e piso seco.',
+    'Eletrodos, arames e consumíveis de solda são de responsabilidade do CONTRATANTE.',
+    'Instalação elétrica compatível com a potência do equipamento é de responsabilidade do CONTRATANTE.',
+    'O operador deve utilizar EPIs adequados (máscara, luvas, avental) durante toda a operação.',
+  ],
+
+  // ── Médio: Altura ──
+  aerial_platform: [
+    'O operador deve possuir curso NR-35 (Trabalho em Altura) válido e atualizado.',
+    'O CONTRATANTE deve garantir piso nivelado, firme e com capacidade de carga para o equipamento.',
+    'Proibido uso com ventos superiores a 40 km/h ou condições climáticas adversas.',
+    'Carga máxima na plataforma conforme plaqueta do fabricante (inclui peso dos ocupantes).',
+    'EPIs obrigatórios: cinto de segurança tipo paraquedista com talabarte preso à plataforma.',
+  ],
+  scaffold: [
+    'Montagem e desmontagem exclusiva por equipe habilitada conforme NR-18.',
+    'Verificar travamento, ancoragem e nivelamento antes de cada uso.',
+    'Respeitar carga máxima por plataforma de trabalho conforme manual.',
+    'NR-18 e NR-35 aplicáveis durante todo o período de uso.',
+    'O CONTRATANTE é responsável pela guarda e integridade das peças durante o período de locação.',
+  ],
+
+  // ── Médio: Logístico ──
+  forklift: [
+    'Operação exclusiva por operador habilitado com CNH categoria B e curso de operação de empilhadeira.',
+    'O CONTRATANTE deve manter piso limpo, nivelado e livre de obstáculos na área de operação.',
+    'Carga máxima conforme plaqueta do equipamento — inclui peso do palete/acessório.',
+    'Sinalização sonora (buzina de ré) e luminosa devem estar funcionais durante toda a operação.',
+    'Abastecimento (GLP, diesel ou carga de bateria) conforme acordado nesta proposta.',
+  ],
+  container: [
+    'O CONTRATANTE deve fornecer solo nivelado e com capacidade de suporte para apoio do container.',
+    'O CONTRATANTE é responsável pela guarda e segurança do conteúdo armazenado.',
+    'Proibido armazenar materiais inflamáveis, tóxicos ou perigosos sem autorização prévia por escrito.',
+    'Não exceder carga máxima de empilhamento ou peso interno conforme especificação.',
+    'Devolução nas mesmas condições de entrega — limpeza interna é de responsabilidade do CONTRATANTE.',
+  ],
+  trailer: [
+    'O CONTRATANTE deve garantir via de acesso compatível com dimensões do reboque/carreta.',
+    'Carga e descarga são de responsabilidade do CONTRATANTE.',
+    'Amarração e acondicionamento de carga conforme normas vigentes.',
+    'Verificar embreamento/acoplamento e sistema de freios antes de cada deslocamento.',
+  ],
+
+  // ── Leve: Ferramentas ──
+  drill: [
+    'Devolução limpa e em condições normais de uso, sem danos mecânicos.',
+    'Acessórios consumíveis (brocas, discos, ponteiras) são de responsabilidade do CONTRATANTE.',
+    'Uso conforme manual do fabricante — proibido uso em ambientes com risco de explosão.',
+    'O CONTRATANTE é responsável por fornecer energia elétrica compatível com o equipamento.',
+    'Danos por queda, impacto ou uso inadequado são de responsabilidade do CONTRATANTE.',
+  ],
+  concrete_mixer: [
+    'Limpeza interna imediata após cada uso é obrigatória — danos por endurecimento de concreto são de responsabilidade do CONTRATANTE.',
+    'Proibido misturar produtos químicos não especificados pelo fabricante.',
+    'Verificar nível de óleo e estado das correias antes de cada uso.',
+    'O CONTRATANTE deve fornecer energia elétrica compatível (modelos elétricos) ou combustível (modelos a gasolina).',
+  ],
+
+  // ── Leve: Monitoramento/Eletrônico ──
+  other: [
+    'Uso conforme manual e especificações técnicas do fabricante.',
+    'Devolução nas mesmas condições de retirada — com todos os acessórios, cabos e embalagem original.',
+    'Transporte em case/embalagem adequada para proteção contra impacto e umidade.',
+    'Proibido uso em ambientes com temperatura ou umidade fora da faixa operacional especificada.',
+    'Danos por mau uso, queda ou negligência são de responsabilidade integral do CONTRATANTE.',
+    'Proibida sublocação, cessão ou empréstimo a terceiros sem autorização prévia por escrito.',
+  ],
+};
+
+// Helper para obter cláusulas por categoria (com fallback para genérico)
+export function getClausesForCategory(category: string): string[] {
+  return CATEGORY_CLAUSES[category] || CATEGORY_CLAUSES['other'] || [];
+}
+
+// ═══ BILLING MODALITY LABELS ═══
+export const BILLING_MODALITY_LABEL: Record<string, string> = {
+  daily: 'Diária', monthly: 'Mensal', hourly: 'Por Hora', fixed_period: 'Período Fechado',
+};
+
+// ═══ RATE MODE LABELS ═══
+export const RATE_MODE_LABEL: Record<string, string> = {
+  percent: '%', fixed: 'R$',
+};
+
 export const fmt = (v: any) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 export const fD = (d: any) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
