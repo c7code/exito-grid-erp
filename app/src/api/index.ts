@@ -1634,19 +1634,21 @@ class ApiService {
   async downloadComplianceFile(filename: string) {
     const base = API_URL.replace(/\/api$/, '');
     const token = localStorage.getItem('electraflow_token');
-    const response = await fetch(`${base}/api/compliance/files/${filename}/download`, {
+    // Use both query param token and Authorization header for maximum compatibility
+    const url = `${base}/api/compliance/files/${filename}/download?token=${token}`;
+    const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Erro ao baixar arquivo');
     const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
+    const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
+    a.href = blobUrl;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(blobUrl);
   }
 
   async getDocumentVersions(complianceDocId: string) {

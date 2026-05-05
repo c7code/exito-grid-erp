@@ -1,6 +1,6 @@
 import {
-    Controller, Get, Post, Put, Delete, Body, Param, Query,
-    UseGuards, Request, UseInterceptors, UploadedFile, UploadedFiles, Res, NotFoundException,
+    Controller, Get, Post, Put, Delete, Body, Param, Query, Headers,
+    UseGuards, Request, UseInterceptors, UploadedFile, UploadedFiles, Res, NotFoundException, UnauthorizedException,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -388,23 +388,31 @@ export class ComplianceController {
 
     // ═══════════════════════════════════════════════════════════════
     // FILE DOWNLOAD / SERVE
+    // (bypass class-level JwtAuthGuard — auth handled manually via query token or Authorization header)
     // ═══════════════════════════════════════════════════════════════
 
     @Get('files/:filename')
+    @UseGuards()  // override class-level guard — auth handled manually below
     @ApiOperation({ summary: 'Download/visualizar arquivo' })
     async downloadFile(
         @Param('filename') filename: string,
         @Query('token') token: string,
+        @Headers('authorization') authHeader: string,
         @Res() res: Response,
     ) {
-        // Validate token from query if present (for iframe/img preview)
-        if (token) {
-            try {
-                const jwt = require('jsonwebtoken');
-                jwt.verify(token, process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production');
-            } catch {
-                return res.status(401).json({ message: 'Token inválido' });
-            }
+        // Validate token from query param (iframe/img preview) or Authorization header
+        const jwt = require('jsonwebtoken');
+        const secret = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+        const bearerToken = authHeader?.replace('Bearer ', '');
+        const tokenToVerify = token || bearerToken;
+
+        if (!tokenToVerify) {
+            return res.status(401).json({ message: 'Token não fornecido' });
+        }
+        try {
+            jwt.verify(tokenToVerify, secret);
+        } catch {
+            return res.status(401).json({ message: 'Token inválido' });
         }
 
         const filePath = path.join(UPLOAD_DIR, filename);
@@ -417,25 +425,33 @@ export class ComplianceController {
 
         res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        res.setHeader('Cache-Control', 'private, max-age=3600');
         const stream = fs.createReadStream(filePath);
         stream.pipe(res);
     }
 
     @Get('files/:filename/download')
+    @UseGuards()  // override class-level guard — auth handled manually below
     @ApiOperation({ summary: 'Forçar download do arquivo' })
     async forceDownloadFile(
         @Param('filename') filename: string,
         @Query('token') token: string,
+        @Headers('authorization') authHeader: string,
         @Res() res: Response,
     ) {
-        // Validate token from query if present (for iframe/img preview)
-        if (token) {
-            try {
-                const jwt = require('jsonwebtoken');
-                jwt.verify(token, process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production');
-            } catch {
-                return res.status(401).json({ message: 'Token inválido' });
-            }
+        // Validate token from query param or Authorization header
+        const jwt = require('jsonwebtoken');
+        const secret = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+        const bearerToken = authHeader?.replace('Bearer ', '');
+        const tokenToVerify = token || bearerToken;
+
+        if (!tokenToVerify) {
+            return res.status(401).json({ message: 'Token não fornecido' });
+        }
+        try {
+            jwt.verify(tokenToVerify, secret);
+        } catch {
+            return res.status(401).json({ message: 'Token inválido' });
         }
 
         const filePath = path.join(UPLOAD_DIR, filename);
