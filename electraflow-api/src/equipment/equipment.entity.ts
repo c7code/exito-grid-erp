@@ -75,6 +75,10 @@ export class Equipment {
   @Column({ type: 'simple-json', nullable: true })
   photos: string[];
 
+  // Operadores vinculados (array de employeeId)
+  @Column({ type: 'simple-json', nullable: true })
+  operatorIds: string[];
+
   @Column({ type: 'text', nullable: true })
   notes: string;
 
@@ -123,7 +127,7 @@ export class EquipmentRental {
   client: Client;
 
   @Column({ nullable: true })
-  operatorId: string; // FK Employee (nullable = sem operador)
+  operatorId: string;
 
   @Column({ nullable: true })
   operatorName: string;
@@ -173,6 +177,12 @@ export class EquipmentRental {
   @Column({ nullable: true })
   serviceOrderId: string;
 
+  @Column({ nullable: true })
+  checklistDepartureId: string;
+
+  @Column({ nullable: true })
+  checklistReturnId: string;
+
   @Column({ type: 'text', nullable: true })
   notes: string;
 
@@ -184,6 +194,9 @@ export class EquipmentRental {
 
   @DeleteDateColumn()
   deletedAt: Date;
+
+  @OneToMany(() => EquipmentDailyLog, d => d.rental)
+  dailyLogs: EquipmentDailyLog[];
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -227,6 +240,201 @@ export class EquipmentMaintenance {
 
   @Column({ type: 'text', nullable: true })
   notes: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// EQUIPMENT DAILY LOG — Controle de Diárias
+// ══════════════════════════════════════════════════════════════════
+@Entity('equipment_daily_logs')
+export class EquipmentDailyLog {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  rentalId: string;
+
+  @ManyToOne(() => EquipmentRental, r => r.dailyLogs)
+  @JoinColumn({ name: 'rentalId' })
+  rental: EquipmentRental;
+
+  @Column()
+  equipmentId: string;
+
+  @ManyToOne(() => Equipment)
+  @JoinColumn({ name: 'equipmentId' })
+  equipment: Equipment;
+
+  @Column({ nullable: true })
+  operatorId: string;
+
+  @Column({ nullable: true })
+  operatorName: string;
+
+  @Column({ type: 'date' })
+  date: Date;
+
+  @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
+  hoursWorked: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  dailyRate: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  totalValue: number;
+
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
+  @Column({ type: 'varchar', default: 'registered' })
+  status: string; // 'registered' | 'billed' | 'cancelled'
+
+  @Column({ nullable: true })
+  billedPaymentId: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// EQUIPMENT SERVICE — Serviços Pontuais (Içamento, Transporte)
+// ══════════════════════════════════════════════════════════════════
+@Entity('equipment_services')
+export class EquipmentService {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ unique: true })
+  code: string;
+
+  @Column()
+  equipmentId: string;
+
+  @ManyToOne(() => Equipment)
+  @JoinColumn({ name: 'equipmentId' })
+  equipment: Equipment;
+
+  @Column({ nullable: true })
+  clientId: string;
+
+  @ManyToOne(() => Client)
+  @JoinColumn({ name: 'clientId' })
+  client: Client;
+
+  @Column({ nullable: true })
+  operatorId: string;
+
+  @Column({ nullable: true })
+  operatorName: string;
+
+  @Column({ type: 'varchar', default: 'lifting' })
+  serviceType: string; // 'lifting' | 'transport' | 'installation' | 'removal' | 'other'
+
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
+  @Column({ nullable: true })
+  address: string;
+
+  @Column({ nullable: true })
+  city: string;
+
+  @Column({ nullable: true })
+  state: string;
+
+  @Column({ nullable: true })
+  scheduledDate: Date;
+
+  @Column({ nullable: true })
+  completedDate: Date;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  unitRate: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 1 })
+  quantity: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  totalValue: number;
+
+  @Column({ type: 'varchar', default: 'draft' })
+  status: string; // 'draft' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'billed'
+
+  @Column({ nullable: true })
+  proposalId: string;
+
+  @Column({ nullable: true })
+  paymentId: string;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// EQUIPMENT CHECKLIST — Vistoria de Saída/Retorno
+// ══════════════════════════════════════════════════════════════════
+@Entity('equipment_checklists')
+export class EquipmentChecklist {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ nullable: true })
+  rentalId: string;
+
+  @ManyToOne(() => EquipmentRental)
+  @JoinColumn({ name: 'rentalId' })
+  rental: EquipmentRental;
+
+  @Column()
+  equipmentId: string;
+
+  @ManyToOne(() => Equipment)
+  @JoinColumn({ name: 'equipmentId' })
+  equipment: Equipment;
+
+  @Column({ type: 'varchar', default: 'departure' })
+  type: string; // 'departure' | 'return'
+
+  @Column({ nullable: true })
+  inspectorName: string;
+
+  @Column({ nullable: true })
+  inspectedAt: Date;
+
+  @Column({ type: 'simple-json', nullable: true })
+  items: Array<{ item: string; category: string; ok: boolean; observations?: string }>;
+
+  @Column({ type: 'text', nullable: true })
+  generalNotes: string;
+
+  @Column({ type: 'decimal', precision: 12, scale: 1, nullable: true })
+  odometerReading: number;
+
+  @Column({ nullable: true })
+  fuelLevel: string; // 'empty' | '1/4' | '1/2' | '3/4' | 'full'
+
+  @Column({ type: 'varchar', default: 'pending' })
+  status: string; // 'pending' | 'completed'
 
   @CreateDateColumn()
   createdAt: Date;

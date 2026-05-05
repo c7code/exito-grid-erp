@@ -74,4 +74,57 @@ export class EquipmentController {
 
   @Delete('maintenance/:id')
   removeMaintenance(@Param('id') id: string) { return this.svc.removeMaintenance(id); }
+
+  // ═══ DAILY LOGS ═══
+  @Get('daily-logs/all')
+  @ApiOperation({ summary: 'Listar diárias' })
+  getDailyLogs(@Query('rentalId') rentalId?: string) { return this.svc.getDailyLogs(rentalId); }
+
+  @Post('daily-logs')
+  @ApiOperation({ summary: 'Registrar diária' })
+  createDailyLog(@Body() data: any) { return this.svc.createDailyLog(data); }
+
+  @Put('daily-logs/:id')
+  updateDailyLog(@Param('id') id: string, @Body() data: any) { return this.svc.updateDailyLog(id, data); }
+
+  @Delete('daily-logs/:id')
+  removeDailyLog(@Param('id') id: string) { return this.svc.removeDailyLog(id); }
+
+  @Post('daily-logs/bill/:rentalId')
+  @ApiOperation({ summary: 'Faturar diárias de uma locação' })
+  billDailyLogs(@Param('rentalId') rentalId: string) { return this.svc.billDailyLogs(rentalId); }
+
+  // ═══ SERVICES (Pontuais) ═══
+  @Get('services/all')
+  @ApiOperation({ summary: 'Listar serviços pontuais' })
+  getServices() { return this.svc.getServices(); }
+
+  @Get('services/:id')
+  getServiceById(@Param('id') id: string) { return this.svc.getServiceById(id); }
+
+  @Post('services')
+  @ApiOperation({ summary: 'Criar serviço pontual' })
+  createService(@Body() data: any) { return this.svc.createService(data); }
+
+  @Put('services/:id')
+  updateService(@Param('id') id: string, @Body() data: any) { return this.svc.updateService(id, data); }
+
+  @Delete('services/:id')
+  removeService(@Param('id') id: string) { return this.svc.removeService(id); }
+
+  @Post('services/:id/bill')
+  @ApiOperation({ summary: 'Faturar serviço pontual' })
+  billService(@Param('id') id: string) { return this.svc.billService(id); }
+
+  // ═══ CHECKLISTS (Vistorias) ═══
+  @Get('checklists/all')
+  @ApiOperation({ summary: 'Listar vistorias' })
+  getChecklists(@Query('rentalId') rentalId?: string) { return this.svc.getChecklists(rentalId); }
+
+  @Post('checklists')
+  @ApiOperation({ summary: 'Criar vistoria' })
+  createChecklist(@Body() data: any) { return this.svc.createChecklist(data); }
+
+  @Put('checklists/:id')
+  updateChecklist(@Param('id') id: string, @Body() data: any) { return this.svc.updateChecklist(id, data); }
 }

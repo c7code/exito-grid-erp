@@ -2873,6 +2873,26 @@ class ApiService {
   async createEquipmentMaintenance(data: any) { return (await this.client.post('/equipment/maintenance', data)).data; }
   async updateEquipmentMaintenance(id: string, data: any) { return (await this.client.put(`/equipment/maintenance/${id}`, data)).data; }
   async deleteEquipmentMaintenance(id: string) { return (await this.client.delete(`/equipment/maintenance/${id}`)).data; }
+
+  // Daily Logs
+  async getEquipmentDailyLogs(rentalId?: string) { return (await this.client.get('/equipment/daily-logs/all', { params: { rentalId } })).data; }
+  async createEquipmentDailyLog(data: any) { return (await this.client.post('/equipment/daily-logs', data)).data; }
+  async updateEquipmentDailyLog(id: string, data: any) { return (await this.client.put(`/equipment/daily-logs/${id}`, data)).data; }
+  async deleteEquipmentDailyLog(id: string) { return (await this.client.delete(`/equipment/daily-logs/${id}`)).data; }
+  async billEquipmentDailyLogs(rentalId: string) { return (await this.client.post(`/equipment/daily-logs/bill/${rentalId}`)).data; }
+
+  // Services (Pontuais)
+  async getEquipmentServices() { return (await this.client.get('/equipment/services/all')).data; }
+  async getEquipmentServiceById(id: string) { return (await this.client.get(`/equipment/services/${id}`)).data; }
+  async createEquipmentService(data: any) { return (await this.client.post('/equipment/services', data)).data; }
+  async updateEquipmentService(id: string, data: any) { return (await this.client.put(`/equipment/services/${id}`, data)).data; }
+  async deleteEquipmentService(id: string) { return (await this.client.delete(`/equipment/services/${id}`)).data; }
+  async billEquipmentService(id: string) { return (await this.client.post(`/equipment/services/${id}/bill`)).data; }
+
+  // Checklists (Vistorias)
+  async getEquipmentChecklists(rentalId?: string) { return (await this.client.get('/equipment/checklists/all', { params: { rentalId } })).data; }
+  async createEquipmentChecklist(data: any) { return (await this.client.post('/equipment/checklists', data)).data; }
+  async updateEquipmentChecklist(id: string, data: any) { return (await this.client.put(`/equipment/checklists/${id}`, data)).data; }
 }
 
 export const api = new ApiService();
