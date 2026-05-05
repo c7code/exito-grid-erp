@@ -88,6 +88,8 @@ export class EquipmentService implements OnModuleInit {
     // Ensure new columns on existing tables
     const cols = [
       { table: 'equipment', col: 'operatorIds', type: 'TEXT' },
+      { table: 'equipment', col: 'specifications', type: 'TEXT' },
+      { table: 'equipment', col: 'customCategory', type: 'VARCHAR' },
       { table: 'equipment_rentals', col: 'checklistDepartureId', type: 'UUID' },
       { table: 'equipment_rentals', col: 'checklistReturnId', type: 'UUID' },
       // Rental: modalidade e adicionais

@@ -79,6 +79,14 @@ export class Equipment {
   @Column({ type: 'simple-json', nullable: true })
   operatorIds: string[];
 
+  // Especificações técnicas (JSON dinâmico por categoria)
+  @Column({ type: 'simple-json', nullable: true })
+  specifications: Record<string, any>;
+
+  // Categoria customizada (se category = 'other')
+  @Column({ nullable: true })
+  customCategory: string;
+
   @Column({ type: 'text', nullable: true })
   notes: string;
 
