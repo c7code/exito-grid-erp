@@ -4,6 +4,9 @@ export const STATUS_MAP: Record<string, { l: string; c: string }> = {
   maintenance: { l: 'Manutenção', c: 'bg-orange-100 text-orange-800' },
   inactive: { l: 'Inativo', c: 'bg-gray-100 text-gray-600' },
 };
+export const TYPE_MAP: Record<string, string> = {
+  mobile: 'Móvel', stationary: 'Estacionário',
+};
 export const CAT_MAP: Record<string, string> = {
   munck: 'Munck', crane: 'Guindaste', truck: 'Caminhão', flatbed_truck: 'Caminhão Prancha',
   excavator: 'Retroescavadeira', backhoe: 'Pá Carregadeira', generator: 'Gerador',

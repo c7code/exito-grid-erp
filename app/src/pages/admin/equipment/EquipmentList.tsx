@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Truck, Plus, Pencil, Trash2, Search, MapPin, Eye, ChevronDown, ChevronUp, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
-import { STATUS_MAP, CAT_MAP, SPEC_FIELDS, fmt } from './EquipmentTypes';
+import { STATUS_MAP, TYPE_MAP, CAT_MAP, SPEC_FIELDS, fmt } from './EquipmentTypes';
 import type { SpecField } from './EquipmentTypes';
 import DynamicSelect from './DynamicSelect';
 
@@ -231,7 +231,7 @@ export default function EquipmentList({ equipment, reload }: Props) {
               <div className="grid grid-cols-2 gap-3 text-sm p-3 bg-slate-50 rounded-lg">
                 <div><span className="text-slate-400">Código:</span> <strong>{viewEq.code}</strong></div>
                 <div><span className="text-slate-400">Categoria:</span> {CAT_MAP[viewEq.category] || viewEq.customCategory || viewEq.category}</div>
-                <div><span className="text-slate-400">Tipo:</span> {viewEq.type === 'mobile' ? 'Móvel' : 'Estacionário'}</div>
+                <div><span className="text-slate-400">Tipo:</span> {TYPE_MAP[viewEq.type] || viewEq.type}</div>
                 <div><span className="text-slate-400">Marca/Modelo:</span> {[viewEq.brand, viewEq.model, viewEq.year].filter(Boolean).join(' ') || '—'}</div>
                 {viewEq.plate && <div><span className="text-slate-400">Placa:</span> {viewEq.plate}</div>}
                 {viewEq.serialNumber && <div><span className="text-slate-400">Nº Série:</span> {viewEq.serialNumber}</div>}
@@ -298,13 +298,13 @@ export default function EquipmentList({ equipment, reload }: Props) {
               </div>
               <div>
                 <Label>Tipo</Label>
-                <Select value={form.type} onValueChange={v => F('type', v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mobile">Móvel</SelectItem>
-                    <SelectItem value="stationary">Estacionário</SelectItem>
-                  </SelectContent>
-                </Select>
+                <DynamicSelect
+                  group="type"
+                  defaultOptions={TYPE_MAP}
+                  value={form.type}
+                  onValueChange={v => F('type', v)}
+                  placeholder="Selecione o tipo"
+                />
               </div>
               <div>
                 <Label>Categoria *</Label>

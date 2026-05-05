@@ -226,8 +226,32 @@ export class EquipmentService implements OnModuleInit {
 
   // ═══ EQUIPMENT CRUD ══════════════════════════════════════════
   private sanitizeEquipment(data: any): Partial<Equipment> {
-    // Strip relation fields that TypeORM can't handle in update()
-    const { rentals, maintenances, services, checklists, dailyLogs, id, code, createdAt, updatedAt, deletedAt, ...clean } = data;
+    // Whitelist only known entity columns to prevent TypeORM errors
+    const allowedFields = [
+      'name', 'description', 'type', 'category', 'customCategory',
+      'brand', 'model', 'year', 'plate', 'serialNumber', 'chassisNumber',
+      'status', 'hourlyRate', 'dailyRate', 'monthlyRate',
+      'currentOperatorId', 'location', 'lastMaintenanceDate', 'nextMaintenanceDate',
+      'totalHoursUsed', 'totalRentals', 'photos', 'operatorIds',
+      'specifications', 'notes', 'isActive',
+    ];
+    const clean: any = {};
+    for (const key of allowedFields) {
+      if (data[key] !== undefined) {
+        clean[key] = data[key];
+      }
+    }
+    // Ensure simple-json fields are valid objects (not undefined/null strings)
+    if (clean.specifications && typeof clean.specifications === 'string') {
+      try { clean.specifications = JSON.parse(clean.specifications); } catch { clean.specifications = {}; }
+    }
+    if (clean.operatorIds && typeof clean.operatorIds === 'string') {
+      try { clean.operatorIds = JSON.parse(clean.operatorIds); } catch { clean.operatorIds = []; }
+    }
+    // Convert numeric fields
+    if (clean.hourlyRate !== undefined) clean.hourlyRate = Number(clean.hourlyRate) || 0;
+    if (clean.dailyRate !== undefined) clean.dailyRate = Number(clean.dailyRate) || 0;
+    if (clean.monthlyRate !== undefined) clean.monthlyRate = Number(clean.monthlyRate) || 0;
     return clean;
   }
 
@@ -242,16 +266,27 @@ export class EquipmentService implements OnModuleInit {
   }
 
   async create(data: Partial<Equipment>): Promise<Equipment> {
-    const count = await this.equipRepo.count();
-    const code = `EQ-${String(count + 1).padStart(4, '0')}`;
-    const clean = this.sanitizeEquipment(data);
-    return this.equipRepo.save(this.equipRepo.create({ ...clean, code }));
+    try {
+      const count = await this.equipRepo.count();
+      const code = `EQ-${String(count + 1).padStart(4, '0')}`;
+      const clean = this.sanitizeEquipment(data);
+      this.logger.log(`Creating equipment: ${JSON.stringify({ code, ...clean }).substring(0, 500)}`);
+      return await this.equipRepo.save(this.equipRepo.create({ ...clean, code }));
+    } catch (e) {
+      this.logger.error(`Error creating equipment: ${e?.message}`, e?.stack);
+      throw e;
+    }
   }
 
   async update(id: string, data: Partial<Equipment>): Promise<Equipment> {
-    const clean = this.sanitizeEquipment(data);
-    await this.equipRepo.update(id, clean);
-    return this.getById(id);
+    try {
+      const clean = this.sanitizeEquipment(data);
+      await this.equipRepo.update(id, clean);
+      return this.getById(id);
+    } catch (e) {
+      this.logger.error(`Error updating equipment ${id}: ${e?.message}`, e?.stack);
+      throw e;
+    }
   }
 
   async remove(id: string): Promise<void> {
