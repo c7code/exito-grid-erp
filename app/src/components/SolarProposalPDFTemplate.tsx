@@ -1738,7 +1738,6 @@ export function SolarProposalPDFTemplate({ proposal, solarProject, company }: So
       <style>{`
         #solar-proposal-pdf-content tr { break-inside: avoid; }
         #solar-proposal-pdf-content .avoid-page-break { break-inside: avoid; page-break-inside: avoid; }
-        #solar-proposal-pdf-content .next-page { break-before: page; page-break-before: always; }
         #solar-proposal-pdf-content .sig-block { break-inside: avoid; }
       `}</style>
       <Page1 data={data} />
