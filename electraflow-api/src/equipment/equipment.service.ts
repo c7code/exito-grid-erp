@@ -255,6 +255,26 @@ export class EquipmentService implements OnModuleInit {
     return clean;
   }
 
+  /** Safe code generation using MAX from DB (includes soft-deleted records to avoid unique constraint violations) */
+  private async generateUniqueCode(table: string, prefix: string): Promise<string> {
+    try {
+      const result = await this.dataSource.query(
+        `SELECT code FROM ${table} WHERE code LIKE $1 ORDER BY code DESC LIMIT 1`,
+        [`${prefix}-%`],
+      );
+      if (result.length > 0) {
+        const lastCode = result[0].code as string; // e.g. "EQ-0005"
+        const numPart = parseInt(lastCode.replace(`${prefix}-`, ''), 10);
+        return `${prefix}-${String((numPart || 0) + 1).padStart(4, '0')}`;
+      }
+      return `${prefix}-0001`;
+    } catch (e) {
+      this.logger.warn(`generateUniqueCode fallback for ${prefix}: ${e?.message}`);
+      // Fallback: timestamp-based
+      return `${prefix}-${Date.now().toString(36).toUpperCase()}`;
+    }
+  }
+
   async getAll(): Promise<Equipment[]> {
     return this.equipRepo.find({ order: { code: 'ASC' }, relations: ['rentals'] });
   }
@@ -267,8 +287,7 @@ export class EquipmentService implements OnModuleInit {
 
   async create(data: Partial<Equipment>): Promise<Equipment> {
     try {
-      const count = await this.equipRepo.count();
-      const code = `EQ-${String(count + 1).padStart(4, '0')}`;
+      const code = await this.generateUniqueCode('equipment', 'EQ');
       const clean = this.sanitizeEquipment(data);
       this.logger.log(`Creating equipment: ${JSON.stringify({ code, ...clean }).substring(0, 500)}`);
       return await this.equipRepo.save(this.equipRepo.create({ ...clean, code }));
@@ -305,8 +324,7 @@ export class EquipmentService implements OnModuleInit {
   }
 
   async createRental(data: Partial<EquipmentRental>): Promise<EquipmentRental> {
-    const count = await this.rentalRepo.count();
-    const code = `LOC-${String(count + 1).padStart(4, '0')}`;
+    const code = await this.generateUniqueCode('equipment_rentals', 'LOC');
     const rental = await this.rentalRepo.save(this.rentalRepo.create({ ...data, code }));
     if (data.status === 'active' || data.status === 'confirmed') {
       await this.equipRepo.update(data.equipmentId, { status: 'rented' });
@@ -565,8 +583,7 @@ export class EquipmentService implements OnModuleInit {
   }
 
   async createService(data: Partial<EquipmentServiceEntity>): Promise<EquipmentServiceEntity> {
-    const count = await this.serviceRepo.count();
-    const code = `SRV-${String(count + 1).padStart(4, '0')}`;
+    const code = await this.generateUniqueCode('equipment_services', 'SRV');
     const totalValue = Number(data.unitRate || 0) * Number(data.quantity || 1);
     const svc = await this.serviceRepo.save(this.serviceRepo.create({ ...data, code, totalValue }));
     return this.getServiceById(svc.id);
@@ -757,8 +774,7 @@ export class EquipmentService implements OnModuleInit {
   }
 
   async createLiftingPlan(data: Partial<EquipmentLiftingPlan>): Promise<EquipmentLiftingPlan> {
-    const count = await this.liftingRepo.count();
-    const code = `PI-${String(count + 1).padStart(4, '0')}`;
+    const code = await this.generateUniqueCode('equipment_lifting_plans', 'PI');
     return this.liftingRepo.save(this.liftingRepo.create({ ...data, code }));
   }
 
