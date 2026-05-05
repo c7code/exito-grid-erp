@@ -61,6 +61,18 @@ export class StructureTemplatesService implements OnModuleInit {
         } catch (err) {
             this.logger.warn('Could not create structure_template_items: ' + err?.message);
         }
+
+        // Self-heal: add columns that may be missing if the table was created before they were added
+        const safeAddColumn = async (table: string, column: string, definition: string) => {
+            try {
+                await this.dataSource.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS "${column}" ${definition}`);
+            } catch (err) {
+                this.logger.warn(`Could not add column ${column} to ${table}: ${err?.message}`);
+            }
+        };
+
+        await safeAddColumn('structure_template_items', 'unitPrice', 'NUMERIC(15,2) DEFAULT 0');
+        await safeAddColumn('structure_templates', 'markupPercent', 'NUMERIC(5,2) DEFAULT 0');
     }
 
     // ═══════════════════════════════════════════════════════════════
