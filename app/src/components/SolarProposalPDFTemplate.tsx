@@ -910,15 +910,14 @@ const Page4 = ({ data }: { data: any }) => {
             </div>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 140 }}>
               {geracaoMeses.map((v: number, i: number) => {
-                const pct = (v / maxGer) * 100;
+                const barH = maxGer > 0 ? (v / maxGer) * 110 : 8;
                 return (
                   <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
                     <div style={{ fontSize: 9, color: C.green, fontWeight: 700, marginBottom: 4 }}>{v}</div>
                     <div style={{
-                      width: "100%", height: `${pct}%`,
+                      width: 40, height: Math.max(barH, 8),
                       background: `linear-gradient(180deg, ${C.greenLight}, ${C.green})`,
                       borderRadius: "4px 4px 0 0",
-                      minHeight: 8,
                     }} />
                     <div style={{ fontSize: 9, color: C.gray600, marginTop: 6 }}>{MESES[i]}</div>
                   </div>
@@ -1234,20 +1233,20 @@ const Page7 = ({ data }: { data: any }) => {
               {MESES.map((mes, i) => {
                 const cons = consumoMeses[i];
                 const ger = geracaoMeses[i];
-                const consH = (cons / maxVal) * 110;
-                const gerH = (ger / maxVal) * 110;
+                const consH = maxVal > 0 ? Math.max((cons / maxVal) * 110, 4) : 4;
+                const gerH = maxVal > 0 ? Math.max((ger / maxVal) * 110, 4) : 4;
                 return (
                   <div key={mes} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 120 }}>
                       <div style={{
-                        width: "44%", height: consH,
+                        width: 18, height: consH,
                         background: `linear-gradient(180deg, ${C.goldLight}, ${C.gold})`,
-                        borderRadius: "3px 3px 0 0", minHeight: 4,
+                        borderRadius: "3px 3px 0 0",
                       }} />
                       <div style={{
-                        width: "44%", height: gerH,
+                        width: 18, height: gerH,
                         background: `linear-gradient(180deg, ${C.greenLight}, ${C.green})`,
-                        borderRadius: "3px 3px 0 0", minHeight: 4,
+                        borderRadius: "3px 3px 0 0",
                       }} />
                     </div>
                     <div style={{ fontSize: 9, color: C.gray600, marginTop: 4 }}>{mes}</div>
