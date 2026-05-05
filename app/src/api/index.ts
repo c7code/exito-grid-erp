@@ -2896,6 +2896,19 @@ class ApiService {
   async getEquipmentChecklists(rentalId?: string) { return (await this.client.get('/equipment/checklists/all', { params: { rentalId } })).data; }
   async createEquipmentChecklist(data: any) { return (await this.client.post('/equipment/checklists', data)).data; }
   async updateEquipmentChecklist(id: string, data: any) { return (await this.client.put(`/equipment/checklists/${id}`, data)).data; }
+
+  // Documents
+  async getEquipmentDocuments(equipmentId?: string) { return (await this.client.get('/equipment/documents/all', { params: { equipmentId } })).data; }
+  async createEquipmentDocument(data: any) { return (await this.client.post('/equipment/documents', data)).data; }
+  async updateEquipmentDocument(id: string, data: any) { return (await this.client.put(`/equipment/documents/${id}`, data)).data; }
+  async deleteEquipmentDocument(id: string) { return (await this.client.delete(`/equipment/documents/${id}`)).data; }
+
+  // Lifting Plans
+  async getEquipmentLiftingPlans(equipmentId?: string) { return (await this.client.get('/equipment/lifting-plans/all', { params: { equipmentId } })).data; }
+  async getEquipmentLiftingPlanById(id: string) { return (await this.client.get(`/equipment/lifting-plans/${id}`)).data; }
+  async createEquipmentLiftingPlan(data: any) { return (await this.client.post('/equipment/lifting-plans', data)).data; }
+  async updateEquipmentLiftingPlan(id: string, data: any) { return (await this.client.put(`/equipment/lifting-plans/${id}`, data)).data; }
+  async deleteEquipmentLiftingPlan(id: string) { return (await this.client.delete(`/equipment/lifting-plans/${id}`)).data; }
 }
 
 export const api = new ApiService();

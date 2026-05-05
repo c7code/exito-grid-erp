@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Equipment, EquipmentRental, EquipmentMaintenance, EquipmentDailyLog, EquipmentService, EquipmentChecklist } from './equipment.entity';
+import { Equipment, EquipmentRental, EquipmentMaintenance, EquipmentDailyLog, EquipmentService, EquipmentChecklist, EquipmentDocument, EquipmentLiftingPlan } from './equipment.entity';
 import { EquipmentService as EquipmentSvc } from './equipment.service';
 import { EquipmentController } from './equipment.controller';
 
@@ -8,6 +8,7 @@ import { EquipmentController } from './equipment.controller';
   imports: [TypeOrmModule.forFeature([
     Equipment, EquipmentRental, EquipmentMaintenance,
     EquipmentDailyLog, EquipmentService, EquipmentChecklist,
+    EquipmentDocument, EquipmentLiftingPlan,
   ])],
   providers: [EquipmentSvc],
   controllers: [EquipmentController],

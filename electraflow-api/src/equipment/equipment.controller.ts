@@ -135,4 +135,37 @@ export class EquipmentController {
 
   @Put('checklists/:id')
   updateChecklist(@Param('id') id: string, @Body() data: any) { return this.svc.updateChecklist(id, data); }
+
+  // ═══ DOCUMENTS ═══
+  @Get('documents/all')
+  @ApiOperation({ summary: 'Listar documentos' })
+  getDocuments(@Query('equipmentId') equipmentId?: string) { return this.svc.getDocuments(equipmentId); }
+
+  @Post('documents')
+  @ApiOperation({ summary: 'Criar documento' })
+  createDocument(@Body() data: any) { return this.svc.createDocument(data); }
+
+  @Put('documents/:id')
+  updateDocument(@Param('id') id: string, @Body() data: any) { return this.svc.updateDocument(id, data); }
+
+  @Delete('documents/:id')
+  removeDocument(@Param('id') id: string) { return this.svc.removeDocument(id); }
+
+  // ═══ LIFTING PLANS ═══
+  @Get('lifting-plans/all')
+  @ApiOperation({ summary: 'Listar planos de içamento' })
+  getLiftingPlans(@Query('equipmentId') equipmentId?: string) { return this.svc.getLiftingPlans(equipmentId); }
+
+  @Get('lifting-plans/:id')
+  getLiftingPlanById(@Param('id') id: string) { return this.svc.getLiftingPlanById(id); }
+
+  @Post('lifting-plans')
+  @ApiOperation({ summary: 'Criar plano de içamento' })
+  createLiftingPlan(@Body() data: any) { return this.svc.createLiftingPlan(data); }
+
+  @Put('lifting-plans/:id')
+  updateLiftingPlan(@Param('id') id: string, @Body() data: any) { return this.svc.updateLiftingPlan(id, data); }
+
+  @Delete('lifting-plans/:id')
+  removeLiftingPlan(@Param('id') id: string) { return this.svc.removeLiftingPlan(id); }
 }

@@ -554,3 +554,184 @@ export class EquipmentChecklist {
   @UpdateDateColumn()
   updatedAt: Date;
 }
+
+// ══════════════════════════════════════════════════════════════════
+// EQUIPMENT DOCUMENT — Documentos do Equipamento
+// ══════════════════════════════════════════════════════════════════
+@Entity('equipment_documents')
+export class EquipmentDocument {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  equipmentId: string;
+
+  @Column()
+  name: string; // Nome do documento
+
+  @Column({ nullable: true })
+  category: string; // 'crlv' | 'seguro' | 'art' | 'inspecao' | 'manual' | 'certificado' | 'laudo' | 'outro'
+
+  @Column({ nullable: true })
+  fileUrl: string;
+
+  @Column({ nullable: true })
+  fileName: string;
+
+  @Column({ nullable: true })
+  fileType: string;
+
+  @Column({ type: 'int', nullable: true })
+  fileSize: number;
+
+  @Column({ nullable: true })
+  expiresAt: Date; // Data de vencimento
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
+
+  @Column({ type: 'varchar', default: 'active' })
+  status: string; // 'active' | 'expired' | 'archived'
+
+  @ManyToOne(() => Equipment, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'equipmentId' })
+  equipment: Equipment;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// EQUIPMENT LIFTING PLAN — Plano de Içamento
+// ══════════════════════════════════════════════════════════════════
+@Entity('equipment_lifting_plans')
+export class EquipmentLiftingPlan {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ unique: true })
+  code: string;
+
+  @Column()
+  equipmentId: string;
+
+  @Column({ nullable: true })
+  rentalId: string;
+
+  @Column({ nullable: true })
+  clientId: string;
+
+  @Column()
+  title: string;
+
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
+  // Dados da operação
+  @Column({ nullable: true })
+  operationType: string; // 'lifting' | 'transport' | 'assembly' | 'disassembly' | 'relocation'
+
+  @Column({ nullable: true })
+  operationDate: Date;
+
+  @Column({ nullable: true })
+  operatorName: string;
+
+  @Column({ nullable: true })
+  supervisorName: string;
+
+  // Dados técnicos da carga
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  loadWeight: number; // Peso da carga (kg ou ton)
+
+  @Column({ nullable: true })
+  loadDescription: string;
+
+  @Column({ type: 'decimal', precision: 8, scale: 2, nullable: true })
+  liftHeight: number; // Altura de içamento (m)
+
+  @Column({ type: 'decimal', precision: 8, scale: 2, nullable: true })
+  liftRadius: number; // Raio de operação (m)
+
+  @Column({ type: 'decimal', precision: 8, scale: 2, nullable: true })
+  liftAngle: number; // Ângulo da lança
+
+  // Capacidade do equipamento vs carga
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  equipmentCapacity: number; // Capacidade do equipamento naquela configuração
+
+  @Column({ type: 'decimal', precision: 6, scale: 2, nullable: true })
+  utilizationPercent: number; // % de utilização (carga/capacidade)
+
+  // Condições do local
+  @Column({ nullable: true })
+  groundCondition: string; // 'asfalto' | 'concreto' | 'terra' | 'lama' | 'cascalho'
+
+  @Column({ type: 'text', nullable: true })
+  accessConditions: string;
+
+  @Column({ type: 'text', nullable: true })
+  weatherRestrictions: string;
+
+  @Column({ type: 'text', nullable: true })
+  siteRestrictions: string;
+
+  // Segurança
+  @Column({ type: 'simple-json', nullable: true })
+  riskAssessment: Array<{ risk: string; mitigation: string; severity: string }>;
+
+  @Column({ type: 'simple-json', nullable: true })
+  requiredPPE: string[]; // EPI necessário
+
+  @Column({ type: 'text', nullable: true })
+  emergencyProcedure: string;
+
+  @Column({ type: 'text', nullable: true })
+  isolationArea: string; // Área de isolamento
+
+  // Etapas do plano
+  @Column({ type: 'simple-json', nullable: true })
+  steps: Array<{ order: number; description: string; responsible: string; notes?: string }>;
+
+  // Aprovações
+  @Column({ type: 'varchar', default: 'draft' })
+  status: string; // 'draft' | 'pending_approval' | 'approved' | 'in_execution' | 'completed' | 'cancelled'
+
+  @Column({ nullable: true })
+  approvedBy: string;
+
+  @Column({ nullable: true })
+  approvedAt: Date;
+
+  @Column({ type: 'text', nullable: true })
+  artNumber: string; // Número da ART
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
+
+  @Column({ nullable: true })
+  address: string;
+
+  @ManyToOne(() => Equipment, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'equipmentId' })
+  equipment: Equipment;
+
+  @ManyToOne(() => Client, { nullable: true })
+  @JoinColumn({ name: 'clientId' })
+  client: Client;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
+}

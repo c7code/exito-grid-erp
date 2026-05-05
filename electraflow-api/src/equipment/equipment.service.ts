@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { Equipment, EquipmentRental, EquipmentMaintenance, EquipmentDailyLog, EquipmentService as EquipmentServiceEntity, EquipmentChecklist } from './equipment.entity';
+import { Equipment, EquipmentRental, EquipmentMaintenance, EquipmentDailyLog, EquipmentService as EquipmentServiceEntity, EquipmentChecklist, EquipmentDocument, EquipmentLiftingPlan } from './equipment.entity';
 
 @Injectable()
 export class EquipmentService implements OnModuleInit {
@@ -14,6 +14,8 @@ export class EquipmentService implements OnModuleInit {
     @InjectRepository(EquipmentDailyLog) private dailyRepo: Repository<EquipmentDailyLog>,
     @InjectRepository(EquipmentServiceEntity) private serviceRepo: Repository<EquipmentServiceEntity>,
     @InjectRepository(EquipmentChecklist) private checklistRepo: Repository<EquipmentChecklist>,
+    @InjectRepository(EquipmentDocument) private docRepo: Repository<EquipmentDocument>,
+    @InjectRepository(EquipmentLiftingPlan) private liftingRepo: Repository<EquipmentLiftingPlan>,
     private dataSource: DataSource,
   ) {}
 
@@ -77,6 +79,60 @@ export class EquipmentService implements OnModuleInit {
         "createdAt" TIMESTAMP DEFAULT NOW(),
         "updatedAt" TIMESTAMP DEFAULT NOW()
       )`,
+      `CREATE TABLE IF NOT EXISTS equipment_documents (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "equipmentId" UUID NOT NULL,
+        name VARCHAR NOT NULL,
+        category VARCHAR,
+        "fileUrl" TEXT,
+        "fileName" VARCHAR,
+        "fileType" VARCHAR,
+        "fileSize" INT,
+        "expiresAt" TIMESTAMP,
+        notes TEXT,
+        status VARCHAR DEFAULT 'active',
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        "updatedAt" TIMESTAMP DEFAULT NOW(),
+        "deletedAt" TIMESTAMP
+      )`,
+      `CREATE TABLE IF NOT EXISTS equipment_lifting_plans (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        code VARCHAR UNIQUE,
+        "equipmentId" UUID NOT NULL,
+        "rentalId" UUID,
+        "clientId" UUID,
+        title VARCHAR NOT NULL,
+        description TEXT,
+        "operationType" VARCHAR,
+        "operationDate" TIMESTAMP,
+        "operatorName" VARCHAR,
+        "supervisorName" VARCHAR,
+        "loadWeight" NUMERIC(12,2),
+        "loadDescription" VARCHAR,
+        "liftHeight" NUMERIC(8,2),
+        "liftRadius" NUMERIC(8,2),
+        "liftAngle" NUMERIC(8,2),
+        "equipmentCapacity" NUMERIC(12,2),
+        "utilizationPercent" NUMERIC(6,2),
+        "groundCondition" VARCHAR,
+        "accessConditions" TEXT,
+        "weatherRestrictions" TEXT,
+        "siteRestrictions" TEXT,
+        "riskAssessment" TEXT,
+        "requiredPPE" TEXT,
+        "emergencyProcedure" TEXT,
+        "isolationArea" TEXT,
+        steps TEXT,
+        status VARCHAR DEFAULT 'draft',
+        "approvedBy" VARCHAR,
+        "approvedAt" TIMESTAMP,
+        "artNumber" TEXT,
+        notes TEXT,
+        address VARCHAR,
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        "updatedAt" TIMESTAMP DEFAULT NOW(),
+        "deletedAt" TIMESTAMP
+      )`,
     ];
 
     for (const sql of tables) {
@@ -137,6 +193,12 @@ export class EquipmentService implements OnModuleInit {
   }
 
   // ═══ EQUIPMENT CRUD ══════════════════════════════════════════
+  private sanitizeEquipment(data: any): Partial<Equipment> {
+    // Strip relation fields that TypeORM can't handle in update()
+    const { rentals, maintenances, services, checklists, dailyLogs, id, code, createdAt, updatedAt, deletedAt, ...clean } = data;
+    return clean;
+  }
+
   async getAll(): Promise<Equipment[]> {
     return this.equipRepo.find({ order: { code: 'ASC' }, relations: ['rentals'] });
   }
@@ -150,11 +212,13 @@ export class EquipmentService implements OnModuleInit {
   async create(data: Partial<Equipment>): Promise<Equipment> {
     const count = await this.equipRepo.count();
     const code = `EQ-${String(count + 1).padStart(4, '0')}`;
-    return this.equipRepo.save(this.equipRepo.create({ ...data, code }));
+    const clean = this.sanitizeEquipment(data);
+    return this.equipRepo.save(this.equipRepo.create({ ...clean, code }));
   }
 
   async update(id: string, data: Partial<Equipment>): Promise<Equipment> {
-    await this.equipRepo.update(id, data);
+    const clean = this.sanitizeEquipment(data);
+    await this.equipRepo.update(id, clean);
     return this.getById(id);
   }
 
@@ -590,5 +654,54 @@ export class EquipmentService implements OnModuleInit {
       totalServices: services.length,
       pendingDailies: dailyLogs.filter(d => d.status === 'registered').length,
     };
+  }
+
+  // ═══ DOCUMENTS CRUD ═══════════════════════════════════════════
+  async getDocuments(equipmentId?: string): Promise<EquipmentDocument[]> {
+    const where: any = {};
+    if (equipmentId) where.equipmentId = equipmentId;
+    return this.docRepo.find({ where, order: { createdAt: 'DESC' }, relations: ['equipment'] });
+  }
+
+  async createDocument(data: Partial<EquipmentDocument>): Promise<EquipmentDocument> {
+    return this.docRepo.save(this.docRepo.create(data));
+  }
+
+  async updateDocument(id: string, data: Partial<EquipmentDocument>): Promise<EquipmentDocument> {
+    await this.docRepo.update(id, data);
+    return this.docRepo.findOne({ where: { id }, relations: ['equipment'] });
+  }
+
+  async removeDocument(id: string): Promise<void> {
+    await this.docRepo.softDelete(id);
+  }
+
+  // ═══ LIFTING PLANS CRUD ═══════════════════════════════════════
+  async getLiftingPlans(equipmentId?: string): Promise<EquipmentLiftingPlan[]> {
+    const where: any = {};
+    if (equipmentId) where.equipmentId = equipmentId;
+    return this.liftingRepo.find({ where, order: { createdAt: 'DESC' }, relations: ['equipment', 'client'] });
+  }
+
+  async getLiftingPlanById(id: string): Promise<EquipmentLiftingPlan> {
+    const plan = await this.liftingRepo.findOne({ where: { id }, relations: ['equipment', 'client'] });
+    if (!plan) throw new NotFoundException('Plano de içamento não encontrado');
+    return plan;
+  }
+
+  async createLiftingPlan(data: Partial<EquipmentLiftingPlan>): Promise<EquipmentLiftingPlan> {
+    const count = await this.liftingRepo.count();
+    const code = `PI-${String(count + 1).padStart(4, '0')}`;
+    return this.liftingRepo.save(this.liftingRepo.create({ ...data, code }));
+  }
+
+  async updateLiftingPlan(id: string, data: Partial<EquipmentLiftingPlan>): Promise<EquipmentLiftingPlan> {
+    const { id: _id, code, equipment, client, createdAt, updatedAt, deletedAt, ...clean } = data as any;
+    await this.liftingRepo.update(id, clean);
+    return this.getLiftingPlanById(id);
+  }
+
+  async removeLiftingPlan(id: string): Promise<void> {
+    await this.liftingRepo.softDelete(id);
   }
 }
