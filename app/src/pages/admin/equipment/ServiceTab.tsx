@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Zap, Receipt } from 'lucide-react';
+import { Plus, Zap, Receipt, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { SVC_TYPE, SVC_STATUS, fmt, fD } from './EquipmentTypes';
@@ -20,25 +20,54 @@ interface Props {
   reload: () => void;
 }
 
+const defaultForm = {
+  equipmentId: '', clientId: '', operatorId: '', operatorName: '',
+  serviceType: 'lifting', description: '', address: '', city: '', state: '',
+  scheduledDate: '', unitRate: '', quantity: '1', notes: '',
+};
+
 export default function ServiceTab({ services, equipment, clients, employees, reload }: Props) {
   const [dlgOpen, setDlgOpen] = useState(false);
-  const [form, setForm] = useState({
-    equipmentId: '', clientId: '', operatorId: '', operatorName: '',
-    serviceType: 'lifting', description: '', address: '', city: '', state: '',
-    scheduledDate: '', unitRate: '', quantity: '1', notes: '',
-  });
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState(defaultForm);
 
   const F = (field: string, val: string) => setForm(prev => ({ ...prev, [field]: val }));
+
+  function openNew() { setForm({ ...defaultForm }); setEditId(null); setDlgOpen(true); }
+
+  function openEdit(s: any) {
+    setEditId(s.id);
+    setForm({
+      equipmentId: s.equipmentId || '', clientId: s.clientId || '',
+      operatorId: s.operatorId || '', operatorName: s.operatorName || '',
+      serviceType: s.serviceType || 'lifting', description: s.description || '',
+      address: s.address || '', city: s.city || '', state: s.state || '',
+      scheduledDate: s.scheduledDate ? s.scheduledDate.substring(0, 10) : '',
+      unitRate: String(s.unitRate || ''), quantity: String(s.quantity || '1'),
+      notes: s.notes || '',
+    });
+    setDlgOpen(true);
+  }
 
   async function save() {
     if (!form.equipmentId) { toast.error('Selecione o equipamento'); return; }
     try {
-      await api.createEquipmentService({
-        ...form, unitRate: Number(form.unitRate) || 0, quantity: Number(form.quantity) || 1,
-      });
-      toast.success('Serviço criado!');
-      setDlgOpen(false); reload();
-    } catch { toast.error('Erro ao criar serviço'); }
+      const data = { ...form, unitRate: Number(form.unitRate) || 0, quantity: Number(form.quantity) || 1 };
+      if (editId) {
+        await api.updateEquipmentService(editId, data);
+        toast.success('Serviço atualizado!');
+      } else {
+        await api.createEquipmentService(data);
+        toast.success('Serviço criado!');
+      }
+      setDlgOpen(false); setEditId(null); reload();
+    } catch { toast.error('Erro ao salvar serviço'); }
+  }
+
+  async function remove(id: string) {
+    if (!confirm('Excluir este serviço?')) return;
+    try { await api.deleteEquipmentService(id); toast.success('Serviço excluído'); reload(); }
+    catch { toast.error('Erro ao excluir'); }
   }
 
   async function bill(id: string) {
@@ -58,7 +87,7 @@ export default function ServiceTab({ services, equipment, clients, employees, re
     <>
       <div className="flex justify-between items-center">
         <p className="text-sm text-muted-foreground">{services.length} serviço(s)</p>
-        <Button onClick={() => setDlgOpen(true)} className="bg-purple-600 hover:bg-purple-700 text-white font-semibold">
+        <Button onClick={openNew} className="bg-purple-600 hover:bg-purple-700 text-white font-semibold">
           <Plus className="h-4 w-4 mr-1.5" />Novo Serviço
         </Button>
       </div>
@@ -66,7 +95,7 @@ export default function ServiceTab({ services, equipment, clients, employees, re
       <Card>
         <div className="divide-y">
           {services.map(s => (
-            <div key={s.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50/50 transition-colors">
+            <div key={s.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50/50 transition-colors group">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-sm text-slate-800">{s.code}</span>
@@ -82,7 +111,7 @@ export default function ServiceTab({ services, equipment, clients, employees, re
               </div>
               <div className="text-right shrink-0 space-y-1">
                 <p className="text-lg font-bold text-slate-800">{fmt(s.totalValue)}</p>
-                <div className="flex gap-1 justify-end">
+                <div className="flex gap-1 justify-end items-center">
                   {s.status === 'draft' && (
                     <Button size="sm" variant="outline" onClick={() => updateStatus(s.id, 'scheduled')}>Agendar</Button>
                   )}
@@ -98,6 +127,12 @@ export default function ServiceTab({ services, equipment, clients, employees, re
                       <Receipt className="h-3.5 w-3.5 mr-1" />Faturar
                     </Button>
                   )}
+                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => openEdit(s)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => remove(s.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </div>
@@ -113,9 +148,9 @@ export default function ServiceTab({ services, equipment, clients, employees, re
       </Card>
 
       {/* Dialog */}
-      <Dialog open={dlgOpen} onOpenChange={setDlgOpen}>
+      <Dialog open={dlgOpen} onOpenChange={v => { if (!v) { setDlgOpen(false); setEditId(null); } }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Novo Serviço Pontual</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editId ? 'Editar' : 'Novo'} Serviço Pontual</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 mt-2">
             <div className="col-span-2">
               <Label>Equipamento *</Label>
@@ -157,8 +192,8 @@ export default function ServiceTab({ services, equipment, clients, employees, re
             <div className="col-span-2"><Label>Observações</Label><Textarea value={form.notes} onChange={e => F('notes', e.target.value)} rows={2} /></div>
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setDlgOpen(false)}>Cancelar</Button>
-            <Button onClick={save} className="bg-purple-600 hover:bg-purple-700 text-white">Criar Serviço</Button>
+            <Button variant="outline" onClick={() => { setDlgOpen(false); setEditId(null); }}>Cancelar</Button>
+            <Button onClick={save} className="bg-purple-600 hover:bg-purple-700 text-white">{editId ? 'Salvar' : 'Criar Serviço'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Wrench } from 'lucide-react';
+import { Plus, Wrench, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { MAINT_STATUS, fmt, fD } from './EquipmentTypes';
@@ -20,22 +20,52 @@ interface Props {
 
 const MAINT_TYPES: Record<string, string> = { preventive: 'Preventiva', corrective: 'Corretiva', inspection: 'Inspeção' };
 
+const defaultForm = {
+  equipmentId: '', type: 'preventive', description: '', cost: '',
+  performedBy: '', performedAt: '', nextDueDate: '', status: 'scheduled', notes: '',
+};
+
 export default function MaintenanceTab({ maintenances, equipment, reload }: Props) {
   const [dlgOpen, setDlgOpen] = useState(false);
-  const [form, setForm] = useState({
-    equipmentId: '', type: 'preventive', description: '', cost: '',
-    performedBy: '', performedAt: '', nextDueDate: '', status: 'scheduled', notes: '',
-  });
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState(defaultForm);
 
   const F = (field: string, val: string) => setForm(prev => ({ ...prev, [field]: val }));
+
+  function openNew() { setForm({ ...defaultForm }); setEditId(null); setDlgOpen(true); }
+
+  function openEdit(m: any) {
+    setEditId(m.id);
+    setForm({
+      equipmentId: m.equipmentId || '', type: m.type || 'preventive',
+      description: m.description || '', cost: String(m.cost || ''),
+      performedBy: m.performedBy || '',
+      performedAt: m.performedAt ? m.performedAt.substring(0, 10) : '',
+      nextDueDate: m.nextDueDate ? m.nextDueDate.substring(0, 10) : '',
+      status: m.status || 'scheduled', notes: m.notes || '',
+    });
+    setDlgOpen(true);
+  }
 
   async function save() {
     if (!form.equipmentId || !form.description) { toast.error('Equipamento e descrição são obrigatórios'); return; }
     try {
-      await api.createEquipmentMaintenance({ ...form, cost: Number(form.cost) || 0 });
-      toast.success('Manutenção registrada!');
-      setDlgOpen(false); reload();
-    } catch { toast.error('Erro ao registrar'); }
+      const data = { ...form, cost: Number(form.cost) || 0 };
+      if (editId) {
+        await api.updateEquipmentMaintenance(editId, data);
+        toast.success('Manutenção atualizada!');
+      } else {
+        await api.createEquipmentMaintenance(data);
+        toast.success('Manutenção registrada!');
+      }
+      setDlgOpen(false); setEditId(null); reload();
+    } catch { toast.error('Erro ao salvar'); }
+  }
+
+  async function remove(id: string) {
+    if (!confirm('Excluir esta manutenção?')) return;
+    try { await api.deleteEquipmentMaintenance(id); toast.success('Manutenção excluída'); reload(); }
+    catch { toast.error('Erro ao excluir'); }
   }
 
   async function updateStatus(id: string, status: string) {
@@ -52,7 +82,7 @@ export default function MaintenanceTab({ maintenances, equipment, reload }: Prop
           <p className="text-sm text-muted-foreground">{maintenances.length} manutenção(ões)</p>
           <Badge variant="outline" className="text-xs">Custo total: {fmt(totalCost)}</Badge>
         </div>
-        <Button onClick={() => setDlgOpen(true)} className="bg-amber-500 hover:bg-amber-600 text-white font-semibold">
+        <Button onClick={openNew} className="bg-amber-500 hover:bg-amber-600 text-white font-semibold">
           <Plus className="h-4 w-4 mr-1.5" />Nova Manutenção
         </Button>
       </div>
@@ -60,7 +90,7 @@ export default function MaintenanceTab({ maintenances, equipment, reload }: Prop
       <Card>
         <div className="divide-y">
           {maintenances.map(m => (
-            <div key={m.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50/50 transition-colors">
+            <div key={m.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50/50 transition-colors group">
               <Wrench className={`h-5 w-5 shrink-0 ${m.status === 'completed' ? 'text-green-500' : m.status === 'in_progress' ? 'text-blue-500' : 'text-yellow-500'}`} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -78,7 +108,7 @@ export default function MaintenanceTab({ maintenances, equipment, reload }: Prop
               </div>
               <div className="text-right shrink-0 space-y-1">
                 <p className="text-sm font-semibold">{fmt(m.cost)}</p>
-                <div className="flex gap-1 justify-end">
+                <div className="flex gap-1 justify-end items-center">
                   {m.status === 'scheduled' && (
                     <Button size="sm" variant="outline" onClick={() => updateStatus(m.id, 'in_progress')}>Iniciar</Button>
                   )}
@@ -86,6 +116,12 @@ export default function MaintenanceTab({ maintenances, equipment, reload }: Prop
                     <Button size="sm" variant="outline" className="text-green-700 border-green-300"
                       onClick={() => updateStatus(m.id, 'completed')}>Concluir</Button>
                   )}
+                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => openEdit(m)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => remove(m.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </div>
@@ -101,9 +137,9 @@ export default function MaintenanceTab({ maintenances, equipment, reload }: Prop
       </Card>
 
       {/* Dialog */}
-      <Dialog open={dlgOpen} onOpenChange={setDlgOpen}>
+      <Dialog open={dlgOpen} onOpenChange={v => { if (!v) { setDlgOpen(false); setEditId(null); } }}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Nova Manutenção</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editId ? 'Editar' : 'Nova'} Manutenção</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
               <Label>Equipamento *</Label>
@@ -142,8 +178,8 @@ export default function MaintenanceTab({ maintenances, equipment, reload }: Prop
             <div><Label>Observações</Label><Textarea value={form.notes} onChange={e => F('notes', e.target.value)} rows={2} /></div>
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setDlgOpen(false)}>Cancelar</Button>
-            <Button onClick={save} className="bg-amber-500 hover:bg-amber-600 text-white">Registrar</Button>
+            <Button variant="outline" onClick={() => { setDlgOpen(false); setEditId(null); }}>Cancelar</Button>
+            <Button onClick={save} className="bg-amber-500 hover:bg-amber-600 text-white">{editId ? 'Salvar' : 'Registrar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

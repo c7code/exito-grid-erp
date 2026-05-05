@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, FileText } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { RENT_STATUS, fmt, fD } from './EquipmentTypes';
@@ -20,24 +20,56 @@ interface Props {
   reload: () => void;
 }
 
+const defaultForm = {
+  equipmentId: '', clientId: '', operatorId: '', operatorName: '',
+  rentalType: 'with_operator', billingType: 'daily', unitRate: '', quantity: '1',
+  startDate: '', endDate: '', deliveryAddress: '', deliveryCity: '', deliveryState: '', notes: '',
+};
+
 export default function RentalTab({ rentals, equipment, clients, employees, reload }: Props) {
   const [dlgOpen, setDlgOpen] = useState(false);
-  const [form, setForm] = useState({
-    equipmentId: '', clientId: '', operatorId: '', operatorName: '',
-    rentalType: 'with_operator', billingType: 'daily', unitRate: '', quantity: '1',
-    startDate: '', endDate: '', deliveryAddress: '', deliveryCity: '', deliveryState: '', notes: '',
-  });
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState(defaultForm);
 
   const F = (field: string, val: string) => setForm(prev => ({ ...prev, [field]: val }));
+
+  function openNew() { setForm({ ...defaultForm }); setEditId(null); setDlgOpen(true); }
+
+  function openEdit(r: any) {
+    setEditId(r.id);
+    setForm({
+      equipmentId: r.equipmentId || '', clientId: r.clientId || '',
+      operatorId: r.operatorId || '', operatorName: r.operatorName || '',
+      rentalType: r.rentalType || 'with_operator', billingType: r.billingType || 'daily',
+      unitRate: String(r.unitRate || ''), quantity: String(r.quantity || '1'),
+      startDate: r.startDate ? r.startDate.substring(0, 10) : '',
+      endDate: r.endDate ? r.endDate.substring(0, 10) : '',
+      deliveryAddress: r.deliveryAddress || '', deliveryCity: r.deliveryCity || '',
+      deliveryState: r.deliveryState || '', notes: r.notes || '',
+    });
+    setDlgOpen(true);
+  }
 
   async function save() {
     if (!form.equipmentId) { toast.error('Selecione o equipamento'); return; }
     try {
       const tv = Number(form.unitRate || 0) * Number(form.quantity || 1);
-      await api.createEquipmentRental({ ...form, unitRate: Number(form.unitRate) || 0, quantity: Number(form.quantity) || 1, totalValue: tv, status: 'draft' });
-      toast.success('Locação criada!');
-      setDlgOpen(false); reload();
-    } catch { toast.error('Erro ao criar locação'); }
+      const data = { ...form, unitRate: Number(form.unitRate) || 0, quantity: Number(form.quantity) || 1, totalValue: tv };
+      if (editId) {
+        await api.updateEquipmentRental(editId, data);
+        toast.success('Locação atualizada!');
+      } else {
+        await api.createEquipmentRental({ ...data, status: 'draft' });
+        toast.success('Locação criada!');
+      }
+      setDlgOpen(false); setEditId(null); reload();
+    } catch { toast.error('Erro ao salvar locação'); }
+  }
+
+  async function remove(id: string) {
+    if (!confirm('Excluir esta locação?')) return;
+    try { await api.deleteEquipmentRental(id); toast.success('Locação excluída'); reload(); }
+    catch { toast.error('Erro ao excluir'); }
   }
 
   async function updateStatus(id: string, status: string) {
@@ -55,7 +87,7 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
     <>
       <div className="flex justify-between items-center">
         <p className="text-sm text-muted-foreground">{rentals.length} locação(ões)</p>
-        <Button onClick={() => setDlgOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+        <Button onClick={openNew} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold">
           <Plus className="h-4 w-4 mr-1.5" />Nova Locação
         </Button>
       </div>
@@ -63,7 +95,7 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
       <Card>
         <div className="divide-y">
           {rentals.map(r => (
-            <div key={r.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50/50 transition-colors">
+            <div key={r.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50/50 transition-colors group">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-sm text-slate-800">{r.code}</span>
@@ -74,14 +106,21 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
                 <p className="text-xs text-muted-foreground">{r.client?.name || 'Sem cliente'} • {fD(r.startDate)} a {fD(r.endDate)}</p>
                 {r.deliveryCity && <p className="text-xs text-slate-400 mt-0.5">📍 {r.deliveryCity}{r.deliveryState ? ` / ${r.deliveryState}` : ''}</p>}
               </div>
-              <div className="text-right shrink-0">
+              <div className="text-right shrink-0 space-y-1">
                 <p className="text-lg font-bold text-slate-800">{fmt(r.totalValue)}</p>
-                {statusActions[r.status] && (
-                  <Button size="sm" variant="outline" className="mt-1"
-                    onClick={() => updateStatus(r.id, statusActions[r.status].next)}>
-                    {statusActions[r.status].label}
+                <div className="flex gap-1 justify-end items-center">
+                  {statusActions[r.status] && (
+                    <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, statusActions[r.status].next)}>
+                      {statusActions[r.status].label}
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => openEdit(r)}>
+                    <Pencil className="h-4 w-4" />
                   </Button>
-                )}
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => remove(r.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
@@ -95,15 +134,15 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
       </Card>
 
       {/* Dialog */}
-      <Dialog open={dlgOpen} onOpenChange={setDlgOpen}>
+      <Dialog open={dlgOpen} onOpenChange={v => { if (!v) { setDlgOpen(false); setEditId(null); } }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Nova Locação</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editId ? 'Editar' : 'Nova'} Locação</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 mt-2">
             <div className="col-span-2">
               <Label>Equipamento *</Label>
               <Select value={form.equipmentId} onValueChange={v => F('equipmentId', v)}>
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>{equipment.filter(e => e.status === 'available').map(e => <SelectItem key={e.id} value={e.id}>{e.code} - {e.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{(editId ? equipment : equipment.filter(e => e.status === 'available')).map(e => <SelectItem key={e.id} value={e.id}>{e.code} - {e.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
@@ -157,8 +196,8 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
             <div className="col-span-2"><Label>Observações</Label><Textarea value={form.notes} onChange={e => F('notes', e.target.value)} rows={2} /></div>
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setDlgOpen(false)}>Cancelar</Button>
-            <Button onClick={save} className="bg-blue-600 hover:bg-blue-700 text-white">Criar Locação</Button>
+            <Button variant="outline" onClick={() => { setDlgOpen(false); setEditId(null); }}>Cancelar</Button>
+            <Button onClick={save} className="bg-blue-600 hover:bg-blue-700 text-white">{editId ? 'Salvar' : 'Criar Locação'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
