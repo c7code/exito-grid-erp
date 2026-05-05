@@ -196,7 +196,7 @@ export class EquipmentService implements OnModuleInit {
       await this.dataSource.query(`CREATE TABLE IF NOT EXISTS equipment_custom_options (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         "optionGroup" VARCHAR NOT NULL,
-        key VARCHAR NOT NULL,
+        "key" VARCHAR NOT NULL,
         label VARCHAR NOT NULL,
         "createdAt" TIMESTAMP DEFAULT NOW()
       )`);
@@ -205,14 +205,16 @@ export class EquipmentService implements OnModuleInit {
 
   // ═══ CUSTOM OPTIONS (Dynamic selects) ══════════════════════════
   async getCustomOptions(group?: string): Promise<any[]> {
-    const where = group ? `WHERE "optionGroup" = '${group}'` : '';
-    return this.dataSource.query(`SELECT * FROM equipment_custom_options ${where} ORDER BY label ASC`);
+    if (group) {
+      return this.dataSource.query(`SELECT * FROM equipment_custom_options WHERE "optionGroup" = $1 ORDER BY label ASC`, [group]);
+    }
+    return this.dataSource.query(`SELECT * FROM equipment_custom_options ORDER BY label ASC`);
   }
 
   async createCustomOption(data: { group: string; label: string }): Promise<any> {
     const key = data.label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
     const result = await this.dataSource.query(
-      `INSERT INTO equipment_custom_options (id, "optionGroup", key, label) VALUES (gen_random_uuid(), $1, $2, $3) RETURNING *`,
+      `INSERT INTO equipment_custom_options (id, "optionGroup", "key", label) VALUES (gen_random_uuid(), $1, $2, $3) RETURNING *`,
       [data.group, `custom_${key}`, data.label],
     );
     return result[0];
