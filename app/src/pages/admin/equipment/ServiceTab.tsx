@@ -11,6 +11,7 @@ import { Plus, Zap, Receipt, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { SVC_TYPE, SVC_STATUS, fmt, fD } from './EquipmentTypes';
+import DynamicSelect from './DynamicSelect';
 
 interface Props {
   services: any[];
@@ -168,12 +169,12 @@ export default function ServiceTab({ services, equipment, clients, employees, re
             </div>
             <div>
               <Label>Tipo de Serviço</Label>
-              <Select value={form.serviceType} onValueChange={v => F('serviceType', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(SVC_TYPE).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
+                <DynamicSelect
+                  group="service_type"
+                  defaultOptions={SVC_TYPE}
+                  value={form.serviceType}
+                  onValueChange={v => F('serviceType', v)}
+                />
             </div>
             <div>
               <Label>Operador</Label>

@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { api } from '@/api';
 import { STATUS_MAP, CAT_MAP, SPEC_FIELDS, fmt } from './EquipmentTypes';
 import type { SpecField } from './EquipmentTypes';
+import DynamicSelect from './DynamicSelect';
 
 interface Props {
   equipment: any[];
@@ -307,19 +308,14 @@ export default function EquipmentList({ equipment, reload }: Props) {
               </div>
               <div>
                 <Label>Categoria *</Label>
-                <Select value={form.category} onValueChange={v => { F('category', v); F('specifications', {}); }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(CAT_MAP).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <DynamicSelect
+                  group="category"
+                  defaultOptions={CAT_MAP}
+                  value={form.category}
+                  onValueChange={v => { F('category', v); F('specifications', {}); }}
+                  placeholder="Selecione a categoria"
+                />
               </div>
-              {form.category === 'other' && (
-                <div className="col-span-2">
-                  <Label>Nome da Categoria Personalizada</Label>
-                  <Input value={form.customCategory} onChange={e => F('customCategory', e.target.value)} placeholder="Ex: Compactador de Solo" />
-                </div>
-              )}
             </div>
 
             {/* Vehicle/ID section */}

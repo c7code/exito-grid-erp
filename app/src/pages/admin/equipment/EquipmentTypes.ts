@@ -12,7 +12,6 @@ export const CAT_MAP: Record<string, string> = {
   roller: 'Rolo Compactador', mini_excavator: 'Mini Escavadeira', skid_loader: 'Mini Carregadeira',
   tractor: 'Trator', trailer: 'Carreta/Reboque', container: 'Container', scaffold: 'Andaime',
   water_truck: 'Caminhão Pipa', dump_truck: 'Caminhão Caçamba', boom_truck: 'Caminhão com Lança',
-  other: 'Outro',
 };
 
 // Especificações por tipo de equipamento
@@ -124,7 +123,7 @@ export const MAINT_STATUS: Record<string, { l: string; c: string }> = {
   scheduled: { l: 'Agendado', c: 'bg-yellow-100 text-yellow-800' }, in_progress: { l: 'Em Andamento', c: 'bg-blue-100 text-blue-800' },
   completed: { l: 'Concluído', c: 'bg-green-100 text-green-800' },
 };
-export const SVC_TYPE: Record<string, string> = { lifting: 'Içamento', transport: 'Transporte', installation: 'Instalação', removal: 'Remoção', other: 'Outro' };
+export const SVC_TYPE: Record<string, string> = { lifting: 'Içamento', transport: 'Transporte', installation: 'Instalação', removal: 'Remoção' };
 export const SVC_STATUS: Record<string, { l: string; c: string }> = {
   draft: { l: 'Rascunho', c: 'bg-gray-100 text-gray-700' }, scheduled: { l: 'Agendado', c: 'bg-yellow-100 text-yellow-800' },
   in_progress: { l: 'Em Andamento', c: 'bg-blue-100 text-blue-800' }, completed: { l: 'Concluído', c: 'bg-green-100 text-green-800' },

@@ -2855,6 +2855,11 @@ class ApiService {
   async getClientSolarPlanSubscriptions(clientId: string) { return (await this.client.get(`/solar-plans/client/${clientId}`)).data; }
 
   // ═══ EQUIPMENT / LOCAÇÃO ═══════════════════════════════════════
+  // Custom Options (Dynamic selects)
+  async getEquipmentOptions(group?: string) { return (await this.client.get('/equipment/options', { params: { group } })).data; }
+  async createEquipmentOption(data: { group: string; label: string }) { return (await this.client.post('/equipment/options', data)).data; }
+  async deleteEquipmentOption(id: string) { return (await this.client.delete(`/equipment/options/${id}`)).data; }
+
   async getEquipment() { return (await this.client.get('/equipment')).data; }
   async getEquipmentById(id: string) { return (await this.client.get(`/equipment/${id}`)).data; }
   async createEquipment(data: any) { return (await this.client.post('/equipment', data)).data; }

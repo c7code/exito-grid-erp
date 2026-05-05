@@ -11,6 +11,7 @@ import { Plus, FileText, Pencil, Trash2, Download, AlertTriangle } from 'lucide-
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { fD } from './EquipmentTypes';
+import DynamicSelect from './DynamicSelect';
 
 interface Props {
   documents: any[];
@@ -21,7 +22,7 @@ interface Props {
 const DOC_CAT: Record<string, string> = {
   crlv: 'CRLV', seguro: 'Seguro', art: 'ART', inspecao: 'Inspeção',
   manual: 'Manual', certificado: 'Certificado', laudo: 'Laudo Técnico',
-  nota_fiscal: 'Nota Fiscal', contrato: 'Contrato', outro: 'Outro',
+  nota_fiscal: 'Nota Fiscal', contrato: 'Contrato',
 };
 
 const DOC_STATUS: Record<string, { l: string; c: string }> = {
@@ -218,12 +219,12 @@ export default function DocumentTab({ documents, equipment, reload }: Props) {
             <div><Label>Nome do Documento *</Label><Input value={form.name} onChange={e => F('name', e.target.value)} placeholder="Ex: CRLV 2024, Seguro Allianz..." /></div>
             <div>
               <Label>Categoria</Label>
-              <Select value={form.category} onValueChange={v => F('category', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(DOC_CAT).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <DynamicSelect
+                group="document_category"
+                defaultOptions={DOC_CAT}
+                value={form.category}
+                onValueChange={v => F('category', v)}
+              />
             </div>
             <div>
               <Label>Arquivo</Label>
