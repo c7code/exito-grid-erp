@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, ClipboardCheck, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, ClipboardCheck, CheckCircle2, XCircle, Eye, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { fD } from './EquipmentTypes';
@@ -40,6 +40,7 @@ const DEFAULT_ITEMS = [
 
 export default function ChecklistTab({ checklists, equipment, rentals, reload }: Props) {
   const [dlgOpen, setDlgOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [viewDlg, setViewDlg] = useState(false);
   const [selected, setSelected] = useState<any>(null);
   const [form, setForm] = useState({
@@ -69,16 +70,47 @@ export default function ChecklistTab({ checklists, equipment, rentals, reload }:
   async function save() {
     if (!form.equipmentId) { toast.error('Selecione equipamento ou locação'); return; }
     try {
-      await api.createEquipmentChecklist({
+      const data = {
         ...form,
         odometerReading: Number(form.odometerReading) || null,
         items: checkItems,
         status: 'completed',
         inspectedAt: new Date().toISOString(),
-      });
-      toast.success('Vistoria registrada!');
-      setDlgOpen(false); reload();
-    } catch { toast.error('Erro ao registrar vistoria'); }
+      };
+      if (editId) {
+        await api.updateEquipmentChecklist(editId, data);
+        toast.success('Vistoria atualizada!');
+      } else {
+        await api.createEquipmentChecklist(data);
+        toast.success('Vistoria registrada!');
+      }
+      setDlgOpen(false); setEditId(null); reload();
+    } catch { toast.error('Erro ao salvar vistoria'); }
+  }
+
+  function openEdit(cl: any) {
+    setEditId(cl.id);
+    setForm({
+      rentalId: cl.rentalId || '', equipmentId: cl.equipmentId || '',
+      type: cl.type || 'departure', inspectorName: cl.inspectorName || '',
+      odometerReading: String(cl.odometerReading || ''), fuelLevel: cl.fuelLevel || '1/2',
+      generalNotes: cl.generalNotes || '',
+    });
+    if (cl.items?.length) {
+      setCheckItems(cl.items.map((it: any) => ({ item: it.item, category: it.category, ok: it.ok, observations: it.observations })));
+    } else {
+      setCheckItems(DEFAULT_ITEMS.flatMap(g => g.items.map(item => ({ item, category: g.category, ok: true }))));
+    }
+    setDlgOpen(true);
+  }
+
+  async function removeChecklist(id: string) {
+    if (!confirm('Excluir esta vistoria?')) return;
+    try {
+      await api.updateEquipmentChecklist(id, { status: 'cancelled' } as any);
+      toast.success('Vistoria excluída');
+      reload();
+    } catch { toast.error('Erro ao excluir'); }
   }
 
   // Group items by category for display
@@ -111,11 +143,10 @@ export default function ChecklistTab({ checklists, equipment, rentals, reload }:
           const pct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0;
 
           return (
-            <Card key={cl.id} className="hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => { setSelected(cl); setViewDlg(true); }}>
+            <Card key={cl.id} className="hover:shadow-md transition-shadow">
               <div className="p-5">
                 <div className="flex items-start justify-between mb-2">
-                  <div>
+                  <div className="cursor-pointer flex-1" onClick={() => { setSelected(cl); setViewDlg(true); }}>
                     <div className="flex items-center gap-2">
                       <Badge className={CL_STATUS[cl.status]?.c || ''}>{CL_STATUS[cl.status]?.l || cl.status}</Badge>
                       <Badge variant="outline" className="text-xs">{CL_TYPE[cl.type] || cl.type}</Badge>
@@ -123,7 +154,17 @@ export default function ChecklistTab({ checklists, equipment, rentals, reload }:
                     <p className="font-semibold text-sm mt-1.5">{cl.equipment?.name || '—'}</p>
                     {cl.rental && <p className="text-xs text-muted-foreground">Locação: {cl.rental.code}</p>}
                   </div>
-                  <ClipboardCheck className={`h-5 w-5 ${pct === 100 ? 'text-green-500' : pct >= 70 ? 'text-yellow-500' : 'text-red-500'}`} />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setSelected(cl); setViewDlg(true); }}>
+                      <Eye className="h-3.5 w-3.5 text-slate-500" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(cl); }}>
+                      <Pencil className="h-3.5 w-3.5 text-slate-500" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); removeChecklist(cl.id); }}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-3 mt-3">
@@ -198,10 +239,10 @@ export default function ChecklistTab({ checklists, equipment, rentals, reload }:
         </DialogContent>
       </Dialog>
 
-      {/* Create Dialog */}
-      <Dialog open={dlgOpen} onOpenChange={setDlgOpen}>
+      {/* Create/Edit Dialog */}
+      <Dialog open={dlgOpen} onOpenChange={v => { if (!v) { setDlgOpen(false); setEditId(null); } }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Nova Vistoria de Equipamento</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editId ? 'Editar' : 'Nova'} Vistoria de Equipamento</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -267,8 +308,8 @@ export default function ChecklistTab({ checklists, equipment, rentals, reload }:
             <div><Label>Observações Gerais</Label><Textarea value={form.generalNotes} onChange={e => F('generalNotes', e.target.value)} rows={2} /></div>
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setDlgOpen(false)}>Cancelar</Button>
-            <Button onClick={save} className="bg-teal-600 hover:bg-teal-700 text-white">Registrar Vistoria</Button>
+            <Button variant="outline" onClick={() => { setDlgOpen(false); setEditId(null); }}>Cancelar</Button>
+            <Button onClick={save} className="bg-teal-600 hover:bg-teal-700 text-white">{editId ? 'Salvar' : 'Registrar Vistoria'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

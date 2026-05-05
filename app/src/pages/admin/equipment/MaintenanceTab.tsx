@@ -116,10 +116,10 @@ export default function MaintenanceTab({ maintenances, equipment, reload }: Prop
                     <Button size="sm" variant="outline" className="text-green-700 border-green-300"
                       onClick={() => updateStatus(m.id, 'completed')}>Concluir</Button>
                   )}
-                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => openEdit(m)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(m)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => remove(m.id)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => remove(m.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>

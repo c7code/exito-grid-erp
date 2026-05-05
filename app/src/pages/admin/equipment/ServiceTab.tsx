@@ -127,10 +127,10 @@ export default function ServiceTab({ services, equipment, clients, employees, re
                       <Receipt className="h-3.5 w-3.5 mr-1" />Faturar
                     </Button>
                   )}
-                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => openEdit(s)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(s)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => remove(s.id)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => remove(s.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>

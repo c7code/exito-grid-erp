@@ -131,7 +131,7 @@ export default function EquipmentList({ equipment, reload }: Props) {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-1 mt-3 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex gap-1 mt-3 justify-end">
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(eq)}>
                   <Pencil className="h-4 w-4" />
                 </Button>

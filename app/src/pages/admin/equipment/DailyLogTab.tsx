@@ -184,11 +184,11 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
                     </div>
                   )}
                   <div className="flex gap-1 justify-end">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => openEdit(d)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(d)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     {d.status === 'registered' && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 opacity-0 group-hover:opacity-100" onClick={() => remove(d.id)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => remove(d.id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     )}

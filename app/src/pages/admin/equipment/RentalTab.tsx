@@ -202,10 +202,10 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
                       {statusActions[r.status].label}
                     </Button>
                   )}
-                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => openEdit(r)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => remove(r.id)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => remove(r.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
