@@ -190,6 +190,36 @@ export class EquipmentService implements OnModuleInit {
     }
 
     this.logger.log('Equipment module tables/columns ensured');
+
+    // Custom options table for dynamic selects
+    try {
+      await this.dataSource.query(`CREATE TABLE IF NOT EXISTS equipment_custom_options (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "optionGroup" VARCHAR NOT NULL,
+        key VARCHAR NOT NULL,
+        label VARCHAR NOT NULL,
+        "createdAt" TIMESTAMP DEFAULT NOW()
+      )`);
+    } catch (e) { this.logger.warn('Custom options table: ' + e?.message); }
+  }
+
+  // ═══ CUSTOM OPTIONS (Dynamic selects) ══════════════════════════
+  async getCustomOptions(group?: string): Promise<any[]> {
+    const where = group ? `WHERE "optionGroup" = '${group}'` : '';
+    return this.dataSource.query(`SELECT * FROM equipment_custom_options ${where} ORDER BY label ASC`);
+  }
+
+  async createCustomOption(data: { group: string; label: string }): Promise<any> {
+    const key = data.label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const result = await this.dataSource.query(
+      `INSERT INTO equipment_custom_options (id, "optionGroup", key, label) VALUES (gen_random_uuid(), $1, $2, $3) RETURNING *`,
+      [data.group, `custom_${key}`, data.label],
+    );
+    return result[0];
+  }
+
+  async deleteCustomOption(id: string): Promise<void> {
+    await this.dataSource.query(`DELETE FROM equipment_custom_options WHERE id = $1`, [id]);
   }
 
   // ═══ EQUIPMENT CRUD ══════════════════════════════════════════

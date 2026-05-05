@@ -10,6 +10,19 @@ import { EquipmentService } from './equipment.service';
 export class EquipmentController {
   constructor(private readonly svc: EquipmentService) {}
 
+  // ═══ CUSTOM OPTIONS (Dynamic selects) ═══
+  @Get('options')
+  @ApiOperation({ summary: 'Listar opções customizadas' })
+  getCustomOptions(@Query('group') group?: string) { return this.svc.getCustomOptions(group); }
+
+  @Post('options')
+  @ApiOperation({ summary: 'Criar opção customizada' })
+  createCustomOption(@Body() data: { group: string; label: string }) { return this.svc.createCustomOption(data); }
+
+  @Delete('options/:id')
+  @ApiOperation({ summary: 'Remover opção customizada' })
+  deleteCustomOption(@Param('id') id: string) { return this.svc.deleteCustomOption(id); }
+
   // ═══ EQUIPMENT ═══
   @Get()
   @ApiOperation({ summary: 'Listar equipamentos' })
