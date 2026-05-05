@@ -6,6 +6,7 @@ import { WorkCost } from './work-cost.entity';
 import { PaymentSchedule } from './payment-schedule.entity';
 import { PaymentReceipt } from './payment-receipt.entity';
 import { PurchaseOrder, PurchaseOrderItem } from './purchase-order.entity';
+import { PaymentInstallment, InstallmentStatus } from './payment-installment.entity';
 
 @Injectable()
 export class FinanceService {
@@ -22,6 +23,8 @@ export class FinanceService {
     private poRepo: Repository<PurchaseOrder>,
     @InjectRepository(PurchaseOrderItem)
     private poItemRepo: Repository<PurchaseOrderItem>,
+    @InjectRepository(PaymentInstallment)
+    private installmentRepo: Repository<PaymentInstallment>,
     private dataSource: DataSource,
   ) {
     this.ensureTables();
@@ -142,6 +145,44 @@ export class FinanceService {
         `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "pixQrCodeImage" TEXT`,
       ];
       for (const sql of payBolCols) { await this.dataSource.query(sql).catch(() => {}); }
+
+      // ═══ Payment Installments table ═══
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS payment_installments (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "paymentId" UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+          "installmentNumber" INT DEFAULT 1,
+          "totalInstallments" INT DEFAULT 1,
+          description VARCHAR,
+          amount DECIMAL(15,2) NOT NULL,
+          "paidAmount" DECIMAL(15,2) DEFAULT 0,
+          "dueDate" TIMESTAMP NOT NULL,
+          "paidAt" TIMESTAMP,
+          status VARCHAR DEFAULT 'pending',
+          "paymentMethod" VARCHAR,
+          "transactionId" VARCHAR,
+          notes TEXT,
+          "createdAt" TIMESTAMP DEFAULT NOW(),
+          "updatedAt" TIMESTAMP DEFAULT NOW(),
+          "deletedAt" TIMESTAMP
+        )
+      `).catch(() => {});
+
+      // Self-heal columns
+      const instCols = [
+        `ALTER TABLE payment_installments ADD COLUMN IF NOT EXISTS "paidAmount" DECIMAL(15,2) DEFAULT 0`,
+        `ALTER TABLE payment_installments ADD COLUMN IF NOT EXISTS "paymentMethod" VARCHAR`,
+        `ALTER TABLE payment_installments ADD COLUMN IF NOT EXISTS "transactionId" VARCHAR`,
+        `ALTER TABLE payment_installments ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP`,
+      ];
+      for (const sql of instCols) { await this.dataSource.query(sql).catch(() => {}); }
+
+      // ═══ Payment: add proposalId + proposalNumber columns ═══
+      const payExtraCols = [
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "proposalId" UUID`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "proposalNumber" VARCHAR`,
+      ];
+      for (const sql of payExtraCols) { await this.dataSource.query(sql).catch(() => {}); }
     } catch (e) { console.warn('Finance tables migration:', e?.message); }
   }
 
@@ -153,7 +194,7 @@ export class FinanceService {
     if (workId) where.workId = workId;
     return this.paymentRepository.find({
       where,
-      relations: ['work', 'work.client', 'supplier', 'employee'],
+      relations: ['work', 'work.client', 'supplier', 'employee', 'installments'],
       order: { dueDate: 'ASC' },
     });
   }
@@ -161,7 +202,7 @@ export class FinanceService {
   async findOne(id: string): Promise<Payment> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
-      relations: ['work', 'supplier', 'employee'],
+      relations: ['work', 'supplier', 'employee', 'installments'],
     });
     if (!payment) throw new NotFoundException('Pagamento não encontrado');
     return payment;
@@ -713,4 +754,181 @@ export class FinanceService {
   }
 
   async removePurchaseOrder(id: string): Promise<void> { await this.poRepo.softDelete(id); }
+
+  // ═══ PAYMENT INSTALLMENTS (PARCELAS) ═══════════════════════════════════════
+
+  async getInstallments(paymentId: string): Promise<PaymentInstallment[]> {
+    return this.installmentRepo.find({
+      where: { paymentId },
+      order: { installmentNumber: 'ASC' },
+    });
+  }
+
+  async generateInstallments(
+    paymentId: string,
+    installments: Array<{ percentage: number; dueDate: string; description?: string }>,
+  ): Promise<PaymentInstallment[]> {
+    const payment = await this.findOne(paymentId);
+    const totalAmount = Number(payment.amount);
+
+    // Remove existing installments if regenerating
+    await this.installmentRepo.delete({ paymentId });
+
+    const totalInstallments = installments.length;
+    const created: PaymentInstallment[] = [];
+
+    for (let i = 0; i < installments.length; i++) {
+      const inst = installments[i];
+      const amount = parseFloat(((totalAmount * inst.percentage) / 100).toFixed(2));
+
+      const installment = this.installmentRepo.create({
+        paymentId,
+        installmentNumber: i + 1,
+        totalInstallments,
+        description: inst.description || `Parcela ${i + 1}/${totalInstallments}`,
+        amount,
+        paidAmount: 0,
+        dueDate: new Date(inst.dueDate),
+        status: InstallmentStatus.PENDING,
+      });
+      created.push(await this.installmentRepo.save(installment));
+    }
+
+    return created;
+  }
+
+  async payInstallment(
+    installmentId: string,
+    amount: number,
+    method: string,
+    transactionId?: string,
+  ): Promise<PaymentInstallment> {
+    const installment = await this.installmentRepo.findOne({
+      where: { id: installmentId },
+      relations: ['payment'],
+    });
+    if (!installment) throw new NotFoundException('Parcela não encontrada');
+
+    installment.paidAmount = Number(installment.paidAmount) + amount;
+    if (installment.paidAmount >= Number(installment.amount)) {
+      installment.status = InstallmentStatus.PAID;
+    }
+    installment.paidAt = new Date();
+    installment.paymentMethod = method;
+    if (transactionId) installment.transactionId = transactionId;
+    const saved = await this.installmentRepo.save(installment);
+
+    // Sync parent Payment status
+    await this.syncPaymentFromInstallments(installment.paymentId);
+
+    return saved;
+  }
+
+  async cancelInstallment(installmentId: string): Promise<void> {
+    const installment = await this.installmentRepo.findOne({ where: { id: installmentId } });
+    if (!installment) throw new NotFoundException('Parcela não encontrada');
+    installment.status = InstallmentStatus.CANCELLED;
+    await this.installmentRepo.save(installment);
+    await this.syncPaymentFromInstallments(installment.paymentId);
+  }
+
+  /** Sync parent Payment paidAmount + status from its installments */
+  private async syncPaymentFromInstallments(paymentId: string): Promise<void> {
+    const installments = await this.installmentRepo.find({ where: { paymentId } });
+    if (installments.length === 0) return;
+
+    const totalPaid = installments.reduce((sum, i) => sum + Number(i.paidAmount || 0), 0);
+    const activeInstallments = installments.filter(i => i.status !== InstallmentStatus.CANCELLED);
+    const allPaid = activeInstallments.length > 0 && activeInstallments.every(i => i.status === InstallmentStatus.PAID);
+    const somePaid = activeInstallments.some(i => i.status === InstallmentStatus.PAID);
+
+    const payment = await this.paymentRepository.findOne({ where: { id: paymentId } });
+    if (!payment) return;
+
+    payment.paidAmount = totalPaid;
+    if (allPaid) {
+      payment.status = PaymentStatus.PAID;
+      payment.paidAt = new Date();
+    } else if (somePaid || totalPaid > 0) {
+      payment.status = PaymentStatus.PARTIAL;
+    } else {
+      payment.status = PaymentStatus.PENDING;
+    }
+
+    await this.paymentRepository.save(payment);
+  }
+
+  // ═══ CREATE FROM PROPOSAL / WORK ═══════════════════════════════════════════
+
+  async createPaymentFromProposal(data: {
+    proposalId: string;
+    proposalNumber: string;
+    clientId: string;
+    description: string;
+    totalAmount: number;
+    workId?: string;
+    installments: Array<{ percentage: number; dueDate: string; description?: string }>;
+  }): Promise<Payment> {
+    // Sanitize
+    const clientId = data.clientId || null;
+    const workId = data.workId || null;
+
+    // Create parent payment
+    const payment = Object.assign(new Payment(), {
+      type: PaymentType.INCOME,
+      description: data.description || `Proposta ${data.proposalNumber}`,
+      amount: data.totalAmount,
+      paidAmount: 0,
+      status: PaymentStatus.PENDING,
+      dueDate: data.installments.length > 0 ? new Date(data.installments[0].dueDate) : new Date(),
+      clientId,
+      workId,
+      category: TransactionCategory.PROJECT,
+    });
+
+    // Save proposalId + proposalNumber via raw query since column may not be in entity yet
+    const saved = await this.paymentRepository.save(payment);
+    try {
+      await this.dataSource.query(
+        `UPDATE payments SET "proposalId" = $1, "proposalNumber" = $2 WHERE id = $3`,
+        [data.proposalId, data.proposalNumber, saved.id],
+      );
+    } catch (err) {
+      console.warn('Could not set proposalId/Number:', err?.message);
+    }
+
+    // Generate installments
+    if (data.installments.length > 0) {
+      await this.generateInstallments(saved.id, data.installments);
+    }
+
+    return this.findOne(saved.id);
+  }
+
+  async createPaymentFromWork(data: {
+    workId: string;
+    description: string;
+    totalAmount: number;
+    clientId?: string;
+    installments: Array<{ percentage: number; dueDate: string; description?: string }>;
+  }): Promise<Payment> {
+    const payment = Object.assign(new Payment(), {
+      type: PaymentType.INCOME,
+      description: data.description,
+      amount: data.totalAmount,
+      paidAmount: 0,
+      status: PaymentStatus.PENDING,
+      dueDate: data.installments.length > 0 ? new Date(data.installments[0].dueDate) : new Date(),
+      workId: data.workId,
+      clientId: data.clientId || null,
+      category: TransactionCategory.PROJECT,
+    });
+    const saved = await this.paymentRepository.save(payment);
+
+    if (data.installments.length > 0) {
+      await this.generateInstallments(saved.id, data.installments);
+    }
+
+    return this.findOne(saved.id);
+  }
 }

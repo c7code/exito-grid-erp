@@ -1,9 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Work } from '../works/work.entity';
 import { Client } from '../clients/client.entity';
 import { Measurement } from './measurement.entity';
 import { Supplier } from '../supply/supply.entity';
 import { Employee } from '../employees/employee.entity';
+import { PaymentInstallment } from './payment-installment.entity';
 
 export enum PaymentStatus {
   PENDING = 'pending',
@@ -216,6 +217,10 @@ export class Payment {
 
   @Column({ type: 'text', nullable: true })
   notes: string;
+
+  // ─── Parcelas ──────────────────────────────────────────────────────────────
+  @OneToMany(() => PaymentInstallment, (inst) => inst.payment, { cascade: true })
+  installments: PaymentInstallment[];
 
   @CreateDateColumn()
   createdAt: Date;

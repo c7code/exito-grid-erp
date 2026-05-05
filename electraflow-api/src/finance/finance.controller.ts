@@ -252,4 +252,51 @@ export class FinanceController {
   async removePurchaseOrder(@Param('id') id: string) {
     return this.financeService.removePurchaseOrder(id);
   }
+
+  // ═══ PAYMENT INSTALLMENTS (PARCELAS) ═══════════════════════════════════
+
+  @Get('payments/:id/installments')
+  @ApiOperation({ summary: 'Listar parcelas de um pagamento' })
+  async getInstallments(@Param('id') paymentId: string) {
+    return this.financeService.getInstallments(paymentId);
+  }
+
+  @Post('payments/:id/installments')
+  @ApiOperation({ summary: 'Gerar parcelas para um pagamento' })
+  async generateInstallments(
+    @Param('id') paymentId: string,
+    @Body() data: { installments: Array<{ percentage: number; dueDate: string; description?: string }> },
+  ) {
+    return this.financeService.generateInstallments(paymentId, data.installments);
+  }
+
+  @Post('installments/:id/pay')
+  @ApiOperation({ summary: 'Dar baixa em uma parcela' })
+  async payInstallment(
+    @Param('id') installmentId: string,
+    @Body() data: { amount: number; method: string; transactionId?: string },
+  ) {
+    return this.financeService.payInstallment(installmentId, data.amount, data.method, data.transactionId);
+  }
+
+  @Delete('installments/:id')
+  @ApiOperation({ summary: 'Cancelar parcela' })
+  async cancelInstallment(@Param('id') installmentId: string) {
+    await this.financeService.cancelInstallment(installmentId);
+    return { message: 'Parcela cancelada' };
+  }
+
+  // ═══ CREATE FROM PROPOSAL / WORK ═══════════════════════════════════════
+
+  @Post('payments/from-proposal')
+  @ApiOperation({ summary: 'Criar lançamento financeiro a partir de uma proposta' })
+  async createFromProposal(@Body() data: any) {
+    return this.financeService.createPaymentFromProposal(data);
+  }
+
+  @Post('payments/from-work')
+  @ApiOperation({ summary: 'Criar lançamento financeiro a partir de uma obra' })
+  async createFromWork(@Body() data: any) {
+    return this.financeService.createPaymentFromWork(data);
+  }
 }

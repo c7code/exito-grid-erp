@@ -1279,6 +1279,52 @@ class ApiService {
     return response.data;
   }
 
+  // ═══ PAYMENT INSTALLMENTS (PARCELAS) ════════════════════════════════════
+
+  async getInstallments(paymentId: string) {
+    const response = await this.client.get(`/finance/payments/${paymentId}/installments`);
+    return response.data;
+  }
+
+  async generateInstallments(paymentId: string, installments: Array<{ percentage: number; dueDate: string; description?: string }>) {
+    const response = await this.client.post(`/finance/payments/${paymentId}/installments`, { installments });
+    return response.data;
+  }
+
+  async payInstallment(installmentId: string, data: { amount: number; method: string; transactionId?: string }) {
+    const response = await this.client.post(`/finance/installments/${installmentId}/pay`, data);
+    return response.data;
+  }
+
+  async cancelInstallment(installmentId: string) {
+    const response = await this.client.delete(`/finance/installments/${installmentId}`);
+    return response.data;
+  }
+
+  async createPaymentFromProposal(data: {
+    proposalId: string;
+    proposalNumber: string;
+    clientId: string;
+    description: string;
+    totalAmount: number;
+    workId?: string;
+    installments: Array<{ percentage: number; dueDate: string; description?: string }>;
+  }) {
+    const response = await this.client.post('/finance/payments/from-proposal', data);
+    return response.data;
+  }
+
+  async createPaymentFromWork(data: {
+    workId: string;
+    description: string;
+    totalAmount: number;
+    clientId?: string;
+    installments: Array<{ percentage: number; dueDate: string; description?: string }>;
+  }) {
+    const response = await this.client.post('/finance/payments/from-work', data);
+    return response.data;
+  }
+
   // ═══ CLIENT PORTAL ══════════════════════════════════════════════════════════
 
   async clientLogin(email: string, password: string) {

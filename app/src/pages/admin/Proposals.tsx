@@ -53,6 +53,7 @@ import {
   HardHat,
   Upload,
   Globe,
+  Banknote,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -63,6 +64,15 @@ import { OeMProposalPDFTemplate } from '@/components/OeMProposalPDFTemplate';
 import { RentalProposalPDFTemplate } from '@/components/RentalProposalPDFTemplate';
 import { SignatureSelector } from '@/components/SignatureSelector';
 import ProposalAttachments from '@/components/ProposalAttachments';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { DialogFooter } from '@/components/ui/dialog';
 import html2pdf from 'html2pdf.js';
 import { Download, MessageCircle, Mail, ExternalLink, Copy, Link2 } from 'lucide-react';
 
@@ -107,6 +117,42 @@ export default function AdminProposals() {
 
   // Portal publication tracking
   const [publishedProposalIds, setPublishedProposalIds] = useState<Set<string>>(new Set());
+
+  // Gerar Financeiro from Proposal
+  const [financeDialogOpen, setFinanceDialogOpen] = useState(false);
+  const [financeProposal, setFinanceProposal] = useState<any>(null);
+  const [financeConfig, setFinanceConfig] = useState({ count: 2, intervalDays: 30, mode: 'equal' as 'equal' | 'custom', description: '' });
+  const [financeCustomInst, setFinanceCustomInst] = useState<Array<{ percentage: string; dueDate: string; description: string }>>([]);
+  const [financeLoading, setFinanceLoading] = useState(false);
+
+  const handleCreateFinanceFromProposal = async () => {
+    if (!financeProposal) return;
+    setFinanceLoading(true);
+    try {
+      let installments: Array<{ percentage: number; dueDate: string; description?: string }> = [];
+      if (financeConfig.mode === 'equal') {
+        const pct = parseFloat((100 / financeConfig.count).toFixed(2));
+        for (let i = 0; i < financeConfig.count; i++) {
+          const d = new Date();
+          d.setDate(d.getDate() + i * financeConfig.intervalDays);
+          installments.push({ percentage: i === financeConfig.count - 1 ? (100 - pct * (financeConfig.count - 1)) : pct, dueDate: d.toISOString().split('T')[0], description: `Parcela ${i + 1}/${financeConfig.count}` });
+        }
+      } else {
+        installments = financeCustomInst.map((c, i) => ({ percentage: Number(c.percentage), dueDate: c.dueDate, description: c.description || `Parcela ${i + 1}/${financeCustomInst.length}` }));
+      }
+      await api.createPaymentFromProposal({
+        proposalId: financeProposal.id,
+        proposalNumber: financeProposal.proposalNumber,
+        clientId: financeProposal.clientId || financeProposal.client?.id || '',
+        description: financeConfig.description || financeProposal.title || `Proposta ${financeProposal.proposalNumber}`,
+        totalAmount: Number(financeProposal.total || 0),
+        installments,
+      });
+      toast.success(`Lançamento financeiro criado com ${installments.length} parcela(s)!`);
+      setFinanceDialogOpen(false);
+    } catch { toast.error('Erro ao gerar lançamento financeiro'); }
+    setFinanceLoading(false);
+  };
 
   useEffect(() => {
     loadProposals();
@@ -929,6 +975,15 @@ export default function AdminProposals() {
                               )}
                               <DropdownMenuSeparator />
                               {/* ═══ ATALHOS FINANCEIROS ═══ */}
+                              <DropdownMenuItem onClick={() => {
+                                setFinanceProposal(proposal);
+                                setFinanceConfig({ count: 2, intervalDays: 30, mode: 'equal' as 'equal' | 'custom', description: proposal.title || `Proposta ${proposal.proposalNumber}` });
+                                setFinanceCustomInst([]);
+                                setFinanceDialogOpen(true);
+                              }}>
+                                <Banknote className="w-4 h-4 mr-2 text-emerald-600" />
+                                Gerar Financeiro
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => navigate(`/admin/finance?tab=receipts&proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&clientId=${proposal.clientId || proposal.client?.id || ''}&total=${proposal.total || 0}&title=${encodeURIComponent(proposal.title || '')}`)}>
                                 <Receipt className="w-4 h-4 mr-2 text-emerald-600" />
                                 Gerar Recibo
@@ -1410,6 +1465,92 @@ export default function AdminProposals() {
               🔒 O link expira em 30 dias. IP, data/hora e navegador serão registrados para validade jurídica.
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ GERAR FINANCEIRO DIALOG ═══ */}
+      <Dialog open={financeDialogOpen} onOpenChange={setFinanceDialogOpen}>
+        <DialogContent className="sm:max-w-[540px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Banknote className="w-5 h-5 text-emerald-600" /> Gerar Financeiro — {financeProposal?.proposalNumber}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+              <p className="text-sm text-emerald-800">Valor total: <strong>R$ {financeProposal ? Number(financeProposal.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</strong></p>
+              <p className="text-xs text-emerald-600 mt-1">{financeProposal?.title}</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Descrição do Lançamento</Label>
+              <Input value={financeConfig.description} onChange={e => setFinanceConfig({ ...financeConfig, description: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Modo</Label>
+                <Select value={financeConfig.mode} onValueChange={v => setFinanceConfig({ ...financeConfig, mode: v as 'equal' | 'custom' })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="equal">Parcelas Iguais</SelectItem>
+                    <SelectItem value="custom">Personalizado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {financeConfig.mode === 'equal' && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Nº Parcelas</Label>
+                    <Input type="number" min={1} max={24} value={financeConfig.count} onChange={e => setFinanceConfig({ ...financeConfig, count: Number(e.target.value) || 1 })} />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label>Intervalo entre parcelas (dias)</Label>
+                    <Input type="number" min={1} value={financeConfig.intervalDays} onChange={e => setFinanceConfig({ ...financeConfig, intervalDays: Number(e.target.value) || 30 })} />
+                  </div>
+                </>
+              )}
+              {financeConfig.mode === 'custom' && (
+                <div className="col-span-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Parcelas</Label>
+                    <Button type="button" size="sm" variant="outline" onClick={() => setFinanceCustomInst([...financeCustomInst, { percentage: '0', dueDate: new Date().toISOString().split('T')[0], description: '' }])}>+ Parcela</Button>
+                  </div>
+                  {financeCustomInst.map((ci, idx) => (
+                    <div key={idx} className="grid grid-cols-[60px_1fr_1fr_32px] gap-2 items-end">
+                      <div><Label className="text-[10px]">%</Label><Input className="h-8 text-sm" type="text" inputMode="decimal" value={ci.percentage} onChange={e => { const n = [...financeCustomInst]; n[idx].percentage = e.target.value; setFinanceCustomInst(n); }} /></div>
+                      <div><Label className="text-[10px]">Vencimento</Label><Input className="h-8 text-sm" type="date" value={ci.dueDate} onChange={e => { const n = [...financeCustomInst]; n[idx].dueDate = e.target.value; setFinanceCustomInst(n); }} /></div>
+                      <div><Label className="text-[10px]">Descrição</Label><Input className="h-8 text-sm" value={ci.description} onChange={e => { const n = [...financeCustomInst]; n[idx].description = e.target.value; setFinanceCustomInst(n); }} placeholder={`Parcela ${idx + 1}`} /></div>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-rose-500" onClick={() => setFinanceCustomInst(financeCustomInst.filter((_, i) => i !== idx))}>✕</Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Preview */}
+            {financeConfig.mode === 'equal' && financeProposal && (
+              <div className="bg-slate-50 rounded-lg border p-3 space-y-1">
+                <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Prévia</p>
+                {Array.from({ length: financeConfig.count }, (_, i) => {
+                  const pct = parseFloat((100 / financeConfig.count).toFixed(2));
+                  const finalPct = i === financeConfig.count - 1 ? (100 - pct * (financeConfig.count - 1)) : pct;
+                  const val = (Number(financeProposal.total || 0) * finalPct / 100);
+                  const d = new Date(); d.setDate(d.getDate() + i * financeConfig.intervalDays);
+                  return (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">Parcela {i + 1}/{financeConfig.count}</span>
+                      <span className="font-medium">R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — {d.toLocaleDateString('pt-BR')}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFinanceDialogOpen(false)}>Cancelar</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleCreateFinanceFromProposal} disabled={financeLoading}>
+              {financeLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Banknote className="w-4 h-4 mr-2" />}
+              Gerar Lançamento
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
