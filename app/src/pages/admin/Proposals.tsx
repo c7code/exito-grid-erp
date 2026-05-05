@@ -124,6 +124,44 @@ export default function AdminProposals() {
   const [financeConfig, setFinanceConfig] = useState({ count: 2, intervalDays: 30, mode: 'equal' as 'equal' | 'custom', description: '' });
   const [financeCustomInst, setFinanceCustomInst] = useState<Array<{ percentage: string; dueDate: string; description: string }>>([]);
   const [financeLoading, setFinanceLoading] = useState(false);
+  const [existingFinanceInfo, setExistingFinanceInfo] = useState<any>(null);
+
+  const handleOpenFinanceDialog = async (proposal: any) => {
+    // Check for existing payments linked to this proposal
+    try {
+      const check = await api.checkProposalPayment(proposal.id);
+      setExistingFinanceInfo(check.exists ? check : null);
+
+      if (check.exists) {
+        const proposalTotal = Number(proposal.total || 0);
+        const alreadyGenerated = check.totalAmount;
+        const diff = proposalTotal - alreadyGenerated;
+
+        if (diff <= 0) {
+          toast.warning(`Esta proposta já possui lançamento financeiro de R$ ${alreadyGenerated.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Nenhuma diferença para gerar.`);
+          setFinanceProposal(proposal);
+          setFinanceConfig({ count: 2, intervalDays: 30, mode: 'equal', description: `Aditivo — ${proposal.title || proposal.proposalNumber}` });
+          setFinanceCustomInst([]);
+          setFinanceDialogOpen(true);
+          return;
+        }
+
+        // There's a difference (aditivo) — allow generating for the diff
+        toast.info(`Proposta já tem lançamento de R$ ${alreadyGenerated.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Gerando diferença de R$ ${diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`);
+        setFinanceProposal({ ...proposal, total: diff, _originalTotal: proposalTotal });
+      } else {
+        setExistingFinanceInfo(null);
+        setFinanceProposal(proposal);
+      }
+    } catch {
+      setExistingFinanceInfo(null);
+      setFinanceProposal(proposal);
+    }
+
+    setFinanceConfig({ count: 2, intervalDays: 30, mode: 'equal', description: proposal.title || `Proposta ${proposal.proposalNumber}` });
+    setFinanceCustomInst([]);
+    setFinanceDialogOpen(true);
+  };
 
   const handleCreateFinanceFromProposal = async () => {
     if (!financeProposal) return;
@@ -975,12 +1013,7 @@ export default function AdminProposals() {
                               )}
                               <DropdownMenuSeparator />
                               {/* ═══ ATALHOS FINANCEIROS ═══ */}
-                              <DropdownMenuItem onClick={() => {
-                                setFinanceProposal(proposal);
-                                setFinanceConfig({ count: 2, intervalDays: 30, mode: 'equal' as 'equal' | 'custom', description: proposal.title || `Proposta ${proposal.proposalNumber}` });
-                                setFinanceCustomInst([]);
-                                setFinanceDialogOpen(true);
-                              }}>
+                              <DropdownMenuItem onClick={() => handleOpenFinanceDialog(proposal)}>
                                 <Banknote className="w-4 h-4 mr-2 text-emerald-600" />
                                 Gerar Financeiro
                               </DropdownMenuItem>
@@ -1478,9 +1511,18 @@ export default function AdminProposals() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-              <p className="text-sm text-emerald-800">Valor total: <strong>R$ {financeProposal ? Number(financeProposal.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</strong></p>
+              <p className="text-sm text-emerald-800">Valor a gerar: <strong>R$ {financeProposal ? Number(financeProposal.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</strong></p>
               <p className="text-xs text-emerald-600 mt-1">{financeProposal?.title}</p>
             </div>
+            {existingFinanceInfo && existingFinanceInfo.exists && (
+              <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+                <p className="text-sm font-medium text-amber-800">⚠️ Já existe(m) {existingFinanceInfo.payments.length} lançamento(s) para esta proposta</p>
+                <p className="text-xs text-amber-700 mt-1">Total já gerado: R$ {existingFinanceInfo.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Pago: R$ {existingFinanceInfo.paidAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                {financeProposal?._originalTotal && (
+                  <p className="text-xs text-amber-600 mt-1 font-medium">Gerando apenas a diferença (aditivo): R$ {Number(financeProposal.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Descrição do Lançamento</Label>
               <Input value={financeConfig.description} onChange={e => setFinanceConfig({ ...financeConfig, description: e.target.value })} />

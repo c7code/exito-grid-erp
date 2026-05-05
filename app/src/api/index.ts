@@ -1301,6 +1301,11 @@ class ApiService {
     return response.data;
   }
 
+  async checkProposalPayment(proposalId: string) {
+    const response = await this.client.get(`/finance/payments/check-proposal/${proposalId}`);
+    return response.data;
+  }
+
   async createPaymentFromProposal(data: {
     proposalId: string;
     proposalNumber: string;

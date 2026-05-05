@@ -236,16 +236,16 @@ export class FinanceService {
 
   async registerPayment(id: string, amount: number, method: string, transactionId?: string): Promise<Payment> {
     const payment = await this.findOne(id);
-    payment.paidAmount += amount;
-    if (payment.paidAmount >= payment.amount) {
-      payment.status = PaymentStatus.PAID;
-    } else {
-      payment.status = PaymentStatus.PARTIAL;
-    }
-    payment.paidAt = new Date();
-    payment.paymentMethod = method as any;
-    if (transactionId) payment.transactionId = transactionId;
-    return this.paymentRepository.save(payment);
+    const newPaid = Number(payment.paidAmount || 0) + amount;
+    // Use direct update to avoid cascade issues with installments relation
+    await this.paymentRepository.update(id, {
+      paidAmount: newPaid,
+      status: newPaid >= Number(payment.amount) ? PaymentStatus.PAID : PaymentStatus.PARTIAL,
+      paidAt: new Date(),
+      paymentMethod: method as any,
+      ...(transactionId ? { transactionId } : {}),
+    });
+    return this.findOne(id);
   }
 
   async getSummary(): Promise<any> {
@@ -845,17 +845,19 @@ export class FinanceService {
     const payment = await this.paymentRepository.findOne({ where: { id: paymentId } });
     if (!payment) return;
 
-    payment.paidAmount = totalPaid;
+    let newStatus = PaymentStatus.PENDING;
     if (allPaid) {
-      payment.status = PaymentStatus.PAID;
-      payment.paidAt = new Date();
+      newStatus = PaymentStatus.PAID;
     } else if (somePaid || totalPaid > 0) {
-      payment.status = PaymentStatus.PARTIAL;
-    } else {
-      payment.status = PaymentStatus.PENDING;
+      newStatus = PaymentStatus.PARTIAL;
     }
 
-    await this.paymentRepository.save(payment);
+    // Use update() to avoid cascade issues with installments relation
+    await this.paymentRepository.update(paymentId, {
+      paidAmount: totalPaid,
+      status: newStatus,
+      ...(allPaid ? { paidAt: new Date() } : {}),
+    });
   }
 
   // ═══ CREATE FROM PROPOSAL / WORK ═══════════════════════════════════════════
@@ -930,5 +932,20 @@ export class FinanceService {
     }
 
     return this.findOne(saved.id);
+  }
+
+  // ═══ CHECK EXISTING PROPOSAL PAYMENT ═══
+  async checkProposalPayment(proposalId: string): Promise<{ exists: boolean; payments: any[]; totalAmount: number; paidAmount: number }> {
+    try {
+      const rows = await this.dataSource.query(
+        `SELECT id, description, amount, "paidAmount", status, "dueDate" FROM payments WHERE "proposalId" = $1 AND "deletedAt" IS NULL ORDER BY "createdAt" ASC`,
+        [proposalId],
+      );
+      const totalAmount = rows.reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
+      const paidAmount = rows.reduce((s: number, r: any) => s + Number(r.paidAmount || 0), 0);
+      return { exists: rows.length > 0, payments: rows, totalAmount, paidAmount };
+    } catch {
+      return { exists: false, payments: [], totalAmount: 0, paidAmount: 0 };
+    }
   }
 }

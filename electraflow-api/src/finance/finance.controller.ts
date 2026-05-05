@@ -47,6 +47,26 @@ export class FinanceController {
     return this.financeService.create(paymentData);
   }
 
+  // ═══ Static POST routes (must be before :id) ═══
+
+  @Post('payments/from-proposal')
+  @ApiOperation({ summary: 'Criar lançamento financeiro a partir de uma proposta' })
+  async createFromProposal(@Body() data: any) {
+    return this.financeService.createPaymentFromProposal(data);
+  }
+
+  @Post('payments/from-work')
+  @ApiOperation({ summary: 'Criar lançamento financeiro a partir de uma obra' })
+  async createFromWork(@Body() data: any) {
+    return this.financeService.createPaymentFromWork(data);
+  }
+
+  @Get('payments/check-proposal/:proposalId')
+  @ApiOperation({ summary: 'Verificar se já existe lançamento para a proposta' })
+  async checkProposalPayment(@Param('proposalId') proposalId: string) {
+    return this.financeService.checkProposalPayment(proposalId);
+  }
+
   @Put('payments/:id')
   @ApiOperation({ summary: 'Atualizar pagamento' })
   async update(@Param('id') id: string, @Body() paymentData: Partial<Payment>) {
@@ -284,19 +304,5 @@ export class FinanceController {
   async cancelInstallment(@Param('id') installmentId: string) {
     await this.financeService.cancelInstallment(installmentId);
     return { message: 'Parcela cancelada' };
-  }
-
-  // ═══ CREATE FROM PROPOSAL / WORK ═══════════════════════════════════════
-
-  @Post('payments/from-proposal')
-  @ApiOperation({ summary: 'Criar lançamento financeiro a partir de uma proposta' })
-  async createFromProposal(@Body() data: any) {
-    return this.financeService.createPaymentFromProposal(data);
-  }
-
-  @Post('payments/from-work')
-  @ApiOperation({ summary: 'Criar lançamento financeiro a partir de uma obra' })
-  async createFromWork(@Body() data: any) {
-    return this.financeService.createPaymentFromWork(data);
   }
 }
