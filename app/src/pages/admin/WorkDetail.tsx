@@ -23,7 +23,7 @@ import {
   MapPin, ExternalLink, Plus, CircleDot, Loader2, Trash2, Building2, ListTodo,
   TrendingUp, Calendar, FileText, Shield, DollarSign, Users, Package,
   Download, ClipboardList, AlertTriangle, Wallet, Receipt, CalendarClock,
-  Wrench, Warehouse,
+  Wrench, Warehouse, Layers,
 } from 'lucide-react';
 import { ClientDetailViewer } from '@/components/ClientDetailViewer';
 import { MeasurementDialog } from '@/components/MeasurementDialog';
@@ -199,6 +199,42 @@ export default function AdminWorkDetail() {
   const [workPaymentOpen, setWorkPaymentOpen] = useState(false);
   const [workPaymentForm, setWorkPaymentForm] = useState<any>(emptyWorkPayment);
   const [workPaymentLoading, setWorkPaymentLoading] = useState(false);
+
+  // ── Gerar Financeiro com Parcelas ──
+  const [workFinanceDialogOpen, setWorkFinanceDialogOpen] = useState(false);
+  const [workFinanceConfig, setWorkFinanceConfig] = useState({ count: 2, intervalDays: 30, mode: 'equal' as 'equal' | 'custom', description: '' });
+  const [workFinanceCustomInst, setWorkFinanceCustomInst] = useState<Array<{ percentage: string; dueDate: string; description: string }>>([]);
+  const [workFinanceLoading, setWorkFinanceLoading] = useState(false);
+
+  const handleCreateWorkFinance = async () => {
+    if (!work || !id) return;
+    setWorkFinanceLoading(true);
+    try {
+      let installments: Array<{ percentage: number; dueDate: string; description?: string }> = [];
+      const total = Number(work.totalValue || 0);
+      if (workFinanceConfig.mode === 'equal') {
+        const pct = parseFloat((100 / workFinanceConfig.count).toFixed(2));
+        for (let i = 0; i < workFinanceConfig.count; i++) {
+          const d = new Date();
+          d.setDate(d.getDate() + i * workFinanceConfig.intervalDays);
+          installments.push({ percentage: i === workFinanceConfig.count - 1 ? (100 - pct * (workFinanceConfig.count - 1)) : pct, dueDate: d.toISOString().split('T')[0], description: `Parcela ${i + 1}/${workFinanceConfig.count}` });
+        }
+      } else {
+        installments = workFinanceCustomInst.map((c, i) => ({ percentage: Number(c.percentage), dueDate: c.dueDate, description: c.description || `Parcela ${i + 1}/${workFinanceCustomInst.length}` }));
+      }
+      await api.createPaymentFromWork({
+        workId: id,
+        description: workFinanceConfig.description || `Receita — ${work.title}`,
+        totalAmount: total,
+        clientId: work.clientId || work.client?.id || '',
+        installments,
+      });
+      toast.success(`Lançamento financeiro criado com ${installments.length} parcela(s)!`);
+      setWorkFinanceDialogOpen(false);
+      fetchPayments();
+    } catch { toast.error('Erro ao gerar lançamento financeiro'); }
+    setWorkFinanceLoading(false);
+  };
 
   // ── Nova OS (Ordem de Serviço) ──
   const emptyOs = { title: '', description: '', priority: 'medium', scheduledDate: '', assignedToId: 'none', notes: '' };
@@ -1066,9 +1102,18 @@ export default function AdminWorkDetail() {
                 <AlertTriangle className="w-5 h-5 flex-shrink-0" />
                 <span className="font-semibold">INFORMAÇÕES CONFIDENCIAIS — Visível apenas para Administradores</span>
               </div>
-              <Button className="bg-emerald-600 hover:bg-emerald-700 shrink-0" onClick={() => setWorkPaymentOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />Novo Lançamento
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50 shrink-0" onClick={() => {
+                  setWorkFinanceConfig({ count: 2, intervalDays: 30, mode: 'equal', description: `Receita — ${work.title}` });
+                  setWorkFinanceCustomInst([]);
+                  setWorkFinanceDialogOpen(true);
+                }}>
+                  <Layers className="w-4 h-4 mr-2" />Gerar com Parcelas
+                </Button>
+                <Button className="bg-emerald-600 hover:bg-emerald-700 shrink-0" onClick={() => setWorkPaymentOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />Novo Lançamento
+                </Button>
+              </div>
             </div>
 
             {/* ── Painel de Saldo do Orçamento ── */}
@@ -1953,6 +1998,99 @@ export default function AdminWorkDetail() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═ Dialog: Gerar Financeiro com Parcelas ═ */}
+      <Dialog open={workFinanceDialogOpen} onOpenChange={setWorkFinanceDialogOpen}>
+        <DialogContent className="sm:max-w-[540px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="w-5 h-5 text-blue-600" /> Gerar Financeiro com Parcelas
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Financial Summary */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 space-y-2">
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <div>
+                  <p className="text-[10px] uppercase text-slate-500 font-medium">Valor da Obra</p>
+                  <p className="text-lg font-bold text-slate-800">R$ {fmt(Number(work?.totalValue || 0))}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase text-slate-500 font-medium">Já Recebido</p>
+                  <p className="text-lg font-bold text-emerald-600">R$ {fmt(payments.filter((p: any) => p.type === 'income' && p.status === 'paid').reduce((s: number, p: any) => s + Number(p.paidAmount || 0), 0))}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Descrição do Lançamento</Label>
+              <Input value={workFinanceConfig.description} onChange={e => setWorkFinanceConfig({ ...workFinanceConfig, description: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Modo</Label>
+                <Select value={workFinanceConfig.mode} onValueChange={v => setWorkFinanceConfig({ ...workFinanceConfig, mode: v as 'equal' | 'custom' })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="equal">Parcelas Iguais</SelectItem>
+                    <SelectItem value="custom">Personalizado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {workFinanceConfig.mode === 'equal' && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Nº Parcelas</Label>
+                    <Input type="number" min={1} max={60} value={workFinanceConfig.count} onChange={e => setWorkFinanceConfig({ ...workFinanceConfig, count: Number(e.target.value) || 1 })} />
+                  </div>
+                  <div className="col-span-2 space-y-2">
+                    <Label>Intervalo (dias)</Label>
+                    <Input type="number" min={1} value={workFinanceConfig.intervalDays} onChange={e => setWorkFinanceConfig({ ...workFinanceConfig, intervalDays: Number(e.target.value) || 30 })} />
+                  </div>
+                </>
+              )}
+            </div>
+            {workFinanceConfig.mode === 'custom' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Parcelas Personalizadas</Label>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setWorkFinanceCustomInst([...workFinanceCustomInst, { percentage: '', dueDate: new Date().toISOString().split('T')[0], description: '' }])}>
+                    <Plus className="w-3 h-3 mr-1" /> Adicionar
+                  </Button>
+                </div>
+                {workFinanceCustomInst.map((inst, i) => (
+                  <div key={i} className="grid grid-cols-4 gap-2 items-end">
+                    <Input placeholder="%" type="number" value={inst.percentage} onChange={e => { const u = [...workFinanceCustomInst]; u[i].percentage = e.target.value; setWorkFinanceCustomInst(u); }} />
+                    <Input type="date" value={inst.dueDate} onChange={e => { const u = [...workFinanceCustomInst]; u[i].dueDate = e.target.value; setWorkFinanceCustomInst(u); }} />
+                    <Input placeholder="Descrição" value={inst.description} onChange={e => { const u = [...workFinanceCustomInst]; u[i].description = e.target.value; setWorkFinanceCustomInst(u); }} />
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-400" onClick={() => setWorkFinanceCustomInst(workFinanceCustomInst.filter((_, j) => j !== i))}><Trash2 className="w-3 h-3" /></Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Preview */}
+            {workFinanceConfig.mode === 'equal' && (
+              <div className="text-xs text-slate-500 bg-slate-50 rounded-lg p-2 space-y-1">
+                <p className="font-medium text-slate-600">Preview:</p>
+                {Array.from({ length: Math.min(workFinanceConfig.count, 6) }).map((_, i) => {
+                  const pct = (100 / workFinanceConfig.count);
+                  const val = Number(work?.totalValue || 0) * pct / 100;
+                  const d = new Date(); d.setDate(d.getDate() + i * workFinanceConfig.intervalDays);
+                  return <p key={i}>Parcela {i + 1}: R$ {fmt(val)} — {d.toLocaleDateString('pt-BR')}</p>;
+                })}
+                {workFinanceConfig.count > 6 && <p>... +{workFinanceConfig.count - 6} parcelas</p>}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWorkFinanceDialogOpen(false)}>Cancelar</Button>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleCreateWorkFinance} disabled={workFinanceLoading}>
+              {workFinanceLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Layers className="w-4 h-4 mr-2" />}
+              Gerar Parcelas
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

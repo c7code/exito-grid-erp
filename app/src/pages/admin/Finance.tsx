@@ -22,6 +22,7 @@ import {
   Receipt, Package, Calendar, TrendingDown,
   BarChart3, PieChart as PieChartIcon, Target, AlertTriangle,
   ChevronDown, ChevronRight, CreditCard, Layers,
+  Paperclip,
 } from 'lucide-react';
 import {
   XAxis,
@@ -543,6 +544,27 @@ export default function AdminFinance() {
       setInstallmentsMap(prev => ({ ...prev, [inst.paymentId]: insts }));
       loadData();
     } catch { toast.error('Erro ao cancelar parcela'); }
+  };
+
+  const handleUploadReceipt = async (inst: any, file: File) => {
+    try {
+      await api.uploadInstallmentReceipt(inst.id, file);
+      toast.success('Comprovante anexado!');
+      const insts = await api.getInstallments(inst.paymentId);
+      setInstallmentsMap(prev => ({ ...prev, [inst.paymentId]: insts }));
+    } catch { toast.error('Erro ao anexar comprovante'); }
+  };
+
+  const handleDownloadReceipt = async (inst: any) => {
+    try {
+      const blob = await api.downloadInstallmentReceipt(inst.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = inst.receiptFileName || 'comprovante';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { toast.error('Erro ao baixar comprovante'); }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1237,17 +1259,40 @@ export default function AdminFinance() {
                           {instRows.map((inst: any) => (
                             <TableRow key={inst.id} className="bg-slate-50/60 border-l-4 border-l-blue-300">
                               <TableCell></TableCell>
-                              <TableCell className="pl-8"><div className="flex items-center gap-2"><CreditCard className="w-3.5 h-3.5 text-blue-400" /><span className="text-sm">{inst.description || `Parcela ${inst.installmentNumber}`}</span></div></TableCell>
+                              <TableCell className="pl-8">
+                                <div className="flex items-center gap-2">
+                                  <CreditCard className="w-3.5 h-3.5 text-blue-400" />
+                                  <span className="text-sm">{inst.description || `Parcela ${inst.installmentNumber}`}</span>
+                                  {inst.receiptFile && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">📎</span>}
+                                </div>
+                              </TableCell>
                               <TableCell className="text-xs text-slate-400">—</TableCell>
                               <TableCell className="text-sm">{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString('pt-BR') : '—'}</TableCell>
                               <TableCell className="text-sm font-medium">R$ {Number(inst.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
                               <TableCell>{Number(inst.paidAmount || 0) > 0 && <span className="text-xs text-emerald-600">Pago: R$ {fmtBRL(Number(inst.paidAmount))}</span>}</TableCell>
                               <TableCell><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${inst.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : inst.status === 'cancelled' ? 'bg-slate-100 text-slate-500' : 'bg-amber-100 text-amber-700'}`}>{inst.status === 'paid' ? '✅ Pago' : inst.status === 'cancelled' ? 'Cancelado' : '⏳ Pendente'}</span></TableCell>
                               <TableCell className="text-right">
-                                {inst.status === 'pending' && <div className="flex items-center justify-end gap-1">
-                                  <Button variant="outline" size="sm" className="h-6 text-xs gap-1 border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={() => handleOpenPayInstallment(inst)}><CheckCircle className="w-3 h-3" /> Baixar</Button>
-                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-rose-400" onClick={() => handleCancelInstallment(inst)}><X className="w-3 h-3" /></Button>
-                                </div>}
+                                <div className="flex items-center justify-end gap-1">
+                                  {/* Receipt attach/download */}
+                                  {inst.receiptFile ? (
+                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-emerald-600" title={`📎 ${inst.receiptFileName}`} onClick={() => handleDownloadReceipt(inst)}>
+                                      <Paperclip className="w-3 h-3" />
+                                    </Button>
+                                  ) : (
+                                    <label className="cursor-pointer" title="Anexar comprovante">
+                                      <input type="file" className="hidden" accept="image/*,.pdf" onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadReceipt(inst, f); e.target.value = ''; }} />
+                                      <div className="h-6 w-6 p-0 flex items-center justify-center text-slate-400 hover:text-blue-600 rounded transition-colors">
+                                        <Paperclip className="w-3 h-3" />
+                                      </div>
+                                    </label>
+                                  )}
+                                  {inst.status === 'pending' && (
+                                    <>
+                                      <Button variant="outline" size="sm" className="h-6 text-xs gap-1 border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={() => handleOpenPayInstallment(inst)}><CheckCircle className="w-3 h-3" /> Baixar</Button>
+                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-rose-400" onClick={() => handleCancelInstallment(inst)}><X className="w-3 h-3" /></Button>
+                                    </>
+                                  )}
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -1546,9 +1591,43 @@ export default function AdminFinance() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm text-blue-800">Valor total: <strong>R$ {installmentPayment ? Number(installmentPayment.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</strong></p>
-            </div>
+            {/* ── Financial Summary ── */}
+            {installmentPayment && (() => {
+              const total = Number(installmentPayment.amount || 0);
+              const paid = Number(installmentPayment.paidAmount || 0);
+              const hasInst = installmentPayment.installments?.length > 0;
+              const instPaid = hasInst ? installmentPayment.installments.filter((i: any) => i.status === 'paid').length : 0;
+              const instTotal = hasInst ? installmentPayment.installments.length : 0;
+              const remaining = total - paid;
+              return (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-[10px] uppercase text-slate-500 font-medium">Valor Total</p>
+                      <p className="text-lg font-bold text-slate-800">R$ {fmtBRL(total)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase text-slate-500 font-medium">Já Pago</p>
+                      <p className="text-lg font-bold text-emerald-600">R$ {fmtBRL(paid)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase text-slate-500 font-medium">Saldo Restante</p>
+                      <p className="text-lg font-bold text-blue-700">R$ {fmtBRL(remaining)}</p>
+                    </div>
+                  </div>
+                  {hasInst && (
+                    <div className="flex items-center justify-center gap-2 pt-1 border-t border-blue-200">
+                      <Layers className="w-3 h-3 text-blue-500" />
+                      <span className="text-xs text-blue-700">{instPaid}/{instTotal} parcelas pagas — novas parcelas substituirão as existentes</span>
+                    </div>
+                  )}
+                  {/* Progress bar */}
+                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all" style={{ width: `${total > 0 ? (paid / total * 100) : 0}%` }} />
+                  </div>
+                </div>
+              );
+            })()}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Modo</Label>

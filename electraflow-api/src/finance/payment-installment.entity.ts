@@ -56,6 +56,13 @@ export class PaymentInstallment {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  // ─── Comprovante de Pagamento ──────────────────────────────────────────
+  @Column({ nullable: true })
+  receiptFile: string;
+
+  @Column({ nullable: true })
+  receiptFileName: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

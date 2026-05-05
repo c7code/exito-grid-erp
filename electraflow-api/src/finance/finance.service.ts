@@ -174,6 +174,9 @@ export class FinanceService {
         `ALTER TABLE payment_installments ADD COLUMN IF NOT EXISTS "paymentMethod" VARCHAR`,
         `ALTER TABLE payment_installments ADD COLUMN IF NOT EXISTS "transactionId" VARCHAR`,
         `ALTER TABLE payment_installments ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP`,
+        `ALTER TABLE payment_installments ADD COLUMN IF NOT EXISTS "receiptFile" VARCHAR`,
+        `ALTER TABLE payment_installments ADD COLUMN IF NOT EXISTS "receiptFileName" VARCHAR`,
+        `ALTER TABLE payment_installments ADD COLUMN IF NOT EXISTS "notes" TEXT`,
       ];
       for (const sql of instCols) { await this.dataSource.query(sql).catch(() => {}); }
 
@@ -830,6 +833,17 @@ export class FinanceService {
     installment.status = InstallmentStatus.CANCELLED;
     await this.installmentRepo.save(installment);
     await this.syncPaymentFromInstallments(installment.paymentId);
+  }
+
+  async attachInstallmentReceipt(installmentId: string, filename: string, originalName: string): Promise<PaymentInstallment> {
+    const inst = await this.installmentRepo.findOne({ where: { id: installmentId } });
+    if (!inst) throw new NotFoundException('Parcela não encontrada');
+    await this.installmentRepo.update(installmentId, { receiptFile: filename, receiptFileName: originalName });
+    return this.installmentRepo.findOne({ where: { id: installmentId } });
+  }
+
+  async getInstallmentById(id: string): Promise<PaymentInstallment> {
+    return this.installmentRepo.findOne({ where: { id } });
   }
 
   /** Sync parent Payment paidAmount + status from its installments */

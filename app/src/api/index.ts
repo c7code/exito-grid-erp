@@ -1306,6 +1306,20 @@ class ApiService {
     return response.data;
   }
 
+  async uploadInstallmentReceipt(installmentId: string, file: File) {
+    const fd = new FormData();
+    fd.append('file', file);
+    const response = await this.client.post(`/finance/installments/${installmentId}/receipt`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  async downloadInstallmentReceipt(installmentId: string) {
+    const response = await this.client.get(`/finance/installments/${installmentId}/receipt`, { responseType: 'blob' });
+    return response.data;
+  }
+
   async createPaymentFromProposal(data: {
     proposalId: string;
     proposalNumber: string;

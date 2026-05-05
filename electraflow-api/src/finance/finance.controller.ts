@@ -22,6 +22,14 @@ const invoiceStorage = diskStorage({
   },
 });
 
+const receiptStorage = diskStorage({
+  destination: './uploads/receipts',
+  filename: (_, file, cb) => {
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `receipt-${unique}${extname(file.originalname)}`);
+  },
+});
+
 @ApiTags('Financeiro')
 @Controller('finance')
 @UseGuards(JwtAuthGuard)
@@ -304,5 +312,26 @@ export class FinanceController {
   async cancelInstallment(@Param('id') installmentId: string) {
     await this.financeService.cancelInstallment(installmentId);
     return { message: 'Parcela cancelada' };
+  }
+
+  @Post('installments/:id/receipt')
+  @ApiOperation({ summary: 'Upload comprovante de pagamento da parcela' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { storage: receiptStorage }))
+  async uploadInstallmentReceipt(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.financeService.attachInstallmentReceipt(id, file.filename, file.originalname);
+  }
+
+  @Get('installments/:id/receipt')
+  @ApiOperation({ summary: 'Download comprovante da parcela' })
+  async downloadInstallmentReceipt(@Param('id') id: string, @Res() res: Response) {
+    const inst = await this.financeService.getInstallmentById(id);
+    if (!inst?.receiptFile) throw new NotFoundException('Comprovante não encontrado');
+    const filePath = join(process.cwd(), 'uploads', 'receipts', inst.receiptFile);
+    if (!existsSync(filePath)) throw new NotFoundException('Arquivo não encontrado no servidor');
+    res.download(filePath, inst.receiptFileName || inst.receiptFile);
   }
 }
