@@ -583,9 +583,9 @@ export default function AdminProposals() {
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 3, dpi: 192, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
         jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
-        pagebreak: isSolar
-          ? { mode: ['css'], before: '.next-page' }
-          : { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['tr', '.sig-block', '.pdf-keep-together', '.pdf-section-title', '.avoid-page-break'] },
+        ...(isSolar ? {} : {
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['tr', '.sig-block', '.pdf-keep-together', '.pdf-section-title', '.avoid-page-break'] },
+        }),
       };
 
       html2pdf().from(element).set(opt).save().then(() => {
