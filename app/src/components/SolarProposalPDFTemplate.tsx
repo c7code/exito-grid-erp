@@ -320,7 +320,7 @@ const Page1 = ({ data }: { data: any }) => {
       <div style={{ padding: "48px 48px 0" }}>
         {/* Logo simulado */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 56 }}>
-          <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 55, objectFit: 'contain' }} />
+          <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 55, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
         </div>
 
         {/* Título principal */}
@@ -1708,7 +1708,7 @@ const Page9 = ({ data }: { data: any }) => {
         borderTop: `3px solid ${C.gold}`,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 32, objectFit: 'contain' }} />
+          <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 32, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
           <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>CNPJ {empresa.cnpj} · {empresa.endereco}</div>
         </div>
         <div style={{ textAlign: "center" }}>
