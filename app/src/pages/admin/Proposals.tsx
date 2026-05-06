@@ -90,6 +90,7 @@ export default function AdminProposals() {
   const [proposals, setProposals] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [originFilter, setOriginFilter] = useState('all');
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [editingProposal, setEditingProposal] = useState<any>(null);
   const [isClientViewerOpen, setIsClientViewerOpen] = useState(false);
@@ -216,11 +217,19 @@ export default function AdminProposals() {
     }
   };
 
-  const filteredProposals = proposals.filter((p) =>
-    (p.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.proposalNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.client?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProposals = proposals.filter((p) => {
+    const matchesSearch = (p.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.proposalNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.client?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+    if (originFilter === 'all') return true;
+    const at = p.activityType || '';
+    if (originFilter === 'solar') return at === 'energia_solar';
+    if (originFilter === 'oem') return at === 'plano_oem' || at.startsWith('manutencao_');
+    if (originFilter === 'locacao') return at === 'locacao_equipamento';
+    if (originFilter === 'comercial') return !at || at === 'extensao_rede';
+    return true;
+  });
 
   const approvedValue = proposals
     .filter(p => p.status === 'accepted')
@@ -764,14 +773,35 @@ export default function AdminProposals() {
         </Card>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <Input
-          placeholder="Buscar propostas..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input
+            placeholder="Buscar propostas..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          {[
+            { key: 'all', label: 'Todas', emoji: '' },
+            { key: 'solar', label: 'Solar', emoji: '☀️' },
+            { key: 'oem', label: 'O&M', emoji: '🔧' },
+            { key: 'locacao', label: 'Locação', emoji: '🏗️' },
+            { key: 'comercial', label: 'Comercial', emoji: '📋' },
+          ].map(f => (
+            <Button
+              key={f.key}
+              variant={originFilter === f.key ? 'default' : 'outline'}
+              size="sm"
+              className={`text-xs h-8 ${originFilter === f.key ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'text-slate-600'}`}
+              onClick={() => setOriginFilter(f.key)}
+            >
+              {f.emoji && <span className="mr-1">{f.emoji}</span>}{f.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       <Card>
@@ -792,7 +822,7 @@ export default function AdminProposals() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Código</TableHead>
+                  <TableHead>Código / Origem</TableHead>
                   <TableHead>Proposta</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Rev.</TableHead>
@@ -811,7 +841,23 @@ export default function AdminProposals() {
                   return (
                     <TableRow key={proposal.id}>
                       <TableCell className="font-medium">
-                        {proposal.proposalNumber}
+                        <div className="flex flex-col gap-1">
+                          <span>{proposal.proposalNumber}</span>
+                          {(() => {
+                            const at = proposal.activityType || '';
+                            const origin = at === 'energia_solar' ? { label: 'Solar', emoji: '☀️', color: 'bg-amber-100 text-amber-700 border-amber-200' }
+                              : (at === 'plano_oem' || at.startsWith('manutencao_')) ? { label: 'O&M', emoji: '🔧', color: 'bg-purple-100 text-purple-700 border-purple-200' }
+                              : at === 'locacao_equipamento' ? { label: 'Locação', emoji: '🏗️', color: 'bg-sky-100 text-sky-700 border-sky-200' }
+                              : at === 'extensao_rede' ? { label: 'Rede', emoji: '⚡', color: 'bg-orange-100 text-orange-700 border-orange-200' }
+                              : at ? { label: at.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()), emoji: '📋', color: 'bg-slate-100 text-slate-600 border-slate-200' }
+                              : { label: 'Comercial', emoji: '📋', color: 'bg-slate-100 text-slate-600 border-slate-200' };
+                            return (
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold border w-fit ${origin.color}`}>
+                                {origin.emoji} {origin.label}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       </TableCell>
                       <TableCell>{proposal.title || '—'}</TableCell>
                       <TableCell>
