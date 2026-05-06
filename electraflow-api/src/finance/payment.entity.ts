@@ -171,6 +171,23 @@ export class Payment {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   taxCost: number;
 
+  // ─── INSS (Retenção Previdenciária — Empreiteiro) ─────────────────────
+  /** Percentual da NF que é base de cálculo INSS (ex: 50% = mão de obra) */
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  inssBasePercentage: number;
+
+  /** Alíquota INSS aplicada sobre a base (ex: 11%) */
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  inssRate: number;
+
+  /** Valor retido de INSS (R$) */
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  inssAmount: number;
+
+  /** Nº do título/GPS gerado pela retenção INSS (para controle de compensação) */
+  @Column({ nullable: true })
+  inssGpsNumber: string;
+
   // ─── Nota Fiscal ─────────────────────────────────────────────────────────
   /** Caminho do arquivo da Nota Fiscal no servidor */
   @Column({ nullable: true })

@@ -188,6 +188,10 @@ export class FinanceService {
         `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "isAnticipated" BOOLEAN DEFAULT false`,
         `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "anticipatedDate" TIMESTAMP`,
         `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "anticipationDiscount" DECIMAL(15,2) DEFAULT 0`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "inssBasePercentage" DECIMAL(5,2) DEFAULT 0`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "inssRate" DECIMAL(5,2) DEFAULT 0`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "inssAmount" DECIMAL(15,2) DEFAULT 0`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "inssGpsNumber" VARCHAR`,
       ];
       for (const sql of payExtraCols) { await this.dataSource.query(sql).catch(() => {}); }
     } catch (e) { console.warn('Finance tables migration:', e?.message); }

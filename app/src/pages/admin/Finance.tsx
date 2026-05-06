@@ -214,6 +214,8 @@ export default function AdminFinance() {
     costCenter: '', financialOrigin: '',
     // Antecipação
     isAnticipated: false, anticipatedDate: '', anticipationDiscount: '0',
+    // INSS
+    inssBasePercentage: '0', inssRate: '11', inssAmount: '0', inssGpsNumber: '',
   };
 
   const [formData, setFormData] = useState<any>(emptyForm);
@@ -432,6 +434,10 @@ export default function AdminFinance() {
       isAnticipated: payment.isAnticipated || false,
       anticipatedDate: payment.anticipatedDate?.split('T')[0] || '',
       anticipationDiscount: (payment.anticipationDiscount || 0).toString(),
+      inssBasePercentage: (payment.inssBasePercentage || 0).toString(),
+      inssRate: (payment.inssRate || 11).toString(),
+      inssAmount: (payment.inssAmount || 0).toString(),
+      inssGpsNumber: payment.inssGpsNumber || '',
     });
     // Load measurements for the linked work
     if (payment.workId) loadMeasurementsForWork(payment.workId);
@@ -595,6 +601,7 @@ export default function AdminFinance() {
         'taxISS', 'taxISSAmount', 'taxCSLL', 'taxCSLLAmount',
         'taxPISCOFINS', 'taxPISCOFINSAmount', 'taxIRRF', 'taxIRRFAmount',
         'taxICMS', 'taxICMSAmount', 'anticipationDiscount',
+        'inssBasePercentage', 'inssRate', 'inssAmount',
       ];
       const payload: any = { ...formData };
       numFields.forEach(f => { payload[f] = Number(payload[f] || 0); });
@@ -905,6 +912,118 @@ export default function AdminFinance() {
                           <Input value={formData.taxObservation} onChange={e => setFormData({ ...formData, taxObservation: e.target.value })}
                             placeholder="Descreva qual imposto está sendo retido e o motivo..." />
                         </div>
+
+                        {/* ── INSS (Retenção Previdenciária) ── */}
+                        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                          <h3 className="font-semibold text-indigo-800 mb-3 flex items-center gap-2">
+                            🏛️ INSS — Retenção Previdenciária (Art. 31 Lei 8.212)
+                          </h3>
+                          <p className="text-xs text-indigo-600 mb-3">
+                            Para serviços de construção, a retenção é calculada sobre a parcela de mão de obra da NF. Ex: 50% da NF é mão de obra → 11% sobre essa base.
+                          </p>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-sm">Base de Cálculo (%)</Label>
+                              <Input type="text" inputMode="decimal" className="h-8 text-sm"
+                                placeholder="Ex: 50"
+                                value={formData.inssBasePercentage}
+                                onChange={e => {
+                                  const basePct = e.target.value;
+                                  const base = Number(formData.amount) || 0;
+                                  const baseCalc = base * (Number(basePct) / 100);
+                                  const amt = baseCalc * (Number(formData.inssRate) / 100);
+                                  setFormData({ ...formData, inssBasePercentage: basePct, inssAmount: amt.toFixed(2) });
+                                }} />
+                              <p className="text-[10px] text-indigo-400">% da NF que é mão de obra</p>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-sm">Alíquota INSS (%)</Label>
+                              <Input type="text" inputMode="decimal" className="h-8 text-sm"
+                                placeholder="11"
+                                value={formData.inssRate}
+                                onChange={e => {
+                                  const rate = e.target.value;
+                                  const base = Number(formData.amount) || 0;
+                                  const baseCalc = base * (Number(formData.inssBasePercentage) / 100);
+                                  const amt = baseCalc * (Number(rate) / 100);
+                                  setFormData({ ...formData, inssRate: rate, inssAmount: amt.toFixed(2) });
+                                }} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-sm">Valor Retido (R$)</Label>
+                              <Input type="text" inputMode="decimal" className="h-8 text-sm font-bold"
+                                value={formData.inssAmount}
+                                onChange={e => setFormData({ ...formData, inssAmount: e.target.value })} />
+                            </div>
+                          </div>
+                          {Number(formData.inssBasePercentage) > 0 && Number(formData.amount) > 0 && (
+                            <div className="mt-2 text-xs text-indigo-600 bg-indigo-100/50 rounded p-2">
+                              Base cálculo: R$ {(Number(formData.amount) * Number(formData.inssBasePercentage) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              {' '}({formData.inssBasePercentage}% de R$ {Number(formData.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                              {' '}× {formData.inssRate}% = <strong>R$ {Number(formData.inssAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                            </div>
+                          )}
+                          <div className="mt-3 space-y-1">
+                            <Label className="text-sm">Nº GPS / Título INSS (para compensação)</Label>
+                            <Input value={formData.inssGpsNumber} onChange={e => setFormData({ ...formData, inssGpsNumber: e.target.value })}
+                              placeholder="Nº da guia GPS ou título gerado pela retenção" className="h-8 text-sm" />
+                            <p className="text-[10px] text-indigo-400">Este valor pode ser compensado com o INSS dos funcionários</p>
+                          </div>
+                        </div>
+
+                        {/* ══════ RESUMO DE LIQUIDAÇÃO ══════ */}
+                        {Number(formData.amount) > 0 && (() => {
+                          const bruto = Number(formData.amount) || 0;
+                          const iss = Number(formData.taxISSAmount) || 0;
+                          const csll = Number(formData.taxCSLLAmount) || 0;
+                          const pis = Number(formData.taxPISCOFINSAmount) || 0;
+                          const irrf = Number(formData.taxIRRFAmount) || 0;
+                          const icms = Number(formData.taxICMSAmount) || 0;
+                          const ret = Number(formData.taxWithholding) || 0;
+                          const inss = Number(formData.inssAmount) || 0;
+                          const antecipacao = Number(formData.anticipationDiscount) || 0;
+                          const totalDeducoes = iss + csll + pis + irrf + icms + ret + inss + antecipacao;
+                          const liquido = bruto - totalDeducoes;
+                          const deductions = [
+                            { label: 'Retenção Contratual', value: ret, show: ret > 0 },
+                            { label: `ISS (${formData.taxISS}%)`, value: iss, show: iss > 0 },
+                            { label: `CSLL (${formData.taxCSLL}%)`, value: csll, show: csll > 0 },
+                            { label: `PIS/COFINS (${formData.taxPISCOFINS}%)`, value: pis, show: pis > 0 },
+                            { label: `IRRF (${formData.taxIRRF}%)`, value: irrf, show: irrf > 0 },
+                            { label: `ICMS (${formData.taxICMS}%)`, value: icms, show: icms > 0 },
+                            { label: `INSS (${formData.inssBasePercentage}% × ${formData.inssRate}%)`, value: inss, show: inss > 0 },
+                            { label: 'Juros Antecipação (Banco)', value: antecipacao, show: antecipacao > 0 },
+                          ].filter(d => d.show);
+                          return (
+                            <div className="bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-slate-300 rounded-xl p-4 space-y-2">
+                              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">📋 Resumo de Liquidação</h3>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-slate-600">Valor Bruto da NF</span>
+                                <span className="font-mono font-bold text-slate-900">R$ {bruto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                              {deductions.length > 0 && (
+                                <div className="border-t border-slate-200 pt-1 space-y-1">
+                                  {deductions.map((d, i) => (
+                                    <div key={i} className="flex justify-between text-sm text-red-600">
+                                      <span>(-) {d.label}</span>
+                                      <span className="font-mono">- R$ {d.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex justify-between border-t-2 border-slate-400 pt-2 mt-1">
+                                <span className={`font-bold text-sm ${liquido >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>= Valor Líquido Recebido</span>
+                                <span className={`font-mono font-bold text-lg ${liquido >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>R$ {liquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                              {inss > 0 && (
+                                <div className="mt-1 text-xs bg-indigo-50 border border-indigo-200 rounded-lg p-2 text-indigo-700">
+                                  💡 <strong>R$ {inss.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> retido de INSS gera crédito para compensação com GPS dos funcionários
+                                  {formData.inssGpsNumber && <span> — GPS: <strong>{formData.inssGpsNumber}</strong></span>}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </TabsContent>
 
