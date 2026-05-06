@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '@/api';
 import { toast } from 'sonner';
 import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate';
@@ -1590,11 +1590,11 @@ export default function SolarProjects() {
                                   <p className="text-[10px] text-green-600">Economia de {fmt(savings)} ({fmtN(savingsPercent, 0)}%)</p>
                                 </div>
                               )}
-                              {/* Price â€” Anchoring */}
+                              {/* Price — Anchoring */}
                               <div className={`text-center pt-2 border-t ${kit.isRecommended ? 'border-amber-300' : 'border-slate-200'}`}>
-                                <p className="text-[10px] text-slate-400 uppercase font-bold">VocÃª Paga Apenas</p>
+                                <p className="text-[10px] text-slate-400 uppercase font-bold">Você Paga Apenas</p>
                                 <p className={`text-2xl font-bold ${kit.isRecommended ? 'text-amber-800' : 'text-slate-900'}`}>{fmt(kit.totalPrice)}</p>
-                                <p className="text-[10px] text-slate-400">Ã  vista</p>
+                                <p className="text-[10px] text-slate-400">à vista</p>
                               </div>
                             </div>
                           );
