@@ -218,6 +218,18 @@ export default function AdminFinance() {
     inssBasePercentage: '0', inssRate: '11', inssAmount: '0', inssGpsNumber: '',
   };
 
+  // Helper: converte entrada monetária BR (25.015,67 ou 25015,67) → número JS
+  const parseBRL = (raw: string): string => {
+    if (!raw) return '0';
+    let v = raw.trim();
+    // Se tem vírgula, trata como formato BR
+    if (v.includes(',')) {
+      v = v.replace(/\./g, '');   // remove separador milhar
+      v = v.replace(',', '.');    // troca vírgula decimal → ponto
+    }
+    return v;
+  };
+
   const [formData, setFormData] = useState<any>(emptyForm);
   const [apportionmentItems, setApportionmentItems] = useState<Array<{ description: string; percentage: string; amount: string }>>([]);
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
@@ -711,7 +723,7 @@ export default function AdminFinance() {
                         </div>
                         <div className="space-y-2">
                           <Label>Valor Bruto (R$) *</Label>
-                          <Input type="text" inputMode="decimal" step="0.01" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} required />
+                          <Input type="text" inputMode="decimal" step="0.01" value={formData.amount} onChange={e => setFormData({ ...formData, amount: parseBRL(e.target.value) })} placeholder="Ex: 25.015,67" required />
                         </div>
                         <div className="space-y-2">
                           <Label>Tipo *</Label>
@@ -795,26 +807,54 @@ export default function AdminFinance() {
                             </div>
                             <div className="space-y-2">
                               <Label>Desconto / Juros da Antecipação (R$)</Label>
-                              <Input type="text" inputMode="decimal" value={formData.anticipationDiscount} onChange={e => setFormData({ ...formData, anticipationDiscount: e.target.value })} placeholder="0,00" />
+                              <Input type="text" inputMode="decimal" value={formData.anticipationDiscount} onChange={e => setFormData({ ...formData, anticipationDiscount: parseBRL(e.target.value) })} placeholder="Ex: 1.250,50" />
                             </div>
-                            {Number(formData.anticipationDiscount) > 0 && Number(formData.amount) > 0 && (
-                              <div className="col-span-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
-                                <div className="flex justify-between">
-                                  <span className="text-slate-600">Valor da NF:</span>
-                                  <span className="font-mono font-bold">R$ {Number(formData.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                </div>
-                                <div className="flex justify-between text-red-600">
-                                  <span>(-) Desconto antecipação:</span>
-                                  <span className="font-mono font-bold">- R$ {Number(formData.anticipationDiscount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                </div>
-                                <div className="flex justify-between border-t border-amber-300 pt-1 mt-1 text-emerald-700 font-bold">
-                                  <span>= Valor Líquido Recebido:</span>
-                                  <span className="font-mono">R$ {(Number(formData.amount) - Number(formData.anticipationDiscount)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                </div>
-                              </div>
-                            )}
                           </>
                         )}
+                        {/* ══════ RESUMO DE LIQUIDAÇÃO (Dados tab) ══════ */}
+                        {Number(formData.amount) > 0 && (() => {
+                          const bruto = Number(formData.amount) || 0;
+                          const iss = Number(formData.taxISSAmount) || 0;
+                          const csll = Number(formData.taxCSLLAmount) || 0;
+                          const pis = Number(formData.taxPISCOFINSAmount) || 0;
+                          const irrf = Number(formData.taxIRRFAmount) || 0;
+                          const icms = Number(formData.taxICMSAmount) || 0;
+                          const ret = Number(formData.taxWithholding) || 0;
+                          const inss = Number(formData.inssAmount) || 0;
+                          const antecipacao = Number(formData.anticipationDiscount) || 0;
+                          const totalDeducoes = iss + csll + pis + irrf + icms + ret + inss + antecipacao;
+                          const liquido = bruto - totalDeducoes;
+                          const deductions = [
+                            { label: 'Retenção Contratual', value: ret },
+                            { label: `ISS (${formData.taxISS || 0}%)`, value: iss },
+                            { label: `CSLL (${formData.taxCSLL || 0}%)`, value: csll },
+                            { label: `PIS/COFINS (${formData.taxPISCOFINS || 0}%)`, value: pis },
+                            { label: `IRRF (${formData.taxIRRF || 0}%)`, value: irrf },
+                            { label: `ICMS (${formData.taxICMS || 0}%)`, value: icms },
+                            { label: `INSS (${formData.inssBasePercentage || 0}%×${formData.inssRate || 0}%)`, value: inss },
+                            { label: 'Juros Antecipação', value: antecipacao },
+                          ].filter(d => d.value > 0);
+                          if (deductions.length === 0) return null;
+                          return (
+                            <div className="col-span-2 bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-slate-300 rounded-xl p-4 space-y-1.5">
+                              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">📋 Resumo de Liquidação</h3>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-slate-600">Valor Bruto NF</span>
+                                <span className="font-mono font-bold text-slate-900">R$ {bruto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                              {deductions.map((d, i) => (
+                                <div key={i} className="flex justify-between text-sm text-red-600">
+                                  <span>(-) {d.label}</span>
+                                  <span className="font-mono">- R$ {d.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                              ))}
+                              <div className={`flex justify-between border-t-2 border-slate-400 pt-2 mt-1 font-bold text-sm ${liquido >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                                <span>= Valor Líquido Recebido</span>
+                                <span className="font-mono text-base">R$ {liquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                         <div className="space-y-2">
                           <Label>Vencimento *</Label>
                           <Input type="date" value={formData.dueDate} onChange={e => setFormData({ ...formData, dueDate: e.target.value })} required />
@@ -851,7 +891,7 @@ export default function AdminFinance() {
                               <Input type="text" inputMode="decimal" step="0.01" min="0" max="100"
                                 value={formData.retentionPercentage}
                                 onChange={e => {
-                                  const pct = e.target.value;
+                                  const pct = parseBRL(e.target.value);
                                   const base = Number(formData.amount) || 0;
                                   setFormData({ ...formData, retentionPercentage: pct, taxWithholding: ((Number(pct) / 100) * base).toFixed(2) });
                                 }} placeholder="0,00" />
@@ -861,7 +901,7 @@ export default function AdminFinance() {
                               <Input type="text" inputMode="decimal" step="0.01" min="0"
                                 value={formData.taxWithholding}
                                 onChange={e => {
-                                  const val = e.target.value;
+                                  const val = parseBRL(e.target.value);
                                   const base = Number(formData.amount) || 0;
                                   setFormData({ ...formData, taxWithholding: val, retentionPercentage: base > 0 ? ((Number(val) / base) * 100).toFixed(2) : '0' });
                                 }} placeholder="0,00" />
@@ -890,7 +930,7 @@ export default function AdminFinance() {
                                   placeholder="%"
                                   value={formData[pctKey]}
                                   onChange={e => {
-                                    const pct = e.target.value;
+                                    const pct = parseBRL(e.target.value);
                                     const base = Number(formData.amount) || 0;
                                     setFormData({ ...formData, [pctKey]: pct, [amtKey]: ((Number(pct) / 100) * base).toFixed(2) });
                                   }} />
@@ -898,7 +938,7 @@ export default function AdminFinance() {
                                   placeholder="R$"
                                   value={formData[amtKey]}
                                   onChange={e => {
-                                    const val = e.target.value;
+                                    const val = parseBRL(e.target.value);
                                     const base = Number(formData.amount) || 0;
                                     setFormData({ ...formData, [amtKey]: val, [pctKey]: base > 0 ? ((Number(val) / base) * 100).toFixed(2) : '0' });
                                   }} />
@@ -928,7 +968,7 @@ export default function AdminFinance() {
                                 placeholder="Ex: 50"
                                 value={formData.inssBasePercentage}
                                 onChange={e => {
-                                  const basePct = e.target.value;
+                                  const basePct = parseBRL(e.target.value);
                                   const base = Number(formData.amount) || 0;
                                   const baseCalc = base * (Number(basePct) / 100);
                                   const amt = baseCalc * (Number(formData.inssRate) / 100);
@@ -942,7 +982,7 @@ export default function AdminFinance() {
                                 placeholder="11"
                                 value={formData.inssRate}
                                 onChange={e => {
-                                  const rate = e.target.value;
+                                  const rate = parseBRL(e.target.value);
                                   const base = Number(formData.amount) || 0;
                                   const baseCalc = base * (Number(formData.inssBasePercentage) / 100);
                                   const amt = baseCalc * (Number(rate) / 100);
@@ -953,7 +993,7 @@ export default function AdminFinance() {
                               <Label className="text-sm">Valor Retido (R$)</Label>
                               <Input type="text" inputMode="decimal" className="h-8 text-sm font-bold"
                                 value={formData.inssAmount}
-                                onChange={e => setFormData({ ...formData, inssAmount: e.target.value })} />
+                                onChange={e => setFormData({ ...formData, inssAmount: parseBRL(e.target.value) })} />
                             </div>
                           </div>
                           {Number(formData.inssBasePercentage) > 0 && Number(formData.amount) > 0 && (
