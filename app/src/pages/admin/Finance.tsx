@@ -239,10 +239,11 @@ export default function AdminFinance() {
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [registerData, setRegisterData] = useState({
-    amount: 0,
+    amount: '',
     method: 'transfer',
     transactionId: '',
   });
+  const [registerReceiptFile, setRegisterReceiptFile] = useState<File | null>(null);
 
   // ── Parcelas ──
   const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null);
@@ -253,7 +254,7 @@ export default function AdminFinance() {
   const [customInstallments, setCustomInstallments] = useState<Array<{ percentage: string; dueDate: string; description: string }>>([]);
   const [payInstallmentDialogOpen, setPayInstallmentDialogOpen] = useState(false);
   const [selectedInstallment, setSelectedInstallment] = useState<any>(null);
-  const [payInstData, setPayInstData] = useState({ amount: 0, method: 'pix', transactionId: '' });
+  const [payInstData, setPayInstData] = useState({ amount: '', method: 'pix', transactionId: '' });
   const [payInstReceiptFile, setPayInstReceiptFile] = useState<File | null>(null);
 
   useEffect(() => {
@@ -487,19 +488,26 @@ export default function AdminFinance() {
   const handleOpenRegister = (payment: any) => {
     setSelectedPayment(payment);
     setRegisterData({
-      amount: payment.amount,
+      amount: String(payment.amount || 0),
       method: 'transfer',
       transactionId: '',
     });
+    setRegisterReceiptFile(null);
     setIsRegisterDialogOpen(true);
   };
 
   const handleRegisterPayment = async () => {
     if (!selectedPayment) return;
     try {
-      await api.registerPayment(selectedPayment.id, registerData);
-      toast.success('Baixa realizada com sucesso!');
+      const parsedAmount = Number(parseBRL(String(registerData.amount)));
+      await api.registerPayment(selectedPayment.id, { ...registerData, amount: parsedAmount });
+      // Upload receipt if file was attached
+      if (registerReceiptFile) {
+        try { await api.uploadPaymentInvoice(selectedPayment.id, registerReceiptFile); } catch {}
+      }
+      toast.success('Baixa realizada com sucesso!' + (registerReceiptFile ? ' Comprovante anexado.' : ''));
       setIsRegisterDialogOpen(false);
+      setRegisterReceiptFile(null);
       loadData();
     } catch (err) {
       console.error(err);
@@ -549,7 +557,7 @@ export default function AdminFinance() {
 
   const handleOpenPayInstallment = (inst: any) => {
     setSelectedInstallment(inst);
-    setPayInstData({ amount: Number(inst.amount) - Number(inst.paidAmount || 0), method: 'pix', transactionId: '' });
+    setPayInstData({ amount: String(Number(inst.amount) - Number(inst.paidAmount || 0)), method: 'pix', transactionId: '' });
     setPayInstReceiptFile(null);
     setPayInstallmentDialogOpen(true);
   };
@@ -557,7 +565,7 @@ export default function AdminFinance() {
   const handlePayInstallment = async () => {
     if (!selectedInstallment) return;
     try {
-      await api.payInstallment(selectedInstallment.id, payInstData);
+      await api.payInstallment(selectedInstallment.id, { ...payInstData, amount: Number(parseBRL(String(payInstData.amount))) });
       // Upload receipt if file was attached
       if (payInstReceiptFile) {
         await api.uploadInstallmentReceipt(selectedInstallment.id, payInstReceiptFile);
@@ -1836,9 +1844,9 @@ export default function AdminFinance() {
               <Input
                 id="reg-amount"
                 type="text" inputMode="decimal"
-                step="0.01"
                 value={registerData.amount}
-                onChange={(e) => setRegisterData({ ...registerData, amount: Number(e.target.value) })}
+                onChange={(e) => setRegisterData({ ...registerData, amount: parseBRL(e.target.value) })}
+                placeholder="Ex: 25.015,67"
               />
             </div>
             <div className="grid gap-2">
@@ -1867,6 +1875,30 @@ export default function AdminFinance() {
                 onChange={(e) => setRegisterData({ ...registerData, transactionId: e.target.value })}
                 placeholder="Ex: NSU, Autenticação, ID PIX..."
               />
+            </div>
+            {/* Receipt Upload */}
+            <div className="grid gap-2">
+              <Label className="flex items-center gap-2"><Paperclip className="w-3.5 h-3.5" /> Comprovante de Pagamento</Label>
+              <label className="cursor-pointer">
+                <input type="file" className="hidden" accept="image/*,.pdf" onChange={e => setRegisterReceiptFile(e.target.files?.[0] || null)} />
+                <div className={`border-2 border-dashed rounded-lg p-3 text-center transition-colors ${registerReceiptFile ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 hover:border-blue-300 hover:bg-blue-50'}`}>
+                  {registerReceiptFile ? (
+                    <div className="flex items-center justify-center gap-2 text-sm text-emerald-700">
+                      <Paperclip className="w-4 h-4" />
+                      <span className="font-medium truncate max-w-[200px]">{registerReceiptFile.name}</span>
+                      <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0 text-red-400" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRegisterReceiptFile(null); }}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-400">
+                      <Paperclip className="w-5 h-5 mx-auto mb-1 opacity-50" />
+                      <p>Clique para anexar comprovante</p>
+                      <p className="text-[10px]">PDF, imagem (JPG, PNG)</p>
+                    </div>
+                  )}
+                </div>
+              </label>
             </div>
           </div>
           <DialogFooter>
@@ -2009,7 +2041,7 @@ export default function AdminFinance() {
             </div>
             <div className="space-y-2">
               <Label>Valor Recebido (R$)</Label>
-              <Input type="text" inputMode="decimal" value={payInstData.amount} onChange={e => setPayInstData({ ...payInstData, amount: Number(e.target.value) })} />
+              <Input type="text" inputMode="decimal" value={payInstData.amount} onChange={e => setPayInstData({ ...payInstData, amount: parseBRL(e.target.value) })} placeholder="Ex: 1.250,50" />
             </div>
             <div className="space-y-2">
               <Label>Método</Label>
