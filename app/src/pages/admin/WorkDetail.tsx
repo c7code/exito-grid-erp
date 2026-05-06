@@ -156,6 +156,15 @@ export default function AdminWorkDetail() {
   const [showQuickEmployee, setShowQuickEmployee] = useState(false);
   const [quickEmployee, setQuickEmployee] = useState({ name: '', role: 'operational', phone: '' });
 
+  // ── Vincular Proposta ──
+  const [linkProposalOpen, setLinkProposalOpen] = useState(false);
+  const [allProposals, setAllProposals] = useState<any[]>([]);
+  const [linkSearch, setLinkSearch] = useState('');
+
+  // ── Novo Protocolo ──
+  const [newProtocolOpen, setNewProtocolOpen] = useState(false);
+  const [protocolForm, setProtocolForm] = useState({ protocolNumber: '', type: 'new_connection', concessionaria: '', submissionDate: new Date().toISOString().split('T')[0], notes: '' });
+
   // ── Edição de custo existente ──
   const [editingCost, setEditingCost] = useState<any>(null);
 
@@ -596,6 +605,44 @@ export default function AdminWorkDetail() {
         </CardContent>
       </Card>
 
+      {/* ── Dashboard Executivo da Obra (Admin Only) ── */}
+      {admin && (() => {
+        const base = Number(work.totalValue || 0);
+        const addTotal = payments.filter((p: any) => p.type === 'income' && (p.notes || '').includes('[Aditivo]')).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+        const custos = workCosts.reduce((s: number, c: any) => s + Number(c.totalPrice || 0), 0);
+        const fatDir = payments.filter((p: any) => p.type === 'expense' && (p.category === 'project' || (p.notes || '').includes('[Fat. Direto]'))).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+        const totalInvested = custos + fatDir;
+        const margem = base + addTotal > 0 ? ((base + addTotal - totalInvested) / (base + addTotal)) * 100 : 0;
+        const osCompleted = serviceOrders.filter((o: any) => o.status === 'completed' || o.status === 'closed').length;
+        const medTotal = measurements.reduce((s: number, m: any) => s + Number(m.totalAmount || m.netAmount || m.value || m.amount || 0), 0);
+        const proposalsAccepted = workProposals.filter((p: any) => p.status === 'accepted').length;
+        return (
+          <Card className="border-amber-200 bg-gradient-to-r from-amber-50/50 to-white">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 bg-amber-500 rounded flex items-center justify-center"><TrendingUp className="w-3.5 h-3.5 text-white" /></div>
+                <span className="text-sm font-bold text-slate-700">Painel Executivo</span>
+                <Badge className="bg-red-50 text-red-600 text-[9px]">Admin</Badge>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+                <div className="text-center"><p className="text-[10px] text-slate-400 uppercase">Propostas</p><p className="text-lg font-bold text-slate-800">{workProposals.length}</p><p className="text-[9px] text-emerald-600">{proposalsAccepted} aceita(s)</p></div>
+                <div className="text-center"><p className="text-[10px] text-slate-400 uppercase">Equipe</p><p className="text-lg font-bold text-slate-800">{teamMembers.length}</p><p className="text-[9px] text-slate-500">membros</p></div>
+                <div className="text-center"><p className="text-[10px] text-slate-400 uppercase">Medições</p><p className="text-lg font-bold text-slate-800">{measurements.length}</p><p className="text-[9px] text-blue-600">R$ {fmt(medTotal)}</p></div>
+                <div className="text-center"><p className="text-[10px] text-slate-400 uppercase">OS</p><p className="text-lg font-bold text-slate-800">{serviceOrders.length}</p><p className="text-[9px] text-emerald-600">{osCompleted} concluída(s)</p></div>
+                <div className="text-center"><p className="text-[10px] text-slate-400 uppercase">Custo Real</p><p className="text-lg font-bold text-rose-600">R$ {fmt(totalInvested)}</p><p className="text-[9px] text-slate-500">direto + obra</p></div>
+                <div className="text-center"><p className="text-[10px] text-slate-400 uppercase">Fat. Direto</p><p className="text-lg font-bold text-orange-600">R$ {fmt(fatDir)}</p><p className="text-[9px] text-slate-500">custos projeto</p></div>
+                <div className="text-center"><p className="text-[10px] text-slate-400 uppercase">Protocolos</p><p className="text-lg font-bold text-slate-800">{protocols.length}</p><p className="text-[9px] text-slate-500">registrados</p></div>
+                <div className="text-center">
+                  <p className="text-[10px] text-slate-400 uppercase">Margem</p>
+                  <p className={`text-lg font-bold ${margem >= 20 ? 'text-emerald-600' : margem >= 0 ? 'text-amber-600' : 'text-red-600'}`}>{margem.toFixed(1)}%</p>
+                  <p className="text-[9px] text-slate-500">{margem >= 20 ? '✅ saudável' : margem >= 0 ? '⚠️ baixa' : '❌ prejuízo'}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* ── Tabs ────────────────────────────────────────────────────────── */}
       <Tabs defaultValue="info" className="space-y-6">
         <TabsList className="flex-wrap h-auto gap-1">
@@ -720,7 +767,12 @@ export default function AdminWorkDetail() {
 
         {/* ═══ PROPOSALS TAB ══════════════════════════════════════════════ */}
         <TabsContent value="proposals" className="space-y-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2"><ClipboardList className="w-5 h-5" />Propostas Vinculadas</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold flex items-center gap-2"><ClipboardList className="w-5 h-5" />Propostas Vinculadas</h3>
+            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={async () => { try { const all = await api.getProposals(); setAllProposals(Array.isArray(all) ? all : (all?.data ?? [])); } catch { setAllProposals([]); } setLinkSearch(''); setLinkProposalOpen(true); }}>
+              <Plus className="w-4 h-4 mr-1" />Vincular Proposta
+            </Button>
+          </div>
           {workProposals.length === 0 ? (
             <Card><CardContent className="p-8 text-center text-slate-400"><ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhuma proposta vinculada a esta obra.</p></CardContent></Card>
           ) : (
@@ -751,7 +803,12 @@ export default function AdminWorkDetail() {
 
         {/* ═══ PROTOCOLS TAB ══════════════════════════════════════════════ */}
         <TabsContent value="protocols" className="space-y-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2"><Shield className="w-5 h-5" />Protocolos da Concessionária</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold flex items-center gap-2"><Shield className="w-5 h-5" />Protocolos da Concessionária</h3>
+            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => { setProtocolForm({ protocolNumber: '', type: 'new_connection', concessionaria: work.concessionaria || '', submissionDate: new Date().toISOString().split('T')[0], notes: '' }); setNewProtocolOpen(true); }}>
+              <Plus className="w-4 h-4 mr-1" />Novo Protocolo
+            </Button>
+          </div>
           {protocols.length === 0 ? (
             <Card><CardContent className="p-8 text-center text-slate-400"><Shield className="w-10 h-10 mx-auto mb-3 opacity-40" /><p>Nenhum protocolo registrado.</p></CardContent></Card>
           ) : (
@@ -1126,17 +1183,27 @@ export default function AdminWorkDetail() {
             {(() => {
               const additives = payments.filter((p: any) => p.type === 'income' && (p.notes || '').includes('[Aditivo]'));
               const additivesTotal = additives.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-              const incomeReceived = payments.filter((p: any) => p.type === 'income' && p.status === 'paid').reduce((s: number, p: any) => s + Number(p.paidAmount || p.amount || 0), 0);
-              const incomePending = payments.filter((p: any) => p.type === 'income' && p.status !== 'paid' && p.status !== 'cancelled').reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-              // ganhoExtra is tagged in notes but not shown as separate KPI card
+              const paidPayments = payments.filter((p: any) => p.type === 'income' && p.status === 'paid');
+              const incomeReceived = paidPayments.reduce((s: number, p: any) => s + Number(p.paidAmount || p.amount || 0), 0);
+              // incomePending computed but unused — saldoAReceber replaces it
               const despesaExtra = payments.filter((p: any) => p.type === 'expense' && (p.notes || '').includes('[Despesa Extra]')).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+              const fatDireto = payments.filter((p: any) => p.type === 'expense' && (p.category === 'project' || (p.notes || '').includes('[Fat. Direto]'))).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
               const custosTotal = workCosts.reduce((s: number, c: any) => s + Number(c.totalPrice || 0), 0);
               const base = Number(work.totalValue || 0);
-              const saldoReal = base + additivesTotal - custosTotal;
-              const saldo = base + additivesTotal - incomeReceived;
+              // Deductions from ALL income payments (paid or not)
+              const allIncome = payments.filter((p: any) => p.type === 'income');
+              const dedISS = allIncome.reduce((s: number, p: any) => s + Number(p.taxISSAmount || 0), 0);
+              const dedINSS = allIncome.reduce((s: number, p: any) => s + Number(p.inssAmount || 0), 0);
+              const dedAnt = allIncome.reduce((s: number, p: any) => s + Number(p.anticipationDiscount || 0), 0);
+              const dedOther = allIncome.reduce((s: number, p: any) => s + Number(p.taxCSLLAmount || 0) + Number(p.taxPISCOFINSAmount || 0) + Number(p.taxIRRFAmount || 0) + Number(p.taxWithholding || 0), 0);
+              const totalDeductions = dedISS + dedINSS + dedAnt + dedOther;
+              const saldoReal = base + additivesTotal - custosTotal - fatDireto;
+              const saldoLiquido = incomeReceived - totalDeductions;
+              const saldoAReceber = base + additivesTotal - incomeReceived;
               return (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Row 1: Budget */}
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                     <Card className="border-l-4 border-l-blue-500">
                       <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Orçamento Base</p><p className="text-xl font-bold font-mono">R$ {fmt(base)}</p></CardContent>
                     </Card>
@@ -1144,31 +1211,47 @@ export default function AdminWorkDetail() {
                       <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">+ Aditivos</p><p className="text-xl font-bold font-mono text-indigo-600">R$ {fmt(additivesTotal)}</p></CardContent>
                     </Card>
                     <Card className="border-l-4 border-l-rose-500">
-                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">- Custo Total Obra</p><p className="text-xl font-bold font-mono text-rose-600">R$ {fmt(custosTotal)}</p></CardContent>
+                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Fat. Direto (custo)</p><p className="text-xl font-bold font-mono text-rose-600">R$ {fmt(fatDireto)}</p></CardContent>
+                    </Card>
+                    <Card className="border-l-4 border-l-orange-400">
+                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Custos Obra</p><p className="text-xl font-bold font-mono text-orange-600">R$ {fmt(custosTotal)}</p></CardContent>
                     </Card>
                     <Card className={`border-l-4 ${saldoReal >= 0 ? 'border-l-teal-500' : 'border-l-red-600'}`}>
                       <CardContent className="p-3">
-                        <p className="text-[10px] text-slate-500 uppercase font-medium">= Saldo Real Disponível</p>
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">= Saldo Disponível</p>
                         <p className={`text-xl font-bold font-mono ${saldoReal >= 0 ? 'text-teal-600' : 'text-red-600'}`}>R$ {fmt(saldoReal)}</p>
-                        <p className="text-[9px] text-slate-400 mt-0.5">{saldoReal >= 0 ? 'Orçamento − Custos lancados' : '⚠️ Custos excedem o orçamento!'}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Orçamento − Custos − Fat. Direto</p>
                       </CardContent>
                     </Card>
                   </div>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Row 2: Receivables + Deductions */}
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                     <Card className="border-l-4 border-l-emerald-500">
                       <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Receitas Recebidas</p><p className="text-lg font-bold font-mono text-emerald-600">R$ {fmt(incomeReceived)}</p></CardContent>
                     </Card>
                     <Card className="border-l-4 border-l-amber-500">
-                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">A Receber</p><p className="text-lg font-bold font-mono text-amber-600">R$ {fmt(incomePending)}</p></CardContent>
+                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">A Receber</p><p className="text-lg font-bold font-mono text-amber-600">R$ {fmt(saldoAReceber)}</p></CardContent>
+                    </Card>
+                    <Card className="border-l-4 border-l-red-400">
+                      <CardContent className="p-3">
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">Deduções Totais</p>
+                        <p className="text-lg font-bold font-mono text-red-600">- R$ {fmt(totalDeductions)}</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {dedISS > 0 && <span className="px-1.5 py-0 bg-red-50 text-red-500 rounded text-[9px] font-medium">ISS R$ {fmt(dedISS)}</span>}
+                          {dedINSS > 0 && <span className="px-1.5 py-0 bg-red-50 text-red-500 rounded text-[9px] font-medium">INSS R$ {fmt(dedINSS)}</span>}
+                          {dedAnt > 0 && <span className="px-1.5 py-0 bg-orange-50 text-orange-500 rounded text-[9px] font-medium">Antec. R$ {fmt(dedAnt)}</span>}
+                          {dedOther > 0 && <span className="px-1.5 py-0 bg-slate-100 text-slate-500 rounded text-[9px] font-medium">Outros R$ {fmt(dedOther)}</span>}
+                        </div>
+                      </CardContent>
                     </Card>
                     <Card className="border-l-4 border-l-orange-400">
-                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Despesas Extra</p><p className="text-lg font-bold font-mono text-orange-600">R$ {fmt(despesaExtra)}</p></CardContent>
+                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Desp. Extra</p><p className="text-lg font-bold font-mono text-orange-600">R$ {fmt(despesaExtra)}</p></CardContent>
                     </Card>
-                    <Card className={`border-l-4 ${saldo >= 0 ? 'border-l-cyan-500' : 'border-l-red-400'}`}>
+                    <Card className={`border-l-4 ${saldoLiquido >= 0 ? 'border-l-cyan-500 bg-cyan-50/30' : 'border-l-red-400 bg-red-50/30'}`}>
                       <CardContent className="p-3">
-                        <p className="text-[10px] text-slate-500 uppercase font-medium">Saldo Financeiro</p>
-                        <p className={`text-lg font-bold font-mono ${saldo >= 0 ? 'text-cyan-600' : 'text-red-600'}`}>R$ {fmt(saldo)}</p>
-                        <p className="text-[9px] text-slate-400 mt-0.5">Orçamento − Recebido</p>
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">💰 Saldo Líquido Recebido</p>
+                        <p className={`text-lg font-bold font-mono ${saldoLiquido >= 0 ? 'text-cyan-700' : 'text-red-600'}`}>R$ {fmt(saldoLiquido)}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Recebido − Deduções (ISS/INSS/Antec.)</p>
                       </CardContent>
                     </Card>
                   </div>
@@ -1783,6 +1866,89 @@ export default function AdminWorkDetail() {
       {editOpen && <EditWorkDialog open={editOpen} onOpenChange={setEditOpen} work={work} onWorkUpdated={handleRefresh} />}
       {progressOpen && <WorkProgressDialog open={progressOpen} onOpenChange={setProgressOpen} work={work} onProgressUpdated={handleRefresh} />}
       {deleteOpen && <DeleteWorkDialog open={deleteOpen} onOpenChange={setDeleteOpen} work={work} onWorkDeleted={() => window.location.href = '/admin/works'} />}
+
+      {/* ═══ LINK PROPOSAL DIALOG ═══ */}
+      <Dialog open={linkProposalOpen} onOpenChange={setLinkProposalOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Vincular Proposta à Obra</DialogTitle></DialogHeader>
+          <Input placeholder="Buscar por título, cliente ou código..." value={linkSearch} onChange={e => setLinkSearch(e.target.value)} />
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {allProposals
+              .filter((p: any) => !p.workId || p.workId === id)
+              .filter((p: any) => {
+                if (!linkSearch) return true;
+                const q = linkSearch.toLowerCase();
+                return (p.title || '').toLowerCase().includes(q) || (p.proposalNumber || '').toLowerCase().includes(q) || (p.client?.name || p.clientName || '').toLowerCase().includes(q);
+              })
+              .slice(0, 20)
+              .map((p: any) => {
+                const isLinked = p.workId === id || (work.opportunityId && p.opportunityId === work.opportunityId);
+                const ps = proposalStatusLabels[p.status] || { label: p.status, color: 'bg-slate-100 text-slate-600' };
+                const origin = p.type === 'solar' ? '☀️ Solar' : p.type === 'oem' ? '🔧 OEM' : p.type === 'munck' ? '🏗️ Munck' : '📋 Comercial';
+                return (
+                  <div key={p.id} className={`flex items-center justify-between p-3 rounded-lg border ${isLinked ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 hover:bg-slate-50'} cursor-pointer transition`}
+                    onClick={async () => {
+                      if (isLinked) return;
+                      try { await api.updateProposal(p.id, { workId: id }); toast.success('Proposta vinculada!'); setLinkProposalOpen(false); fetchProposals(); } catch { toast.error('Erro ao vincular'); }
+                    }}>
+                    <div>
+                      <p className="font-medium text-sm">{p.title || p.proposalNumber || `Proposta #${p.id?.slice(0, 8)}`}</p>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>{p.client?.name || p.clientName || '—'}</span>
+                        <span>•</span>
+                        <span className="font-mono">R$ {fmt(p.totalValue || p.value || 0)}</span>
+                        <span>•</span>
+                        <span>{origin}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className={ps.color + ' text-[10px]'}>{ps.label}</Badge>
+                      {isLinked && <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">Vinculada</Badge>}
+                    </div>
+                  </div>
+                );
+              })}
+            {allProposals.length === 0 && <p className="text-center text-slate-400 py-4">Nenhuma proposta encontrada</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ NEW PROTOCOL DIALOG ═══ */}
+      <Dialog open={newProtocolOpen} onOpenChange={setNewProtocolOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Novo Protocolo</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Nº Protocolo</Label><Input value={protocolForm.protocolNumber} onChange={e => setProtocolForm({...protocolForm, protocolNumber: e.target.value})} placeholder="Ex: 2026-00123" /></div>
+            <div><Label>Concessionária</Label><Input value={protocolForm.concessionaria} onChange={e => setProtocolForm({...protocolForm, concessionaria: e.target.value})} placeholder="Ex: CELPE, NEOENERGIA" /></div>
+            <div>
+              <Label>Tipo</Label>
+              <Select value={protocolForm.type} onValueChange={v => setProtocolForm({...protocolForm, type: v})}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new_connection">Nova Conexão</SelectItem>
+                  <SelectItem value="modification">Alteração</SelectItem>
+                  <SelectItem value="inspection">Vistoria</SelectItem>
+                  <SelectItem value="meter_change">Troca Medidor</SelectItem>
+                  <SelectItem value="power_increase">Aumento de Carga</SelectItem>
+                  <SelectItem value="other">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label>Data de Entrada</Label><Input type="date" value={protocolForm.submissionDate} onChange={e => setProtocolForm({...protocolForm, submissionDate: e.target.value})} /></div>
+            <div><Label>Observações</Label><Input value={protocolForm.notes} onChange={e => setProtocolForm({...protocolForm, notes: e.target.value})} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewProtocolOpen(false)}>Cancelar</Button>
+            <Button className="bg-amber-500 hover:bg-amber-600" onClick={async () => {
+              if (!protocolForm.protocolNumber.trim()) { toast.error('Número do protocolo obrigatório'); return; }
+              try {
+                await api.createProtocol({ ...protocolForm, workId: id, status: 'pending' });
+                toast.success('Protocolo criado!'); setNewProtocolOpen(false); fetchProtocols();
+              } catch { toast.error('Erro ao criar protocolo'); }
+            }}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={newTaskOpen} onOpenChange={setNewTaskOpen}>
         <DialogContent className="sm:max-w-[500px]">
