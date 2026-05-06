@@ -92,6 +92,12 @@ const STAGES = [
 
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+const parseBRL = (raw: string): string => {
+  if (!raw) return '0';
+  let v = raw.trim();
+  if (v.includes(',')) { v = v.replace(/\./g, ''); v = v.replace(',', '.'); }
+  return v;
+};
 
 function isAdmin(): boolean {
   try {
@@ -322,7 +328,7 @@ export default function AdminWorkDetail() {
         type,
         category,
         description: workPaymentForm.description,
-        amount: Number(workPaymentForm.amount),
+        amount: Number(parseBRL(workPaymentForm.amount)),
         dueDate: workPaymentForm.dueDate || null,
         invoiceNumber: workPaymentForm.invoiceNumber || undefined,
         notes: [`${origemLabel}`, workPaymentForm.notes].filter(Boolean).join(' — ') || undefined,
@@ -1986,8 +1992,8 @@ export default function AdminWorkDetail() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="wp-amount">Valor (R$) *</Label>
-                <Input id="wp-amount" type="text" inputMode="decimal" placeholder="0,00" value={workPaymentForm.amount}
-                  onChange={e => setWorkPaymentForm({ ...workPaymentForm, amount: e.target.value })} required />
+                <Input id="wp-amount" type="text" inputMode="decimal" placeholder="Ex: 25.015,67" value={workPaymentForm.amount}
+                  onChange={e => setWorkPaymentForm({ ...workPaymentForm, amount: parseBRL(e.target.value) })} required />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="wp-due">Vencimento *</Label>
