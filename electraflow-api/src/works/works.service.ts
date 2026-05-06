@@ -307,37 +307,73 @@ export class WorksService {
   }
 
   async recalculateProgress(workId: string): Promise<number> {
-    const phases = await this.findPhases(workId);
-    if (phases.length === 0) return 0;
+    const allPhases = await this.findPhases(workId);
+    if (allPhases.length === 0) return 0;
 
-    let totalWeightedProgress = 0;
-    let totalWeight = 0;
+    // Separate top-level and sub-phases
+    const topPhases = allPhases.filter(p => !p.parentId);
+    const subPhases = allPhases.filter(p => !!p.parentId);
 
-    for (const phase of phases) {
-      const tasks = await this.taskRepository.find({ where: { phaseId: phase.id } });
-      let phaseProgress = Number(phase.progress) || 0;
-
-      if (tasks.length > 0) {
-        // Calculate from tasks: completed / total
-        const completedCount = tasks.filter(t => t.status === 'completed').length;
-        phaseProgress = Math.round((completedCount / tasks.length) * 100);
-        // Update phase progress
-        await this.workPhaseRepository.update(phase.id, {
-          progress: phaseProgress,
-          status: phaseProgress >= 100 ? 'completed' : phaseProgress > 0 ? 'in_progress' : 'pending',
+    // First, recalculate sub-phase progress from tasks, then aggregate into parent
+    for (const parent of topPhases) {
+      const children = subPhases.filter(s => s.parentId === parent.id);
+      if (children.length > 0) {
+        // Recalculate each sub-phase from its tasks
+        for (const child of children) {
+          const tasks = await this.taskRepository.find({ where: { phaseId: child.id } });
+          let childProgress = Number(child.progress) || 0;
+          if (tasks.length > 0) {
+            const completedCount = tasks.filter(t => t.status === 'completed').length;
+            childProgress = Math.round((completedCount / tasks.length) * 100);
+          }
+          await this.workPhaseRepository.update(child.id, {
+            progress: childProgress,
+            status: childProgress >= 100 ? 'completed' : childProgress > 0 ? 'in_progress' : 'pending',
+          });
+        }
+        // Parent progress = weighted average of sub-phases
+        const childWeightSum = children.reduce((s, c) => s + Number(c.weight || 0), 0);
+        let parentProgress = 0;
+        if (childWeightSum > 0) {
+          for (const child of children) {
+            const updatedChild = await this.workPhaseRepository.findOneBy({ id: child.id });
+            parentProgress += (Number(updatedChild.weight || 0) * Number(updatedChild.progress || 0)) / childWeightSum;
+          }
+        }
+        await this.workPhaseRepository.update(parent.id, {
+          progress: Math.round(parentProgress),
+          status: parentProgress >= 100 ? 'completed' : parentProgress > 0 ? 'in_progress' : 'pending',
         });
+      } else {
+        // No children — use tasks or manual progress
+        const tasks = await this.taskRepository.find({ where: { phaseId: parent.id } });
+        let phaseProgress = Number(parent.progress) || 0;
+        if (tasks.length > 0) {
+          const completedCount = tasks.filter(t => t.status === 'completed').length;
+          phaseProgress = Math.round((completedCount / tasks.length) * 100);
+          await this.workPhaseRepository.update(parent.id, {
+            progress: phaseProgress,
+            status: phaseProgress >= 100 ? 'completed' : phaseProgress > 0 ? 'in_progress' : 'pending',
+          });
+        }
       }
-
-      const weight = Number(phase.weight) || 0;
-      totalWeight += weight;
-      totalWeightedProgress += (weight * phaseProgress) / 100;
     }
 
-    // Normalize if weights don't sum to 100
-    const workProgress = totalWeight > 0
-      ? Math.round((totalWeightedProgress / totalWeight) * 100)
-      : 0;
+    // Reload phases after updates
+    const refreshedPhases = await this.findPhases(workId);
+    const refreshedTop = refreshedPhases.filter(p => !p.parentId);
 
+    // Work progress = sum of (weight * progress / 100) for top-level phases
+    // Always divide by 100, not by totalWeight — so incomplete weights = incomplete progress
+    let totalWeightedProgress = 0;
+    for (const phase of refreshedTop) {
+      const weight = Number(phase.weight) || 0;
+      const progress = Number(phase.progress) || 0;
+      totalWeightedProgress += (weight * progress) / 100;
+    }
+
+    // Cap at 100
+    const workProgress = Math.min(100, Math.round(totalWeightedProgress));
     await this.workRepository.update(workId, { progress: workProgress });
     return workProgress;
   }

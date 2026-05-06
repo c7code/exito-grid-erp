@@ -28,6 +28,9 @@ export class WorkPhase {
     @Column({ type: 'varchar', length: 20, default: 'pending' })
     status: string; // pending, in_progress, completed
 
+    @Column({ type: 'uuid', nullable: true })
+    parentId: string; // null = top-level phase, uuid = sub-phase of parent
+
     @CreateDateColumn()
     createdAt: Date;
 
