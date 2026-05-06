@@ -86,6 +86,7 @@ const navSections: NavSection[] = [
       { path: '/admin/tasks', label: 'Tarefas', icon: ClipboardList, module: 'tasks', roles: ['admin', 'engineer', 'commercial', 'employee'] },
       { path: '/admin/protocols', label: 'Protocolos', icon: FileCheck, module: 'protocols', roles: ['admin', 'engineer', 'employee'] },
       { path: '/admin/daily-logs', label: 'Diário de Obra', icon: ClipboardList, module: 'daily-logs', roles: ['admin', 'engineer', 'employee'] },
+      { path: '/admin/daily-log-requests', label: 'Solicitações', icon: MessageSquare, module: 'daily-logs', roles: ['admin', 'engineer', 'employee'] },
       { path: '/admin/service-orders', label: 'Ordens de Serviço', icon: Wrench, module: 'service-orders', roles: ['admin', 'engineer', 'employee'] },
       { path: '/admin/contracts', label: 'Contratos', icon: FileSignature, module: 'contracts', roles: ['admin', 'engineer', 'commercial', 'employee'] },
       { path: '/admin/structures', label: 'Estruturas', icon: Layers, module: 'structures', roles: ['admin', 'engineer', 'employee'] },

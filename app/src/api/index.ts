@@ -2112,7 +2112,9 @@ class ApiService {
   async getDailyLogs(workId?: string) {
     const params = workId ? { workId } : {};
     const response = await this.client.get('/daily-logs', { params });
-    return response.data;
+    // Handle both paginated { data, total } and legacy array responses
+    const result = response.data;
+    return Array.isArray(result) ? result : (result?.data ?? []);
   }
 
   async getDailyLog(id: string) {
@@ -2137,6 +2139,47 @@ class ApiService {
 
   async getDailyLogStats(workId: string) {
     const response = await this.client.get(`/daily-logs/stats/${workId}`);
+    return response.data;
+  }
+
+  // Daily Log Requests (Solicitações)
+  async getDailyLogRequests(workId?: string, status?: string) {
+    const params: any = {};
+    if (workId) params.workId = workId;
+    if (status) params.status = status;
+    const response = await this.client.get('/daily-logs/requests/all', { params });
+    return response.data;
+  }
+
+  async getDailyLogRequest(id: string) {
+    const response = await this.client.get(`/daily-logs/requests/${id}`);
+    return response.data;
+  }
+
+  async createDailyLogRequest(data: any) {
+    const response = await this.client.post('/daily-logs/requests', data);
+    return response.data;
+  }
+
+  async updateDailyLogRequest(id: string, data: any) {
+    const response = await this.client.patch(`/daily-logs/requests/${id}`, data);
+    return response.data;
+  }
+
+  async deleteDailyLogRequest(id: string) {
+    const response = await this.client.delete(`/daily-logs/requests/${id}`);
+    return response.data;
+  }
+
+  async addDailyLogResponse(requestId: string, data: any) {
+    const response = await this.client.post(`/daily-logs/requests/${requestId}/responses`, data);
+    return response.data;
+  }
+
+  async getDailyLogRequestStats(workId?: string) {
+    const params: any = {};
+    if (workId) params.workId = workId;
+    const response = await this.client.get('/daily-logs/requests/stats', { params });
     return response.data;
   }
 

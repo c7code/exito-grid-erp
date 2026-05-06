@@ -55,6 +55,7 @@ import AdminSolarPlans from './pages/admin/SolarPlans';
 import AdminClientSubUsers from './pages/admin/ClientSubUsers';
 import AdminFinanceConfig from './pages/admin/FinanceConfig';
 import AdminEquipment from './pages/admin/Equipment';
+import AdminDailyLogRequests from './pages/admin/DailyLogRequests';
 
 // Employee Pages (no longer used — employees redirect to admin layout)
 
@@ -141,6 +142,7 @@ function App() {
               <Route path="/admin/client-requests" element={<AdminClientRequests />} />
               <Route path="/admin/fiscal" element={<AdminFiscal />} />
               <Route path="/admin/daily-logs" element={<AdminDailyLogs />} />
+              <Route path="/admin/daily-log-requests" element={<AdminDailyLogRequests />} />
               <Route path="/admin/inventory" element={<AdminInventory />} />
               <Route path="/admin/service-orders" element={<AdminServiceOrders />} />
               <Route path="/admin/contracts" element={<AdminContracts />} />
