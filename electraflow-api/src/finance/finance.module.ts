@@ -12,6 +12,8 @@ import { PaymentSchedule } from './payment-schedule.entity';
 import { PaymentReceipt } from './payment-receipt.entity';
 import { PurchaseOrder, PurchaseOrderItem } from './purchase-order.entity';
 import { PaymentInstallment } from './payment-installment.entity';
+import { Debt, DebtPayment } from './debt.entity';
+import { BankStatement, BankStatementEntry } from './bank-statement.entity';
 import { MeasurementsService } from './measurements.service';
 import { MeasurementsController } from './measurements.controller';
 import { Task } from '../tasks/task.entity';
@@ -24,6 +26,7 @@ import { FinanceConfigController } from './finance-config.controller';
     TypeOrmModule.forFeature([
       Payment, Measurement, MeasurementItem, Task, WorkCost, PaymentSchedule, PaymentReceipt, PurchaseOrder, PurchaseOrderItem, PaymentInstallment,
       DreCategory, BankAccount, CostCenter, ChartOfAccounts, CashRegister, PaymentMethodConfig,
+      Debt, DebtPayment, BankStatement, BankStatementEntry,
     ]),
     MulterModule.register({
       storage: diskStorage({

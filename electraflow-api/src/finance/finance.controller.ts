@@ -340,4 +340,76 @@ export class FinanceController {
     if (!existsSync(filePath)) throw new NotFoundException('Arquivo não encontrado no servidor');
     res.download(filePath, inst.receiptFileName || inst.receiptFile);
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEBTS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @Get('debts')
+  @ApiOperation({ summary: 'Listar dívidas' })
+  async getDebts() { return this.financeService.getDebts(); }
+
+  @Post('debts')
+  @ApiOperation({ summary: 'Criar dívida' })
+  async createDebt(@Body() data: any) { return this.financeService.createDebt(data); }
+
+  @Put('debts/:id')
+  @ApiOperation({ summary: 'Atualizar dívida' })
+  async updateDebt(@Param('id') id: string, @Body() data: any) { return this.financeService.updateDebt(id, data); }
+
+  @Delete('debts/:id')
+  @ApiOperation({ summary: 'Excluir dívida' })
+  async deleteDebt(@Param('id') id: string) { return this.financeService.deleteDebt(id); }
+
+  @Get('debts/summary')
+  @ApiOperation({ summary: 'Resumo de endividamento' })
+  async getDebtSummary() { return this.financeService.getDebtSummary(); }
+
+  @Post('debts/:id/payments')
+  @ApiOperation({ summary: 'Registrar pagamento de dívida' })
+  async addDebtPayment(@Param('id') id: string, @Body() data: any) { return this.financeService.addDebtPayment(id, data); }
+
+  @Get('debts/:id/payments')
+  @ApiOperation({ summary: 'Listar pagamentos de uma dívida' })
+  async getDebtPayments(@Param('id') id: string) { return this.financeService.getDebtPayments(id); }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BANK RECONCILIATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @Get('bank-statements')
+  @ApiOperation({ summary: 'Listar extratos bancários' })
+  async getStatements(@Query('bankAccountId') bankAccountId?: string) { return this.financeService.getStatements(bankAccountId); }
+
+  @Post('bank-statements')
+  @ApiOperation({ summary: 'Importar extrato bancário' })
+  async createStatement(@Body() data: any) { return this.financeService.createStatement(data); }
+
+  @Get('bank-statements/:id/entries')
+  @ApiOperation({ summary: 'Listar lançamentos do extrato' })
+  async getStatementEntries(@Param('id') id: string) { return this.financeService.getStatementEntries(id); }
+
+  @Post('bank-statements/:id/auto-match')
+  @ApiOperation({ summary: 'Auto-match do extrato' })
+  async autoMatchStatement(@Param('id') id: string) { return this.financeService.autoMatchStatement(id); }
+
+  @Post('bank-statements/entries/:id/match')
+  @ApiOperation({ summary: 'Match manual de lançamento' })
+  async manualMatchEntry(@Param('id') id: string, @Body() data: { paymentId: string }) { return this.financeService.manualMatchEntry(id, data.paymentId); }
+
+  @Post('bank-statements/entries/:id/unmatch')
+  @ApiOperation({ summary: 'Desfazer match' })
+  async unmatchEntry(@Param('id') id: string) { return this.financeService.unmatchEntry(id); }
+
+  @Delete('bank-statements/:id')
+  @ApiOperation({ summary: 'Excluir extrato' })
+  async deleteStatement(@Param('id') id: string) { return this.financeService.deleteStatement(id); }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CFO DASHBOARD
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @Get('cfo-dashboard')
+  @ApiOperation({ summary: 'Dashboard CFO executivo' })
+  async getCFODashboard() { return this.financeService.getCFODashboard(); }
 }

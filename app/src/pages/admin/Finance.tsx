@@ -268,6 +268,29 @@ export default function AdminFinance() {
   const [dasSelectedIds, setDasSelectedIds] = useState<Set<string>>(new Set());
   const [dasLoading, setDasLoading] = useState(false);
 
+  // ── Dívidas ──
+  const [debts, setDebts] = useState<any[]>([]);
+  const [debtSummary, setDebtSummary] = useState<any>(null);
+  const [debtDialogOpen, setDebtDialogOpen] = useState(false);
+  const [editingDebtId, setEditingDebtId] = useState<string | null>(null);
+  const [debtForm, setDebtForm] = useState<any>({ description: '', creditor: '', type: 'other', nature: 'neutral', originalAmount: '', currentBalance: '', interestRate: '', interestPeriod: 'monthly', interestType: 'fixed', totalInstallments: '', monthlyPayment: '', startDate: '', endDate: '', contractNumber: '', notes: '' });
+  const [debtPayDialogOpen, setDebtPayDialogOpen] = useState(false);
+  const [debtPayForm, setDebtPayForm] = useState<any>({ amount: '', principalAmount: '', interestAmount: '', method: 'pix', reference: '', notes: '' });
+  const [selectedDebtId, setSelectedDebtId] = useState<string | null>(null);
+
+  // ── Conciliação Bancária ──
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [statements, setStatements] = useState<any[]>([]);
+  const [selectedBankAccount, setSelectedBankAccount] = useState<string>('');
+  const [statementEntries, setStatementEntries] = useState<any[]>([]);
+  const [selectedStatementId, setSelectedStatementId] = useState<string | null>(null);
+  const [newStatementDialog, setNewStatementDialog] = useState(false);
+  const [stmtMonth, setStmtMonth] = useState(new Date().toISOString().substring(0, 7));
+  const [stmtRows, setStmtRows] = useState<Array<{ date: string; description: string; amount: string; entryType: string }>>([{ date: new Date().toISOString().split('T')[0], description: '', amount: '', entryType: 'credit' }]);
+
+  // ── CFO Dashboard ──
+  const [cfoDashboard, setCfoDashboard] = useState<any>(null);
+
   useEffect(() => {
     loadData();
     loadWorks();
@@ -275,6 +298,9 @@ export default function AdminFinance() {
     loadPurchaseOrders();
     loadSuppliers();
     loadClients();
+    loadDebts();
+    loadBankAccounts();
+    loadCFODashboard();
   }, []);
 
   useEffect(() => { loadData(); }, [drePeriod]);
@@ -310,6 +336,10 @@ export default function AdminFinance() {
   const loadPurchaseOrders = async () => { try { setPurchaseOrders(await api.getPurchaseOrders()); } catch {} };
   const loadSuppliers = async () => { try { setSuppliers(await api.getSuppliers()); } catch {} };
   const loadClients = async () => { try { setClients(await api.getClients()); } catch {} };
+  const loadDebts = async () => { try { setDebts(await api.getDebts()); setDebtSummary(await api.getDebtSummary()); } catch {} };
+  const loadBankAccounts = async () => { try { const accs = await api.getBankAccounts(); setBankAccounts(Array.isArray(accs) ? accs : []); } catch {} };
+  const loadStatements = async (bankAccountId?: string) => { try { setStatements(await api.getBankStatements(bankAccountId)); } catch {} };
+  const loadCFODashboard = async () => { try { setCfoDashboard(await api.getCFODashboard()); } catch {} };
   const loadMeasurementsForWork = async (workId: string) => {
     if (!workId || workId === 'none') { setWorkMeasurements([]); return; }
     try { setWorkMeasurements(await api.getMeasurements(workId)); } catch { setWorkMeasurements([]); }
@@ -1321,6 +1351,8 @@ export default function AdminFinance() {
           <TabsTrigger value="receipts" className="flex items-center gap-1"><Receipt className="w-3 h-3" /> Recibos</TabsTrigger>
           <TabsTrigger value="purchase-orders" className="flex items-center gap-1"><Package className="w-3 h-3" /> Pedidos</TabsTrigger>
           <TabsTrigger value="das" className="flex items-center gap-1">🏛️ DAS</TabsTrigger>
+          <TabsTrigger value="debts" className="flex items-center gap-1">📊 Dívidas</TabsTrigger>
+          <TabsTrigger value="reconciliation" className="flex items-center gap-1">🏦 Conciliação</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-6">
@@ -1504,6 +1536,148 @@ export default function AdminFinance() {
               })()}
             </CardContent>
           </Card>
+
+          {/* ═══ CFO EXECUTIVE DASHBOARD ═══ */}
+          {cfoDashboard && (
+            <div className="space-y-6 mt-8">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center"><Target className="w-4 h-4 text-white" /></div>
+                <h2 className="text-lg font-bold text-slate-800">Painel CFO Executivo</h2>
+              </div>
+
+              {/* Cash Position */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-emerald-600 font-semibold uppercase">💰 Caixa Total</p>
+                    <p className="text-2xl font-bold text-emerald-700 mt-1">R$ {fmtBRL(cfoDashboard.cashPosition?.totalCash || 0)}</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Disponível: R$ {fmtBRL(cfoDashboard.cashPosition?.availableCash || 0)}</p>
+                    {(cfoDashboard.cashPosition?.bankBalances || []).map((b: any, i: number) => (
+                      <div key={i} className="flex justify-between text-xs mt-1 text-slate-500"><span>{b.name}</span><span className="font-medium">R$ {fmtBRL(b.balance)}</span></div>
+                    ))}
+                  </CardContent>
+                </Card>
+                <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-blue-600 font-semibold uppercase">📥 Recebíveis</p>
+                    <p className="text-2xl font-bold text-blue-700 mt-1">R$ {fmtBRL(cfoDashboard.receivables?.total || 0)}</p>
+                    <div className="flex gap-3 mt-2 text-xs">
+                      <span className="text-emerald-600">A vencer: R$ {fmtBRL(cfoDashboard.receivables?.current || 0)}</span>
+                      <span className="text-rose-600">Vencido: R$ {fmtBRL(cfoDashboard.receivables?.overdue || 0)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-rose-200 bg-gradient-to-br from-rose-50 to-white">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-rose-600 font-semibold uppercase">📤 A Pagar</p>
+                    <p className="text-2xl font-bold text-rose-700 mt-1">R$ {fmtBRL(cfoDashboard.payables?.total || 0)}</p>
+                    <div className="flex gap-3 mt-2 text-xs">
+                      <span className="text-amber-600">7 dias: R$ {fmtBRL(cfoDashboard.payables?.nextWeek || 0)}</span>
+                      <span className="text-slate-500">30 dias: R$ {fmtBRL(cfoDashboard.payables?.next30Days || 0)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Cash Flow Projections + Aging */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="border-slate-200">
+                  <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-500" /> Fluxo de Caixa Projetado</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {[
+                        { label: '30 dias', value: cfoDashboard.cashFlow?.projected30 || 0 },
+                        { label: '60 dias', value: cfoDashboard.cashFlow?.projected60 || 0 },
+                        { label: '90 dias', value: cfoDashboard.cashFlow?.projected90 || 0 },
+                      ].map((p, i) => (
+                        <div key={i} className="flex items-center justify-between">
+                          <span className="text-sm text-slate-600">{p.label}</span>
+                          <span className={`font-bold ${p.value >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>R$ {fmtBRL(p.value)}</span>
+                        </div>
+                      ))}
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-sm text-slate-500">🔥 Burn Rate (mensal)</span>
+                        <span className="font-bold text-amber-600">R$ {fmtBRL(cfoDashboard.cashFlow?.burnRate || 0)}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-slate-200">
+                  <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="w-4 h-4 text-amber-500" /> Aging de Recebíveis</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {(cfoDashboard.receivables?.aging || []).map((a: any, i: number) => {
+                        const maxAmt = Math.max(...(cfoDashboard.receivables?.aging || []).map((x: any) => x.amount), 1);
+                        const pct = (a.amount / maxAmt) * 100;
+                        const colors = ['bg-emerald-500', 'bg-amber-500', 'bg-orange-500', 'bg-rose-500'];
+                        return (
+                          <div key={i}>
+                            <div className="flex items-center justify-between text-xs mb-0.5">
+                              <span className="text-slate-600">{a.range} dias ({a.count})</span>
+                              <span className="font-medium">R$ {fmtBRL(a.amount)}</span>
+                            </div>
+                            <div className="w-full h-2 bg-slate-100 rounded-full"><div className={`h-2 ${colors[i]} rounded-full transition-all`} style={{ width: `${pct}%` }} /></div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Debt + Tax + KPIs */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-white">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-purple-600 font-semibold uppercase">🏦 Endividamento</p>
+                    <p className="text-xl font-bold text-purple-700 mt-1">R$ {fmtBRL(cfoDashboard.debt?.totalBalance || 0)}</p>
+                    <div className="mt-2 space-y-1 text-xs">
+                      <div className="flex justify-between"><span className="text-slate-500">Parcela mensal:</span><span className="font-medium">R$ {fmtBRL(cfoDashboard.debt?.monthlyPayment || 0)}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">Dívidas ativas:</span><span className="font-medium">{cfoDashboard.debt?.activeCount || 0}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">Dívida/Receita:</span><span className="font-medium">{((cfoDashboard.debt?.debtToRevenueRatio || 0) * 100).toFixed(1)}%</span></div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-amber-200 bg-gradient-to-br from-amber-50 to-white">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-amber-600 font-semibold uppercase">🏛️ Carga Tributária</p>
+                    <p className="text-xl font-bold text-amber-700 mt-1">R$ {fmtBRL(cfoDashboard.taxBurden?.totalTax || 0)}</p>
+                    <div className="mt-2 space-y-1 text-xs">
+                      <div className="flex justify-between"><span className="text-slate-500">DAS:</span><span>R$ {fmtBRL(cfoDashboard.taxBurden?.totalDAS || 0)}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">ISS:</span><span>R$ {fmtBRL(cfoDashboard.taxBurden?.totalISS || 0)}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">INSS:</span><span>R$ {fmtBRL(cfoDashboard.taxBurden?.totalINSS || 0)}</span></div>
+                      <div className="flex justify-between border-t pt-1"><span className="text-slate-500">Alíquota efetiva:</span><span className="font-bold">{(cfoDashboard.taxBurden?.effectiveRate || 0).toFixed(1)}%</span></div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-slate-200">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-slate-600 font-semibold uppercase">📊 KPIs Operacionais</p>
+                    <div className="mt-2 space-y-2">
+                      {[
+                        { label: 'DSO (dias p/ receber)', value: `${cfoDashboard.kpis?.dso || 0}d`, good: (cfoDashboard.kpis?.dso || 0) < 30 },
+                        { label: 'DPO (dias p/ pagar)', value: `${cfoDashboard.kpis?.dpo || 0}d`, good: true },
+                        { label: 'Ciclo de Caixa', value: `${cfoDashboard.kpis?.cashConversionCycle || 0}d`, good: (cfoDashboard.kpis?.cashConversionCycle || 0) < 30 },
+                        { label: 'Liquidez', value: `${(cfoDashboard.kpis?.liquidityRatio || 0).toFixed(2)}`, good: (cfoDashboard.kpis?.liquidityRatio || 0) > 1 },
+                        { label: 'Margem Operacional', value: `${(cfoDashboard.kpis?.operatingMargin || 0).toFixed(1)}%`, good: (cfoDashboard.kpis?.operatingMargin || 0) > 15 },
+                      ].map((kpi, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500">{kpi.label}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${kpi.good ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                            <span className="font-bold text-slate-700">{kpi.value}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="receivable" className="mt-6">
@@ -1986,6 +2160,199 @@ export default function AdminFinance() {
             );
           })()}
         </TabsContent>
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            DÍVIDAS TAB
+        ═══════════════════════════════════════════════════════════════════ */}
+        <TabsContent value="debts" className="space-y-6 mt-6">
+          {/* Debt Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {[
+              { label: 'Endividamento Total', value: debtSummary?.totalBalance || 0, color: 'rose', icon: '💰' },
+              { label: 'Custo Mensal', value: debtSummary?.totalMonthly || 0, color: 'amber', icon: '📅' },
+              { label: 'Total Pago', value: debtSummary?.totalPaid || 0, color: 'emerald', icon: '✅' },
+              { label: 'Dívidas Ativas', value: debtSummary?.totalDebts || 0, color: 'blue', icon: '📊', isCurrency: false },
+              { label: 'Dívida Boa vs Ruim', value: `${(debtSummary?.byNature?.good?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })} / ${(debtSummary?.byNature?.bad?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`, color: 'purple', icon: '⚖️', isText: true },
+            ].map((c, i) => (
+              <Card key={i} className="border-slate-200">
+                <CardContent className="p-4">
+                  <p className="text-xs text-slate-500 flex items-center gap-1">{c.icon} {c.label}</p>
+                  <p className={`text-xl font-bold text-${c.color}-600 mt-1`}>
+                    {(c as any).isText ? c.value : (c as any).isCurrency === false ? c.value : `R$ ${fmtBRL(Number(c.value))}`}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-slate-800">Registro de Dívidas</h3>
+            <Button className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => { setEditingDebtId(null); setDebtForm({ description: '', creditor: '', type: 'other', nature: 'neutral', originalAmount: '', currentBalance: '', interestRate: '', interestPeriod: 'monthly', interestType: 'fixed', totalInstallments: '', monthlyPayment: '', startDate: '', endDate: '', contractNumber: '', notes: '' }); setDebtDialogOpen(true); }}>
+              <Plus className="w-4 h-4 mr-2" /> Nova Dívida
+            </Button>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Credor</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Natureza</TableHead>
+                    <TableHead>Valor Original</TableHead>
+                    <TableHead>Saldo</TableHead>
+                    <TableHead>Parcela</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-[100px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {debts.length === 0 ? (
+                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-slate-400">Nenhuma dívida cadastrada</TableCell></TableRow>
+                  ) : debts.map((d: any) => {
+                    const typeLabels: Record<string, string> = { loan: 'Empréstimo', financing: 'Financiamento', credit_card: 'Cartão Corp.', credit_card_third: 'Cartão Terceiro', tax_installment: 'Parc. Tributário', leasing: 'Leasing', personal_capital: 'Capital Pessoal', third_party_capital: 'Capital Terceiros', corporate_capital: 'Capital Corp.', supplier_debt: 'Fornecedor', judicial: 'Judicial', other: 'Outro' };
+                    const natureColors: Record<string, string> = { good: 'bg-emerald-100 text-emerald-700', bad: 'bg-rose-100 text-rose-700', neutral: 'bg-slate-100 text-slate-600' };
+                    const natureLabels: Record<string, string> = { good: '✅ Boa', bad: '❌ Ruim', neutral: '➖ Neutra' };
+                    const statusColors: Record<string, string> = { active: 'bg-blue-100 text-blue-700', paid_off: 'bg-emerald-100 text-emerald-700', renegotiated: 'bg-amber-100 text-amber-700', defaulted: 'bg-rose-100 text-rose-700', frozen: 'bg-slate-100 text-slate-600' };
+                    const progress = Number(d.originalAmount) > 0 ? (Number(d.totalPaid || 0) / Number(d.originalAmount)) * 100 : 0;
+                    return (
+                      <TableRow key={d.id}>
+                        <TableCell className="font-medium">{d.description}</TableCell>
+                        <TableCell className="text-sm text-slate-600">{d.creditor || '—'}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-[10px]">{typeLabels[d.type] || d.type}</Badge></TableCell>
+                        <TableCell><span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${natureColors[d.nature] || natureColors.neutral}`}>{natureLabels[d.nature] || d.nature}</span></TableCell>
+                        <TableCell>R$ {fmtBRL(Number(d.originalAmount || 0))}</TableCell>
+                        <TableCell>
+                          <div>
+                            <span className="font-medium text-rose-600">R$ {fmtBRL(Number(d.currentBalance || 0))}</span>
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full mt-1"><div className="h-1.5 bg-emerald-500 rounded-full transition-all" style={{ width: `${Math.min(progress, 100)}%` }} /></div>
+                          </div>
+                        </TableCell>
+                        <TableCell>R$ {fmtBRL(Number(d.monthlyPayment || 0))}</TableCell>
+                        <TableCell><span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${statusColors[d.status] || statusColors.active}`}>{d.status}</span></TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500" title="Pagar parcela" onClick={() => { setSelectedDebtId(d.id); setDebtPayForm({ amount: String(d.monthlyPayment || ''), principalAmount: '', interestAmount: '', method: 'pix', reference: '', notes: '' }); setDebtPayDialogOpen(true); }}><Banknote className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-500" title="Editar" onClick={() => { setEditingDebtId(d.id); setDebtForm({ ...d, originalAmount: String(d.originalAmount || ''), currentBalance: String(d.currentBalance || ''), interestRate: String(d.interestRate || ''), totalInstallments: String(d.totalInstallments || ''), monthlyPayment: String(d.monthlyPayment || ''), startDate: d.startDate ? new Date(d.startDate).toISOString().split('T')[0] : '', endDate: d.endDate ? new Date(d.endDate).toISOString().split('T')[0] : '' }); setDebtDialogOpen(true); }}><Edit2 className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-400" title="Excluir" onClick={async () => { if (!confirm('Excluir esta dívida?')) return; try { await api.deleteDebt(d.id); toast.success('Dívida excluída'); loadDebts(); } catch { toast.error('Erro'); } }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            CONCILIAÇÃO BANCÁRIA TAB
+        ═══════════════════════════════════════════════════════════════════ */}
+        <TabsContent value="reconciliation" className="space-y-6 mt-6">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <h3 className="font-semibold text-slate-800">Conciliação Bancária</h3>
+              <Select value={selectedBankAccount} onValueChange={(v) => { setSelectedBankAccount(v); loadStatements(v); }}>
+                <SelectTrigger className="w-[220px]"><SelectValue placeholder="Selecione a conta" /></SelectTrigger>
+                <SelectContent>
+                  {bankAccounts.map((a: any) => (<SelectItem key={a.id} value={a.id}>{a.name} — {a.bankName || 'Banco'}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="bg-amber-500 hover:bg-amber-600 text-white" disabled={!selectedBankAccount} onClick={() => { setStmtRows([{ date: new Date().toISOString().split('T')[0], description: '', amount: '', entryType: 'credit' }]); setNewStatementDialog(true); }}>
+              <Plus className="w-4 h-4 mr-2" /> Importar Extrato
+            </Button>
+          </div>
+
+          {!selectedBankAccount ? (
+            <Card><CardContent className="py-12 text-center text-slate-400"><Building2 className="w-12 h-12 mx-auto mb-3 text-slate-300" /><p>Selecione uma conta bancária para começar a conciliação</p></CardContent></Card>
+          ) : (
+            <>
+              {/* Statements List */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {statements.length === 0 ? (
+                  <Card className="col-span-3"><CardContent className="py-8 text-center text-slate-400">Nenhum extrato importado para esta conta</CardContent></Card>
+                ) : statements.map((s: any) => {
+                  const statusColors: Record<string, string> = { pending: 'bg-amber-100 text-amber-700', partial: 'bg-blue-100 text-blue-700', reconciled: 'bg-emerald-100 text-emerald-700' };
+                  const statusLabels: Record<string, string> = { pending: 'Pendente', partial: 'Parcial', reconciled: 'Conciliado' };
+                  const isSelected = selectedStatementId === s.id;
+                  return (
+                    <Card key={s.id} className={`cursor-pointer transition-all hover:shadow-md ${isSelected ? 'ring-2 ring-amber-400 border-amber-300' : 'border-slate-200'}`}
+                      onClick={async () => { setSelectedStatementId(s.id); try { setStatementEntries(await api.getStatementEntries(s.id)); } catch {} }}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-sm">{s.referenceMonth}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${statusColors[s.status] || statusColors.pending}`}>{statusLabels[s.status] || s.status}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div><span className="text-slate-400">Créditos:</span> <span className="text-emerald-600 font-medium">R$ {fmtBRL(Number(s.totalCredits || 0))}</span></div>
+                          <div><span className="text-slate-400">Débitos:</span> <span className="text-rose-600 font-medium">R$ {fmtBRL(Number(s.totalDebits || 0))}</span></div>
+                          <div><span className="text-slate-400">Lançamentos:</span> {s.totalEntries}</div>
+                          <div><span className="text-slate-400">Conciliados:</span> <span className="font-medium">{s.matchedEntries}/{s.totalEntries}</span></div>
+                        </div>
+                        <div className="flex gap-1 mt-3">
+                          <Button size="sm" variant="outline" className="text-xs flex-1" onClick={async (e) => { e.stopPropagation(); try { const r = await api.autoMatchStatement(s.id); toast.success(`${r.matched} de ${r.total} conciliados automaticamente`); loadStatements(selectedBankAccount); setStatementEntries(await api.getStatementEntries(s.id)); } catch { toast.error('Erro no auto-match'); } }}>⚡ Auto-Match</Button>
+                          <Button size="sm" variant="ghost" className="text-xs text-rose-400" onClick={async (e) => { e.stopPropagation(); if (!confirm('Excluir este extrato?')) return; try { await api.deleteBankStatement(s.id); toast.success('Extrato excluído'); loadStatements(selectedBankAccount); if (selectedStatementId === s.id) { setSelectedStatementId(null); setStatementEntries([]); } } catch { toast.error('Erro'); } }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Entries Table */}
+              {selectedStatementId && statementEntries.length > 0 && (
+                <Card>
+                  <CardHeader><CardTitle className="text-sm flex items-center gap-2"><GitBranch className="w-4 h-4 text-amber-500" /> Lançamentos do Extrato</CardTitle></CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead>Valor</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Lançamento Vinculado</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {statementEntries.map((e: any) => {
+                          const matchColors: Record<string, string> = { matched: 'bg-emerald-100 text-emerald-700', unmatched: 'bg-amber-100 text-amber-700', divergent: 'bg-rose-100 text-rose-700', ignored: 'bg-slate-100 text-slate-500' };
+                          const matchLabels: Record<string, string> = { matched: '✅ Conciliado', unmatched: '⚠️ Pendente', divergent: '❌ Divergente', ignored: '➖ Ignorado' };
+                          return (
+                            <TableRow key={e.id} className={e.matchStatus === 'matched' ? 'bg-emerald-50/30' : ''}>
+                              <TableCell className="text-sm">{new Date(e.date).toLocaleDateString('pt-BR')}</TableCell>
+                              <TableCell className="text-sm max-w-[200px] truncate">{e.description}</TableCell>
+                              <TableCell><Badge variant="outline" className={e.entryType === 'credit' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}>{e.entryType === 'credit' ? '↑ Crédito' : '↓ Débito'}</Badge></TableCell>
+                              <TableCell className={`font-medium ${e.entryType === 'credit' ? 'text-emerald-600' : 'text-rose-600'}`}>R$ {fmtBRL(Math.abs(Number(e.amount)))}</TableCell>
+                              <TableCell><span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${matchColors[e.matchStatus] || matchColors.unmatched}`}>{matchLabels[e.matchStatus] || e.matchStatus}</span></TableCell>
+                              <TableCell>
+                                {e.matchedPaymentId ? (
+                                  <span className="text-xs text-emerald-600">Vinculado</span>
+                                ) : (
+                                  <span className="text-xs text-slate-400">—</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+        </TabsContent>
+
       </Tabs>
       <Dialog open={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -2576,6 +2943,148 @@ export default function AdminFinance() {
             }}>
               {dasLoading ? 'Processando...' : `Consolidar ${dasSelectedIds.size} NF(s)`}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ DEBT CRUD DIALOG ═══ */}
+      <Dialog open={debtDialogOpen} onOpenChange={setDebtDialogOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editingDebtId ? 'Editar Dívida' : 'Nova Dívida'}</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2"><Label>Descrição</Label><Input value={debtForm.description} onChange={e => setDebtForm({...debtForm, description: e.target.value})} placeholder="Ex: Empréstimo Bradesco PJ" /></div>
+            <div><Label>Credor</Label><Input value={debtForm.creditor} onChange={e => setDebtForm({...debtForm, creditor: e.target.value})} placeholder="Banco / Pessoa" /></div>
+            <div><Label>Nº Contrato</Label><Input value={debtForm.contractNumber} onChange={e => setDebtForm({...debtForm, contractNumber: e.target.value})} /></div>
+            <div>
+              <Label>Tipo</Label>
+              <Select value={debtForm.type} onValueChange={v => setDebtForm({...debtForm, type: v})}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[['loan','Empréstimo'], ['financing','Financiamento'], ['credit_card','Cartão Corporativo'], ['credit_card_third','Cartão de Terceiros'], ['tax_installment','Parc. Tributário'], ['leasing','Leasing'], ['personal_capital','Capital Pessoal'], ['third_party_capital','Capital de Terceiros'], ['corporate_capital','Capital Corporativo'], ['supplier_debt','Fornecedor'], ['judicial','Judicial'], ['other','Outro']].map(([v,l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Natureza</Label>
+              <Select value={debtForm.nature} onValueChange={v => setDebtForm({...debtForm, nature: v})}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="good">✅ Boa (investimento)</SelectItem>
+                  <SelectItem value="bad">❌ Ruim (emergência/juros altos)</SelectItem>
+                  <SelectItem value="neutral">➖ Neutra</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label>Valor Original (R$)</Label><Input type="number" step="0.01" value={debtForm.originalAmount} onChange={e => setDebtForm({...debtForm, originalAmount: e.target.value})} /></div>
+            <div><Label>Saldo Atual (R$)</Label><Input type="number" step="0.01" value={debtForm.currentBalance} onChange={e => setDebtForm({...debtForm, currentBalance: e.target.value})} /></div>
+            <div><Label>Taxa de Juros (%)</Label><Input type="number" step="0.001" value={debtForm.interestRate} onChange={e => setDebtForm({...debtForm, interestRate: e.target.value})} /></div>
+            <div>
+              <Label>Período</Label>
+              <Select value={debtForm.interestPeriod} onValueChange={v => setDebtForm({...debtForm, interestPeriod: v})}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="monthly">% ao mês</SelectItem><SelectItem value="yearly">% ao ano</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div><Label>Total Parcelas</Label><Input type="number" value={debtForm.totalInstallments} onChange={e => setDebtForm({...debtForm, totalInstallments: e.target.value})} /></div>
+            <div><Label>Parcela Mensal (R$)</Label><Input type="number" step="0.01" value={debtForm.monthlyPayment} onChange={e => setDebtForm({...debtForm, monthlyPayment: e.target.value})} /></div>
+            <div><Label>Data Início</Label><Input type="date" value={debtForm.startDate} onChange={e => setDebtForm({...debtForm, startDate: e.target.value})} /></div>
+            <div><Label>Previsão Quitação</Label><Input type="date" value={debtForm.endDate} onChange={e => setDebtForm({...debtForm, endDate: e.target.value})} /></div>
+            <div className="col-span-2"><Label>Observações</Label><Input value={debtForm.notes} onChange={e => setDebtForm({...debtForm, notes: e.target.value})} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDebtDialogOpen(false)}>Cancelar</Button>
+            <Button className="bg-amber-500 hover:bg-amber-600" onClick={async () => {
+              try {
+                const payload = { ...debtForm, originalAmount: parseFloat(debtForm.originalAmount) || 0, currentBalance: parseFloat(debtForm.currentBalance) || parseFloat(debtForm.originalAmount) || 0, interestRate: parseFloat(debtForm.interestRate) || 0, totalInstallments: parseInt(debtForm.totalInstallments) || 0, monthlyPayment: parseFloat(debtForm.monthlyPayment) || 0 };
+                if (editingDebtId) await api.updateDebt(editingDebtId, payload);
+                else await api.createDebt(payload);
+                toast.success(editingDebtId ? 'Dívida atualizada!' : 'Dívida cadastrada!');
+                setDebtDialogOpen(false); loadDebts(); loadCFODashboard();
+              } catch { toast.error('Erro ao salvar dívida'); }
+            }}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ DEBT PAYMENT DIALOG ═══ */}
+      <Dialog open={debtPayDialogOpen} onOpenChange={setDebtPayDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Registrar Pagamento de Dívida</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={debtPayForm.amount} onChange={e => setDebtPayForm({...debtPayForm, amount: e.target.value})} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Principal (R$)</Label><Input type="number" step="0.01" value={debtPayForm.principalAmount} onChange={e => setDebtPayForm({...debtPayForm, principalAmount: e.target.value})} /></div>
+              <div><Label>Juros (R$)</Label><Input type="number" step="0.01" value={debtPayForm.interestAmount} onChange={e => setDebtPayForm({...debtPayForm, interestAmount: e.target.value})} /></div>
+            </div>
+            <div><Label>Método</Label>
+              <Select value={debtPayForm.method} onValueChange={v => setDebtPayForm({...debtPayForm, method: v})}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pix">PIX</SelectItem><SelectItem value="boleto">Boleto</SelectItem><SelectItem value="debito_automatico">Débito Automático</SelectItem><SelectItem value="transferencia">Transferência</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label>Nº Comprovante</Label><Input value={debtPayForm.reference} onChange={e => setDebtPayForm({...debtPayForm, reference: e.target.value})} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDebtPayDialogOpen(false)}>Cancelar</Button>
+            <Button className="bg-emerald-500 hover:bg-emerald-600" onClick={async () => {
+              if (!selectedDebtId) return;
+              try {
+                await api.addDebtPayment(selectedDebtId, { ...debtPayForm, amount: parseFloat(debtPayForm.amount) || 0, principalAmount: parseFloat(debtPayForm.principalAmount) || 0, interestAmount: parseFloat(debtPayForm.interestAmount) || 0, paidAt: new Date().toISOString() });
+                toast.success('Pagamento registrado!'); setDebtPayDialogOpen(false); loadDebts(); loadCFODashboard();
+              } catch { toast.error('Erro ao registrar pagamento'); }
+            }}>Registrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ STATEMENT IMPORT DIALOG ═══ */}
+      <Dialog open={newStatementDialog} onOpenChange={setNewStatementDialog}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Importar Extrato Bancário</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Mês de Referência</Label><Input type="month" value={stmtMonth} onChange={e => setStmtMonth(e.target.value)} /></div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Lançamentos</Label>
+                <Button size="sm" variant="outline" className="text-xs" onClick={() => setStmtRows([...stmtRows, { date: new Date().toISOString().split('T')[0], description: '', amount: '', entryType: 'credit' }])}>
+                  <Plus className="w-3 h-3 mr-1" /> Adicionar
+                </Button>
+              </div>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50"><tr><th className="px-2 py-1.5 text-left text-xs font-medium text-slate-500">Data</th><th className="px-2 py-1.5 text-left text-xs font-medium text-slate-500">Descrição</th><th className="px-2 py-1.5 text-left text-xs font-medium text-slate-500">Tipo</th><th className="px-2 py-1.5 text-left text-xs font-medium text-slate-500">Valor (R$)</th><th className="w-8"></th></tr></thead>
+                  <tbody>
+                    {stmtRows.map((row, i) => (
+                      <tr key={i} className="border-t">
+                        <td className="px-1 py-1"><Input type="date" className="h-8 text-xs" value={row.date} onChange={e => { const n = [...stmtRows]; n[i].date = e.target.value; setStmtRows(n); }} /></td>
+                        <td className="px-1 py-1"><Input className="h-8 text-xs" placeholder="Descrição" value={row.description} onChange={e => { const n = [...stmtRows]; n[i].description = e.target.value; setStmtRows(n); }} /></td>
+                        <td className="px-1 py-1">
+                          <Select value={row.entryType} onValueChange={v => { const n = [...stmtRows]; n[i].entryType = v; setStmtRows(n); }}>
+                            <SelectTrigger className="h-8 text-xs w-[100px]"><SelectValue /></SelectTrigger>
+                            <SelectContent><SelectItem value="credit">Crédito</SelectItem><SelectItem value="debit">Débito</SelectItem></SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-1 py-1"><Input type="number" step="0.01" className="h-8 text-xs" value={row.amount} onChange={e => { const n = [...stmtRows]; n[i].amount = e.target.value; setStmtRows(n); }} /></td>
+                        <td className="px-1 py-1"><Button variant="ghost" size="icon" className="h-7 w-7 text-rose-400" onClick={() => setStmtRows(stmtRows.filter((_, j) => j !== i))}><X className="w-3 h-3" /></Button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewStatementDialog(false)}>Cancelar</Button>
+            <Button className="bg-amber-500 hover:bg-amber-600" onClick={async () => {
+              try {
+                const entries = stmtRows.filter(r => r.description && r.amount).map(r => ({ ...r, amount: parseFloat(r.amount) || 0 }));
+                if (entries.length === 0) { toast.error('Adicione ao menos um lançamento'); return; }
+                await api.createBankStatement({ bankAccountId: selectedBankAccount, referenceMonth: stmtMonth, entries });
+                toast.success('Extrato importado com sucesso!'); setNewStatementDialog(false); loadStatements(selectedBankAccount);
+              } catch { toast.error('Erro ao importar extrato'); }
+            }}>Importar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

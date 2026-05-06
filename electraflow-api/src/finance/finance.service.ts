@@ -7,6 +7,9 @@ import { PaymentSchedule } from './payment-schedule.entity';
 import { PaymentReceipt } from './payment-receipt.entity';
 import { PurchaseOrder, PurchaseOrderItem } from './purchase-order.entity';
 import { PaymentInstallment, InstallmentStatus } from './payment-installment.entity';
+import { Debt, DebtPayment } from './debt.entity';
+import { BankStatement, BankStatementEntry, MatchStatus, StatementStatus } from './bank-statement.entity';
+import { BankAccount } from './finance-config.entity';
 
 @Injectable()
 export class FinanceService {
@@ -25,6 +28,16 @@ export class FinanceService {
     private poItemRepo: Repository<PurchaseOrderItem>,
     @InjectRepository(PaymentInstallment)
     private installmentRepo: Repository<PaymentInstallment>,
+    @InjectRepository(Debt)
+    private debtRepo: Repository<Debt>,
+    @InjectRepository(DebtPayment)
+    private debtPaymentRepo: Repository<DebtPayment>,
+    @InjectRepository(BankStatement)
+    private statementRepo: Repository<BankStatement>,
+    @InjectRepository(BankStatementEntry)
+    private statementEntryRepo: Repository<BankStatementEntry>,
+    @InjectRepository(BankAccount)
+    private bankAccountRepo: Repository<BankAccount>,
     private dataSource: DataSource,
   ) {
     this.ensureTables();
@@ -198,6 +211,58 @@ export class FinanceService {
         `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "simplesCompetence" VARCHAR`,
       ];
       for (const sql of payExtraCols) { await this.dataSource.query(sql).catch(() => {}); }
+
+      // ═══ Debts table ═══
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS debts (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          description TEXT NOT NULL, creditor VARCHAR,
+          type VARCHAR DEFAULT 'other', nature VARCHAR DEFAULT 'neutral', status VARCHAR DEFAULT 'active',
+          "originalAmount" DECIMAL(15,2) NOT NULL, "currentBalance" DECIMAL(15,2) DEFAULT 0, "totalPaid" DECIMAL(15,2) DEFAULT 0,
+          "interestRate" DECIMAL(6,3) DEFAULT 0, "interestPeriod" VARCHAR DEFAULT 'monthly', "interestType" VARCHAR DEFAULT 'fixed',
+          "startDate" TIMESTAMP, "endDate" TIMESTAMP,
+          "totalInstallments" INT DEFAULT 0, "paidInstallments" INT DEFAULT 0,
+          "monthlyPayment" DECIMAL(15,2) DEFAULT 0, "nextDueDate" TIMESTAMP,
+          "guaranteeType" VARCHAR, "guaranteeDescription" TEXT,
+          "bankAccountId" UUID, "contractNumber" VARCHAR, notes TEXT,
+          "createdAt" TIMESTAMP DEFAULT NOW(), "updatedAt" TIMESTAMP DEFAULT NOW(), "deletedAt" TIMESTAMP
+        )
+      `).catch(() => {});
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS debt_payments (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "debtId" UUID NOT NULL, amount DECIMAL(15,2) NOT NULL,
+          "principalAmount" DECIMAL(15,2) DEFAULT 0, "interestAmount" DECIMAL(15,2) DEFAULT 0,
+          "paidAt" TIMESTAMP, method VARCHAR, reference VARCHAR, notes TEXT,
+          "installmentNumber" INT,
+          "createdAt" TIMESTAMP DEFAULT NOW()
+        )
+      `).catch(() => {});
+
+      // ═══ Bank Statements table ═══
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS bank_statements (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "bankAccountId" UUID NOT NULL, "referenceMonth" VARCHAR NOT NULL,
+          "fileName" VARCHAR, "totalCredits" DECIMAL(15,2) DEFAULT 0, "totalDebits" DECIMAL(15,2) DEFAULT 0,
+          "openingBalance" DECIMAL(15,2) DEFAULT 0, "closingBalance" DECIMAL(15,2) DEFAULT 0,
+          "totalEntries" INT DEFAULT 0, "matchedEntries" INT DEFAULT 0,
+          status VARCHAR DEFAULT 'pending', notes TEXT,
+          "createdAt" TIMESTAMP DEFAULT NOW(), "updatedAt" TIMESTAMP DEFAULT NOW(), "deletedAt" TIMESTAMP
+        )
+      `).catch(() => {});
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS bank_statement_entries (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "statementId" UUID NOT NULL, date DATE NOT NULL,
+          description TEXT NOT NULL, amount DECIMAL(15,2) NOT NULL,
+          "entryType" VARCHAR DEFAULT 'credit',
+          "matchedPaymentId" UUID, "matchStatus" VARCHAR DEFAULT 'unmatched',
+          "matchDifference" DECIMAL(15,2) DEFAULT 0,
+          notes TEXT, category VARCHAR,
+          "createdAt" TIMESTAMP DEFAULT NOW()
+        )
+      `).catch(() => {});
     } catch (e) { console.warn('Finance tables migration:', e?.message); }
   }
 
@@ -1013,5 +1078,259 @@ export class FinanceService {
     } catch {
       return { exists: false, payments: [], totalAmount: 0, paidAmount: 0 };
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEBTS — CRUD + Summary
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  async getDebts(): Promise<Debt[]> {
+    return this.debtRepo.find({ order: { createdAt: 'DESC' } });
+  }
+
+  async createDebt(data: Partial<Debt>): Promise<Debt> {
+    const debt = this.debtRepo.create(data);
+    if (!debt.currentBalance) debt.currentBalance = Number(debt.originalAmount) || 0;
+    return this.debtRepo.save(debt);
+  }
+
+  async updateDebt(id: string, data: Partial<Debt>): Promise<Debt> {
+    await this.debtRepo.update(id, data as any);
+    return this.debtRepo.findOneByOrFail({ id });
+  }
+
+  async deleteDebt(id: string): Promise<void> {
+    await this.debtRepo.softDelete(id);
+  }
+
+  async addDebtPayment(debtId: string, data: Partial<DebtPayment>): Promise<DebtPayment> {
+    const debt = await this.debtRepo.findOneByOrFail({ id: debtId });
+    const payment = this.debtPaymentRepo.create({ ...data, debtId });
+    const saved = await this.debtPaymentRepo.save(payment);
+    // Update debt balance
+    debt.totalPaid = Number(debt.totalPaid || 0) + Number(saved.amount || 0);
+    debt.currentBalance = Number(debt.originalAmount || 0) - Number(debt.totalPaid || 0);
+    debt.paidInstallments = (debt.paidInstallments || 0) + 1;
+    if (debt.currentBalance <= 0) { debt.currentBalance = 0; debt.status = 'paid_off' as any; }
+    await this.debtRepo.save(debt);
+    return saved;
+  }
+
+  async getDebtPayments(debtId: string): Promise<DebtPayment[]> {
+    return this.debtPaymentRepo.find({ where: { debtId }, order: { createdAt: 'DESC' } });
+  }
+
+  async getDebtSummary(): Promise<any> {
+    const debts = await this.debtRepo.find({ where: { status: 'active' as any } });
+    const totalOriginal = debts.reduce((s, d) => s + Number(d.originalAmount || 0), 0);
+    const totalBalance = debts.reduce((s, d) => s + Number(d.currentBalance || 0), 0);
+    const totalMonthly = debts.reduce((s, d) => s + Number(d.monthlyPayment || 0), 0);
+    const totalPaid = debts.reduce((s, d) => s + Number(d.totalPaid || 0), 0);
+    const byType: Record<string, { count: number; balance: number; monthly: number }> = {};
+    const byNature: Record<string, { count: number; balance: number }> = {};
+    debts.forEach(d => {
+      const t = d.type || 'other';
+      if (!byType[t]) byType[t] = { count: 0, balance: 0, monthly: 0 };
+      byType[t].count++; byType[t].balance += Number(d.currentBalance || 0); byType[t].monthly += Number(d.monthlyPayment || 0);
+      const n = d.nature || 'neutral';
+      if (!byNature[n]) byNature[n] = { count: 0, balance: 0 };
+      byNature[n].count++; byNature[n].balance += Number(d.currentBalance || 0);
+    });
+    return { totalDebts: debts.length, totalOriginal, totalBalance, totalPaid, totalMonthly, byType, byNature };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BANK RECONCILIATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  async getStatements(bankAccountId?: string): Promise<BankStatement[]> {
+    const where: any = {};
+    if (bankAccountId) where.bankAccountId = bankAccountId;
+    return this.statementRepo.find({ where, order: { referenceMonth: 'DESC' } });
+  }
+
+  async createStatement(data: { bankAccountId: string; referenceMonth: string; entries: Array<{ date: string; description: string; amount: number; entryType: string }>; openingBalance?: number; closingBalance?: number }): Promise<BankStatement> {
+    const stmt = this.statementRepo.create({
+      bankAccountId: data.bankAccountId,
+      referenceMonth: data.referenceMonth,
+      openingBalance: data.openingBalance || 0,
+      closingBalance: data.closingBalance || 0,
+      totalEntries: data.entries.length,
+      status: StatementStatus.PENDING,
+    });
+    const saved = await this.statementRepo.save(stmt);
+    let totalCredits = 0, totalDebits = 0;
+    for (const e of data.entries) {
+      const amt = Number(e.amount);
+      if (e.entryType === 'credit' || amt > 0) totalCredits += Math.abs(amt);
+      else totalDebits += Math.abs(amt);
+      await this.statementEntryRepo.save(this.statementEntryRepo.create({
+        statementId: saved.id, date: new Date(e.date), description: e.description,
+        amount: amt, entryType: e.entryType || (amt >= 0 ? 'credit' : 'debit'),
+        matchStatus: MatchStatus.UNMATCHED,
+      }));
+    }
+    saved.totalCredits = totalCredits;
+    saved.totalDebits = totalDebits;
+    return this.statementRepo.save(saved);
+  }
+
+  async getStatementEntries(statementId: string): Promise<BankStatementEntry[]> {
+    return this.statementEntryRepo.find({ where: { statementId }, order: { date: 'ASC' } });
+  }
+
+  async autoMatchStatement(statementId: string): Promise<{ matched: number; total: number }> {
+    const entries = await this.statementEntryRepo.find({ where: { statementId, matchStatus: MatchStatus.UNMATCHED } });
+    const payments = await this.paymentRepository.find({ where: { status: PaymentStatus.PAID } });
+    let matched = 0;
+    for (const entry of entries) {
+      const amt = Math.abs(Number(entry.amount));
+      // Try exact amount match within ±3 days
+      const entryDate = new Date(entry.date).getTime();
+      const candidate = payments.find(p => {
+        const pAmt = Number(p.paidAmount || p.amount || 0);
+        const pDate = p.paidAt ? new Date(p.paidAt).getTime() : 0;
+        return Math.abs(pAmt - amt) < 0.01 && Math.abs(pDate - entryDate) < 3 * 86400000;
+      });
+      if (candidate) {
+        entry.matchedPaymentId = candidate.id;
+        entry.matchStatus = MatchStatus.MATCHED;
+        entry.matchDifference = 0;
+        await this.statementEntryRepo.save(entry);
+        matched++;
+      }
+    }
+    // Update statement matched count
+    const stmt = await this.statementRepo.findOneByOrFail({ id: statementId });
+    const allEntries = await this.statementEntryRepo.find({ where: { statementId } });
+    stmt.matchedEntries = allEntries.filter(e => e.matchStatus === MatchStatus.MATCHED).length;
+    if (stmt.matchedEntries === stmt.totalEntries) stmt.status = StatementStatus.RECONCILED;
+    else if (stmt.matchedEntries > 0) stmt.status = StatementStatus.PARTIAL;
+    await this.statementRepo.save(stmt);
+    return { matched, total: entries.length };
+  }
+
+  async manualMatchEntry(entryId: string, paymentId: string): Promise<BankStatementEntry> {
+    const entry = await this.statementEntryRepo.findOneByOrFail({ id: entryId });
+    entry.matchedPaymentId = paymentId;
+    entry.matchStatus = MatchStatus.MATCHED;
+    const payment = await this.paymentRepository.findOneBy({ id: paymentId });
+    if (payment) entry.matchDifference = Math.abs(Number(entry.amount)) - Number(payment.paidAmount || payment.amount || 0);
+    await this.statementEntryRepo.save(entry);
+    // Update statement
+    const allEntries = await this.statementEntryRepo.find({ where: { statementId: entry.statementId } });
+    const stmt = await this.statementRepo.findOneByOrFail({ id: entry.statementId });
+    stmt.matchedEntries = allEntries.filter(e => e.matchStatus === MatchStatus.MATCHED).length;
+    if (stmt.matchedEntries === stmt.totalEntries) stmt.status = StatementStatus.RECONCILED;
+    else if (stmt.matchedEntries > 0) stmt.status = StatementStatus.PARTIAL;
+    await this.statementRepo.save(stmt);
+    return entry;
+  }
+
+  async unmatchEntry(entryId: string): Promise<BankStatementEntry> {
+    const entry = await this.statementEntryRepo.findOneByOrFail({ id: entryId });
+    entry.matchedPaymentId = null as any;
+    entry.matchStatus = MatchStatus.UNMATCHED;
+    entry.matchDifference = 0;
+    return this.statementEntryRepo.save(entry);
+  }
+
+  async deleteStatement(id: string): Promise<void> {
+    await this.statementRepo.softDelete(id);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CFO DASHBOARD
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  async getCFODashboard(): Promise<any> {
+    const now = new Date();
+    const [bankAccounts, debts, allPayments] = await Promise.all([
+      this.bankAccountRepo.find({ where: { isActive: true } }),
+      this.debtRepo.find({ where: { status: 'active' as any } }),
+      this.paymentRepository.find({ relations: ['client'] }),
+    ]);
+
+    // ── Cash Position ──
+    const totalCash = bankAccounts.reduce((s, a) => s + Number(a.currentBalance || 0), 0);
+
+    // ── Receivables Aging ──
+    const receivables = allPayments.filter(p => p.type === PaymentType.INCOME && [PaymentStatus.PENDING, PaymentStatus.PARTIAL, PaymentStatus.OVERDUE].includes(p.status));
+    const aging = [{ range: '0-30', amount: 0, count: 0 }, { range: '31-60', amount: 0, count: 0 }, { range: '61-90', amount: 0, count: 0 }, { range: '90+', amount: 0, count: 0 }];
+    receivables.forEach(p => {
+      const due = p.dueDate ? new Date(p.dueDate) : now;
+      const daysOverdue = Math.max(0, Math.floor((now.getTime() - due.getTime()) / 86400000));
+      const remaining = Number(p.amount || 0) - Number(p.paidAmount || 0);
+      const bucket = daysOverdue <= 30 ? 0 : daysOverdue <= 60 ? 1 : daysOverdue <= 90 ? 2 : 3;
+      aging[bucket].amount += remaining;
+      aging[bucket].count++;
+    });
+    const totalReceivable = receivables.reduce((s, p) => s + Number(p.amount || 0) - Number(p.paidAmount || 0), 0);
+    const overdueReceivable = receivables.filter(p => p.status === PaymentStatus.OVERDUE).reduce((s, p) => s + Number(p.amount || 0) - Number(p.paidAmount || 0), 0);
+
+    // ── Payables ──
+    const payables = allPayments.filter(p => p.type === PaymentType.EXPENSE && [PaymentStatus.PENDING, PaymentStatus.PARTIAL, PaymentStatus.OVERDUE].includes(p.status));
+    const totalPayable = payables.reduce((s, p) => s + Number(p.amount || 0) - Number(p.paidAmount || 0), 0);
+    const overduePayable = payables.filter(p => p.status === PaymentStatus.OVERDUE).reduce((s, p) => s + Number(p.amount || 0) - Number(p.paidAmount || 0), 0);
+    const next7Days = payables.filter(p => { const d = p.dueDate ? new Date(p.dueDate) : null; return d && d.getTime() - now.getTime() <= 7 * 86400000 && d >= now; }).reduce((s, p) => s + Number(p.amount || 0) - Number(p.paidAmount || 0), 0);
+    const next30Days = payables.filter(p => { const d = p.dueDate ? new Date(p.dueDate) : null; return d && d.getTime() - now.getTime() <= 30 * 86400000 && d >= now; }).reduce((s, p) => s + Number(p.amount || 0) - Number(p.paidAmount || 0), 0);
+
+    // ── Debt ──
+    const totalDebtBalance = debts.reduce((s, d) => s + Number(d.currentBalance || 0), 0);
+    const totalDebtMonthly = debts.reduce((s, d) => s + Number(d.monthlyPayment || 0), 0);
+
+    // ── Cash Flow Projection ──
+    const project = (days: number) => {
+      const cutoff = new Date(now.getTime() + days * 86400000);
+      const inflow = receivables.filter(p => { const d = p.dueDate ? new Date(p.dueDate) : null; return d && d <= cutoff; }).reduce((s, p) => s + Number(p.amount || 0) - Number(p.paidAmount || 0), 0);
+      const outflow = payables.filter(p => { const d = p.dueDate ? new Date(p.dueDate) : null; return d && d <= cutoff; }).reduce((s, p) => s + Number(p.amount || 0) - Number(p.paidAmount || 0), 0);
+      return totalCash + inflow - outflow - totalDebtMonthly * (days / 30);
+    };
+
+    // ── Tax Burden ──
+    const incomePayments = allPayments.filter(p => p.type === PaymentType.INCOME);
+    const totalISS = incomePayments.reduce((s, p) => s + Number((p as any).taxISSAmount || 0), 0);
+    const totalINSS = incomePayments.reduce((s, p) => s + Number((p as any).inssAmount || 0), 0);
+    const totalDAS = incomePayments.reduce((s, p) => s + Number((p as any).simplesAmount || 0), 0);
+    const totalGrossIncome = incomePayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+
+    // ── KPIs ──
+    const paidIncome = allPayments.filter(p => p.type === PaymentType.INCOME && p.status === PaymentStatus.PAID);
+    const paidExpense = allPayments.filter(p => p.type === PaymentType.EXPENSE && p.status === PaymentStatus.PAID);
+    const totalPaidIncome = paidIncome.reduce((s, p) => s + Number(p.paidAmount || 0), 0);
+    const totalPaidExpense = paidExpense.reduce((s, p) => s + Number(p.paidAmount || 0), 0);
+
+    // DSO: avg days to collect
+    const dsoPayments = paidIncome.filter(p => p.dueDate && p.paidAt);
+    const dso = dsoPayments.length > 0 ? dsoPayments.reduce((s, p) => s + Math.max(0, (new Date(p.paidAt!).getTime() - new Date(p.dueDate!).getTime()) / 86400000), 0) / dsoPayments.length : 0;
+    // DPO: avg days to pay
+    const dpoPayments = paidExpense.filter(p => p.dueDate && p.paidAt);
+    const dpo = dpoPayments.length > 0 ? dpoPayments.reduce((s, p) => s + Math.max(0, (new Date(p.paidAt!).getTime() - new Date(p.dueDate!).getTime()) / 86400000), 0) / dpoPayments.length : 0;
+
+    // Burn rate (avg monthly expense last 6 months)
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+    const recentExpenses = paidExpense.filter(p => p.paidAt && new Date(p.paidAt) >= sixMonthsAgo);
+    const burnRate = recentExpenses.reduce((s, p) => s + Number(p.paidAmount || 0), 0) / 6;
+
+    return {
+      cashPosition: {
+        bankBalances: bankAccounts.map(a => ({ id: a.id, name: a.name, bankName: a.bankName, balance: Number(a.currentBalance || 0) })),
+        totalCash,
+        availableCash: totalCash - totalDebtMonthly,
+      },
+      receivables: { current: totalReceivable - overdueReceivable, overdue: overdueReceivable, total: totalReceivable, aging },
+      payables: { current: totalPayable - overduePayable, overdue: overduePayable, total: totalPayable, nextWeek: next7Days, next30Days },
+      debt: { totalBalance: totalDebtBalance, monthlyPayment: totalDebtMonthly, activeCount: debts.length, debtToRevenueRatio: totalGrossIncome > 0 ? totalDebtBalance / totalGrossIncome : 0 },
+      cashFlow: { projected30: project(30), projected60: project(60), projected90: project(90), burnRate },
+      taxBurden: { totalDAS, totalISS, totalINSS, totalTax: totalDAS + totalISS + totalINSS, effectiveRate: totalGrossIncome > 0 ? ((totalDAS + totalISS + totalINSS) / totalGrossIncome * 100) : 0 },
+      kpis: {
+        liquidityRatio: totalPayable > 0 ? (totalCash + totalReceivable) / totalPayable : 999,
+        dso: Math.round(dso),
+        dpo: Math.round(dpo),
+        cashConversionCycle: Math.round(dso - dpo),
+        operatingMargin: totalPaidIncome > 0 ? ((totalPaidIncome - totalPaidExpense) / totalPaidIncome * 100) : 0,
+        burnRate,
+      },
+    };
   }
 }

@@ -1043,6 +1043,27 @@ class ApiService {
     return response.data;
   }
 
+  // ═══ Debts ═══
+  async getDebts() { const r = await this.client.get('/finance/debts'); return r.data; }
+  async createDebt(data: any) { const r = await this.client.post('/finance/debts', data); return r.data; }
+  async updateDebt(id: string, data: any) { const r = await this.client.put(`/finance/debts/${id}`, data); return r.data; }
+  async deleteDebt(id: string) { const r = await this.client.delete(`/finance/debts/${id}`); return r.data; }
+  async getDebtSummary() { const r = await this.client.get('/finance/debts/summary'); return r.data; }
+  async addDebtPayment(debtId: string, data: any) { const r = await this.client.post(`/finance/debts/${debtId}/payments`, data); return r.data; }
+  async getDebtPayments(debtId: string) { const r = await this.client.get(`/finance/debts/${debtId}/payments`); return r.data; }
+
+  // ═══ Bank Reconciliation ═══
+  async getBankStatements(bankAccountId?: string) { const r = await this.client.get('/finance/bank-statements', { params: bankAccountId ? { bankAccountId } : {} }); return r.data; }
+  async createBankStatement(data: any) { const r = await this.client.post('/finance/bank-statements', data); return r.data; }
+  async getStatementEntries(statementId: string) { const r = await this.client.get(`/finance/bank-statements/${statementId}/entries`); return r.data; }
+  async autoMatchStatement(statementId: string) { const r = await this.client.post(`/finance/bank-statements/${statementId}/auto-match`); return r.data; }
+  async manualMatchEntry(entryId: string, paymentId: string) { const r = await this.client.post(`/finance/bank-statements/entries/${entryId}/match`, { paymentId }); return r.data; }
+  async unmatchEntry(entryId: string) { const r = await this.client.post(`/finance/bank-statements/entries/${entryId}/unmatch`); return r.data; }
+  async deleteBankStatement(id: string) { const r = await this.client.delete(`/finance/bank-statements/${id}`); return r.data; }
+
+  // ═══ CFO Dashboard ═══
+  async getCFODashboard() { const r = await this.client.get('/finance/cfo-dashboard'); return r.data; }
+
   // Measurements
   async getMeasurements(workId?: string) {
     const params = workId ? { workId } : {};
