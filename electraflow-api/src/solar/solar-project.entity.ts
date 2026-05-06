@@ -267,6 +267,23 @@ export class SolarProject {
     @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
     otherCosts: number;
 
+    // ═══ CONDIÇÕES DE PAGAMENTO (flexível) ═══════════════════════════════
+    @Column({ type: 'simple-json', nullable: true })
+    paymentConditions: {
+        method: string;             // 'avista' | 'parcelado' | 'financiamento' | 'entrada_parcelas'
+        downPayment: number;        // Valor da entrada (R$)
+        downPaymentPercent: number; // % de entrada
+        installments: number;       // Número de parcelas
+        installmentValue: number;   // Valor de cada parcela
+        interestRate: number;       // Taxa de juros mensal (%)
+        interestType: string;       // 'sem_juros' | 'embutido' | 'sobre_saldo'
+        cardBrand: string;          // Bandeira do cartão (opcional)
+        financingBank: string;      // Banco financiador (opcional)
+        financingLine: string;      // Linha de crédito (ex: CDC Solar, BNDES)
+        pixDiscount: number;        // Desconto para PIX (%)
+        notes: string;              // Observações adicionais
+    };
+
     @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
     margin: number;
 
