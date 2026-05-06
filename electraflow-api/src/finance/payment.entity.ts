@@ -194,6 +194,16 @@ export class Payment {
   @Column({ nullable: true })
   financialOrigin: string;
 
+  // ─── Antecipação ──────────────────────────────────────────────────────────
+  @Column({ type: 'boolean', default: false })
+  isAnticipated: boolean;
+
+  @Column({ nullable: true })
+  anticipatedDate: Date;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  anticipationDiscount: number;
+
   // ─── Boleto / PIX (Portal do Cliente) ───────────────────────────────────
   /** URL/path do PDF de boleto */
   @Column({ type: 'text', nullable: true })

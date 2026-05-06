@@ -193,6 +193,7 @@ export default function AdminFinance() {
   const [editingPOId, setEditingPOId] = useState<string | null>(null);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
+  const [workMeasurements, setWorkMeasurements] = useState<any[]>([]);
 
   // ── PDF Print ──
   const [receiptToPrint, setReceiptToPrint] = useState<any>(null);
@@ -202,7 +203,7 @@ export default function AdminFinance() {
   const emptyForm = {
     description: '', amount: '', type: 'income', category: 'other',
     dueDate: '', billingDate: '', scheduledPaymentDate: '',
-    workId: '', invoiceNumber: '', notes: '',
+    workId: '', measurementId: '', invoiceNumber: '', notes: '',
     retentionPercentage: '0', taxWithholding: '0',
     taxISS: '0', taxISSAmount: '0',
     taxCSLL: '0', taxCSLLAmount: '0',
@@ -211,6 +212,8 @@ export default function AdminFinance() {
     taxICMS: '0', taxICMSAmount: '0',
     taxObservation: '', taxCost: '0',
     costCenter: '', financialOrigin: '',
+    // Antecipação
+    isAnticipated: false, anticipatedDate: '', anticipationDiscount: '0',
   };
 
   const [formData, setFormData] = useState<any>(emptyForm);
@@ -281,6 +284,10 @@ export default function AdminFinance() {
   const loadPurchaseOrders = async () => { try { setPurchaseOrders(await api.getPurchaseOrders()); } catch {} };
   const loadSuppliers = async () => { try { setSuppliers(await api.getSuppliers()); } catch {} };
   const loadClients = async () => { try { setClients(await api.getClients()); } catch {} };
+  const loadMeasurementsForWork = async (workId: string) => {
+    if (!workId || workId === 'none') { setWorkMeasurements([]); return; }
+    try { setWorkMeasurements(await api.getMeasurements(workId)); } catch { setWorkMeasurements([]); }
+  };
 
   // ── Receipt CRUD ──
   const handleSaveReceipt = async () => {
@@ -403,6 +410,7 @@ export default function AdminFinance() {
       billingDate: payment.billingDate?.split('T')[0] || '',
       scheduledPaymentDate: payment.scheduledPaymentDate?.split('T')[0] || '',
       workId: payment.workId || '',
+      measurementId: payment.measurementId || '',
       invoiceNumber: payment.invoiceNumber || '',
       notes: payment.notes || '',
       retentionPercentage: (payment.retentionPercentage || 0).toString(),
@@ -421,7 +429,12 @@ export default function AdminFinance() {
       taxCost: (payment.taxCost || 0).toString(),
       costCenter: payment.costCenter || '',
       financialOrigin: payment.financialOrigin || '',
+      isAnticipated: payment.isAnticipated || false,
+      anticipatedDate: payment.anticipatedDate?.split('T')[0] || '',
+      anticipationDiscount: (payment.anticipationDiscount || 0).toString(),
     });
+    // Load measurements for the linked work
+    if (payment.workId) loadMeasurementsForWork(payment.workId);
     setApportionmentItems(
       (payment.apportionmentItems || []).map((i: any) => ({
         description: i.description,
@@ -581,7 +594,7 @@ export default function AdminFinance() {
         'amount', 'taxWithholding', 'taxCost', 'retentionPercentage',
         'taxISS', 'taxISSAmount', 'taxCSLL', 'taxCSLLAmount',
         'taxPISCOFINS', 'taxPISCOFINSAmount', 'taxIRRF', 'taxIRRFAmount',
-        'taxICMS', 'taxICMSAmount',
+        'taxICMS', 'taxICMSAmount', 'anticipationDiscount',
       ];
       const payload: any = { ...formData };
       numFields.forEach(f => { payload[f] = Number(payload[f] || 0); });
@@ -595,11 +608,13 @@ export default function AdminFinance() {
       if (!payload.workId || payload.workId === 'none') payload.workId = null;
       if (!payload.clientId || payload.clientId === 'none') payload.clientId = null;
       if (!payload.supplierId || payload.supplierId === 'none') payload.supplierId = null;
+      if (!payload.measurementId || payload.measurementId === 'none') payload.measurementId = null;
 
       // ── Sanitize empty date strings → null ──
       if (!payload.billingDate) payload.billingDate = null;
       if (!payload.scheduledPaymentDate) payload.scheduledPaymentDate = null;
       if (!payload.dueDate) payload.dueDate = null;
+      if (!payload.anticipatedDate) payload.anticipatedDate = null;
 
       let savedId = editingPaymentId;
       if (editingPaymentId) {
@@ -720,7 +735,7 @@ export default function AdminFinance() {
                         </div>
                         <div className="space-y-2">
                           <Label>Obra/Projeto</Label>
-                          <Select value={formData.workId} onValueChange={v => setFormData({ ...formData, workId: v })}>
+                          <Select value={formData.workId} onValueChange={v => { setFormData({ ...formData, workId: v, measurementId: '' }); loadMeasurementsForWork(v); }}>
                             <SelectTrigger><SelectValue placeholder="Selecione uma obra" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">Nenhuma</SelectItem>
@@ -728,6 +743,71 @@ export default function AdminFinance() {
                             </SelectContent>
                           </Select>
                         </div>
+                        {/* Medição vinculada */}
+                        {formData.workId && formData.workId !== 'none' && workMeasurements.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-1.5">📐 Vincular Medição</Label>
+                            <Select value={formData.measurementId || 'none'} onValueChange={v => {
+                              if (v === 'none') { setFormData({ ...formData, measurementId: '' }); return; }
+                              const m = workMeasurements.find((m: any) => m.id === v);
+                              if (m) {
+                                setFormData({
+                                  ...formData,
+                                  measurementId: v,
+                                  amount: String(m.netAmount || m.totalAmount || 0),
+                                  description: formData.description || `Medição #${m.number} — ${m.description || ''}`.trim(),
+                                  category: 'project',
+                                });
+                              }
+                            }}>
+                              <SelectTrigger><SelectValue placeholder="Vincular medição" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Nenhuma</SelectItem>
+                                {workMeasurements.map((m: any) => (
+                                  <SelectItem key={m.id} value={m.id}>
+                                    #{m.number} — R$ {Number(m.netAmount || m.totalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({m.status})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        {/* Antecipação de Pagamento */}
+                        <div className="space-y-2 col-span-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={formData.isAnticipated || false} onChange={e => setFormData({ ...formData, isAnticipated: e.target.checked })} className="rounded border-amber-300 text-amber-500" />
+                            <span className="text-sm font-medium text-slate-700">💰 Antecipação de Pagamento</span>
+                            <span className="text-[10px] text-slate-400">(recebimento antes do vencimento com desconto)</span>
+                          </label>
+                        </div>
+                        {formData.isAnticipated && (
+                          <>
+                            <div className="space-y-2">
+                              <Label>Data do Recebimento Antecipado</Label>
+                              <Input type="date" value={formData.anticipatedDate} onChange={e => setFormData({ ...formData, anticipatedDate: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Desconto / Juros da Antecipação (R$)</Label>
+                              <Input type="text" inputMode="decimal" value={formData.anticipationDiscount} onChange={e => setFormData({ ...formData, anticipationDiscount: e.target.value })} placeholder="0,00" />
+                            </div>
+                            {Number(formData.anticipationDiscount) > 0 && Number(formData.amount) > 0 && (
+                              <div className="col-span-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600">Valor da NF:</span>
+                                  <span className="font-mono font-bold">R$ {Number(formData.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between text-red-600">
+                                  <span>(-) Desconto antecipação:</span>
+                                  <span className="font-mono font-bold">- R$ {Number(formData.anticipationDiscount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between border-t border-amber-300 pt-1 mt-1 text-emerald-700 font-bold">
+                                  <span>= Valor Líquido Recebido:</span>
+                                  <span className="font-mono">R$ {(Number(formData.amount) - Number(formData.anticipationDiscount)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
                         <div className="space-y-2">
                           <Label>Vencimento *</Label>
                           <Input type="date" value={formData.dueDate} onChange={e => setFormData({ ...formData, dueDate: e.target.value })} required />

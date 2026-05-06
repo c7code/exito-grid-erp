@@ -184,6 +184,10 @@ export class FinanceService {
       const payExtraCols = [
         `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "proposalId" UUID`,
         `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "proposalNumber" VARCHAR`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "measurementId" UUID`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "isAnticipated" BOOLEAN DEFAULT false`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "anticipatedDate" TIMESTAMP`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "anticipationDiscount" DECIMAL(15,2) DEFAULT 0`,
       ];
       for (const sql of payExtraCols) { await this.dataSource.query(sql).catch(() => {}); }
     } catch (e) { console.warn('Finance tables migration:', e?.message); }
