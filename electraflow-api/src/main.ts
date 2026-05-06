@@ -65,6 +65,7 @@ async function bootstrap() {
         'http://localhost:5173',
         'http://localhost:5174',
         'http://localhost:3000',
+        'https://erp.producao.grupoexito.app.br',
       ];
       if (allowedOrigins.includes(origin)) return callback(null, true);
       console.warn(`⚠️ CORS blocked origin: ${origin}`);
@@ -116,6 +117,8 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({
     transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: false,
   }));
 
   const config = new DocumentBuilder()
