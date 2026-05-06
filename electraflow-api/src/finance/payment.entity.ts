@@ -221,6 +221,15 @@ export class Payment {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   anticipationDiscount: number;
 
+  // ─── Simples Nacional (DAS) ─────────────────────────────────────────────
+  /** Alíquota do Simples Nacional da empresa (%) */
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  simplesRate: number;
+
+  /** Valor estimado da guia DAS referente a esta NF (R$) */
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  simplesAmount: number;
+
   // ─── Boleto / PIX (Portal do Cliente) ───────────────────────────────────
   /** URL/path do PDF de boleto */
   @Column({ type: 'text', nullable: true })

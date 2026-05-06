@@ -216,6 +216,8 @@ export default function AdminFinance() {
     isAnticipated: false, anticipatedDate: '', anticipationDiscount: '0',
     // INSS
     inssBasePercentage: '0', inssRate: '11', inssAmount: '0', inssGpsNumber: '',
+    // Simples Nacional (DAS)
+    simplesRate: '0', simplesAmount: '0',
   };
 
   // Helper: converte entrada monetária BR (25.015,67 ou 25015,67) → número JS
@@ -451,6 +453,8 @@ export default function AdminFinance() {
       inssRate: (payment.inssRate || 11).toString(),
       inssAmount: (payment.inssAmount || 0).toString(),
       inssGpsNumber: payment.inssGpsNumber || '',
+      simplesRate: (payment.simplesRate || 0).toString(),
+      simplesAmount: (payment.simplesAmount || 0).toString(),
     });
     // Load measurements for the linked work
     if (payment.workId) loadMeasurementsForWork(payment.workId);
@@ -622,6 +626,7 @@ export default function AdminFinance() {
         'taxPISCOFINS', 'taxPISCOFINSAmount', 'taxIRRF', 'taxIRRFAmount',
         'taxICMS', 'taxICMSAmount', 'anticipationDiscount',
         'inssBasePercentage', 'inssRate', 'inssAmount',
+        'simplesRate', 'simplesAmount',
       ];
       const payload: any = { ...formData };
       numFields.forEach(f => { payload[f] = Number(payload[f] || 0); });
@@ -1019,6 +1024,39 @@ export default function AdminFinance() {
                           </div>
                         </div>
 
+                        {/* ══════ SIMPLES NACIONAL (DAS) ══════ */}
+                        <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200 rounded-xl p-4 mt-4">
+                          <h4 className="text-sm font-bold text-amber-900 flex items-center gap-2 mb-3">🏛️ Simples Nacional (DAS)</h4>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-amber-700">Alíquota Simples (%)</Label>
+                              <Input className="h-8 text-sm" placeholder="Ex: 6" type="text" inputMode="decimal"
+                                value={formData.simplesRate}
+                                onChange={e => {
+                                  const rate = parseBRL(e.target.value);
+                                  const bruto = Number(parseBRL(formData.amount)) || 0;
+                                  const das = bruto * Number(rate) / 100;
+                                  setFormData({ ...formData, simplesRate: rate, simplesAmount: das.toFixed(2) });
+                                }} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-amber-700">Valor DAS Estimado (R$)</Label>
+                              <Input className="h-8 text-sm bg-amber-50 font-mono font-bold"
+                                value={formData.simplesAmount}
+                                onChange={e => setFormData({ ...formData, simplesAmount: parseBRL(e.target.value) })} />
+                            </div>
+                            <div className="flex items-end">
+                              <p className="text-[10px] text-amber-600 pb-2">Guia DAS a pagar referente a esta NF</p>
+                            </div>
+                          </div>
+                          {Number(formData.simplesRate) > 0 && Number(formData.amount) > 0 && (
+                            <div className="mt-2 text-xs text-amber-700 bg-amber-100/60 rounded p-2">
+                              💰 Base: R$ {Number(formData.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              {' '}× {formData.simplesRate}% = <strong>DAS R$ {Number(formData.simplesAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                            </div>
+                          )}
+                        </div>
+
                         {/* ══════ RESUMO DE LIQUIDAÇÃO ══════ */}
                         {Number(formData.amount) > 0 && (() => {
                           const bruto = Number(formData.amount) || 0;
@@ -1030,8 +1068,10 @@ export default function AdminFinance() {
                           const ret = Number(formData.taxWithholding) || 0;
                           const inss = Number(formData.inssAmount) || 0;
                           const antecipacao = Number(formData.anticipationDiscount) || 0;
+                          const das = Number(formData.simplesAmount) || 0;
                           const totalDeducoes = iss + csll + pis + irrf + icms + ret + inss + antecipacao;
                           const liquido = bruto - totalDeducoes;
+                          const custoTributarioTotal = totalDeducoes + das;
                           const deductions = [
                             { label: 'Retenção Contratual', value: ret, show: ret > 0 },
                             { label: `ISS (${formData.taxISS}%)`, value: iss, show: iss > 0 },
@@ -1067,6 +1107,36 @@ export default function AdminFinance() {
                                 <div className="mt-1 text-xs bg-indigo-50 border border-indigo-200 rounded-lg p-2 text-indigo-700">
                                   💡 <strong>R$ {inss.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> retido de INSS gera crédito para compensação com GPS dos funcionários
                                   {formData.inssGpsNumber && <span> — GPS: <strong>{formData.inssGpsNumber}</strong></span>}
+                                </div>
+                              )}
+
+                              {/* ══════ IMPACTO TRIBUTÁRIO TOTAL ══════ */}
+                              {(custoTributarioTotal > 0) && (
+                                <div className="mt-3 bg-gradient-to-br from-red-50 to-orange-50 border-2 border-red-300 rounded-xl p-4 space-y-2">
+                                  <h3 className="font-bold text-red-900 text-sm flex items-center gap-2">⚠️ Impacto Tributário Total desta NF</h3>
+                                  <div className="space-y-1">
+                                    {iss > 0 && <div className="flex justify-between text-xs"><span className="text-red-700">ISS Retido na Fonte</span><span className="font-mono text-red-700">R$ {iss.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
+                                    {csll > 0 && <div className="flex justify-between text-xs"><span className="text-red-700">CSLL Retido</span><span className="font-mono text-red-700">R$ {csll.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
+                                    {pis > 0 && <div className="flex justify-between text-xs"><span className="text-red-700">PIS/COFINS Retido</span><span className="font-mono text-red-700">R$ {pis.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
+                                    {irrf > 0 && <div className="flex justify-between text-xs"><span className="text-red-700">IRRF Retido</span><span className="font-mono text-red-700">R$ {irrf.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
+                                    {icms > 0 && <div className="flex justify-between text-xs"><span className="text-red-700">ICMS</span><span className="font-mono text-red-700">R$ {icms.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
+                                    {inss > 0 && <div className="flex justify-between text-xs"><span className="text-red-700">INSS Retido (Art. 31)</span><span className="font-mono text-red-700">R$ {inss.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
+                                    {ret > 0 && <div className="flex justify-between text-xs"><span className="text-red-700">Retenção Contratual</span><span className="font-mono text-red-700">R$ {ret.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
+                                    {antecipacao > 0 && <div className="flex justify-between text-xs"><span className="text-orange-700">Juros Antecipação (Banco)</span><span className="font-mono text-orange-700">R$ {antecipacao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
+                                    {das > 0 && <div className="flex justify-between text-xs border-t border-red-200 pt-1 mt-1"><span className="text-amber-800 font-medium">🏛️ DAS Simples Nacional ({formData.simplesRate}%)</span><span className="font-mono text-amber-800 font-medium">R$ {das.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
+                                  </div>
+                                  <div className="flex justify-between border-t-2 border-red-400 pt-2 mt-1">
+                                    <span className="font-bold text-sm text-red-900">= Custo Tributário Total</span>
+                                    <span className="font-mono font-bold text-lg text-red-900">R$ {custoTributarioTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+                                  <div className="flex justify-between text-xs text-slate-500 mt-1">
+                                    <span>Percentual sobre o bruto</span>
+                                    <span className="font-mono font-bold">{bruto > 0 ? (custoTributarioTotal / bruto * 100).toFixed(2) : '0.00'}%</span>
+                                  </div>
+                                  <div className="flex justify-between text-sm mt-2 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                                    <span className="font-bold text-emerald-800">💵 Receita Real (após todos tributos)</span>
+                                    <span className="font-mono font-bold text-emerald-900 text-lg">R$ {(liquido - das).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                  </div>
                                 </div>
                               )}
                             </div>

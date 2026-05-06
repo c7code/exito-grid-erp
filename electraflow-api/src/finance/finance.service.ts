@@ -192,6 +192,8 @@ export class FinanceService {
         `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "inssRate" DECIMAL(5,2) DEFAULT 0`,
         `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "inssAmount" DECIMAL(15,2) DEFAULT 0`,
         `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "inssGpsNumber" VARCHAR`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "simplesRate" DECIMAL(5,2) DEFAULT 0`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "simplesAmount" DECIMAL(15,2) DEFAULT 0`,
       ];
       for (const sql of payExtraCols) { await this.dataSource.query(sql).catch(() => {}); }
     } catch (e) { console.warn('Finance tables migration:', e?.message); }
