@@ -15,7 +15,7 @@ import {
 import {
   Sun, Plus, Search, Loader2, Eye, Trash2, Zap, ArrowLeft, ArrowRight,
   CheckCircle2, Building2, BarChart3, FileText, Package, Calculator,
-  TrendingUp, DollarSign, Calendar, MapPin, Star, Copy, XCircle, Crown, Download, RefreshCw,
+  TrendingUp, DollarSign, Calendar, MapPin, Star, Copy, XCircle, Crown, Download, RefreshCw, CreditCard,
 } from 'lucide-react';
 
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -44,6 +44,7 @@ const STEPS = [
   { key: 'dimensioning', label: 'Dimensionamento', icon: Calculator },
   { key: 'equipment', label: 'Equipamentos', icon: Package },
   { key: 'kits', label: 'Kits Comerciais', icon: Crown },
+  { key: 'payment', label: 'Pagamento', icon: CreditCard },
   { key: 'financial', label: 'Simulação', icon: BarChart3 },
   { key: 'proposal', label: 'Proposta', icon: FileText },
 ];
@@ -1606,8 +1607,179 @@ export default function SolarProjects() {
             </div>
           )}
 
-          {/* STEP 6: Simulação Financeira */}
+          {/* STEP 6: Condições de Pagamento */}
           {step === 6 && (
+            <div className="space-y-5">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><CreditCard className="w-5 h-5 text-amber-500" /> Condições de Pagamento</h2>
+              <p className="text-xs text-slate-500">Configure a forma de pagamento que será exibida na proposta (última página com termo de aceite).</p>
+
+              {/* Método de pagamento */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { value: 'avista', label: 'À Vista', icon: '💰', desc: 'PIX / Transferência' },
+                  { value: 'parcelado', label: 'Parcelado', icon: '💳', desc: 'Cartão de Crédito' },
+                  { value: 'entrada_parcelas', label: 'Entrada + Parcelas', icon: '📋', desc: 'Negociação mista' },
+                  { value: 'financiamento', label: 'Financiamento', icon: '🏦', desc: 'Banco / CDC Solar' },
+                ].map(m => (
+                  <div
+                    key={m.value}
+                    onClick={() => setForm((f: any) => ({
+                      ...f,
+                      paymentConditions: { ...(f.paymentConditions || {}), method: m.value },
+                    }))}
+                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all text-center ${
+                      form.paymentConditions?.method === m.value
+                        ? 'border-amber-400 bg-amber-50 shadow-md'
+                        : 'border-slate-200 hover:border-amber-200 bg-white'
+                    }`}
+                  >
+                    <div className="text-2xl mb-1">{m.icon}</div>
+                    <div className="text-sm font-bold text-slate-900">{m.label}</div>
+                    <div className="text-[10px] text-slate-500">{m.desc}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Campos condicionais */}
+              {form.paymentConditions?.method && (
+                <div className="border rounded-xl p-5 space-y-4 bg-slate-50/50">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {/* Entrada */}
+                    {['entrada_parcelas', 'parcelado', 'financiamento'].includes(form.paymentConditions.method) && (
+                      <>
+                        <div>
+                          <Label className="text-xs">Entrada (R$)</Label>
+                          <Input type="number" step="0.01" value={numVal(form.paymentConditions?.downPayment)} onChange={e => {
+                            const val = Number(e.target.value);
+                            const recKit = (form.commercialKits || []).find((k: any) => k.isRecommended) || form.commercialKits?.[0];
+                            const total = recKit?.totalPrice || Number(form.totalInvestment || 0);
+                            const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                            setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, downPayment: val, downPaymentPercent: pct } }));
+                          }} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Entrada (%)</Label>
+                          <Input type="number" step="1" value={numVal(form.paymentConditions?.downPaymentPercent)} onChange={e => {
+                            const pct = Number(e.target.value);
+                            const recKit = (form.commercialKits || []).find((k: any) => k.isRecommended) || form.commercialKits?.[0];
+                            const total = recKit?.totalPrice || Number(form.totalInvestment || 0);
+                            const val = total * pct / 100;
+                            setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, downPayment: Math.round(val * 100) / 100, downPaymentPercent: pct } }));
+                          }} />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Parcelas */}
+                    {['parcelado', 'entrada_parcelas', 'financiamento'].includes(form.paymentConditions.method) && (
+                      <>
+                        <div>
+                          <Label className="text-xs">Nº de Parcelas</Label>
+                          <Input type="number" step="1" value={numVal(form.paymentConditions?.installments)} onChange={e => {
+                            const inst = Number(e.target.value);
+                            const recKit = (form.commercialKits || []).find((k: any) => k.isRecommended) || form.commercialKits?.[0];
+                            const total = recKit?.totalPrice || Number(form.totalInvestment || 0);
+                            const remaining = total - Number(form.paymentConditions?.downPayment || 0);
+                            const instValue = inst > 0 ? Math.round((remaining / inst) * 100) / 100 : 0;
+                            setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, installments: inst, installmentValue: instValue } }));
+                          }} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Valor da Parcela (R$)</Label>
+                          <Input type="number" step="0.01" value={numVal(form.paymentConditions?.installmentValue)} onChange={e => {
+                            setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, installmentValue: Number(e.target.value) } }));
+                          }} />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Juros */}
+                    {['parcelado', 'entrada_parcelas', 'financiamento'].includes(form.paymentConditions.method) && (
+                      <>
+                        <div>
+                          <Label className="text-xs">Taxa de Juros (% a.m.)</Label>
+                          <Input type="number" step="0.01" value={numVal(form.paymentConditions?.interestRate)} onChange={e => {
+                            setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, interestRate: Number(e.target.value) } }));
+                          }} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Tipo de Juros</Label>
+                          <Select value={form.paymentConditions?.interestType || 'sem_juros'} onValueChange={v => setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, interestType: v } }))}>
+                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="sem_juros">Sem Juros</SelectItem>
+                              <SelectItem value="embutido">Juros Embutidos</SelectItem>
+                              <SelectItem value="sobre_saldo">Sobre Saldo Devedor</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Cartão */}
+                    {form.paymentConditions.method === 'parcelado' && (
+                      <div>
+                        <Label className="text-xs">Bandeira do Cartão</Label>
+                        <Input value={form.paymentConditions?.cardBrand || ''} onChange={e => setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, cardBrand: e.target.value } }))} placeholder="Visa, Master, Elo..." />
+                      </div>
+                    )}
+
+                    {/* Financiamento */}
+                    {form.paymentConditions.method === 'financiamento' && (
+                      <>
+                        <div>
+                          <Label className="text-xs">Banco / Instituição</Label>
+                          <Input value={form.paymentConditions?.financingBank || ''} onChange={e => setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, financingBank: e.target.value } }))} placeholder="BV, Santander, Sicoob..." />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Linha de Crédito</Label>
+                          <Input value={form.paymentConditions?.financingLine || ''} onChange={e => setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, financingLine: e.target.value } }))} placeholder="CDC Solar, BNDES..." />
+                        </div>
+                      </>
+                    )}
+
+                    {/* PIX Discount */}
+                    <div>
+                      <Label className="text-xs">Desconto PIX à Vista (%)</Label>
+                      <Input type="number" step="0.5" value={numVal(form.paymentConditions?.pixDiscount)} onChange={e => {
+                        setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, pixDiscount: Number(e.target.value) } }));
+                      }} placeholder="0" />
+                    </div>
+                  </div>
+
+                  {/* Observações */}
+                  <div>
+                    <Label className="text-xs">Observações (aparece na proposta)</Label>
+                    <Textarea rows={2} value={form.paymentConditions?.notes || ''} onChange={e => setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, notes: e.target.value } }))} placeholder="Condições especiais, prazos de validade da negociação..." />
+                  </div>
+
+                  {/* Resumo visual */}
+                  {(() => {
+                    const pc = form.paymentConditions;
+                    const recKit = (form.commercialKits || []).find((k: any) => k.isRecommended) || form.commercialKits?.[0];
+                    const total = recKit?.totalPrice || Number(form.totalInvestment || 0);
+                    return (
+                      <div className="p-4 bg-white rounded-xl border-2 border-amber-200">
+                        <p className="text-xs font-bold text-amber-700 uppercase mb-2">📋 Preview — Como aparecerá na proposta</p>
+                        <div className="text-sm text-slate-700 space-y-1">
+                          <p><strong>Investimento:</strong> {fmt(total)}</p>
+                          {pc.downPayment > 0 && <p><strong>Entrada:</strong> {fmt(pc.downPayment)} ({pc.downPaymentPercent || 0}%)</p>}
+                          {pc.installments > 0 && <p><strong>Parcelas:</strong> {pc.installments}x de {fmt(pc.installmentValue || 0)}</p>}
+                          {pc.interestRate > 0 && <p><strong>Juros:</strong> {pc.interestRate}% a.m. ({pc.interestType === 'embutido' ? 'embutido' : pc.interestType === 'sobre_saldo' ? 'sobre saldo' : 'sem juros'})</p>}
+                          {pc.interestRate === 0 && pc.installments > 0 && <p className="text-green-600 font-bold">✅ SEM JUROS</p>}
+                          {pc.pixDiscount > 0 && <p><strong>Desconto PIX:</strong> <span className="text-green-600 font-bold">{pc.pixDiscount}% OFF</span></p>}
+                          {pc.financingBank && <p><strong>Banco:</strong> {pc.financingBank} {pc.financingLine && `— ${pc.financingLine}`}</p>}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STEP 7: Simulação Financeira */}
+          {step === 7 && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><BarChart3 className="w-5 h-5 text-amber-500" /> Simulação Financeira</h2>
@@ -1708,8 +1880,8 @@ export default function SolarProjects() {
             </div>
           )}
 
-          {/* STEP 7: Proposta */}
-          {step === 7 && (
+          {/* STEP 8: Proposta */}
+          {step === 8 && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><FileText className="w-5 h-5 text-amber-500" /> Proposta Comercial</h2>
