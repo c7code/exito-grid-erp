@@ -1462,7 +1462,10 @@ export default function AdminFinance() {
                       const hasInst = payment.installments && payment.installments.length > 0;
                       const isExp = expandedPaymentId === payment.id;
                       const paidAmt = Number(payment.paidAmount || 0);
-                      const totalAmt = Number(payment.amount);
+                      const grossAmt = Number(payment.amount);
+                      // Calculate net target considering deductions
+                      const dedTotal = (Number(payment.taxISSAmount) || 0) + (Number(payment.taxCSLLAmount) || 0) + (Number(payment.taxPISCOFINSAmount) || 0) + (Number(payment.taxIRRFAmount) || 0) + (Number(payment.taxICMSAmount) || 0) + (Number(payment.taxWithholding) || 0) + (Number(payment.inssAmount) || 0) + (Number(payment.anticipationDiscount) || 0);
+                      const totalAmt = dedTotal > 0 ? (grossAmt - dedTotal) : grossAmt;
                       const paidPct = totalAmt > 0 ? Math.min((paidAmt / totalAmt) * 100, 100) : 0;
                       const instRows = isExp ? (installmentsMap[payment.id] || payment.installments || []) : [];
                       return (

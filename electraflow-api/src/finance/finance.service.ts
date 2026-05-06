@@ -248,10 +248,23 @@ export class FinanceService {
   async registerPayment(id: string, amount: number, method: string, transactionId?: string): Promise<Payment> {
     const payment = await this.findOne(id);
     const newPaid = Number(payment.paidAmount || 0) + amount;
+    // Calculate net amount after all deductions (ISS, CSLL, PIS, IRRF, ICMS, INSS, retention, anticipation)
+    const gross = Number(payment.amount) || 0;
+    const totalDeductions =
+      (Number(payment.taxISSAmount) || 0) +
+      (Number(payment.taxCSLLAmount) || 0) +
+      (Number(payment.taxPISCOFINSAmount) || 0) +
+      (Number(payment.taxIRRFAmount) || 0) +
+      (Number(payment.taxICMSAmount) || 0) +
+      (Number(payment.taxWithholding) || 0) +
+      (Number(payment.inssAmount) || 0) +
+      (Number(payment.anticipationDiscount) || 0);
+    // If there are deductions, use net amount as the "full" target; otherwise use gross
+    const targetAmount = totalDeductions > 0 ? (gross - totalDeductions) : gross;
     // Use direct update to avoid cascade issues with installments relation
     await this.paymentRepository.update(id, {
       paidAmount: newPaid,
-      status: newPaid >= Number(payment.amount) ? PaymentStatus.PAID : PaymentStatus.PARTIAL,
+      status: newPaid >= targetAmount ? PaymentStatus.PAID : PaymentStatus.PARTIAL,
       paidAt: new Date(),
       paymentMethod: method as any,
       ...(transactionId ? { transactionId } : {}),
