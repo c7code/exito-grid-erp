@@ -1438,6 +1438,7 @@ export default function AdminFinance() {
                     <TableHead>Obra/Projeto</TableHead>
                     <TableHead>Vencimento</TableHead>
                     <TableHead>Valor</TableHead>
+                    <TableHead>Deduções / Líquido</TableHead>
                     <TableHead>Progresso</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right min-w-[200px]">Ações</TableHead>
@@ -1446,7 +1447,7 @@ export default function AdminFinance() {
                 <TableBody>
                   {filteredPayments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-slate-500">Nenhum recebimento encontrado.</TableCell>
+                      <TableCell colSpan={9} className="text-center py-8 text-slate-500">Nenhum recebimento encontrado.</TableCell>
                     </TableRow>
                   ) : (
                     filteredPayments.map((payment) => {
@@ -1472,6 +1473,38 @@ export default function AdminFinance() {
                             <TableCell>{new Date(payment.dueDate).toLocaleDateString('pt-BR')}</TableCell>
                             <TableCell className="text-emerald-600 font-semibold">R$ {payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
                             <TableCell>
+                              {(() => {
+                                const bruto = Number(payment.amount) || 0;
+                                const iss = Number(payment.taxISSAmount) || 0;
+                                const csll = Number(payment.taxCSLLAmount) || 0;
+                                const pis = Number(payment.taxPISCOFINSAmount) || 0;
+                                const irrf = Number(payment.taxIRRFAmount) || 0;
+                                const icms = Number(payment.taxICMSAmount) || 0;
+                                const ret = Number(payment.taxWithholding) || 0;
+                                const inss = Number(payment.inssAmount) || 0;
+                                const ant = Number(payment.anticipationDiscount) || 0;
+                                const totalDed = iss + csll + pis + irrf + icms + ret + inss + ant;
+                                if (totalDed <= 0) return <span className="text-xs text-slate-300">—</span>;
+                                const liquido = bruto - totalDed;
+                                const tags: string[] = [];
+                                if (iss > 0) tags.push(`ISS`);
+                                if (csll > 0) tags.push(`CSLL`);
+                                if (pis > 0) tags.push(`PIS`);
+                                if (irrf > 0) tags.push(`IRRF`);
+                                if (icms > 0) tags.push(`ICMS`);
+                                if (inss > 0) tags.push(`INSS`);
+                                if (ret > 0) tags.push(`Ret.`);
+                                if (ant > 0) tags.push(`Antec.`);
+                                return (
+                                  <div className="space-y-0.5">
+                                    <div className="text-xs font-bold text-emerald-700">Líq: R$ {liquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                                    <div className="text-[10px] text-red-500">- R$ {totalDed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                                    <div className="flex flex-wrap gap-0.5">{tags.map(t => <span key={t} className="px-1 py-0 bg-slate-100 text-slate-500 rounded text-[9px]">{t}</span>)}</div>
+                                  </div>
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell>
                               {(hasInst || paidAmt > 0) ? (
                                 <div className="space-y-1 min-w-[100px]">
                                   <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div className="h-full rounded-full transition-all bg-gradient-to-r from-emerald-400 to-emerald-600" style={{ width: `${paidPct}%` }} /></div>
@@ -1493,6 +1526,23 @@ export default function AdminFinance() {
                                   <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-8 w-8 p-0"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" className="w-[180px]">
                                     {payment.status !== 'paid' && (<><DropdownMenuItem onClick={() => handleOpenRegister(payment)}><CheckCircle className="w-4 h-4 mr-2" /> Baixar Tudo</DropdownMenuItem><DropdownMenuItem onClick={() => handleOpenInstallmentDialog(payment)}><Layers className="w-4 h-4 mr-2 text-blue-600" /> Gerar Parcelas</DropdownMenuItem><DropdownMenuSeparator /></>)}
+                                    <DropdownMenuItem onClick={() => {
+                                      const receipt = {
+                                        receiptNumber: `REC-${payment.id?.substring(0,6).toUpperCase()}`,
+                                        description: payment.description,
+                                        amount: Number(payment.amount),
+                                        paymentMethod: payment.paymentMethod || 'transferência',
+                                        paidAt: payment.scheduledPaymentDate || payment.dueDate || new Date().toISOString(),
+                                        notes: payment.notes || '',
+                                        client: payment.work?.client || payment.client || {},
+                                        work: payment.work,
+                                        taxISSAmount: payment.taxISSAmount, taxCSLLAmount: payment.taxCSLLAmount,
+                                        taxPISCOFINSAmount: payment.taxPISCOFINSAmount, taxIRRFAmount: payment.taxIRRFAmount,
+                                        taxICMSAmount: payment.taxICMSAmount, inssAmount: payment.inssAmount,
+                                        taxWithholding: payment.taxWithholding, anticipationDiscount: payment.anticipationDiscount,
+                                      };
+                                      handleDownloadReceiptPDF(receipt);
+                                    }}><Receipt className="w-4 h-4 mr-2 text-emerald-600" /> Gerar Recibo</DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleEdit(payment)}><Edit2 className="w-4 h-4 mr-2" /> Editar</DropdownMenuItem>
                                     {payment.type === 'income' && <DropdownMenuItem onClick={() => handlePublishPaymentToPortal(payment)}><Share2 className="w-4 h-4 mr-2" /> Portal</DropdownMenuItem>}
                                     <DropdownMenuSeparator />

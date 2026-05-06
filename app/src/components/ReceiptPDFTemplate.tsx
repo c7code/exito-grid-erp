@@ -154,6 +154,56 @@ export function ReceiptPDFTemplate({ receipt, company }: ReceiptPDFTemplateProps
                     <div><div style={s.infoLabel}>Proposta Vinculada</div><div style={s.infoValue}>{receipt.proposalNumber || receipt.proposal?.proposalNumber || '—'}</div></div>
                 </div>
 
+                {/* ═══ DEDUÇÕES / LIQUIDAÇÃO ═══ */}
+                {(() => {
+                    const dIss = Number(receipt.taxISSAmount) || 0;
+                    const dCsll = Number(receipt.taxCSLLAmount) || 0;
+                    const dPis = Number(receipt.taxPISCOFINSAmount) || 0;
+                    const dIrrf = Number(receipt.taxIRRFAmount) || 0;
+                    const dIcms = Number(receipt.taxICMSAmount) || 0;
+                    const dRet = Number(receipt.taxWithholding) || 0;
+                    const dInss = Number(receipt.inssAmount) || 0;
+                    const dAnt = Number(receipt.anticipationDiscount) || 0;
+                    const totalDed = dIss + dCsll + dPis + dIrrf + dIcms + dRet + dInss + dAnt;
+                    if (totalDed <= 0) return null;
+                    const liquido = amount - totalDed;
+                    const deductions = [
+                        { label: 'Retenção Contratual', value: dRet },
+                        { label: 'ISS — Imposto Sobre Serviços', value: dIss },
+                        { label: 'CSLL — Contribuição Social', value: dCsll },
+                        { label: 'PIS/COFINS', value: dPis },
+                        { label: 'IRRF — Imposto de Renda Retido', value: dIrrf },
+                        { label: 'ICMS', value: dIcms },
+                        { label: 'INSS — Art. 31 Lei 8.212', value: dInss },
+                        { label: 'Juros / Desconto Antecipação', value: dAnt },
+                    ].filter(d => d.value > 0);
+                    return (
+                        <>
+                            <div style={s.sectionTitle}>Resumo de Liquidação</div>
+                            <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden', margin: '6px 0 12px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 14px', background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+                                    <span style={{ fontSize: '9px', fontWeight: 700, color: '#333' }}>Valor Bruto NF</span>
+                                    <span style={{ fontSize: '9px', fontWeight: 700, color: '#333', fontFamily: 'monospace' }}>R$ {fmt(amount)}</span>
+                                </div>
+                                {deductions.map((d, i) => (
+                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 14px', borderBottom: '1px solid #f0f0f0' }}>
+                                        <span style={{ fontSize: '8.5px', color: '#dc2626' }}>(-) {d.label}</span>
+                                        <span style={{ fontSize: '8.5px', color: '#dc2626', fontFamily: 'monospace' }}>- R$ {fmt(d.value)}</span>
+                                    </div>
+                                ))}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 14px', borderBottom: '1px solid #e5e7eb', background: '#f0f0f0' }}>
+                                    <span style={{ fontSize: '9px', fontWeight: 700, color: '#dc2626' }}>Total Deduções</span>
+                                    <span style={{ fontSize: '9px', fontWeight: 700, color: '#dc2626', fontFamily: 'monospace' }}>- R$ {fmt(totalDed)}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: '#f0fdf4' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 900, color: '#166534' }}>= VALOR LÍQUIDO RECEBIDO</span>
+                                    <span style={{ fontSize: '11px', fontWeight: 900, color: '#166534', fontFamily: 'monospace' }}>R$ {fmt(liquido)}</span>
+                                </div>
+                            </div>
+                        </>
+                    );
+                })()}
+
                 {receipt.notes && (
                     <>
                         <div style={{ ...s.sectionTitle, marginTop: '10px' }}>Observações</div>

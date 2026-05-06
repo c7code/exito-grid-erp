@@ -1195,6 +1195,7 @@ export default function AdminWorkDetail() {
                         <th className="pb-2 pr-3">Descrição</th>
                         <th className="pb-2 pr-3">Tipo</th>
                         <th className="pb-2 pr-3 text-right">Valor</th>
+                        <th className="pb-2 pr-3">Deduções / Líquido</th>
                         <th className="pb-2 pr-3">Vencimento</th>
                         <th className="pb-2">Status</th>
                       </tr></thead>
@@ -1206,6 +1207,25 @@ export default function AdminWorkDetail() {
                           const isDespExtra = notes.includes('[Despesa Extra]');
                           const origemLabel = isAditivo ? 'Aditivo' : isGanho ? 'Ganho Extra' : isDespExtra ? 'Despesa Extra' : p.type === 'income' ? 'Contratual' : 'Despesa';
                           const origemColor = isAditivo ? 'bg-indigo-100 text-indigo-700' : isGanho ? 'bg-teal-100 text-teal-700' : isDespExtra ? 'bg-rose-100 text-rose-700' : p.type === 'income' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700';
+                          const bruto = Number(p.amount) || 0;
+                          const dIss = Number(p.taxISSAmount) || 0;
+                          const dCsll = Number(p.taxCSLLAmount) || 0;
+                          const dPis = Number(p.taxPISCOFINSAmount) || 0;
+                          const dIrrf = Number(p.taxIRRFAmount) || 0;
+                          const dIcms = Number(p.taxICMSAmount) || 0;
+                          const dRet = Number(p.taxWithholding) || 0;
+                          const dInss = Number(p.inssAmount) || 0;
+                          const dAnt = Number(p.anticipationDiscount) || 0;
+                          const totalDed = dIss + dCsll + dPis + dIrrf + dIcms + dRet + dInss + dAnt;
+                          const dedTags: string[] = [];
+                          if (dIss > 0) dedTags.push('ISS');
+                          if (dCsll > 0) dedTags.push('CSLL');
+                          if (dPis > 0) dedTags.push('PIS');
+                          if (dIrrf > 0) dedTags.push('IRRF');
+                          if (dIcms > 0) dedTags.push('ICMS');
+                          if (dInss > 0) dedTags.push('INSS');
+                          if (dRet > 0) dedTags.push('Ret.');
+                          if (dAnt > 0) dedTags.push('Antec.');
                           return (
                             <tr key={p.id} className="border-b last:border-0 hover:bg-slate-50">
                               <td className="py-2 pr-3"><Badge className={`${origemColor} text-[10px] font-medium`}>{origemLabel}</Badge></td>
@@ -1216,6 +1236,15 @@ export default function AdminWorkDetail() {
                                 </span>
                               </td>
                               <td className="py-2 pr-3 text-right font-mono font-medium">R$ {fmt(p.amount)}</td>
+                              <td className="py-2 pr-3">
+                                {totalDed > 0 ? (
+                                  <div className="space-y-0.5">
+                                    <div className="text-xs font-bold text-emerald-700">Líq: R$ {(bruto - totalDed).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                                    <div className="text-[10px] text-red-500">- R$ {totalDed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                                    <div className="flex flex-wrap gap-0.5">{dedTags.map(t => <span key={t} className="px-1 py-0 bg-slate-100 text-slate-500 rounded text-[9px]">{t}</span>)}</div>
+                                  </div>
+                                ) : <span className="text-xs text-slate-300">—</span>}
+                              </td>
                               <td className="py-2 pr-3 text-slate-500">{fmtDate(p.dueDate)}</td>
                               <td className="py-2">
                                 <Badge className={p.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : p.status === 'overdue' ? 'bg-red-100 text-red-700' : p.status === 'cancelled' ? 'bg-slate-100 text-slate-500' : 'bg-yellow-100 text-yellow-700'}>
