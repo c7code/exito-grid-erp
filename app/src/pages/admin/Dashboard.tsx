@@ -491,76 +491,102 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ═══ ROW 1: OPERATIONAL KPIs ════════════════════════════════ */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KPI icon={Building2} label="Total de Obras" value={kpis.totalWorks} sub={`+${kpis.worksThisMonth} este mês`} accent="bg-blue-50" iconColor="text-blue-600" />
-        <KPI icon={Activity} label="Obras Ativas" value={kpis.activeWorks} sub="Em andamento" accent="bg-emerald-50" iconColor="text-emerald-600" />
-        <KPI icon={CheckCircle2} label="Concluídas" value={kpis.completedWorks} accent="bg-green-50" iconColor="text-green-600" />
-        <KPI icon={Target} label="SLA Entrega" value={`${kpis.slaRate.toFixed(0)}%`} sub="No prazo" accent="bg-cyan-50" iconColor="text-cyan-600" color={kpis.slaRate >= 80 ? 'text-emerald-600' : 'text-red-600'} />
-        <KPI icon={ClipboardList} label="Tarefas Pendentes" value={kpis.pendingTasksCount} sub={kpis.overdueTasks > 0 ? `${kpis.overdueTasks} atrasadas!` : 'Nenhuma atrasada'} accent="bg-amber-50" iconColor="text-amber-600" />
-        <KPI icon={Award} label="Taxa Conclusão" value={`${kpis.taskCompletionRate.toFixed(0)}%`} sub="Tarefas concluídas" accent="bg-indigo-50" iconColor="text-indigo-600" />
+      {/* ═══ SEÇÃO 1: OBRAS ═════════════════════════════════════════ */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center"><Building2 className="w-4 h-4 text-white" /></div>
+          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Obras & Execução</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <KPI icon={Building2} label="Total de Obras" value={kpis.totalWorks} sub={`+${kpis.worksThisMonth} este mês`} accent="bg-blue-50" iconColor="text-blue-600" />
+          <KPI icon={Activity} label="Obras Ativas" value={kpis.activeWorks} sub="Em andamento" accent="bg-emerald-50" iconColor="text-emerald-600" />
+          <KPI icon={CheckCircle2} label="Concluídas" value={kpis.completedWorks} accent="bg-green-50" iconColor="text-green-600" />
+          <KPI icon={Target} label="SLA Entrega" value={`${kpis.slaRate.toFixed(0)}%`} sub="No prazo" accent="bg-cyan-50" iconColor="text-cyan-600" color={kpis.slaRate >= 80 ? 'text-emerald-600' : 'text-red-600'} />
+          <KPI icon={AlertCircle} label="Obras Acima Custo" value={kpis.worksOverBudget} accent={kpis.worksOverBudget > 0 ? 'bg-red-50' : 'bg-emerald-50'} iconColor={kpis.worksOverBudget > 0 ? 'text-red-600' : 'text-emerald-600'} color={kpis.worksOverBudget > 0 ? 'text-red-600' : 'text-emerald-600'} />
+          <KPI icon={CheckCircle2} label="Dentro Orçamento" value={kpis.worksWithinBudget} accent="bg-emerald-50" iconColor="text-emerald-600" color="text-emerald-600" />
+        </div>
       </div>
 
-      {/* ═══ ROW 2: FINANCIAL KPIs ══════════════════════════════════ */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KPI icon={DollarSign} label="Receita Total" value={`R$ ${fmtK(kpis.totalRevenue)}`} accent="bg-emerald-50" iconColor="text-emerald-600" color="text-emerald-700" />
-        <KPI icon={TrendingDown} label="Custo Total" value={`R$ ${fmtK(kpis.totalCost)}`} accent="bg-rose-50" iconColor="text-rose-600" color="text-rose-600" />
-        <KPI icon={Percent} label="Margem Bruta" value={`${kpis.grossMargin.toFixed(1)}%`} accent="bg-violet-50" iconColor="text-violet-600" color={kpis.grossMargin >= 20 ? 'text-emerald-600' : 'text-red-600'} />
-        <KPI icon={BarChart3} label="Margem Média/Obra" value={`${kpis.avgMarginPerWork.toFixed(1)}%`} accent="bg-purple-50" iconColor="text-purple-600" />
-        <KPI icon={DollarSign} label="Recebido" value={`R$ ${fmtK(kpis.totalReceived)}`} accent="bg-teal-50" iconColor="text-teal-600" color="text-teal-700" />
-        <KPI icon={AlertCircle} label="A Receber" value={`R$ ${fmtK(kpis.totalPending)}`} sub={kpis.overduePayments > 0 ? `${kpis.overduePayments} em atraso!` : ''} accent="bg-orange-50" iconColor="text-orange-600" color="text-orange-600" />
+      {/* ═══ SEÇÃO 2: FINANCEIRO ══════════════════════════════════════ */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center"><DollarSign className="w-4 h-4 text-white" /></div>
+          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Financeiro</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <KPI icon={DollarSign} label="Receita Total" value={`R$ ${fmtK(kpis.totalRevenue)}`} accent="bg-emerald-50" iconColor="text-emerald-600" color="text-emerald-700" />
+          <KPI icon={TrendingDown} label="Custo Total" value={`R$ ${fmtK(kpis.totalCost)}`} accent="bg-rose-50" iconColor="text-rose-600" color="text-rose-600" />
+          <KPI icon={Percent} label="Margem Bruta" value={`${kpis.grossMargin.toFixed(1)}%`} accent="bg-violet-50" iconColor="text-violet-600" color={kpis.grossMargin >= 20 ? 'text-emerald-600' : 'text-red-600'} />
+          <KPI icon={DollarSign} label="Recebido" value={`R$ ${fmtK(kpis.totalReceived)}`} accent="bg-teal-50" iconColor="text-teal-600" color="text-teal-700" />
+          <KPI icon={AlertCircle} label="A Receber" value={`R$ ${fmtK(kpis.totalPending)}`} sub={kpis.overduePayments > 0 ? `${kpis.overduePayments} em atraso!` : ''} accent="bg-orange-50" iconColor="text-orange-600" color="text-orange-600" />
+          <KPI icon={DollarSign} label="Receita / Colaborador" value={`R$ ${fmtK(kpis.revenuePerEmp)}`} accent="bg-lime-50" iconColor="text-lime-600" />
+        </div>
       </div>
 
-      {/* ═══ ROW 3: HR & PIPELINE KPIs ══════════════════════════════ */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KPI icon={Users} label="Colaboradores" value={kpis.totalEmps} sub={`${kpis.cltEmps} CLT · ${kpis.contractEmps} Emp. · ${kpis.outsourcedEmps} Pont.`} accent="bg-blue-50" iconColor="text-blue-600" />
-        <KPI icon={Shield} label="Compliance Docs" value={`${kpis.complianceRate.toFixed(0)}%`} sub="Documentação em dia" accent={kpis.complianceRate >= 80 ? 'bg-emerald-50' : 'bg-red-50'} iconColor={kpis.complianceRate >= 80 ? 'text-emerald-600' : 'text-red-600'} color={kpis.complianceRate >= 80 ? 'text-emerald-600' : 'text-red-600'} />
-        <KPI icon={AlertTriangle} label="Docs Vencidos" value={kpis.totalExpiredDocs} sub={kpis.totalExpiringDocs > 0 ? `${kpis.totalExpiringDocs} vencem em 30d` : ''} accent="bg-red-50" iconColor="text-red-600" color={kpis.totalExpiredDocs > 0 ? 'text-red-600' : 'text-emerald-600'} />
-        <KPI icon={FileText} label="Propostas Abertas" value={kpis.openProposals} sub={`Pipeline: R$ ${fmtK(kpis.pipelineValue)}`} accent="bg-indigo-50" iconColor="text-indigo-600" />
-        <KPI icon={Zap} label="Taxa Conversão" value={`${kpis.conversionRate.toFixed(0)}%`} sub={`${kpis.acceptedProposals} aceitas`} accent="bg-amber-50" iconColor="text-amber-600" />
-        <KPI icon={MapPin} label="Protocolos Pend." value={kpis.pendingProtocols} accent="bg-sky-50" iconColor="text-sky-600" />
+      {/* ═══ SEÇÃO 3: PIPELINE & COMERCIAL ════════════════════════════ */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center"><FileText className="w-4 h-4 text-white" /></div>
+          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Pipeline & Comercial</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <KPI icon={Briefcase} label="Clientes Ativos" value={kpis.totalClients} accent="bg-pink-50" iconColor="text-pink-600" />
+          <KPI icon={FileText} label="Propostas Abertas" value={kpis.openProposals} sub={`Pipeline: R$ ${fmtK(kpis.pipelineValue)}`} accent="bg-indigo-50" iconColor="text-indigo-600" />
+          <KPI icon={Zap} label="Taxa Conversão" value={`${kpis.conversionRate.toFixed(0)}%`} sub={`${kpis.acceptedProposals} aceitas`} accent="bg-amber-50" iconColor="text-amber-600" />
+          <KPI icon={FileSignature} label="Contratos Ativos" value={contracts.filter((c: any) => c.status === 'active' || c.status === 'signed').length} sub={`${contracts.length} total`} accent="bg-violet-50" iconColor="text-violet-600" />
+          <KPI icon={MapPin} label="Protocolos Pend." value={kpis.pendingProtocols} accent="bg-sky-50" iconColor="text-sky-600" />
+          <KPI icon={BarChart3} label="Margem Média/Obra" value={`${kpis.avgMarginPerWork.toFixed(1)}%`} accent="bg-purple-50" iconColor="text-purple-600" />
+        </div>
       </div>
 
-      {/* ═══ ROW 4: EXTRA KPIs ══════════════════════════════════════ */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KPI icon={Briefcase} label="Clientes Ativos" value={kpis.totalClients} accent="bg-pink-50" iconColor="text-pink-600" />
-        <KPI icon={DollarSign} label="Receita / Colaborador" value={`R$ ${fmtK(kpis.revenuePerEmp)}`} accent="bg-lime-50" iconColor="text-lime-600" />
-        <KPI icon={AlertCircle} label="Obras Acima Custo" value={kpis.worksOverBudget} accent={kpis.worksOverBudget > 0 ? 'bg-red-50' : 'bg-emerald-50'} iconColor={kpis.worksOverBudget > 0 ? 'text-red-600' : 'text-emerald-600'} color={kpis.worksOverBudget > 0 ? 'text-red-600' : 'text-emerald-600'} />
-        <KPI icon={CheckCircle2} label="Dentro do Orçamento" value={kpis.worksWithinBudget} accent="bg-emerald-50" iconColor="text-emerald-600" color="text-emerald-600" />
-        <KPI icon={Calendar} label="Pagtos Atrasados" value={kpis.overduePayments} accent={kpis.overduePayments > 0 ? 'bg-red-50' : 'bg-emerald-50'} iconColor={kpis.overduePayments > 0 ? 'text-red-600' : 'text-emerald-600'} color={kpis.overduePayments > 0 ? 'text-red-600' : 'text-emerald-600'} />
-        <KPI icon={Activity} label="Tarefas Atrasadas" value={kpis.overdueTasks} accent={kpis.overdueTasks > 0 ? 'bg-red-50' : 'bg-emerald-50'} iconColor={kpis.overdueTasks > 0 ? 'text-red-600' : 'text-emerald-600'} color={kpis.overdueTasks > 0 ? 'text-red-600' : 'text-emerald-600'} />
+      {/* ═══ SEÇÃO 4: EQUIPE & COMPLIANCE ═════════════════════════════ */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center"><Users className="w-4 h-4 text-white" /></div>
+          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Equipe & Compliance</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <KPI icon={Users} label="Colaboradores" value={kpis.totalEmps} sub={`${kpis.cltEmps} CLT · ${kpis.contractEmps} Emp. · ${kpis.outsourcedEmps} Pont.`} accent="bg-blue-50" iconColor="text-blue-600" />
+          <KPI icon={Shield} label="Compliance Docs" value={`${kpis.complianceRate.toFixed(0)}%`} sub="Documentação em dia" accent={kpis.complianceRate >= 80 ? 'bg-emerald-50' : 'bg-red-50'} iconColor={kpis.complianceRate >= 80 ? 'text-emerald-600' : 'text-red-600'} color={kpis.complianceRate >= 80 ? 'text-emerald-600' : 'text-red-600'} />
+          <KPI icon={AlertTriangle} label="Docs Vencidos" value={kpis.totalExpiredDocs} sub={kpis.totalExpiringDocs > 0 ? `${kpis.totalExpiringDocs} vencem em 30d` : ''} accent="bg-red-50" iconColor="text-red-600" color={kpis.totalExpiredDocs > 0 ? 'text-red-600' : 'text-emerald-600'} />
+          <KPI icon={ClipboardList} label="Tarefas Pendentes" value={kpis.pendingTasksCount} sub={kpis.overdueTasks > 0 ? `${kpis.overdueTasks} atrasadas!` : 'Nenhuma atrasada'} accent="bg-amber-50" iconColor="text-amber-600" />
+          <KPI icon={Award} label="Taxa Conclusão" value={`${kpis.taskCompletionRate.toFixed(0)}%`} sub="Tarefas concluídas" accent="bg-indigo-50" iconColor="text-indigo-600" />
+          <KPI icon={Calendar} label="Pagtos Atrasados" value={kpis.overduePayments} accent={kpis.overduePayments > 0 ? 'bg-red-50' : 'bg-emerald-50'} iconColor={kpis.overduePayments > 0 ? 'text-red-600' : 'text-emerald-600'} color={kpis.overduePayments > 0 ? 'text-red-600' : 'text-emerald-600'} />
+        </div>
       </div>
 
-      {/* ═══ ROW 5: NEW MODULES KPIs ═════════════════════════════════ */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-        <KPI icon={FileSignature} label="Contratos Ativos"
-          value={contracts.filter((c: any) => c.status === 'active' || c.status === 'signed').length}
-          sub={`${contracts.length} total`}
-          accent="bg-violet-50" iconColor="text-violet-600" />
-        <KPI icon={Wrench} label="OS Abertas"
-          value={serviceOrders.filter((o: any) => o.status === 'open' || o.status === 'in_progress').length}
-          sub={`${serviceOrders.filter((o: any) => o.status === 'completed').length} concluídas`}
-          accent="bg-orange-50" iconColor="text-orange-600" />
-        <KPI icon={AlertTriangle} label="OS Atrasadas"
-          value={serviceOrders.filter((o: any) => (o.status === 'open' || o.status === 'in_progress') && o.scheduledDate && new Date(o.scheduledDate) < new Date()).length}
-          accent={serviceOrders.filter((o: any) => (o.status === 'open' || o.status === 'in_progress') && o.scheduledDate && new Date(o.scheduledDate) < new Date()).length > 0 ? 'bg-red-50' : 'bg-emerald-50'}
-          iconColor={serviceOrders.filter((o: any) => (o.status === 'open' || o.status === 'in_progress') && o.scheduledDate && new Date(o.scheduledDate) < new Date()).length > 0 ? 'text-red-600' : 'text-emerald-600'}
-          color={serviceOrders.filter((o: any) => (o.status === 'open' || o.status === 'in_progress') && o.scheduledDate && new Date(o.scheduledDate) < new Date()).length > 0 ? 'text-red-600' : 'text-emerald-600'} />
-        <KPI icon={PackageX} label="Estoque Crítico"
-          value={inventoryItems.filter((i: any) => Number(i.currentStock || 0) <= Number(i.minimumStock || 0) && Number(i.minimumStock || 0) > 0).length}
-          sub={`${inventoryItems.length} itens total`}
-          accent={inventoryItems.filter((i: any) => Number(i.currentStock || 0) <= Number(i.minimumStock || 0) && Number(i.minimumStock || 0) > 0).length > 0 ? 'bg-red-50' : 'bg-emerald-50'}
-          iconColor={inventoryItems.filter((i: any) => Number(i.currentStock || 0) <= Number(i.minimumStock || 0) && Number(i.minimumStock || 0) > 0).length > 0 ? 'text-red-600' : 'text-emerald-600'}
-          color={inventoryItems.filter((i: any) => Number(i.currentStock || 0) <= Number(i.minimumStock || 0) && Number(i.minimumStock || 0) > 0).length > 0 ? 'text-red-600' : 'text-emerald-600'} />
-        <KPI icon={Warehouse} label="Itens em Estoque" value={inventoryItems.length} accent="bg-teal-50" iconColor="text-teal-600" />
-        <KPI icon={DollarSign} label="Cotações Pendentes"
-          value={quotations.filter((q: any) => q.status === 'draft' || q.status === 'sent').length}
-          sub={`${quotations.filter((q: any) => q.status === 'closed').length} fechadas`}
-          accent="bg-amber-50" iconColor="text-amber-600" />
-        <KPI icon={ClipboardList} label="Diários Hoje"
-          value={dailyLogs.filter((d: any) => { const t = new Date(); const dd = new Date(d.date); return dd.toDateString() === t.toDateString(); }).length}
-          sub={`${dailyLogs.length} total registrados`}
-          accent="bg-indigo-50" iconColor="text-indigo-600" />
+      {/* ═══ SEÇÃO 5: OPERACIONAL ═════════════════════════════════════ */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center"><Wrench className="w-4 h-4 text-white" /></div>
+          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Operacional</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <KPI icon={Wrench} label="OS Abertas"
+            value={serviceOrders.filter((o: any) => o.status === 'open' || o.status === 'in_progress').length}
+            sub={`${serviceOrders.filter((o: any) => o.status === 'completed').length} concluídas`}
+            accent="bg-orange-50" iconColor="text-orange-600" />
+          <KPI icon={AlertTriangle} label="OS Atrasadas"
+            value={serviceOrders.filter((o: any) => (o.status === 'open' || o.status === 'in_progress') && o.scheduledDate && new Date(o.scheduledDate) < new Date()).length}
+            accent={serviceOrders.filter((o: any) => (o.status === 'open' || o.status === 'in_progress') && o.scheduledDate && new Date(o.scheduledDate) < new Date()).length > 0 ? 'bg-red-50' : 'bg-emerald-50'}
+            iconColor={serviceOrders.filter((o: any) => (o.status === 'open' || o.status === 'in_progress') && o.scheduledDate && new Date(o.scheduledDate) < new Date()).length > 0 ? 'text-red-600' : 'text-emerald-600'}
+            color={serviceOrders.filter((o: any) => (o.status === 'open' || o.status === 'in_progress') && o.scheduledDate && new Date(o.scheduledDate) < new Date()).length > 0 ? 'text-red-600' : 'text-emerald-600'} />
+          <KPI icon={PackageX} label="Estoque Crítico"
+            value={inventoryItems.filter((i: any) => Number(i.currentStock || 0) <= Number(i.minimumStock || 0) && Number(i.minimumStock || 0) > 0).length}
+            sub={`${inventoryItems.length} itens total`}
+            accent={inventoryItems.filter((i: any) => Number(i.currentStock || 0) <= Number(i.minimumStock || 0) && Number(i.minimumStock || 0) > 0).length > 0 ? 'bg-red-50' : 'bg-emerald-50'}
+            iconColor={inventoryItems.filter((i: any) => Number(i.currentStock || 0) <= Number(i.minimumStock || 0) && Number(i.minimumStock || 0) > 0).length > 0 ? 'text-red-600' : 'text-emerald-600'}
+            color={inventoryItems.filter((i: any) => Number(i.currentStock || 0) <= Number(i.minimumStock || 0) && Number(i.minimumStock || 0) > 0).length > 0 ? 'text-red-600' : 'text-emerald-600'} />
+          <KPI icon={Warehouse} label="Itens em Estoque" value={inventoryItems.length} accent="bg-teal-50" iconColor="text-teal-600" />
+          <KPI icon={DollarSign} label="Cotações Pendentes"
+            value={quotations.filter((q: any) => q.status === 'draft' || q.status === 'sent').length}
+            sub={`${quotations.filter((q: any) => q.status === 'closed').length} fechadas`}
+            accent="bg-amber-50" iconColor="text-amber-600" />
+          <KPI icon={ClipboardList} label="Diários Hoje"
+            value={dailyLogs.filter((d: any) => { const t = new Date(); const dd = new Date(d.date); return dd.toDateString() === t.toDateString(); }).length}
+            sub={`${dailyLogs.length} total registrados`}
+            accent="bg-indigo-50" iconColor="text-indigo-600" />
+        </div>
       </div>
 
       {/* ═══ CHARTS ROW 1 ═══════════════════════════════════════════ */}
