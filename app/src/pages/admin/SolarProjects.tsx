@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+﻿import { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '@/api';
 import { toast } from 'sonner';
 import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate';
@@ -39,25 +39,25 @@ const statusMap: Record<string, { label: string; color: string }> = {
 
 const STEPS = [
   { key: 'client', label: 'Cliente', icon: Building2 },
-  { key: 'diagnosis', label: 'DiagnÃ³stico', icon: Zap },
-  { key: 'property', label: 'ImÃ³vel', icon: MapPin },
+  { key: 'diagnosis', label: 'DiagnÃƒÂ³stico', icon: Zap },
+  { key: 'property', label: 'ImÃƒÂ³vel', icon: MapPin },
   { key: 'dimensioning', label: 'Dimensionamento', icon: Calculator },
   { key: 'equipment', label: 'Equipamentos', icon: Package },
   { key: 'kits', label: 'Kits Comerciais', icon: Crown },
   { key: 'payment', label: 'Pagamento', icon: CreditCard },
-  { key: 'financial', label: 'SimulaÃ§Ã£o', icon: BarChart3 },
+  { key: 'financial', label: 'SimulaÃƒÂ§ÃƒÂ£o', icon: BarChart3 },
   { key: 'proposal', label: 'Proposta', icon: FileText },
 ];
 
 const DEFAULT_GUARANTEES: { text: string; value: number }[] = [
-  { text: 'Suporte tÃ©cnico especializado', value: 200 },
-  { text: 'Garantia de 6 meses na instalaÃ§Ã£o', value: 500 },
-  { text: 'Gerenciamento de geraÃ§Ã£o', value: 300 },
+  { text: 'Suporte tÃƒÂ©cnico especializado', value: 200 },
+  { text: 'Garantia de 6 meses na instalaÃƒÂ§ÃƒÂ£o', value: 500 },
+  { text: 'Gerenciamento de geraÃƒÂ§ÃƒÂ£o', value: 300 },
   { text: 'Resumos mensais', value: 150 },
-  { text: '3 Consultorias de geraÃ§Ã£o', value: 450 },
-  { text: 'Custeio de itens de proteÃ§Ã£o durante garantia', value: 800 },
+  { text: '3 Consultorias de geraÃƒÂ§ÃƒÂ£o', value: 450 },
+  { text: 'Custeio de itens de proteÃƒÂ§ÃƒÂ£o durante garantia', value: 800 },
   { text: 'Sem custo adicional de cabeamento', value: 600 },
-  { text: '1 ManutenÃ§Ã£o preventiva (limpeza), apÃ³s 1 ano', value: 350 },
+  { text: '1 ManutenÃƒÂ§ÃƒÂ£o preventiva (limpeza), apÃƒÂ³s 1 ano', value: 350 },
 ];
 
 const createEmptyKit = (name: string, isRecommended: boolean, equipment: any[] = []) => ({
@@ -68,12 +68,12 @@ const createEmptyKit = (name: string, isRecommended: boolean, equipment: any[] =
 });
 
 const DEFAULT_EQUIPMENT_TYPES = [
-  { value: 'module', label: 'MÃ³dulo Solar' },
+  { value: 'module', label: 'MÃƒÂ³dulo Solar' },
   { value: 'inverter', label: 'Inversor' },
-  { value: 'structure', label: 'Estrutura de FixaÃ§Ã£o' },
+  { value: 'structure', label: 'Estrutura de FixaÃƒÂ§ÃƒÂ£o' },
   { value: 'stringbox', label: 'String Box' },
   { value: 'cable', label: 'Cabos' },
-  { value: 'protection', label: 'ProteÃ§Ãµes ElÃ©tricas' },
+  { value: 'protection', label: 'ProteÃƒÂ§ÃƒÂµes ElÃƒÂ©tricas' },
   { value: 'other', label: 'Outro' },
 ];
 
@@ -151,7 +151,7 @@ export default function SolarProjects() {
     } catch { /* */ }
   };
 
-  // â•â•â• CLIENT AUTO-FILL â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CLIENT AUTO-FILL Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleClientChange = (clientId: string) => {
     if (!clientId || clientId === '__none__') {
       setForm((f: any) => ({ ...f, clientId: '' }));
@@ -170,7 +170,7 @@ export default function SolarProjects() {
     }
   };
 
-  // â•â•â• NEW PROJECT â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â NEW PROJECT Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleStartNew = () => {
     setForm({
       title: '', clientId: '',
@@ -197,7 +197,7 @@ export default function SolarProjects() {
     setView('wizard');
   };
 
-  // â•â•â• OPEN EXISTING â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â OPEN EXISTING Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleOpenProject = async (project: any) => {
     try {
       const full = await api.getSolarProject(project.id);
@@ -236,7 +236,7 @@ export default function SolarProjects() {
     } catch { toast.error('Erro ao carregar projeto'); }
   };
 
-  // â•â•â• SAVE / UPDATE â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â SAVE / UPDATE Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleSave = async (silent = false): Promise<boolean> => {
     // Guard against concurrent saves (race condition when clicking 'Next' rapidly)
     if (savingRef.current) {
@@ -262,7 +262,7 @@ export default function SolarProjects() {
         setCurrentProject(updated);
         if (!silent) toast.success('Projeto salvo!');
       } else {
-        if (!payload.title) payload.title = `Sistema Solar â€” ${clients.find((c: any) => c.id === payload.clientId)?.name || 'Novo'}`;
+        if (!payload.title) payload.title = `Sistema Solar Ã¢â‚¬â€ ${clients.find((c: any) => c.id === payload.clientId)?.name || 'Novo'}`;
         const created = await api.createSolarProject(payload);
         setCurrentProject(created);
         if (!silent) toast.success('Projeto criado!');
@@ -277,7 +277,7 @@ export default function SolarProjects() {
     }
   };
 
-  // â•â•â• DIMENSIONING â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â DIMENSIONING Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleDimension = async () => {
     await handleSave(true);
     if (!currentProject?.id) { toast.error('Salve o projeto primeiro'); return; }
@@ -285,12 +285,12 @@ export default function SolarProjects() {
     try {
       const result = await api.dimensionSolarProject(currentProject.id);
       setCurrentProject(result);
-      toast.success('Dimensionamento concluÃ­do!');
+      toast.success('Dimensionamento concluÃƒÂ­do!');
     } catch (e: any) { toast.error(e?.response?.data?.message || 'Erro no dimensionamento'); }
     finally { setSaving(false); }
   };
 
-  // â•â•â• CALCULATE FINANCIALS â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CALCULATE FINANCIALS Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleCalcFinancials = async () => {
     await handleSave(true);
     if (!currentProject?.id) { toast.error('Salve o projeto primeiro'); return; }
@@ -298,12 +298,12 @@ export default function SolarProjects() {
     try {
       const result = await api.calculateSolarFinancials(currentProject.id);
       setCurrentProject(result);
-      toast.success('CÃ¡lculo financeiro concluÃ­do!');
-    } catch (e: any) { toast.error(e?.response?.data?.message || 'Erro no cÃ¡lculo'); }
+      toast.success('CÃƒÂ¡lculo financeiro concluÃƒÂ­do!');
+    } catch (e: any) { toast.error(e?.response?.data?.message || 'Erro no cÃƒÂ¡lculo'); }
     finally { setSaving(false); }
   };
 
-  // â•â•â• GENERATE PROPOSAL â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â GENERATE PROPOSAL Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleGenerateProposal = async () => {
     await handleSave(true);
     if (!currentProject?.id) { toast.error('Salve o projeto primeiro'); return; }
@@ -311,12 +311,12 @@ export default function SolarProjects() {
     try {
       const result = await api.generateSolarProposal(currentProject.id);
       setCurrentProject(result);
-      toast.success('Proposta gerada no mÃ³dulo Propostas!');
+      toast.success('Proposta gerada no mÃƒÂ³dulo Propostas!');
     } catch (e: any) { toast.error(e?.response?.data?.message || 'Erro ao gerar proposta'); }
     finally { setSaving(false); }
   };
 
-  // â•â•â• UPDATE PROPOSAL (re-generate with latest data) â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â UPDATE PROPOSAL (re-generate with latest data) Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleUpdateProposal = async () => {
     await handleSave(true);
     if (!currentProject?.id) return;
@@ -329,7 +329,7 @@ export default function SolarProjects() {
     finally { setSaving(false); }
   };
 
-  // â•â•â• DOWNLOAD SOLAR PDF â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â DOWNLOAD SOLAR PDF Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleDownloadSolarPDF = async () => {
     if (!currentProject?.id) { toast.error('Salve o projeto primeiro'); return; }
     setPdfGenerating(true);
@@ -355,7 +355,7 @@ export default function SolarProjects() {
           setTimeout(() => tryCapture(attempt + 1), 500);
           return;
         }
-        toast.error('Erro ao gerar PDF: elemento nÃ£o encontrado.');
+        toast.error('Erro ao gerar PDF: elemento nÃƒÂ£o encontrado.');
         setShowPdfRender(false);
         setPdfGenerating(false);
         return;
@@ -385,18 +385,18 @@ export default function SolarProjects() {
     setTimeout(() => tryCapture(), 1500);
   };
 
-  // â•â•â• DELETE â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â DELETE Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir este projeto solar?')) return;
     try {
       await api.deleteSolarProject(id);
-      toast.success('Projeto excluÃ­do');
+      toast.success('Projeto excluÃƒÂ­do');
       setView('list');
       loadData();
     } catch { toast.error('Erro ao excluir'); }
   };
 
-  // â•â•â• CATALOG SEARCH â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CATALOG SEARCH Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleSearchCatalog = async () => {
     setSearchingCatalog(true);
     try {
@@ -451,7 +451,7 @@ export default function SolarProjects() {
     [form.equipment]
   );
 
-  // â•â•â• COMMERCIAL KITS â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â COMMERCIAL KITS Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleToggleStrategy = (enabled: boolean) => {
     if (enabled && (!form.commercialKits || form.commercialKits.length === 0)) {
       // Initialize with 1 default kit, cloning equipment from main
@@ -460,7 +460,7 @@ export default function SolarProjects() {
         ...f,
         commercialStrategyEnabled: true,
         commercialKits: [
-          createEmptyKit('Kit PadrÃ£o', true, baseEquip),
+          createEmptyKit('Kit PadrÃƒÂ£o', true, baseEquip),
         ],
       }));
     } else {
@@ -471,7 +471,7 @@ export default function SolarProjects() {
   const handleAddKit = () => {
     const baseEquip = form.equipment || [];
     const idx = (form.commercialKits || []).length;
-    const names = ['Kit Premium', 'Kit BÃ¡sico', 'Kit EconÃ´mico', 'Kit Especial', 'Kit Ouro', 'Kit Prata'];
+    const names = ['Kit Premium', 'Kit BÃƒÂ¡sico', 'Kit EconÃƒÂ´mico', 'Kit Especial', 'Kit Ouro', 'Kit Prata'];
     const name = names[idx - 1] || `Kit ${idx + 1}`;
     setForm((f: any) => ({
       ...f,
@@ -581,7 +581,7 @@ export default function SolarProjects() {
 
   const [activeKitTab, setActiveKitTab] = useState(0);
 
-  // â•â•â• NAVIGATION â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â NAVIGATION Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const goNext = async () => {
     if (saving) return; // Prevent double-click
     if (step === 0 && !form.clientId) { toast.error('Selecione um cliente'); return; }
@@ -592,7 +592,7 @@ export default function SolarProjects() {
 
   const goPrev = () => setStep(s => Math.max(s - 1, 0));
 
-  // â•â•â• FILTERED LIST â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â FILTERED LIST Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const filtered = projects.filter(p => {
     if (!search) return true;
     const s = search.toLowerCase();
@@ -608,9 +608,9 @@ export default function SolarProjects() {
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>;
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // WIZARD VIEW
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   if (view === 'wizard') {
     const p = currentProject;
 
@@ -687,8 +687,8 @@ export default function SolarProjects() {
                   </div>
                 </div>
                 <div>
-                  <Label>TÃ­tulo do Projeto</Label>
-                  <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Ex: Sistema Solar 10kWp - ResidÃªncia" />
+                  <Label>TÃƒÂ­tulo do Projeto</Label>
+                  <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Ex: Sistema Solar 10kWp - ResidÃƒÂªncia" />
                 </div>
                 <div>
                   <Label>Empresa (para proposta)</Label>
@@ -696,7 +696,7 @@ export default function SolarProjects() {
                     <SelectTrigger><SelectValue placeholder="Selecione a empresa..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">Selecione...</SelectItem>
-                      {companies.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.tradeName || c.name}{c.isPrimary ? ' â˜…' : ''}</SelectItem>)}
+                      {companies.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.tradeName || c.name}{c.isPrimary ? ' Ã¢Ëœâ€¦' : ''}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -709,12 +709,12 @@ export default function SolarProjects() {
                     <p className="text-sm font-semibold text-blue-800">Dados do cliente (auto-preenchidos)</p>
                     <div className="grid grid-cols-3 gap-3 text-sm text-slate-700">
                       <div><span className="text-slate-400">Nome:</span> {c.name}</div>
-                      <div><span className="text-slate-400">Doc:</span> {c.document || 'â€”'}</div>
-                      <div><span className="text-slate-400">Telefone:</span> {c.phone || c.whatsapp || 'â€”'}</div>
-                      <div><span className="text-slate-400">Email:</span> {c.email || 'â€”'}</div>
-                      <div><span className="text-slate-400">EndereÃ§o:</span> {c.address || 'â€”'}</div>
-                      <div><span className="text-slate-400">Cidade/UF:</span> {c.city || 'â€”'}/{c.state || 'â€”'}</div>
-                      <div><span className="text-slate-400">ConcessionÃ¡ria:</span> {c.concessionaria || 'â€”'}</div>
+                      <div><span className="text-slate-400">Doc:</span> {c.document || 'Ã¢â‚¬â€'}</div>
+                      <div><span className="text-slate-400">Telefone:</span> {c.phone || c.whatsapp || 'Ã¢â‚¬â€'}</div>
+                      <div><span className="text-slate-400">Email:</span> {c.email || 'Ã¢â‚¬â€'}</div>
+                      <div><span className="text-slate-400">EndereÃƒÂ§o:</span> {c.address || 'Ã¢â‚¬â€'}</div>
+                      <div><span className="text-slate-400">Cidade/UF:</span> {c.city || 'Ã¢â‚¬â€'}/{c.state || 'Ã¢â‚¬â€'}</div>
+                      <div><span className="text-slate-400">ConcessionÃƒÂ¡ria:</span> {c.concessionaria || 'Ã¢â‚¬â€'}</div>
                     </div>
                   </div>
                 );
@@ -722,15 +722,15 @@ export default function SolarProjects() {
             </div>
           )}
 
-          {/* STEP 1: DiagnÃ³stico EnergÃ©tico */}
+          {/* STEP 1: DiagnÃƒÂ³stico EnergÃƒÂ©tico */}
           {step === 1 && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Zap className="w-5 h-5 text-amber-500" /> DiagnÃ³stico EnergÃ©tico</h2>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Zap className="w-5 h-5 text-amber-500" /> DiagnÃƒÂ³stico EnergÃƒÂ©tico</h2>
                 <div className="flex items-center gap-3">
                   <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                     <input type="checkbox" checked={form.detailedAnalysis || false} onChange={e => setForm({ ...form, detailedAnalysis: e.target.checked })} className="rounded" />
-                    <span className="text-slate-500">AnÃ¡lise Detalhada</span>
+                    <span className="text-slate-500">AnÃƒÂ¡lise Detalhada</span>
                   </label>
                 </div>
               </div>
@@ -743,17 +743,17 @@ export default function SolarProjects() {
                       ? cat === 'BT' ? 'border-blue-400 bg-blue-50 text-blue-900' : 'border-orange-400 bg-orange-50 text-orange-900'
                       : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'
                       }`}>
-                    <p className="font-bold">{cat === 'BT' ? 'âš¡ Baixa TensÃ£o (BT)' : 'ðŸ­ MÃ©dia TensÃ£o (MT)'}</p>
-                    <p className="text-[10px] mt-0.5 font-normal">{cat === 'BT' ? 'Residencial / Comercial pequeno' : 'Industrial / Comercial â€” Ponta e Fora Ponta'}</p>
+                    <p className="font-bold">{cat === 'BT' ? 'Ã¢Å¡Â¡ Baixa TensÃƒÂ£o (BT)' : 'Ã°Å¸ÂÂ­ MÃƒÂ©dia TensÃƒÂ£o (MT)'}</p>
+                    <p className="text-[10px] mt-0.5 font-normal">{cat === 'BT' ? 'Residencial / Comercial pequeno' : 'Industrial / Comercial Ã¢â‚¬â€ Ponta e Fora Ponta'}</p>
                   </button>
                 ))}
               </div>
 
-              {/* BT â€” Analysis Simples */}
+              {/* BT Ã¢â‚¬â€ Analysis Simples */}
               {form.billingCategory === 'BT' && (
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label>Consumo MÃ©dio Mensal (kWh) *</Label>
+                    <Label>Consumo MÃƒÂ©dio Mensal (kWh) *</Label>
                     <Input type="number" value={numVal(form.consumptionKwh)} onChange={e => {
                       const kwh = Number(e.target.value || 0);
                       const bill = Number(form.avgBillValue || 0);
@@ -762,7 +762,7 @@ export default function SolarProjects() {
                     }} placeholder="Ex: 800" />
                   </div>
                   <div>
-                    <Label>Valor MÃ©dio da Conta (R$)</Label>
+                    <Label>Valor MÃƒÂ©dio da Conta (R$)</Label>
                     <Input type="number" step="0.01" value={numVal(form.avgBillValue)} onChange={e => {
                       const bill = Number(e.target.value || 0);
                       const kwh = Number(form.consumptionKwh || 0);
@@ -771,13 +771,13 @@ export default function SolarProjects() {
                     }} placeholder="Ex: 450.00" />
                   </div>
                   <div>
-                    <Label>Tarifa (R$/kWh) <span className="text-[10px] text-amber-600">â† auto</span></Label>
+                    <Label>Tarifa (R$/kWh) <span className="text-[10px] text-amber-600">Ã¢â€ Â auto</span></Label>
                     <Input type="number" step="0.0001" value={numVal(form.tariff)} onChange={e => setForm({ ...form, tariff: e.target.value })} placeholder="Ex: 0.85" className="bg-amber-50 border-amber-200" />
                   </div>
                 </div>
               )}
 
-              {/* Consumo MÃªs a MÃªs (BT e MT) */}
+              {/* Consumo MÃƒÂªs a MÃƒÂªs (BT e MT) */}
               {(() => {
                 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
                 const hasMonthly = form.monthlyConsumptions && form.monthlyConsumptions.length === 12;
@@ -807,11 +807,11 @@ export default function SolarProjects() {
                 return (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs font-bold text-slate-500 uppercase">Consumo MÃªs a MÃªs (12 meses)</p>
+                      <p className="text-xs font-bold text-slate-500 uppercase">Consumo MÃƒÂªs a MÃƒÂªs (12 meses)</p>
                       {!hasMonthly ? (
                         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={initMonthly}><Plus className="w-3 h-3 mr-1" /> Preencher Meses</Button>
                       ) : (
-                        <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500" onClick={clearMonthly}>Limpar / Usar MÃ©dia</Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500" onClick={clearMonthly}>Limpar / Usar MÃƒÂ©dia</Button>
                       )}
                     </div>
                     {hasMonthly && (
@@ -819,7 +819,7 @@ export default function SolarProjects() {
                         <table className="w-full text-xs">
                           <thead className="bg-slate-50">
                             <tr>
-                              <th className="px-2 py-1.5 text-left">MÃªs</th>
+                              <th className="px-2 py-1.5 text-left">MÃƒÂªs</th>
                               {form.billingCategory === 'MT' && <th className="px-2 py-1.5 text-right">Ponta (kWh)</th>}
                               {form.billingCategory === 'MT' && <th className="px-2 py-1.5 text-right">F. Ponta (kWh)</th>}
                               <th className="px-2 py-1.5 text-right">Total (kWh)</th>
@@ -848,7 +848,7 @@ export default function SolarProjects() {
                           </tbody>
                           <tfoot>
                             <tr className="bg-amber-50 border-t-2 border-amber-200 font-bold">
-                              <td className="px-2 py-1.5 text-amber-800">MÃ©dia</td>
+                              <td className="px-2 py-1.5 text-amber-800">MÃƒÂ©dia</td>
                               {form.billingCategory === 'MT' && (
                                 <td className="px-2 py-1.5 text-right text-orange-700">{fmtN(form.monthlyConsumptions.reduce((s: number, m: any) => s + Number(m.peakKwh || 0), 0) / 12, 0)}</td>
                               )}
@@ -866,12 +866,12 @@ export default function SolarProjects() {
                 );
               })()}
 
-              {/* MT â€” Ponta / Fora Ponta */}
+              {/* MT Ã¢â‚¬â€ Ponta / Fora Ponta */}
               {form.billingCategory === 'MT' && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-4 gap-3">
                     <div className="col-span-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
-                      <p className="text-xs font-bold text-orange-700 uppercase mb-2">HorÃ¡rio Ponta</p>
+                      <p className="text-xs font-bold text-orange-700 uppercase mb-2">HorÃƒÂ¡rio Ponta</p>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <Label className="text-xs">Consumo Ponta (kWh)</Label>
@@ -901,7 +901,7 @@ export default function SolarProjects() {
                     </div>
 
                     <div className="col-span-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-xs font-bold text-blue-700 uppercase mb-2">HorÃ¡rio Fora Ponta</p>
+                      <p className="text-xs font-bold text-blue-700 uppercase mb-2">HorÃƒÂ¡rio Fora Ponta</p>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <Label className="text-xs">Consumo F. Ponta (kWh)</Label>
@@ -939,7 +939,7 @@ export default function SolarProjects() {
                         <p className="text-lg font-bold text-slate-900">{fmtN(Number(form.consumptionPeakKwh || 0) + Number(form.consumptionOffPeakKwh || 0), 0)} <span className="text-xs">kWh</span></p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-500 uppercase font-bold">Tarifa MÃ©dia Ponderada</p>
+                        <p className="text-[10px] text-slate-500 uppercase font-bold">Tarifa MÃƒÂ©dia Ponderada</p>
                         <p className="text-lg font-bold text-amber-800">R$ {fmtN(Number(form.tariff || 0), 4)}/kWh</p>
                       </div>
                       <div>
@@ -955,11 +955,11 @@ export default function SolarProjects() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label>Valor MÃ©dio da Conta (R$)</Label>
+                      <Label>Valor MÃƒÂ©dio da Conta (R$)</Label>
                       <Input type="number" step="0.01" value={form.avgBillValue} onChange={e => setForm({ ...form, avgBillValue: e.target.value })} placeholder="Ex: 5000.00" />
                     </div>
                     <div>
-                      <Label>Modalidade TarifÃ¡ria</Label>
+                      <Label>Modalidade TarifÃƒÂ¡ria</Label>
                       <Select value={form.tariffModality || ''} onValueChange={v => setForm({ ...form, tariffModality: v })}>
                         <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         <SelectContent>
@@ -977,13 +977,13 @@ export default function SolarProjects() {
               <div className="grid grid-cols-3 gap-4">
                 {form.billingCategory === 'BT' && (
                   <div>
-                    <Label>Tipo de LigaÃ§Ã£o</Label>
+                    <Label>Tipo de LigaÃƒÂ§ÃƒÂ£o</Label>
                     <Select value={form.connectionType} onValueChange={v => setForm({ ...form, connectionType: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="monophasic">MonofÃ¡sico</SelectItem>
-                        <SelectItem value="biphasic">BifÃ¡sico</SelectItem>
-                        <SelectItem value="triphasic">TrifÃ¡sico</SelectItem>
+                        <SelectItem value="monophasic">MonofÃƒÂ¡sico</SelectItem>
+                        <SelectItem value="biphasic">BifÃƒÂ¡sico</SelectItem>
+                        <SelectItem value="triphasic">TrifÃƒÂ¡sico</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -997,7 +997,7 @@ export default function SolarProjects() {
                   <Input value={form.meterType} onChange={e => setForm({ ...form, meterType: e.target.value })} placeholder="Convencional, Bidirecional..." />
                 </div>
                 <div>
-                  <Label>ConcessionÃ¡ria</Label>
+                  <Label>ConcessionÃƒÂ¡ria</Label>
                   <Input value={form.concessionaria} onChange={e => setForm({ ...form, concessionaria: e.target.value })} placeholder="CELPE, CEMIG, Enel..." />
                 </div>
               </div>
@@ -1005,34 +1005,34 @@ export default function SolarProjects() {
               {/* Detailed Analysis extras */}
               {form.detailedAnalysis && (
                 <div className="p-4 bg-slate-50 rounded-xl border space-y-2">
-                  <p className="text-xs font-bold text-slate-500 uppercase">AnÃ¡lise Detalhada da Conta</p>
+                  <p className="text-xs font-bold text-slate-500 uppercase">AnÃƒÂ¡lise Detalhada da Conta</p>
                   <div className="grid grid-cols-3 gap-3 text-sm">
                     <div className="p-3 bg-white rounded-lg border text-center">
                       <p className="text-[10px] text-slate-500 uppercase font-bold">Custo por kWh Real</p>
                       <p className="text-xl font-bold text-slate-900">
                         R$ {fmtN(Number(form.consumptionKwh || 0) > 0 ? Number(form.avgBillValue || 0) / Number(form.consumptionKwh || 1) : 0, 4)}/kWh
                       </p>
-                      <p className="text-[10px] text-slate-400">Valor da conta Ã· consumo</p>
+                      <p className="text-[10px] text-slate-400">Valor da conta ÃƒÂ· consumo</p>
                     </div>
                     <div className="p-3 bg-white rounded-lg border text-center">
                       <p className="text-[10px] text-slate-500 uppercase font-bold">Gasto Anual Estimado</p>
                       <p className="text-xl font-bold text-red-600">{fmt(Number(form.avgBillValue || 0) * 12)}</p>
-                      <p className="text-[10px] text-slate-400">Valor mÃ©dio Ã— 12 meses</p>
+                      <p className="text-[10px] text-slate-400">Valor mÃƒÂ©dio Ãƒâ€” 12 meses</p>
                     </div>
                     <div className="p-3 bg-white rounded-lg border text-center">
                       <p className="text-[10px] text-slate-500 uppercase font-bold">Gasto em 25 Anos</p>
                       <p className="text-xl font-bold text-red-700">{fmt(Number(form.avgBillValue || 0) * 12 * 25)}</p>
-                      <p className="text-[10px] text-slate-400">Sem solar, pagando Ã  concessionÃ¡ria</p>
+                      <p className="text-[10px] text-slate-400">Sem solar, pagando ÃƒÂ  concessionÃƒÂ¡ria</p>
                     </div>
                   </div>
                   {form.billingCategory === 'MT' && Number(form.consumptionPeakKwh) > 0 && (
                     <div className="grid grid-cols-2 gap-3 mt-2">
                       <div className="p-3 bg-orange-50 rounded-lg border border-orange-200 text-center">
-                        <p className="text-[10px] text-orange-600 uppercase font-bold">Custo Ponta (Ã— mÃªs)</p>
+                        <p className="text-[10px] text-orange-600 uppercase font-bold">Custo Ponta (Ãƒâ€” mÃƒÂªs)</p>
                         <p className="text-lg font-bold text-orange-800">{fmt(Number(form.consumptionPeakKwh || 0) * Number(form.tariffPeak || 0))}</p>
                       </div>
                       <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 text-center">
-                        <p className="text-[10px] text-blue-600 uppercase font-bold">Custo Fora Ponta (Ã— mÃªs)</p>
+                        <p className="text-[10px] text-blue-600 uppercase font-bold">Custo Fora Ponta (Ãƒâ€” mÃƒÂªs)</p>
                         <p className="text-lg font-bold text-blue-800">{fmt(Number(form.consumptionOffPeakKwh || 0) * Number(form.tariffOffPeak || 0))}</p>
                       </div>
                     </div>
@@ -1042,13 +1042,13 @@ export default function SolarProjects() {
             </div>
           )}
 
-          {/* STEP 2: Dados do ImÃ³vel */}
+          {/* STEP 2: Dados do ImÃƒÂ³vel */}
           {step === 2 && (
             <div className="space-y-5">
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><MapPin className="w-5 h-5 text-amber-500" /> Dados do ImÃ³vel</h2>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><MapPin className="w-5 h-5 text-amber-500" /> Dados do ImÃƒÂ³vel</h2>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label>Tipo de InstalaÃ§Ã£o</Label>
+                  <Label>Tipo de InstalaÃƒÂ§ÃƒÂ£o</Label>
                   <Select value={form.installationType} onValueChange={v => setForm({ ...form, installationType: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -1058,11 +1058,11 @@ export default function SolarProjects() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Ãrea DisponÃ­vel (mÂ²)</Label>
+                  <Label>ÃƒÂrea DisponÃƒÂ­vel (mÃ‚Â²)</Label>
                   <Input type="number" value={form.availableArea} onChange={e => setForm({ ...form, availableArea: e.target.value })} />
                 </div>
                 <div>
-                  <Label>OrientaÃ§Ã£o do Telhado</Label>
+                  <Label>OrientaÃƒÂ§ÃƒÂ£o do Telhado</Label>
                   <Select value={form.roofOrientation} onValueChange={v => setForm({ ...form, roofOrientation: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -1076,7 +1076,7 @@ export default function SolarProjects() {
                   </Select>
                 </div>
                 <div>
-                  <Label>InclinaÃ§Ã£o (graus)</Label>
+                  <Label>InclinaÃƒÂ§ÃƒÂ£o (graus)</Label>
                   <Input type="number" value={form.roofInclination} onChange={e => setForm({ ...form, roofInclination: e.target.value })} placeholder="Ex: 15" />
                 </div>
                 <div className="flex items-end gap-3">
@@ -1104,14 +1104,14 @@ export default function SolarProjects() {
                               propertyCity: data.localidade || f.propertyCity,
                               propertyState: data.uf || f.propertyState,
                             }));
-                            toast.success('EndereÃ§o preenchido via CEP!');
+                            toast.success('EndereÃƒÂ§o preenchido via CEP!');
                           }
                         }).catch(() => { });
                     }
                   }} placeholder="00000-000" maxLength={9} />
                 </div>
                 <div className="col-span-2">
-                  <Label>EndereÃ§o</Label>
+                  <Label>EndereÃƒÂ§o</Label>
                   <Input value={form.propertyAddress} onChange={e => setForm({ ...form, propertyAddress: e.target.value })} />
                 </div>
                 <div>
@@ -1134,7 +1134,7 @@ export default function SolarProjects() {
           {step === 3 && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Calculator className="w-5 h-5 text-amber-500" /> Dimensionamento AutomÃ¡tico</h2>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Calculator className="w-5 h-5 text-amber-500" /> Dimensionamento AutomÃƒÂ¡tico</h2>
                 <Button onClick={handleDimension} disabled={saving} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold">
                   {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Calculator className="w-4 h-4 mr-2" />}
                   Calcular Dimensionamento
@@ -1143,11 +1143,11 @@ export default function SolarProjects() {
               {p?.systemPowerKwp ? (
                 <div className="grid grid-cols-3 gap-4">
                   <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl border border-amber-200 text-center">
-                    <p className="text-xs text-amber-700 font-bold uppercase">PotÃªncia do Sistema</p>
+                    <p className="text-xs text-amber-700 font-bold uppercase">PotÃƒÂªncia do Sistema</p>
                     <p className="text-3xl font-bold text-amber-800 mt-1">{fmtN(p.systemPowerKwp)} <span className="text-lg">kWp</span></p>
                   </div>
                   <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 text-center">
-                    <p className="text-xs text-blue-700 font-bold uppercase">Quantidade de MÃ³dulos</p>
+                    <p className="text-xs text-blue-700 font-bold uppercase">Quantidade de MÃƒÂ³dulos</p>
                     <p className="text-3xl font-bold text-blue-800 mt-1">{p.moduleCount} <span className="text-lg">un</span></p>
                     <p className="text-xs text-blue-500 mt-1">{p.modulePowerWp}Wp cada</p>
                   </div>
@@ -1156,19 +1156,19 @@ export default function SolarProjects() {
                     <p className="text-3xl font-bold text-purple-800 mt-1">{fmtN(p.inverterPowerKw, 0)} <span className="text-lg">kW</span></p>
                   </div>
                   <div className="p-4 bg-white rounded-xl border text-center">
-                    <p className="text-xs text-slate-500 font-bold uppercase">GeraÃ§Ã£o Mensal</p>
+                    <p className="text-xs text-slate-500 font-bold uppercase">GeraÃƒÂ§ÃƒÂ£o Mensal</p>
                     <p className="text-2xl font-bold text-slate-900 mt-1">{fmtN(p.monthlyGenerationKwh, 0)} <span className="text-sm">kWh</span></p>
                   </div>
                   <div className="p-4 bg-white rounded-xl border text-center">
-                    <p className="text-xs text-slate-500 font-bold uppercase">GeraÃ§Ã£o Anual</p>
+                    <p className="text-xs text-slate-500 font-bold uppercase">GeraÃƒÂ§ÃƒÂ£o Anual</p>
                     <p className="text-2xl font-bold text-slate-900 mt-1">{fmtN(p.annualGenerationKwh, 0)} <span className="text-sm">kWh</span></p>
                   </div>
                   <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 text-center">
-                    <p className="text-xs text-green-700 font-bold uppercase">CompensaÃ§Ã£o</p>
+                    <p className="text-xs text-green-700 font-bold uppercase">CompensaÃƒÂ§ÃƒÂ£o</p>
                     <p className="text-3xl font-bold text-green-800 mt-1">{fmtN(p.compensationPercent)}%</p>
                   </div>
                   <div className="col-span-3 p-3 bg-slate-50 rounded-lg text-xs text-slate-500">
-                    HSP utilizado: <strong>{p.hspValue}h/dia</strong> ({form.propertyState || 'BR'}) | EficiÃªncia: 80% | Consumo informado: {fmtN(Number(form.consumptionKwh), 0)} kWh/mÃªs
+                    HSP utilizado: <strong>{p.hspValue}h/dia</strong> ({form.propertyState || 'BR'}) | EficiÃƒÂªncia: 80% | Consumo informado: {fmtN(Number(form.consumptionKwh), 0)} kWh/mÃƒÂªs
                     {p.pricePerWp > 0 && <> | <strong className="text-amber-700">R$/Wp: {fmtN(p.pricePerWp, 2)}</strong></>}
                   </div>
                 </div>
@@ -1186,16 +1186,16 @@ export default function SolarProjects() {
           {step === 4 && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Package className="w-5 h-5 text-amber-500" /> SeleÃ§Ã£o de Equipamentos</h2>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Package className="w-5 h-5 text-amber-500" /> SeleÃƒÂ§ÃƒÂ£o de Equipamentos</h2>
                 <Button variant="outline" size="sm" onClick={addManualEquipment}><Plus className="w-4 h-4 mr-1" /> Adicionar Manual</Button>
               </div>
 
               {/* Catalog Search */}
               <div className="border rounded-lg p-4 bg-blue-50/50 space-y-3">
-                <p className="text-sm font-semibold text-blue-800 flex items-center gap-2"><Search className="w-4 h-4" /> Buscar no CatÃ¡logo (Produtos & Estoque)</p>
+                <p className="text-sm font-semibold text-blue-800 flex items-center gap-2"><Search className="w-4 h-4" /> Buscar no CatÃƒÂ¡logo (Produtos & Estoque)</p>
                 <div className="flex gap-2">
                   <Input value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)}
-                    placeholder="Pesquise mÃ³dulos, inversores, cabos..." className="flex-1"
+                    placeholder="Pesquise mÃƒÂ³dulos, inversores, cabos..." className="flex-1"
                     onKeyDown={e => e.key === 'Enter' && handleSearchCatalog()} />
                   <Button onClick={handleSearchCatalog} disabled={searchingCatalog} variant="outline">
                     {searchingCatalog ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
@@ -1207,7 +1207,7 @@ export default function SolarProjects() {
                       <div key={item.id} className="flex items-center justify-between py-2 px-2 hover:bg-white rounded">
                         <div className="flex-1">
                           <p className="text-sm font-medium">{item.name}</p>
-                          <p className="text-xs text-slate-500">{item.brand} {item.model} â€” {fmt(item.unitPrice || item.costPrice || 0)}</p>
+                          <p className="text-xs text-slate-500">{item.brand} {item.model} Ã¢â‚¬â€ {fmt(item.unitPrice || item.costPrice || 0)}</p>
                         </div>
                         <Button size="sm" variant="outline" onClick={() => addEquipmentFromCatalog(item)}><Plus className="w-3 h-3 mr-1" /> Adicionar</Button>
                       </div>
@@ -1223,10 +1223,10 @@ export default function SolarProjects() {
                     <thead className="bg-slate-50">
                       <tr>
                         <th className="px-3 py-2 text-left">Tipo</th>
-                        <th className="px-3 py-2 text-left">DescriÃ§Ã£o</th>
+                        <th className="px-3 py-2 text-left">DescriÃƒÂ§ÃƒÂ£o</th>
                         <th className="px-3 py-2 text-left">Marca</th>
                         <th className="px-3 py-2 text-center">Qtd</th>
-                        <th className="px-3 py-2 text-right">PreÃ§o Un.</th>
+                        <th className="px-3 py-2 text-right">PreÃƒÂ§o Un.</th>
                         <th className="px-3 py-2 text-right">Total</th>
                         <th className="px-3 py-2"></th>
                       </tr>
@@ -1305,7 +1305,7 @@ export default function SolarProjects() {
               ) : (
                 <div className="text-center py-12 text-slate-400">
                   <Package className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                  <p>Nenhum equipamento adicionado. Busque no catÃ¡logo acima ou adicione manualmente.</p>
+                  <p>Nenhum equipamento adicionado. Busque no catÃƒÂ¡logo acima ou adicione manualmente.</p>
                 </div>
               )}
 
@@ -1325,37 +1325,37 @@ export default function SolarProjects() {
                           <span className="text-lg font-bold text-amber-900">{fmtN(rWp, 2)}</span>
                         </div>
                         <div className="text-[10px] text-slate-400 leading-tight">
-                          <p>ReferÃªncia mercado: R$ 3,50 ~ 5,50/Wp</p>
-                          <p className={rWp < 5.5 ? 'text-green-600 font-bold' : 'text-red-500 font-bold'}>{rWp < 3.5 ? 'ðŸ”¥ Muito competitivo!' : rWp < 5.5 ? 'âœ… Dentro do mercado' : 'âš ï¸ Acima do mercado'}</p>
+                          <p>ReferÃƒÂªncia mercado: R$ 3,50 ~ 5,50/Wp</p>
+                          <p className={rWp < 5.5 ? 'text-green-600 font-bold' : 'text-red-500 font-bold'}>{rWp < 3.5 ? 'Ã°Å¸â€Â¥ Muito competitivo!' : rWp < 5.5 ? 'Ã¢Å“â€¦ Dentro do mercado' : 'Ã¢Å¡Â Ã¯Â¸Â Acima do mercado'}</p>
                         </div>
                       </div>
                     );
                   })()}
                 </div>
                 <div className="grid grid-cols-4 gap-3">
-                  <div><Label className="text-xs">MÃ£o de Obra (R$)</Label><Input type="number" step="0.01" value={numVal(form.laborCost)} onChange={e => setForm({ ...form, laborCost: e.target.value })} /></div>
-                  <div><Label className="text-xs">InstalaÃ§Ã£o (R$)</Label><Input type="number" step="0.01" value={numVal(form.installationCost)} onChange={e => setForm({ ...form, installationCost: e.target.value })} /></div>
-                  <div><Label className="text-xs">LogÃ­stica / Frete (R$)</Label><Input type="number" step="0.01" value={numVal(form.logisticsCost)} onChange={e => setForm({ ...form, logisticsCost: e.target.value })} /></div>
+                  <div><Label className="text-xs">MÃƒÂ£o de Obra (R$)</Label><Input type="number" step="0.01" value={numVal(form.laborCost)} onChange={e => setForm({ ...form, laborCost: e.target.value })} /></div>
+                  <div><Label className="text-xs">InstalaÃƒÂ§ÃƒÂ£o (R$)</Label><Input type="number" step="0.01" value={numVal(form.installationCost)} onChange={e => setForm({ ...form, installationCost: e.target.value })} /></div>
+                  <div><Label className="text-xs">LogÃƒÂ­stica / Frete (R$)</Label><Input type="number" step="0.01" value={numVal(form.logisticsCost)} onChange={e => setForm({ ...form, logisticsCost: e.target.value })} /></div>
                   <div><Label className="text-xs">Seguro (R$)</Label><Input type="number" step="0.01" value={numVal(form.insuranceCost)} onChange={e => setForm({ ...form, insuranceCost: e.target.value })} /></div>
                   <div><Label className="text-xs">Engenharia / Projeto (R$)</Label><Input type="number" step="0.01" value={numVal(form.engineeringCost)} onChange={e => setForm({ ...form, engineeringCost: e.target.value })} /></div>
-                  <div><Label className="text-xs">HomologaÃ§Ã£o / ART (R$)</Label><Input type="number" step="0.01" value={numVal(form.documentationCost)} onChange={e => setForm({ ...form, documentationCost: e.target.value })} /></div>
+                  <div><Label className="text-xs">HomologaÃƒÂ§ÃƒÂ£o / ART (R$)</Label><Input type="number" step="0.01" value={numVal(form.documentationCost)} onChange={e => setForm({ ...form, documentationCost: e.target.value })} /></div>
                   <div><Label className="text-xs">Outros Custos (R$)</Label><Input type="number" step="0.01" value={numVal(form.otherCosts)} onChange={e => setForm({ ...form, otherCosts: e.target.value })} /></div>
                   <div><Label className="text-xs">Margem (%)</Label><Input type="number" step="0.1" value={numVal(form.margin)} onChange={e => setForm({ ...form, margin: e.target.value })} /></div>
                 </div>
 
-                {/* R$/Wp Quick Calculator (referÃªncia interna) */}
+                {/* R$/Wp Quick Calculator (referÃƒÂªncia interna) */}
                 {p?.systemPowerKwp > 0 && (
                   <div className="p-3 bg-slate-50 rounded-lg border space-y-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Calculadora R$/Wp â€” ReferÃªncia Interna</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Calculadora R$/Wp Ã¢â‚¬â€ ReferÃƒÂªncia Interna</p>
                     <p className="text-[10px] text-slate-400">Sistema: <strong className="text-slate-700">{fmtN(p.systemPowerKwp)} kWp ({fmtN(p.systemPowerKwp * 1000, 0)} Wp)</strong>. Digite o R$/Wp e clique para aplicar ao campo.</p>
                     <div className="grid grid-cols-4 gap-2">
                       {[
-                        { label: 'MÃ£o de Obra', field: 'laborCost' },
-                        { label: 'InstalaÃ§Ã£o', field: 'installationCost' },
-                        { label: 'LogÃ­stica', field: 'logisticsCost' },
+                        { label: 'MÃƒÂ£o de Obra', field: 'laborCost' },
+                        { label: 'InstalaÃƒÂ§ÃƒÂ£o', field: 'installationCost' },
+                        { label: 'LogÃƒÂ­stica', field: 'logisticsCost' },
                         { label: 'Seguro', field: 'insuranceCost' },
                         { label: 'Engenharia', field: 'engineeringCost' },
-                        { label: 'HomologaÃ§Ã£o', field: 'documentationCost' },
+                        { label: 'HomologaÃƒÂ§ÃƒÂ£o', field: 'documentationCost' },
                         { label: 'Outros', field: 'otherCosts' },
                       ].map(item => {
                         const wpTotal = p.systemPowerKwp * 1000;
@@ -1381,22 +1381,22 @@ export default function SolarProjects() {
             </div>
           )}
 
-          {/* STEP 5: Kits Comerciais (EstratÃ©gia Isca) */}
+          {/* STEP 5: Kits Comerciais (EstratÃƒÂ©gia Isca) */}
           {step === 5 && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Crown className="w-5 h-5 text-amber-500" /> EstratÃ©gia Comercial â€” Kits</h2>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Crown className="w-5 h-5 text-amber-500" /> EstratÃƒÂ©gia Comercial Ã¢â‚¬â€ Kits</h2>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={form.commercialStrategyEnabled} onChange={e => handleToggleStrategy(e.target.checked)} className="rounded border-amber-300 text-amber-500" />
-                  <span className="text-sm font-medium text-slate-700">Ativar EstratÃ©gia de Kits</span>
+                  <span className="text-sm font-medium text-slate-700">Ativar EstratÃƒÂ©gia de Kits</span>
                 </label>
               </div>
 
               {!form.commercialStrategyEnabled ? (
                 <div className="text-center py-16 text-slate-400">
                   <Crown className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                  <p className="font-medium">EstratÃ©gia Comercial Desativada</p>
-                  <p className="text-xs mt-1 max-w-lg mx-auto">Ative a estratÃ©gia para criar kits com precificaÃ§Ã£o estratÃ©gica (efeito isca). Adicione quantos kits quiser â€” o cliente serÃ¡ naturalmente induzido a escolher o kit recomendado.</p>
+                  <p className="font-medium">EstratÃƒÂ©gia Comercial Desativada</p>
+                  <p className="text-xs mt-1 max-w-lg mx-auto">Ative a estratÃƒÂ©gia para criar kits com precificaÃƒÂ§ÃƒÂ£o estratÃƒÂ©gica (efeito isca). Adicione quantos kits quiser Ã¢â‚¬â€ o cliente serÃƒÂ¡ naturalmente induzido a escolher o kit recomendado.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1409,7 +1409,7 @@ export default function SolarProjects() {
                           : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'
                           }`}>
                         {(form.commercialKits || []).length > 1 && (
-                          <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center" onClick={e => { e.stopPropagation(); handleRemoveKit(ki); }}>Ã—</span>
+                          <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center" onClick={e => { e.stopPropagation(); handleRemoveKit(ki); }}>Ãƒâ€”</span>
                         )}
                         <div className="flex items-center justify-center gap-2">
                           {kit.isRecommended && <Star className="w-4 h-4 text-amber-500 fill-amber-500" />}
@@ -1468,7 +1468,7 @@ export default function SolarProjects() {
                             <div className="border rounded-lg overflow-hidden">
                               <table className="w-full text-xs">
                                 <thead className="bg-slate-50">
-                                  <tr><th className="px-2 py-1.5 text-left">DescriÃ§Ã£o</th><th className="px-2 py-1.5 text-left">Marca</th><th className="px-2 py-1.5 text-left">Modelo</th><th className="px-2 py-1.5 text-center">Qtd</th><th className="px-2 py-1.5 text-right">PreÃ§o</th><th className="px-2 py-1.5 text-right">Total</th><th></th></tr>
+                                  <tr><th className="px-2 py-1.5 text-left">DescriÃƒÂ§ÃƒÂ£o</th><th className="px-2 py-1.5 text-left">Marca</th><th className="px-2 py-1.5 text-left">Modelo</th><th className="px-2 py-1.5 text-center">Qtd</th><th className="px-2 py-1.5 text-right">PreÃƒÂ§o</th><th className="px-2 py-1.5 text-right">Total</th><th></th></tr>
                                 </thead>
                                 <tbody>
                                   {kit.equipment.map((eq: any, ei: number) => (
@@ -1492,17 +1492,17 @@ export default function SolarProjects() {
 
                         {/* Kit Costs */}
                         <div className="grid grid-cols-5 gap-3">
-                          <div><Label className="text-xs">MÃ£o de Obra</Label><Input type="number" step="0.01" className="h-8 text-xs" value={numVal(kit.laborCost)} onChange={e => updateKit(ki, 'laborCost', Number(e.target.value))} /></div>
-                          <div><Label className="text-xs">InstalaÃ§Ã£o</Label><Input type="number" step="0.01" className="h-8 text-xs" value={numVal(kit.installationCost)} onChange={e => updateKit(ki, 'installationCost', Number(e.target.value))} /></div>
+                          <div><Label className="text-xs">MÃƒÂ£o de Obra</Label><Input type="number" step="0.01" className="h-8 text-xs" value={numVal(kit.laborCost)} onChange={e => updateKit(ki, 'laborCost', Number(e.target.value))} /></div>
+                          <div><Label className="text-xs">InstalaÃƒÂ§ÃƒÂ£o</Label><Input type="number" step="0.01" className="h-8 text-xs" value={numVal(kit.installationCost)} onChange={e => updateKit(ki, 'installationCost', Number(e.target.value))} /></div>
                           <div><Label className="text-xs">Outros</Label><Input type="number" step="0.01" className="h-8 text-xs" value={numVal(kit.otherCosts)} onChange={e => updateKit(ki, 'otherCosts', Number(e.target.value))} /></div>
                           <div><Label className="text-xs">Margem %</Label><Input type="number" step="0.1" className="h-8 text-xs" value={numVal(kit.margin)} onChange={e => updateKit(ki, 'margin', Number(e.target.value))} /></div>
-                          <div><Label className="text-xs">PreÃ§o Final</Label><div className="px-3 py-1.5 bg-amber-50 rounded border border-amber-200 font-bold text-amber-900 text-sm">{fmt(kit.totalPrice)}</div></div>
+                          <div><Label className="text-xs">PreÃƒÂ§o Final</Label><div className="px-3 py-1.5 bg-amber-50 rounded border border-amber-200 font-bold text-amber-900 text-sm">{fmt(kit.totalPrice)}</div></div>
                         </div>
 
                         {/* Kit Guarantees */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <p className="text-xs font-bold text-slate-500 uppercase">Garantias & BenefÃ­cios {kit.showGuaranteeValues && <span className="text-amber-600">(com valores â€” Hormozi Value Stack)</span>}</p>
+                            <p className="text-xs font-bold text-slate-500 uppercase">Garantias & BenefÃƒÂ­cios {kit.showGuaranteeValues && <span className="text-amber-600">(com valores Ã¢â‚¬â€ Hormozi Value Stack)</span>}</p>
                             <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => addKitGuarantee(ki)}><Plus className="w-3 h-3 mr-1" /> Adicionar</Button>
                           </div>
                           <div className="space-y-1.5">
@@ -1513,7 +1513,7 @@ export default function SolarProjects() {
                                     }`}>
                                   {g.included ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
                                 </button>
-                                <Input className="h-7 text-xs flex-1" value={g.text} onChange={e => updateKitGuarantee(ki, gi, 'text', e.target.value)} placeholder="DescriÃ§Ã£o da garantia..." />
+                                <Input className="h-7 text-xs flex-1" value={g.text} onChange={e => updateKitGuarantee(ki, gi, 'text', e.target.value)} placeholder="DescriÃƒÂ§ÃƒÂ£o da garantia..." />
                                 {kit.showGuaranteeValues && (
                                   <div className="flex items-center gap-1 w-28">
                                     <span className="text-[10px] text-slate-400">R$</span>
@@ -1528,7 +1528,7 @@ export default function SolarProjects() {
                             const guaranteeTotal = (kit.guarantees || []).filter((g: any) => g.included).reduce((s: number, g: any) => s + Number(g.value || 0), 0);
                             return guaranteeTotal > 0 ? (
                               <div className="mt-2 p-2 bg-emerald-50 rounded border border-emerald-200 text-xs">
-                                <span className="text-emerald-700 font-bold">Valor total dos benefÃ­cios inclusos: {fmt(guaranteeTotal)}</span>
+                                <span className="text-emerald-700 font-bold">Valor total dos benefÃƒÂ­cios inclusos: {fmt(guaranteeTotal)}</span>
                               </div>
                             ) : null;
                           })()}
@@ -1537,10 +1537,10 @@ export default function SolarProjects() {
                     );
                   })()}
 
-                  {/* Preview â€” Kit Cards Side by Side (Value Stack + Anchoring) */}
+                  {/* Preview Ã¢â‚¬â€ Kit Cards Side by Side (Value Stack + Anchoring) */}
                   {(form.commercialKits || []).length >= 1 && (
                     <div>
-                      <p className="text-xs font-bold text-slate-500 uppercase mb-3">Preview â€” VisÃ£o do Cliente (Ariely + Hormozi)</p>
+                      <p className="text-xs font-bold text-slate-500 uppercase mb-3">Preview Ã¢â‚¬â€ VisÃƒÂ£o do Cliente (Ariely + Hormozi)</p>
                       <div className={`grid gap-3 ${(form.commercialKits || []).length === 1 ? 'grid-cols-1 max-w-md mx-auto' : (form.commercialKits || []).length === 2 ? 'grid-cols-2' : (form.commercialKits || []).length === 3 ? 'grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'}`}>
                         {form.commercialKits.map((kit: any, ki: number) => {
                           const guaranteeValueIncluded = (kit.guarantees || []).filter((g: any) => g.included).reduce((s: number, g: any) => s + Number(g.value || 0), 0);
@@ -1564,7 +1564,7 @@ export default function SolarProjects() {
                                 {(kit.equipment || []).slice(0, 3).map((eq: any, ei: number) => (
                                   <div key={ei} className="p-1.5 bg-white rounded border text-center">
                                     <p className="font-bold text-slate-700">{eq.description || eq.type}</p>
-                                    <p className="text-slate-400">{eq.brand} {eq.model} Ã— {eq.quantity}</p>
+                                    <p className="text-slate-400">{eq.brand} {eq.model} Ãƒâ€” {eq.quantity}</p>
                                   </div>
                                 ))}
                               </div>
@@ -1590,11 +1590,11 @@ export default function SolarProjects() {
                                   <p className="text-[10px] text-green-600">Economia de {fmt(savings)} ({fmtN(savingsPercent, 0)}%)</p>
                                 </div>
                               )}
-                              {/* Price — Anchoring */}
+                              {/* Price â€” Anchoring */}
                               <div className={`text-center pt-2 border-t ${kit.isRecommended ? 'border-amber-300' : 'border-slate-200'}`}>
-                                <p className="text-[10px] text-slate-400 uppercase font-bold">Você Paga Apenas</p>
+                                <p className="text-[10px] text-slate-400 uppercase font-bold">VocÃª Paga Apenas</p>
                                 <p className={`text-2xl font-bold ${kit.isRecommended ? 'text-amber-800' : 'text-slate-900'}`}>{fmt(kit.totalPrice)}</p>
-                                <p className="text-[10px] text-slate-400">à vista</p>
+                                <p className="text-[10px] text-slate-400">Ã  vista</p>
                               </div>
                             </div>
                           );
@@ -1607,265 +1607,316 @@ export default function SolarProjects() {
             </div>
           )}
 
-          {/* STEP 6: CondiÃ§Ãµes de Pagamento (PLANO FLEXÃVEL) */}
+          {/* STEP 6: CondiÃ§Ãµes de Pagamento */}
           {step === 6 && (() => {
             const pcList: any[] = Array.isArray(form.paymentConditions) ? form.paymentConditions : (form.paymentConditions ? [form.paymentConditions] : []);
             const aPCIdx = form._activePaymentTab || 0;
             const activePC = pcList[aPCIdx] || null;
 
             const recKit = (form.commercialKits || []).find((k: any) => k.isRecommended) || form.commercialKits?.[0];
-            const totalValue = recKit?.totalPrice || Number(form.totalInvestment || 0);
+            const baseValue = recKit?.totalPrice || Number(form.totalInvestment || 0);
 
-            const updatePC = (idx: number, key: string, value: any) => {
-              setForm((f: any) => {
-                const list = Array.isArray(f.paymentConditions) ? [...f.paymentConditions] : (f.paymentConditions ? [f.paymentConditions] : []);
-                list[idx] = { ...list[idx], [key]: value };
-                return { ...f, paymentConditions: list };
-              });
+            const setPC = (idx: number, key: string, val: any) => setForm((f: any) => {
+              const list = [...(Array.isArray(f.paymentConditions) ? f.paymentConditions : f.paymentConditions ? [f.paymentConditions] : [])];
+              list[idx] = { ...list[idx], [key]: val };
+              return { ...f, paymentConditions: list };
+            });
+            const setLine = (optIdx: number, lineIdx: number, key: string, val: any) => setForm((f: any) => {
+              const list = [...(Array.isArray(f.paymentConditions) ? f.paymentConditions : f.paymentConditions ? [f.paymentConditions] : [])];
+              const lines = [...(list[optIdx]?.lines || [])];
+              lines[lineIdx] = { ...lines[lineIdx], [key]: val };
+              list[optIdx] = { ...list[optIdx], lines };
+              return { ...f, paymentConditions: list };
+            });
+            const addOption = () => setForm((f: any) => {
+              const list = [...(Array.isArray(f.paymentConditions) ? f.paymentConditions : f.paymentConditions ? [f.paymentConditions] : [])];
+              list.push({ label: `Opcao ${list.length + 1}`, lines: [{ type: 'entrada', description: '', unitValue: 0, qty: 1, interestRate: 0, when: '' }], notes: '' });
+              return { ...f, paymentConditions: list, _activePaymentTab: list.length - 1 };
+            });
+            const removeOption = (idx: number) => setForm((f: any) => {
+              const list = [...(Array.isArray(f.paymentConditions) ? f.paymentConditions : [])];
+              list.splice(idx, 1);
+              return { ...f, paymentConditions: list, _activePaymentTab: Math.max(0, idx - 1) };
+            });
+            const addLine = (optIdx: number) => setForm((f: any) => {
+              const list = [...(Array.isArray(f.paymentConditions) ? f.paymentConditions : [])];
+              const lines = [...(list[optIdx]?.lines || [])];
+              lines.push({ type: 'parcelas', description: '', unitValue: 0, qty: 1, interestRate: 0, when: '' });
+              list[optIdx] = { ...list[optIdx], lines };
+              return { ...f, paymentConditions: list };
+            });
+            const removeLine = (optIdx: number, lineIdx: number) => setForm((f: any) => {
+              const list = [...(Array.isArray(f.paymentConditions) ? f.paymentConditions : [])];
+              const lines = [...(list[optIdx]?.lines || [])];
+              lines.splice(lineIdx, 1);
+              list[optIdx] = { ...list[optIdx], lines };
+              return { ...f, paymentConditions: list };
+            });
+
+            const lineTotal = (line: any) => Number(line.unitValue || 0) * Number(line.qty || 1);
+            const optTotal = (opt: any) => (opt?.lines || []).reduce((s: number, l: any) => s + lineTotal(l), 0);
+            const diff = activePC ? optTotal(activePC) - baseValue : 0;
+            const typeLabels: Record<string, string> = {
+              entrada: 'Entrada', parcelas: 'Parcelas', financiamento: 'Financiamento',
+              avista: 'A Vista', desconto: 'Desconto', outro: 'Outro',
             };
-            const addOption = () => {
-              setForm((f: any) => {
-                const list = Array.isArray(f.paymentConditions) ? [...f.paymentConditions] : (f.paymentConditions ? [f.paymentConditions] : []);
-                list.push({
-                  label: `OpÃ§Ã£o ${list.length + 1}`,
-                  lines: [{ description: '', value: 0, when: '', installments: 0, interestRate: 0, interestType: 'sem_juros' }],
-                  notes: '',
-                });
-                return { ...f, paymentConditions: list, _activePaymentTab: list.length - 1 };
-              });
+            const typeColors: Record<string, string> = {
+              entrada: 'bg-blue-100 text-blue-700', parcelas: 'bg-amber-100 text-amber-700',
+              financiamento: 'bg-purple-100 text-purple-700', avista: 'bg-green-100 text-green-700',
+              desconto: 'bg-red-100 text-red-700', outro: 'bg-slate-100 text-slate-600',
             };
-            const removeOption = (idx: number) => {
-              setForm((f: any) => {
-                const list = [...(Array.isArray(f.paymentConditions) ? f.paymentConditions : [])];
-                list.splice(idx, 1);
-                return { ...f, paymentConditions: list, _activePaymentTab: Math.max(0, idx - 1) };
-              });
-            };
-            const addLine = (optIdx: number) => {
-              setForm((f: any) => {
-                const list = [...(Array.isArray(f.paymentConditions) ? f.paymentConditions : [])];
-                const lines = [...(list[optIdx]?.lines || [])];
-                lines.push({ description: '', value: 0, when: '', installments: 0, interestRate: 0, interestType: 'sem_juros' });
-                list[optIdx] = { ...list[optIdx], lines };
-                return { ...f, paymentConditions: list };
-              });
-            };
-            const removeLine = (optIdx: number, lineIdx: number) => {
-              setForm((f: any) => {
-                const list = [...(Array.isArray(f.paymentConditions) ? f.paymentConditions : [])];
-                const lines = [...(list[optIdx]?.lines || [])];
-                lines.splice(lineIdx, 1);
-                list[optIdx] = { ...list[optIdx], lines };
-                return { ...f, paymentConditions: list };
-              });
-            };
-            const updateLine = (optIdx: number, lineIdx: number, key: string, value: any) => {
-              setForm((f: any) => {
-                const list = [...(Array.isArray(f.paymentConditions) ? f.paymentConditions : [])];
-                const lines = [...(list[optIdx]?.lines || [])];
-                lines[lineIdx] = { ...lines[lineIdx], [key]: value };
-                list[optIdx] = { ...list[optIdx], lines };
-                return { ...f, paymentConditions: list };
-              });
-            };
-            const lineTotal = (line: any) => {
-              if (line.installments > 0) return Number(line.value || 0) * Number(line.installments);
-              return Number(line.value || 0);
-            };
-            const optionTotal = (opt: any) => (opt?.lines || []).reduce((s: number, l: any) => s + lineTotal(l), 0);
 
             return (
-            <div className="space-y-5">
-              <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><CreditCard className="w-5 h-5 text-amber-500" /> CondiÃ§Ãµes de Pagamento</h2>
-                  <p className="text-xs text-slate-500 mt-1">Monte planos flexÃ­veis. Cada opÃ§Ã£o pode ter vÃ¡rias etapas (entrada, parcelas, pagamento por fase, etc.).</p>
+                  <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-amber-500" /> Condicoes de Pagamento
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Monte o plano financeiro. Cada opcao tem linhas livres: entrada, parcelas, fase, desconto, financiamento.
+                  </p>
                 </div>
-                <Button onClick={addOption} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold">
-                  <Plus className="w-4 h-4 mr-1" /> Nova OpÃ§Ã£o
+                <Button onClick={addOption} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold shrink-0">
+                  <Plus className="w-4 h-4 mr-1" /> Nova Opcao
                 </Button>
               </div>
 
-              {totalValue > 0 && (
-                <div className="flex items-center gap-4 p-3 bg-gradient-to-r from-amber-50 to-amber-100 rounded-lg border border-amber-200">
-                  <div className="text-xs text-amber-700"><strong>Investimento Total:</strong> <span className="text-lg font-bold text-amber-900">{fmt(totalValue)}</span></div>
+              {baseValue > 0 && (
+                <div className="flex items-center justify-between p-4 rounded-xl bg-slate-900 text-white">
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase tracking-wide">Valor Base da Proposta</p>
+                    <p className="text-2xl font-black text-amber-400 mt-0.5">R$ {fmt(baseValue)}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Cada forma de pagamento pode aumentar (juros) ou reduzir (desconto) este valor.
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                    <CreditCard className="w-6 h-6 text-amber-400" />
+                  </div>
                 </div>
               )}
 
               {pcList.length === 0 ? (
-                <div className="text-center py-16 text-slate-400">
-                  <CreditCard className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                  <p className="font-medium">Nenhuma opÃ§Ã£o de pagamento configurada</p>
-                  <p className="text-xs mt-1">Clique em "Nova OpÃ§Ã£o" para montar o plano de pagamento.</p>
+                <div className="text-center py-14 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
+                  <CreditCard className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="font-semibold text-slate-500">Nenhum plano configurado</p>
+                  <p className="text-xs mt-1">Clique em "Nova Opcao" para comecar</p>
+                  <Button onClick={addOption} className="mt-4 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold" size="sm">
+                    <Plus className="w-4 h-4 mr-1" /> Criar Primeira Opcao
+                  </Button>
                 </div>
               ) : (
                 <>
-                  {/* Tabs */}
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="flex gap-2 flex-wrap border-b pb-3">
                     {pcList.map((pc: any, pi: number) => {
-                      const total = optionTotal(pc);
+                      const tot = optTotal(pc);
+                      const d = tot - baseValue;
                       return (
                         <div key={pi} role="button" tabIndex={0}
                           onClick={() => setForm((f: any) => ({ ...f, _activePaymentTab: pi }))}
-                          className={`flex-1 min-w-[140px] px-4 py-3 rounded-xl text-sm font-bold border-2 transition-all relative group cursor-pointer ${
-                            aPCIdx === pi ? 'border-amber-400 bg-amber-50 text-amber-900 shadow-md' : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'
+                          className={`relative group cursor-pointer px-4 py-2.5 rounded-lg text-sm font-semibold border-2 transition-all min-w-[130px] text-center ${
+                            aPCIdx === pi ? 'border-amber-400 bg-amber-50 text-amber-900 shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-amber-200'
                           }`}>
                           {pcList.length > 1 && (
-                            <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center"
-                              onClick={e => { e.stopPropagation(); removeOption(pi); }}>Ã—</span>
+                            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer z-10"
+                              onClick={e => { e.stopPropagation(); removeOption(pi); }}>x</span>
                           )}
-                          <div className="text-center">
-                            <input className="bg-transparent text-center font-bold border-none outline-none w-full text-sm"
-                              value={pc.label || `OpÃ§Ã£o ${pi + 1}`}
-                              onChange={e => updatePC(pi, 'label', e.target.value)}
-                              onClick={e => e.stopPropagation()} />
-                            <p className="text-xs font-mono mt-1">{fmt(total)}</p>
-                            <p className="text-[10px] text-slate-400">{(pc.lines || []).length} etapa(s)</p>
-                          </div>
+                          <input className="bg-transparent text-center font-bold border-none outline-none w-full text-sm cursor-pointer"
+                            value={pc.label || `Opcao ${pi + 1}`}
+                            onChange={e => setPC(pi, 'label', e.target.value)}
+                            onClick={e => e.stopPropagation()} />
+                          <div className="text-xs font-mono">{fmt(tot)}</div>
+                          {d !== 0 && baseValue > 0 && (
+                            <div className={`text-[9px] font-bold ${d > 0 ? 'text-red-500' : 'text-green-600'}`}>
+                              {d > 0 ? `+${fmt(d)} (juros)` : `${fmt(Math.abs(d))} desc.`}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                     <button onClick={addOption}
-                      className="min-w-[60px] px-3 py-3 rounded-xl border-2 border-dashed border-slate-300 text-slate-400 hover:border-amber-400 hover:text-amber-600 transition-all flex flex-col items-center justify-center">
-                      <Plus className="w-5 h-5" />
-                      <span className="text-[10px] mt-0.5">Nova</span>
+                      className="px-4 py-2.5 rounded-lg border-2 border-dashed border-slate-300 text-slate-400 hover:border-amber-400 hover:text-amber-600 transition-all text-sm font-semibold flex items-center gap-1">
+                      <Plus className="w-4 h-4" /> Nova
                     </button>
                   </div>
 
-                  {/* Editor de linhas da opÃ§Ã£o ativa */}
                   {activePC && (
-                    <div className="border rounded-xl overflow-hidden bg-white">
-                      <div className="bg-slate-50 px-5 py-3 flex items-center justify-between border-b flex-wrap gap-2">
-                        <p className="text-sm font-bold text-slate-700">ðŸ“‹ Etapas de Pagamento â€” {activePC.label || `OpÃ§Ã£o ${aPCIdx + 1}`}</p>
-                        <Button variant="outline" size="sm" onClick={() => addLine(aPCIdx)}><Plus className="w-3 h-3 mr-1" /> Adicionar Etapa</Button>
+                    <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+                      <div className="bg-slate-800 text-white px-4 py-2.5 flex items-center justify-between">
+                        <span className="text-sm font-bold">
+                          {activePC.label || `Opcao ${aPCIdx + 1}`} â€” Plano de Pagamento
+                        </span>
+                        <Button variant="ghost" size="sm" onClick={() => addLine(aPCIdx)}
+                          className="text-amber-400 hover:text-amber-300 hover:bg-white/10 h-7 text-xs">
+                          <Plus className="w-3 h-3 mr-1" /> Linha
+                        </Button>
                       </div>
 
-                      <div className="divide-y">
-                        {(activePC.lines || []).map((line: any, li: number) => (
-                          <div key={li} className="p-4 space-y-3 hover:bg-slate-50/50 transition-colors">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-amber-600 uppercase">Etapa {li + 1}</span>
-                              {(activePC.lines || []).length > 1 && (
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400" onClick={() => removeLine(aPCIdx, li)}>
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              )}
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                              <div className="col-span-2">
-                                <Label className="text-xs">DescriÃ§Ã£o</Label>
-                                <Input className="h-8 text-sm" value={line.description || ''}
-                                  onChange={e => updateLine(aPCIdx, li, 'description', e.target.value)}
-                                  placeholder="Ex: Entrada ao fornecedor, 21x sem juros, Pgto fase 2..." />
-                              </div>
-                              <div>
-                                <Label className="text-xs">Valor (R$)</Label>
-                                <Input className="h-8 text-sm" type="number" step="0.01" value={numVal(line.value)}
-                                  onChange={e => updateLine(aPCIdx, li, 'value', Number(e.target.value))} />
-                              </div>
-                              <div>
-                                <Label className="text-xs">Quando / Fase</Label>
-                                <Input className="h-8 text-sm" value={line.when || ''}
-                                  onChange={e => updateLine(aPCIdx, li, 'when', e.target.value)}
-                                  placeholder="Na assinatura, Fase 1, ApÃ³s instalaÃ§Ã£o..." />
-                              </div>
-                              <div>
-                                <Label className="text-xs">NÂº Parcelas <span className="text-slate-400 text-[10px]">(0 = Ãºnico)</span></Label>
-                                <Input className="h-8 text-sm" type="number" step="1" value={numVal(line.installments)}
-                                  onChange={e => updateLine(aPCIdx, li, 'installments', Number(e.target.value))} />
-                              </div>
-                              {line.installments > 0 && (
-                                <>
-                                  <div>
-                                    <Label className="text-xs">Juros (% a.m.)</Label>
-                                    <Input className="h-8 text-sm" type="number" step="0.01" value={numVal(line.interestRate)}
-                                      onChange={e => updateLine(aPCIdx, li, 'interestRate', Number(e.target.value))} />
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs">Tipo</Label>
-                                    <Select value={line.interestType || 'sem_juros'} onValueChange={v => updateLine(aPCIdx, li, 'interestType', v)}>
-                                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="sem_juros">Sem Juros</SelectItem>
-                                        <SelectItem value="embutido">Embutido</SelectItem>
-                                        <SelectItem value="sobre_saldo">Sobre Saldo</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                            <div className="text-right text-xs text-slate-500">
-                              Subtotal: <strong className="text-slate-900">{fmt(lineTotal(line))}</strong>
-                              {line.installments > 0 && <span className="ml-1">({line.installments}x de {fmt(line.value)})</span>}
-                              {line.installments > 0 && Number(line.interestRate) === 0 && <span className="ml-1 text-green-600 font-bold">â€¢ SEM JUROS</span>}
-                              {Number(line.interestRate) > 0 && <span className="ml-1 text-amber-600">â€¢ {line.interestRate}% a.m.</span>}
-                            </div>
-                          </div>
-                        ))}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50 text-xs text-slate-500 uppercase border-b">
+                              <th className="text-left px-3 py-2 font-semibold w-[130px]">Tipo</th>
+                              <th className="text-left px-3 py-2 font-semibold">Descricao</th>
+                              <th className="text-right px-3 py-2 font-semibold w-[110px]">Valor Unit. (R$)</th>
+                              <th className="text-center px-3 py-2 font-semibold w-[80px]">Qtd/Parcelas</th>
+                              <th className="text-center px-3 py-2 font-semibold w-[85px]">Juros % a.m.</th>
+                              <th className="text-left px-3 py-2 font-semibold w-[130px]">Quando</th>
+                              <th className="text-right px-3 py-2 font-semibold w-[110px]">Subtotal</th>
+                              <th className="w-8"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {(activePC.lines || []).map((line: any, li: number) => (
+                              <tr key={li} className="hover:bg-slate-50/60 transition-colors group/row">
+                                <td className="px-2 py-2">
+                                  <Select value={line.type || 'parcelas'} onValueChange={v => setLine(aPCIdx, li, 'type', v)}>
+                                    <SelectTrigger className="h-7 text-xs border border-slate-200 rounded px-2">
+                                      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${typeColors[line.type || 'parcelas']}`}>
+                                        {typeLabels[line.type || 'parcelas']}
+                                      </span>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {Object.entries(typeLabels).map(([v, l]) => (
+                                        <SelectItem key={v} value={v}>
+                                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${typeColors[v]}`}>{l}</span>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </td>
+                                <td className="px-2 py-2">
+                                  <Input className="h-7 text-sm border-slate-200 min-w-[160px]" value={line.description || ''}
+                                    onChange={e => setLine(aPCIdx, li, 'description', e.target.value)}
+                                    placeholder="Ex: Entrada ao fornecedor, 21x no cartao..." />
+                                </td>
+                                <td className="px-2 py-2">
+                                  <Input className="h-7 text-sm text-right border-slate-200 font-mono" type="number" step="0.01"
+                                    value={numVal(line.unitValue)}
+                                    onChange={e => setLine(aPCIdx, li, 'unitValue', Number(e.target.value))} />
+                                </td>
+                                <td className="px-2 py-2">
+                                  <Input className="h-7 text-sm text-center border-slate-200 font-mono" type="number" step="1"
+                                    value={numVal(line.qty || 1)}
+                                    onChange={e => setLine(aPCIdx, li, 'qty', Number(e.target.value))} />
+                                </td>
+                                <td className="px-2 py-2">
+                                  <Input className="h-7 text-sm text-center border-slate-200 font-mono" type="number" step="0.01"
+                                    value={numVal(line.interestRate || 0)}
+                                    onChange={e => setLine(aPCIdx, li, 'interestRate', Number(e.target.value))} />
+                                </td>
+                                <td className="px-2 py-2">
+                                  <Input className="h-7 text-xs border-slate-200" value={line.when || ''}
+                                    onChange={e => setLine(aPCIdx, li, 'when', e.target.value)}
+                                    placeholder="Na assinatura, Fase 2..." />
+                                </td>
+                                <td className="px-3 py-2 text-right">
+                                  <div className="font-bold text-slate-900 font-mono">{fmt(lineTotal(line))}</div>
+                                  {Number(line.qty || 1) > 1 && (
+                                    <div className="text-[10px] text-slate-400">{line.qty}x {fmt(line.unitValue)}</div>
+                                  )}
+                                  {Number(line.interestRate) > 0 && (
+                                    <div className="text-[10px] text-amber-600 font-semibold">{line.interestRate}% a.m.</div>
+                                  )}
+                                  {Number(line.interestRate) === 0 && Number(line.qty || 1) > 1 && (
+                                    <div className="text-[10px] text-green-600 font-bold">SEM JUROS</div>
+                                  )}
+                                </td>
+                                <td className="px-1 py-2">
+                                  {(activePC.lines || []).length > 1 && (
+                                    <Button variant="ghost" size="icon"
+                                      className="h-6 w-6 text-slate-300 opacity-0 group-hover/row:opacity-100 hover:text-red-500 transition-all"
+                                      onClick={() => removeLine(aPCIdx, li)}>
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-slate-50 border-t-2 border-slate-300">
+                              <td colSpan={6} className="px-3 py-3">
+                                {baseValue > 0 && (
+                                  <span className="text-xs text-slate-500">
+                                    Valor base: <strong className="text-slate-800">R$ {fmt(baseValue)}</strong>
+                                    {Math.abs(diff) < 1 && <span className="ml-2 text-green-600 font-bold">Igual ao valor base</span>}
+                                    {diff > 1 && <span className="ml-2 text-red-500 font-bold">+{fmt(diff)} (juros/acrescimos)</span>}
+                                    {diff < -1 && <span className="ml-2 text-green-600 font-bold">{fmt(diff)} (desconto)</span>}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                <div className={`text-lg font-black font-mono ${Math.abs(diff) < 1 ? 'text-green-700' : diff > 0 ? 'text-red-600' : 'text-blue-700'}`}>
+                                  R$ {fmt(optTotal(activePC))}
+                                </div>
+                                <div className="text-[10px] text-slate-400">Total a pagar</div>
+                              </td>
+                              <td></td>
+                            </tr>
+                          </tfoot>
+                        </table>
                       </div>
 
-                      <div className="bg-slate-50 px-5 py-3 border-t space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-slate-700">Total desta opÃ§Ã£o:</span>
-                          <span className={`text-xl font-bold ${Math.abs(optionTotal(activePC) - totalValue) < 1 ? 'text-green-700' : 'text-amber-700'}`}>
-                            {fmt(optionTotal(activePC))}
-                          </span>
-                        </div>
-                        {Math.abs(optionTotal(activePC) - totalValue) > 1 && totalValue > 0 && (
-                          <p className="text-[10px] text-amber-600">âš ï¸ DiferenÃ§a de {fmt(Math.abs(optionTotal(activePC) - totalValue))} em relaÃ§Ã£o ao investimento total ({fmt(totalValue)})</p>
-                        )}
-                        <div>
-                          <Label className="text-xs">ObservaÃ§Ãµes (aparece na proposta)</Label>
-                          <Textarea rows={2} className="text-sm" value={activePC.notes || ''} onChange={e => updatePC(aPCIdx, 'notes', e.target.value)}
-                            placeholder="CondiÃ§Ãµes especiais, prazos, validade da negociaÃ§Ã£o..." />
-                        </div>
+                      <div className="border-t px-4 py-3 bg-slate-50">
+                        <Label className="text-xs text-slate-500">Observacoes desta opcao (aparece na proposta)</Label>
+                        <Textarea rows={2} className="text-sm mt-1 resize-none"
+                          value={activePC.notes || ''} onChange={e => setPC(aPCIdx, 'notes', e.target.value)}
+                          placeholder="Condicoes especiais, prazo de validade, banco aceito..." />
                       </div>
                     </div>
                   )}
 
-                  {/* Preview de TODAS as opÃ§Ãµes */}
-                  <div className="p-4 bg-white rounded-xl border-2 border-amber-200">
-                    <p className="text-xs font-bold text-amber-700 uppercase mb-3">ðŸ“‹ Preview â€” Como aparecerÃ¡ na proposta</p>
-                    <div className={`grid gap-4 ${pcList.length === 1 ? 'grid-cols-1 max-w-lg' : 'grid-cols-1 md:grid-cols-2'}`}>
-                      {pcList.map((pc: any, pi: number) => (
-                        <div key={pi} className="p-3 bg-slate-50 rounded-lg border space-y-2">
-                          <p className="font-bold text-slate-900 text-center border-b pb-2">{pc.label || `OpÃ§Ã£o ${pi + 1}`}</p>
-                          {(pc.lines || []).map((line: any, li: number) => (
-                            <div key={li} className="flex items-start justify-between text-xs gap-2">
-                              <div className="flex-1">
-                                <p className="font-medium text-slate-800">{line.description || `Etapa ${li + 1}`}</p>
-                                {line.when && <p className="text-[10px] text-slate-400">{line.when}</p>}
+                  {pcList.length > 1 && (
+                    <div className="p-4 rounded-xl border-2 border-amber-100 bg-amber-50/30">
+                      <p className="text-xs font-bold text-amber-700 uppercase mb-3">Resumo â€” Todas as opcoes para o cliente</p>
+                      <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                        {pcList.map((pc: any, pi: number) => {
+                          const tot = optTotal(pc);
+                          const d = tot - baseValue;
+                          return (
+                            <div key={pi} className={`p-3 rounded-lg border bg-white space-y-1.5 ${aPCIdx === pi ? 'border-amber-300 shadow-sm' : 'border-slate-200'}`}>
+                              <div className="flex items-center justify-between border-b pb-1.5">
+                                <span className="font-bold text-slate-900 text-sm">{pc.label || `Opcao ${pi + 1}`}</span>
+                                <span className="font-black text-base font-mono text-amber-800">R$ {fmt(tot)}</span>
                               </div>
-                              <div className="text-right flex-shrink-0">
-                                {line.installments > 0 ? (
-                                  <p className="font-bold text-slate-900">{line.installments}x {fmt(line.value)}</p>
-                                ) : (
-                                  <p className="font-bold text-slate-900">{fmt(line.value)}</p>
-                                )}
-                                {line.installments > 0 && Number(line.interestRate) === 0 && <p className="text-[9px] text-green-600 font-bold">SEM JUROS</p>}
-                              </div>
+                              {(pc.lines || []).map((line: any, li: number) => (
+                                <div key={li} className="flex items-start justify-between text-xs gap-1">
+                                  <div className="flex-1 min-w-0">
+                                    <span className={`inline-block px-1.5 py-0 rounded text-[9px] font-bold mr-1 ${typeColors[line.type || 'parcelas']}`}>
+                                      {(line.type || '').toUpperCase()}
+                                    </span>
+                                    <span className="text-slate-700">{line.description || `Linha ${li + 1}`}</span>
+                                    {line.when && <span className="text-slate-400 ml-1">({line.when})</span>}
+                                  </div>
+                                  <span className="font-bold text-slate-900 font-mono shrink-0 ml-2">
+                                    {Number(line.qty || 1) > 1 ? `${line.qty}x ${fmt(line.unitValue)}` : `R$ ${fmt(line.unitValue)}`}
+                                  </span>
+                                </div>
+                              ))}
+                              {d !== 0 && baseValue > 0 && (
+                                <p className={`text-[10px] font-bold pt-1 border-t ${d > 0 ? 'text-red-500' : 'text-green-600'}`}>
+                                  {d > 0 ? `+${fmt(d)} em juros` : `${fmt(Math.abs(d))} de desconto`}
+                                </p>
+                              )}
                             </div>
-                          ))}
-                          <div className="border-t pt-2 text-right">
-                            <p className="text-xs font-bold text-amber-800">Total: {fmt(optionTotal(pc))}</p>
-                          </div>
-                        </div>
-                      ))}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </>
               )}
             </div>
           );
           })()}
 
-
-          {/* STEP 7: SimulaÃ§Ã£o Financeira */}
+          {/* STEP 7: SimulaÃƒÂ§ÃƒÂ£o Financeira */}
           {step === 7 && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><BarChart3 className="w-5 h-5 text-amber-500" /> SimulaÃ§Ã£o Financeira</h2>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><BarChart3 className="w-5 h-5 text-amber-500" /> SimulaÃƒÂ§ÃƒÂ£o Financeira</h2>
                 <Button onClick={handleCalcFinancials} disabled={saving} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold">
                   {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TrendingUp className="w-4 h-4 mr-2" />}
                   Calcular Financeiro
@@ -1875,7 +1926,7 @@ export default function SolarProjects() {
               {/* Params */}
               <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-lg border">
                 <div><Label className="text-xs">Aumento Anual da Energia (%)</Label><Input type="number" step="0.1" value={form.annualEnergyIncrease} onChange={e => setForm({ ...form, annualEnergyIncrease: e.target.value })} /></div>
-                <div><Label className="text-xs">DegradaÃ§Ã£o Anual dos PainÃ©is (%)</Label><Input type="number" step="0.1" value={form.annualDegradation} onChange={e => setForm({ ...form, annualDegradation: e.target.value })} /></div>
+                <div><Label className="text-xs">DegradaÃƒÂ§ÃƒÂ£o Anual dos PainÃƒÂ©is (%)</Label><Input type="number" step="0.1" value={form.annualDegradation} onChange={e => setForm({ ...form, annualDegradation: e.target.value })} /></div>
               </div>
 
               {p?.totalInvestment ? (
@@ -1912,7 +1963,7 @@ export default function SolarProjects() {
                   {/* Cash Flow Chart (simple bar chart) */}
                   {p.cashFlow && (
                     <div className="border rounded-xl p-4">
-                      <p className="text-sm font-bold text-slate-700 mb-4">Fluxo de Caixa â€” Economia Acumulada vs Investimento</p>
+                      <p className="text-sm font-bold text-slate-700 mb-4">Fluxo de Caixa Ã¢â‚¬â€ Economia Acumulada vs Investimento</p>
                       <div className="flex items-end gap-1 h-48">
                         {p.cashFlow.map((cf: any) => {
                           const maxVal = Math.max(...p.cashFlow.map((c: any) => c.accumulated));
@@ -1931,7 +1982,7 @@ export default function SolarProjects() {
                       </div>
                       <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
                         <div className="flex items-center gap-1"><div className="w-3 h-3 bg-amber-400 rounded" /> Antes do payback</div>
-                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-400 rounded" /> ApÃ³s o payback</div>
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-400 rounded" /> ApÃƒÂ³s o payback</div>
                         <div className="ml-auto">Investimento: <span className="font-bold text-slate-700">{fmt(p.totalInvestment)}</span></div>
                       </div>
                     </div>
@@ -1942,21 +1993,21 @@ export default function SolarProjects() {
                     <div className="border rounded-xl p-4 text-center">
                       <p className="text-xs text-red-600 font-bold uppercase mb-2">Conta Atual (sem solar)</p>
                       <p className="text-3xl font-bold text-red-700">{fmt(Number(form.avgBillValue || 0))}</p>
-                      <p className="text-xs text-red-500 mt-1">por mÃªs</p>
+                      <p className="text-xs text-red-500 mt-1">por mÃƒÂªs</p>
                       <p className="text-sm text-red-600 mt-2 font-medium">Em 25 anos: {fmt(Number(form.avgBillValue || 0) * 12 * 25)}</p>
                     </div>
                     <div className="border rounded-xl p-4 text-center bg-green-50">
                       <p className="text-xs text-green-700 font-bold uppercase mb-2">Com Solar</p>
                       <p className="text-3xl font-bold text-green-800">{fmt(Math.max(Number(form.avgBillValue || 0) - Number(p.monthlySavings), 0))}</p>
-                      <p className="text-xs text-green-600 mt-1">por mÃªs (estimado)</p>
-                      <p className="text-sm text-green-700 mt-2 font-medium">Economia: {fmt(p.monthlySavings)}/mÃªs</p>
+                      <p className="text-xs text-green-600 mt-1">por mÃƒÂªs (estimado)</p>
+                      <p className="text-sm text-green-700 mt-2 font-medium">Economia: {fmt(p.monthlySavings)}/mÃƒÂªs</p>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-16 text-slate-400">
                   <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                  <p>Clique em "Calcular Financeiro" para gerar a simulaÃ§Ã£o</p>
+                  <p>Clique em "Calcular Financeiro" para gerar a simulaÃƒÂ§ÃƒÂ£o</p>
                   <p className="text-xs mt-1">Certifique-se de ter adicionado equipamentos e custos no Step anterior</p>
                 </div>
               )}
@@ -1993,10 +2044,10 @@ export default function SolarProjects() {
               <div className="border rounded-xl p-5 space-y-4">
                 <h3 className="text-sm font-bold text-slate-700 uppercase">Resumo do Projeto</h3>
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-slate-400">Cliente:</span> <strong>{clients.find((c: any) => c.id === form.clientId)?.name || 'â€”'}</strong></div>
-                  <div><span className="text-slate-400">PotÃªncia:</span> <strong>{fmtN(p?.systemPowerKwp || 0)} kWp</strong></div>
-                  <div><span className="text-slate-400">MÃ³dulos:</span> <strong>{p?.moduleCount || 0} un</strong></div>
-                  <div><span className="text-slate-400">GeraÃ§Ã£o:</span> <strong>{fmtN(p?.monthlyGenerationKwh || 0, 0)} kWh/mÃªs</strong></div>
+                  <div><span className="text-slate-400">Cliente:</span> <strong>{clients.find((c: any) => c.id === form.clientId)?.name || 'Ã¢â‚¬â€'}</strong></div>
+                  <div><span className="text-slate-400">PotÃƒÂªncia:</span> <strong>{fmtN(p?.systemPowerKwp || 0)} kWp</strong></div>
+                  <div><span className="text-slate-400">MÃƒÂ³dulos:</span> <strong>{p?.moduleCount || 0} un</strong></div>
+                  <div><span className="text-slate-400">GeraÃƒÂ§ÃƒÂ£o:</span> <strong>{fmtN(p?.monthlyGenerationKwh || 0, 0)} kWh/mÃƒÂªs</strong></div>
                   <div><span className="text-slate-400">Investimento:</span> <strong>{fmt(p?.totalInvestment || 0)}</strong></div>
                   <div><span className="text-slate-400">Payback:</span> <strong>{fmtN(p?.paybackMonths || 0)} meses</strong></div>
                   <div><span className="text-slate-400">ROI:</span> <strong>{fmtN(p?.roiPercent || 0)}%</strong></div>
@@ -2010,7 +2061,7 @@ export default function SolarProjects() {
                     <CheckCircle2 className="w-6 h-6 text-green-500" />
                     <div>
                       <p className="text-sm font-bold text-green-800">Proposta registrada no ERP</p>
-                      <p className="text-xs text-green-600">Se fez ediÃ§Ãµes, clique em "Atualizar Proposta" antes de baixar o PDF.</p>
+                      <p className="text-xs text-green-600">Se fez ediÃƒÂ§ÃƒÂµes, clique em "Atualizar Proposta" antes de baixar o PDF.</p>
                     </div>
                   </div>
                   <Button variant="outline" size="sm" onClick={() => window.open(`/admin/proposals`, '_blank')}>
@@ -2020,7 +2071,7 @@ export default function SolarProjects() {
               )}
 
               <div className="text-sm text-slate-500">
-                <Label>ObservaÃ§Ãµes</Label>
+                <Label>ObservaÃƒÂ§ÃƒÂµes</Label>
                 <Textarea rows={3} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Notas adicionais para a proposta..." />
               </div>
             </div>
@@ -2047,7 +2098,7 @@ export default function SolarProjects() {
             </Button>
             {step < STEPS.length - 1 && (
               <Button onClick={goNext} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold">
-                PrÃ³ximo <ArrowRight className="w-4 h-4 ml-1" />
+                PrÃƒÂ³ximo <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             )}
           </div>
@@ -2063,9 +2114,9 @@ export default function SolarProjects() {
     );
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // LIST VIEW
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -2097,7 +2148,7 @@ export default function SolarProjects() {
         <div className="text-center py-20 text-slate-400">
           <Sun className="w-12 h-12 mx-auto mb-3 opacity-40" />
           <p className="font-medium">Nenhum projeto solar encontrado</p>
-          <p className="text-sm mt-1">Clique em "Novo Projeto Solar" para comeÃ§ar</p>
+          <p className="text-sm mt-1">Clique em "Novo Projeto Solar" para comeÃƒÂ§ar</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -2116,7 +2167,7 @@ export default function SolarProjects() {
                     <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-slate-500">
                       {p.client && <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" />{p.client.name}</span>}
                       {p.totalInvestment > 0 && <span className="flex items-center gap-1"><DollarSign className="w-3.5 h-3.5" />{fmt(p.totalInvestment)}</span>}
-                      {p.monthlyGenerationKwh > 0 && <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5" />{fmtN(p.monthlyGenerationKwh, 0)} kWh/mÃªs</span>}
+                      {p.monthlyGenerationKwh > 0 && <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5" />{fmtN(p.monthlyGenerationKwh, 0)} kWh/mÃƒÂªs</span>}
                       <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{new Date(p.createdAt).toLocaleDateString('pt-BR')}</span>
                     </div>
                   </div>
@@ -2128,7 +2179,7 @@ export default function SolarProjects() {
         </div>
       )}
 
-      {/* â•â•â• NEW CLIENT DIALOG â•â•â• */}
+      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â NEW CLIENT DIALOG Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
       <ClientDialog
         open={newClientDialogOpen}
         onOpenChange={setNewClientDialogOpen}
