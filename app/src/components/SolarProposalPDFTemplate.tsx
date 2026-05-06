@@ -222,6 +222,7 @@ function buildData(proposal: any, solarProject: any, company: any) {
     })(),
     savings25Years: N(p.savings25Years),
     cashFlow: p.cashFlow || [],
+    paymentConditions: p.paymentConditions || null,
   };
 }
 
@@ -1386,9 +1387,23 @@ const Page8 = ({ data }: { data: any }) => {
                     <div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)" }}>{kit.estrutura.fabricante} — {kit.estrutura.modelo}</div>
                   </div>
 
-                  {/* Checklist garantias */}
+                  {/* Checklist garantias — itens REAIS configurados no sistema */}
                   <div style={{ padding: "14px 16px", flex: 1 }}>
-                    {Object.entries(garantiasLabels).map(([key, label]) => (
+                    {(kit.rawGuarantees || []).map((g: any, gi: number) => (
+                      <div key={gi} style={{
+                        display: "flex", alignItems: "center", gap: 8,
+                        padding: "5px 0", borderBottom: `1px solid ${C.gray100}`,
+                      }}>
+                        <span style={{ fontSize: 12, color: g.included ? C.green : C.red, flexShrink: 0 }}>
+                          {g.included ? "✅" : "❌"}
+                        </span>
+                        <span style={{ fontSize: 10, color: g.included ? C.gray800 : C.gray400, flex: 1 }}>{g.text}</span>
+                        {kit.showValues && g.included && g.value > 0 && (
+                          <span style={{ fontSize: 9, fontWeight: 700, color: C.green, flexShrink: 0 }}>R$ {fmt(g.value)}</span>
+                        )}
+                      </div>
+                    ))}
+                    {(kit.rawGuarantees || []).length === 0 && Object.entries(garantiasLabels).map(([key, label]) => (
                       <div key={key} style={{
                         display: "flex", alignItems: "center", gap: 8,
                         padding: "5px 0", borderBottom: `1px solid ${C.gray100}`,
@@ -1726,6 +1741,229 @@ const Page9 = ({ data }: { data: any }) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════
+// PÁGINA 10 — CONDIÇÕES DE PAGAMENTO & TERMO DE ACEITE
+// ══════════════════════════════════════════════════════════════════════════
+const Page10 = ({ data }: { data: any }) => {
+  const { empresa, cliente, proposta, kits, paymentConditions: pc } = data;
+  const methodLabels: Record<string, string> = {
+    avista: 'À Vista (PIX/Transferência)',
+    parcelado: 'Parcelamento no Cartão de Crédito',
+    financiamento: 'Financiamento Bancário',
+    entrada_parcelas: 'Entrada + Parcelas',
+  };
+  const interestLabels: Record<string, string> = {
+    sem_juros: 'Sem juros',
+    embutido: 'Juros embutidos no valor',
+    sobre_saldo: 'Juros sobre saldo devedor',
+  };
+  const recKit = kits?.find((k: any) => k.badge) || kits?.[0];
+  const totalValue = recKit?.precoFinal || 0;
+
+  return (
+    <Page bg={C.white} style={{ color: C.navy }}>
+      <div style={{ padding: "0 0 80px" }}>
+        <SectionHeader num="10" title="Condições de Pagamento" subtitle="Forma de pagamento negociada para esta proposta" />
+
+        <div style={{ padding: "0 40px" }}>
+
+          {/* Valor de referência */}
+          <div style={{
+            backgroundColor: C.navy, borderRadius: 12, padding: "20px 28px",
+            marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between",
+          }}>
+            <div>
+              <div style={{ fontSize: 10, color: C.gold, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Investimento Total</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: C.white, marginTop: 4 }}>R$ {fmt(totalValue)}</div>
+              {recKit && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>{recKit.nome}</div>}
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)" }}>Proposta Nº</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.gold }}>{proposta.numero}</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>Válida até {proposta.validade}</div>
+            </div>
+          </div>
+
+          {/* Detalhamento da forma de pagamento */}
+          {pc ? (
+            <div style={{
+              border: `2px solid ${C.green}`, borderRadius: 12, overflow: "hidden", marginBottom: 24,
+            }}>
+              <div style={{
+                backgroundColor: C.green, padding: "12px 20px",
+                display: "flex", alignItems: "center", gap: 10,
+              }}>
+                <span style={{ fontSize: 18 }}>💳</span>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.white }}>{methodLabels[pc.method] || pc.method}</div>
+              </div>
+
+              <div style={{ padding: "20px 24px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <tbody>
+                    {pc.downPayment > 0 && (
+                      <tr>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, width: "45%", color: C.gray800 }}>Entrada</td>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontWeight: 700, color: C.green }}>
+                          R$ {fmt(pc.downPayment)} {pc.downPaymentPercent > 0 && <span style={{ fontSize: 10, color: C.gray400 }}>({pc.downPaymentPercent}%)</span>}
+                        </td>
+                      </tr>
+                    )}
+                    {pc.installments > 0 && (
+                      <tr>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Parcelas</td>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontWeight: 700, color: C.navy }}>
+                          {pc.installments}x de R$ {fmt(pc.installmentValue)}
+                        </td>
+                      </tr>
+                    )}
+                    {pc.interestRate > 0 && (
+                      <tr>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Juros</td>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.gray600 }}>
+                          {pc.interestRate}% a.m. — {interestLabels[pc.interestType] || pc.interestType}
+                        </td>
+                      </tr>
+                    )}
+                    {pc.interestRate === 0 && pc.installments > 0 && (
+                      <tr>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Juros</td>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.green, fontWeight: 700 }}>SEM JUROS ✅</td>
+                      </tr>
+                    )}
+                    {pc.cardBrand && (
+                      <tr>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Bandeira do Cartão</td>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.gray600 }}>{pc.cardBrand}</td>
+                      </tr>
+                    )}
+                    {pc.financingBank && (
+                      <tr>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Instituição Financeira</td>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.gray600 }}>{pc.financingBank}</td>
+                      </tr>
+                    )}
+                    {pc.financingLine && (
+                      <tr>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Linha de Crédito</td>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.gray600 }}>{pc.financingLine}</td>
+                      </tr>
+                    )}
+                    {pc.pixDiscount > 0 && (
+                      <tr>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Desconto PIX à Vista</td>
+                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontWeight: 700, color: C.green }}>{pc.pixDiscount}% OFF</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+
+                {pc.notes && (
+                  <div style={{
+                    marginTop: 16, padding: "12px 16px",
+                    backgroundColor: C.gray50, borderRadius: 8, border: `1px solid ${C.gray200}`,
+                    fontSize: 11, color: C.gray600, lineHeight: 1.6,
+                  }}>
+                    <strong style={{ color: C.gray800 }}>Observações:</strong><br />
+                    {pc.notes}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div style={{
+              border: `2px solid ${C.gray200}`, borderRadius: 12, padding: "24px",
+              textAlign: "center", marginBottom: 24, color: C.gray600,
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>💳 Condições a Negociar</div>
+              <div style={{ fontSize: 12 }}>
+                Aceitamos PIX, transferência bancária, cartão de crédito e financiamento bancário.
+                <br />Consulte nosso consultor para as melhores condições.
+              </div>
+            </div>
+          )}
+
+          {/* ══ TERMO DE ACEITE ══ */}
+          <div style={{
+            border: `2px solid ${C.navy}`, borderRadius: 12, overflow: "hidden",
+          }}>
+            <div style={{
+              backgroundColor: C.navy, padding: "14px 24px",
+              fontSize: 14, fontWeight: 800, color: C.white, textAlign: "center",
+            }}>📋 TERMO DE ACEITE</div>
+
+            <div style={{ padding: "20px 24px", fontSize: 11, color: C.gray800, lineHeight: 1.7 }}>
+              <p style={{ marginBottom: 10 }}>
+                Eu, <strong>{cliente.nome}</strong>, portador(a) do CPF/CNPJ <strong>{cliente.cpfCnpj}</strong>,
+                declaro que li e aceito integralmente os termos desta proposta técnico-comercial nº <strong>{proposta.numero}</strong>,
+                emitida pela empresa <strong>{empresa.nome}</strong>, CNPJ {empresa.cnpj}.
+              </p>
+              <p style={{ marginBottom: 10 }}>
+                Estou de acordo com o escopo técnico, equipamentos especificados, prazos de execução,
+                garantias oferecidas e condições financeiras apresentadas neste documento.
+              </p>
+              <p style={{ marginBottom: 10 }}>
+                Autorizo o início dos serviços de engenharia, aquisição de materiais e execução da instalação
+                conforme cronograma acordado, comprometendo-me com o pagamento nas condições negociadas.
+              </p>
+              <p style={{ fontSize: 10, color: C.gray600, fontStyle: "italic" }}>
+                Este documento tem valor contratual quando assinado por ambas as partes.
+                Proposta válida até <strong>{proposta.validade}</strong>.
+              </p>
+            </div>
+
+            {/* Assinaturas */}
+            <div style={{
+              padding: "20px 24px 24px", borderTop: `1px solid ${C.gray200}`,
+              display: "flex", gap: 32,
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, color: C.gray400, marginBottom: 4 }}>CONTRATANTE</div>
+                <div style={{ borderBottom: `2px solid ${C.gray800}`, height: 40, marginBottom: 8 }} />
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>{cliente.nome}</div>
+                <div style={{ fontSize: 10, color: C.gray600 }}>CPF/CNPJ: {cliente.cpfCnpj}</div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, color: C.gray400, marginBottom: 4 }}>CONTRATADA</div>
+                <div style={{ borderBottom: `2px solid ${C.gray800}`, height: 40, marginBottom: 8 }} />
+                <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 28, objectFit: 'contain', marginBottom: 4 }} />
+                <div style={{ fontSize: 10, color: C.gray600 }}>CNPJ: {empresa.cnpj}</div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, color: C.gray400, marginBottom: 4 }}>LOCAL E DATA</div>
+                <div style={{ borderBottom: `2px solid ${C.gray800}`, height: 40, marginBottom: 8 }} />
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>{cliente.cidade}/{cliente.uf}</div>
+                <div style={{ fontSize: 10, color: C.gray600 }}>______ / ______ / __________</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      {/* Rodapé final */}
+      <div style={{
+        position: "absolute", bottom: 0, left: 0, right: 0,
+        background: `linear-gradient(90deg, ${C.navy}, ${C.navyMid})`,
+        padding: "14px 40px",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        borderTop: `3px solid ${C.gold}`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 32, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>CNPJ {empresa.cnpj} · {empresa.endereco}</div>
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 9, color: C.gold }}>⚡ Energia do sol. Economia real. ⚡</div>
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.5)" }}>{empresa.site}</div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>{empresa.fone}</div>
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>{empresa.email}</div>
+        </div>
+      </div>
+    </Page>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL — EXPORTED para o ERP
 // ══════════════════════════════════════════════════════════════════════════
 export function SolarProposalPDFTemplate({ proposal, solarProject, company }: SolarProposalPDFTemplateProps) {
@@ -1749,6 +1987,8 @@ export function SolarProposalPDFTemplate({ proposal, solarProject, company }: So
       {hasKits && <Page8 data={data} />}
       <Page9Env data={data} />
       <Page9 data={data} />
+      <Page10 data={data} />
     </div>
   );
 }
+
