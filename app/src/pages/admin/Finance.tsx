@@ -64,6 +64,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 
 const CATEGORY_COLORS: Record<string, string> = {
   materials: '#ef4444',
@@ -258,6 +259,14 @@ export default function AdminFinance() {
   const [selectedInstallment, setSelectedInstallment] = useState<any>(null);
   const [payInstData, setPayInstData] = useState({ amount: '', method: 'pix', transactionId: '' });
   const [payInstReceiptFile, setPayInstReceiptFile] = useState<File | null>(null);
+
+  // DAS Consolidation
+  const [dasDialogOpen, setDasDialogOpen] = useState(false);
+  const [dasCompetence, setDasCompetence] = useState(new Date().toISOString().substring(0, 7));
+  const [dasAmount, setDasAmount] = useState('');
+  const [dasStatus, setDasStatus] = useState<'provisioned' | 'realized'>('realized');
+  const [dasSelectedIds, setDasSelectedIds] = useState<Set<string>>(new Set());
+  const [dasLoading, setDasLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -1305,12 +1314,13 @@ export default function AdminFinance() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
+        <TabsList className="grid w-full grid-cols-6 lg:w-[720px]">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="receivable">A Receber</TabsTrigger>
           <TabsTrigger value="payable">A Pagar</TabsTrigger>
           <TabsTrigger value="receipts" className="flex items-center gap-1"><Receipt className="w-3 h-3" /> Recibos</TabsTrigger>
           <TabsTrigger value="purchase-orders" className="flex items-center gap-1"><Package className="w-3 h-3" /> Pedidos</TabsTrigger>
+          <TabsTrigger value="das" className="flex items-center gap-1">🏛️ DAS</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-6">
@@ -1905,6 +1915,77 @@ export default function AdminFinance() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ═══ DAS TAB ═══ */}
+        <TabsContent value="das" className="space-y-6 mt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Guias DAS — Simples Nacional</h2>
+              <p className="text-sm text-slate-500">Provisione e consolide guias DAS por competência mensal</p>
+            </div>
+            <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => setDasDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" /> Consolidar DAS
+            </Button>
+          </div>
+
+          {/* DAS Summary by Month */}
+          {(() => {
+            const incomePayments = payments.filter((p: any) => p.type === 'income');
+            const months = new Map<string, { payments: any[]; totalGross: number; totalDAS: number; status: string }>();
+            incomePayments.forEach((p: any) => {
+              const comp = p.simplesCompetence || (p.dueDate ? p.dueDate.substring(0, 7) : 'sem-data');
+              if (!months.has(comp)) months.set(comp, { payments: [], totalGross: 0, totalDAS: 0, status: 'none' });
+              const m = months.get(comp)!;
+              m.payments.push(p);
+              m.totalGross += Number(p.amount || 0);
+              m.totalDAS += Number(p.simplesAmount || 0);
+              if (p.simplesStatus === 'realized') m.status = 'realized';
+              else if (p.simplesStatus === 'provisioned' && m.status !== 'realized') m.status = 'provisioned';
+            });
+            const sortedMonths = Array.from(months.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+            return (
+              <div className="space-y-3">
+                {sortedMonths.length === 0 ? (
+                  <Card><CardContent className="p-8 text-center text-slate-400">Nenhum lançamento de receita registrado.</CardContent></Card>
+                ) : sortedMonths.map(([month, data]) => {
+                  const rate = data.totalGross > 0 ? (data.totalDAS / data.totalGross * 100) : 0;
+                  const statusBadge = data.status === 'realized' ? { label: 'Realizado', color: 'bg-emerald-100 text-emerald-700' } : data.status === 'provisioned' ? { label: 'Provisionado', color: 'bg-amber-100 text-amber-700' } : { label: 'Sem exercício', color: 'bg-slate-100 text-slate-500' };
+                  return (
+                    <Card key={month} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-amber-100 rounded-xl flex flex-col items-center justify-center">
+                              <span className="text-[10px] text-amber-600 font-medium">{month.split('-')[0]}</span>
+                              <span className="text-lg font-bold text-amber-800">{month.split('-')[1] || '??'}</span>
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800">{data.payments.length} NF(s) — Competência {month}</p>
+                              <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                                <span>Bruto: <strong className="text-slate-700">R$ {data.totalGross.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+                                <span>•</span>
+                                <span>DAS: <strong className="text-amber-700">R$ {data.totalDAS.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+                                {rate > 0 && <><span>•</span><span>Alíquota: <strong>{rate.toFixed(2)}%</strong></span></>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className={statusBadge.color + ' text-xs'}>{statusBadge.label}</Badge>
+                            {data.status !== 'realized' && (
+                              <Button size="sm" variant="outline" className="text-amber-700 border-amber-300 hover:bg-amber-50" onClick={() => { setDasCompetence(month !== 'sem-data' ? month : ''); setDasDialogOpen(true); }}>
+                                Consolidar
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </TabsContent>
       </Tabs>
       <Dialog open={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -2374,6 +2455,127 @@ export default function AdminFinance() {
           <DialogFooter>
             <Button variant="outline" onClick={() => { setPODialogOpen(false); setEditingPOId(null); }}>Cancelar</Button>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSavePO}>Salvar Pedido</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ DAS CONSOLIDATION DIALOG ═══ */}
+      <Dialog open={dasDialogOpen} onOpenChange={o => { if (!o) { setDasDialogOpen(false); } }}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">🏛️ Consolidar Guia DAS — Simples Nacional</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Competência + Valor + Status */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Competência (Mês)</Label>
+                <Input type="month" value={dasCompetence} onChange={e => setDasCompetence(e.target.value)} className="h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Valor DAS Pago (R$)</Label>
+                <Input type="text" inputMode="decimal" placeholder="Ex: 3.200,00" value={dasAmount}
+                  onChange={e => setDasAmount(e.target.value)} className="h-9 font-mono font-bold" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Status</Label>
+                <select className="w-full h-9 border rounded-md px-2 text-sm" value={dasStatus} onChange={e => setDasStatus(e.target.value as any)}>
+                  <option value="provisioned">📋 Provisionado (estimativa)</option>
+                  <option value="realized">✅ Realizado (pago)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Payments selection */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-bold">Selecione as NFs incluídas nesta guia:</Label>
+                {(() => {
+                  const eligible = payments.filter((p: any) => p.type === 'income');
+                  const allSelected = eligible.length > 0 && eligible.every((p: any) => dasSelectedIds.has(p.id));
+                  return (
+                    <Button variant="ghost" size="sm" className="text-xs" onClick={() => {
+                      if (allSelected) setDasSelectedIds(new Set());
+                      else setDasSelectedIds(new Set(eligible.map((p: any) => p.id)));
+                    }}>{allSelected ? 'Desmarcar tudo' : 'Selecionar tudo'}</Button>
+                  );
+                })()}
+              </div>
+              <div className="border rounded-lg max-h-[300px] overflow-y-auto divide-y">
+                {payments.filter((p: any) => p.type === 'income').map((p: any) => {
+                  const isSelected = dasSelectedIds.has(p.id);
+                  const currentStatus = p.simplesStatus || 'none';
+                  return (
+                    <label key={p.id} className={`flex items-center gap-3 p-3 cursor-pointer transition ${isSelected ? 'bg-amber-50' : 'hover:bg-slate-50'}`}>
+                      <input type="checkbox" checked={isSelected} onChange={() => {
+                        const next = new Set(dasSelectedIds);
+                        if (next.has(p.id)) next.delete(p.id); else next.add(p.id);
+                        setDasSelectedIds(next);
+                      }} className="w-4 h-4 accent-amber-600" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{p.description}</p>
+                        <p className="text-xs text-slate-500">{p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '—'} • {p.client?.name || 'Sem cliente'}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-mono font-bold">R$ {Number(p.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        {currentStatus !== 'none' && <span className={`text-[9px] px-1.5 py-0.5 rounded ${currentStatus === 'realized' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>{currentStatus === 'realized' ? 'Realizado' : 'Provisionado'}</span>}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Preview */}
+            {dasSelectedIds.size > 0 && (() => {
+              const selected = payments.filter((p: any) => dasSelectedIds.has(p.id));
+              const totalGross = selected.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+              const dasValue = Number(parseBRL(dasAmount)) || 0;
+              const effectiveRate = totalGross > 0 && dasValue > 0 ? (dasValue / totalGross * 100) : 0;
+              return (
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4 space-y-2">
+                  <h4 className="text-sm font-bold text-amber-900">📊 Preview da Consolidação</h4>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div><span className="text-slate-500 text-xs">NFs selecionadas</span><p className="font-bold">{dasSelectedIds.size}</p></div>
+                    <div><span className="text-slate-500 text-xs">Total Bruto</span><p className="font-mono font-bold">R$ {totalGross.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+                    <div><span className="text-slate-500 text-xs">Alíquota Efetiva</span><p className="font-bold text-amber-700">{effectiveRate.toFixed(2)}%</p></div>
+                  </div>
+                  {dasValue > 0 && (
+                    <div className="border-t border-amber-200 pt-2 mt-2">
+                      <p className="text-xs text-amber-700 mb-1">Distribuição proporcional:</p>
+                      {selected.map((p: any) => {
+                        const gross = Number(p.amount || 0);
+                        const proportion = totalGross > 0 ? (gross / totalGross) * dasValue : 0;
+                        return (
+                          <div key={p.id} className="flex justify-between text-xs py-0.5">
+                            <span className="text-slate-600 truncate max-w-[300px]">{p.description}</span>
+                            <span className="font-mono text-amber-800">R$ {proportion.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDasDialogOpen(false)}>Cancelar</Button>
+            <Button className="bg-amber-600 hover:bg-amber-700 text-white" disabled={dasLoading || dasSelectedIds.size === 0 || !dasAmount} onClick={async () => {
+              setDasLoading(true);
+              try {
+                const result = await api.consolidateDAS(Array.from(dasSelectedIds), Number(parseBRL(dasAmount)), dasCompetence, dasStatus);
+                toast.success(`DAS consolidado! ${result.data?.updated || dasSelectedIds.size} NFs atualizadas — Alíquota ${Number(result.data?.effectiveRate || 0).toFixed(2)}%`);
+                setDasDialogOpen(false);
+                setDasSelectedIds(new Set());
+                setDasAmount('');
+                loadData();
+              } catch (err: any) {
+                toast.error(err?.response?.data?.message || 'Erro ao consolidar DAS.');
+              } finally { setDasLoading(false); }
+            }}>
+              {dasLoading ? 'Processando...' : `Consolidar ${dasSelectedIds.size} NF(s)`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

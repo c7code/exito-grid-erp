@@ -1038,6 +1038,11 @@ class ApiService {
     return response.data;
   }
 
+  async consolidateDAS(paymentIds: string[], dasAmount: number, competence: string, status: string = 'realized') {
+    const response = await this.client.post('/finance/consolidate-das', { paymentIds, dasAmount, competence, status });
+    return response.data;
+  }
+
   // Measurements
   async getMeasurements(workId?: string) {
     const params = workId ? { workId } : {};

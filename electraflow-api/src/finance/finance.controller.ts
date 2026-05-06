@@ -123,6 +123,12 @@ export class FinanceController {
 
   // ─── Relatórios ──────────────────────────────────────────────────────────
 
+  @Post('consolidate-das')
+  @ApiOperation({ summary: 'Consolidar guia DAS para múltiplos pagamentos' })
+  async consolidateDAS(@Body() data: { paymentIds: string[]; dasAmount: number; competence: string; status?: string }) {
+    return this.financeService.consolidateDAS(data.paymentIds, data.dasAmount, data.competence, data.status || 'realized');
+  }
+
   @Get('summary')
   @ApiOperation({ summary: 'Resumo financeiro' })
   async getSummary() {

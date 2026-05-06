@@ -230,6 +230,14 @@ export class Payment {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   simplesAmount: number;
 
+  /** Status do DAS: none = sem exercício, provisioned = estimado, realized = pago */
+  @Column({ type: 'varchar', default: 'none' })
+  simplesStatus: string;
+
+  /** Mês de competência do DAS (YYYY-MM) */
+  @Column({ type: 'varchar', nullable: true })
+  simplesCompetence: string;
+
   // ─── Boleto / PIX (Portal do Cliente) ───────────────────────────────────
   /** URL/path do PDF de boleto */
   @Column({ type: 'text', nullable: true })

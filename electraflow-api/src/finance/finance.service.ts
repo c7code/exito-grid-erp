@@ -194,9 +194,38 @@ export class FinanceService {
         `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "inssGpsNumber" VARCHAR`,
         `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "simplesRate" DECIMAL(5,2) DEFAULT 0`,
         `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "simplesAmount" DECIMAL(15,2) DEFAULT 0`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "simplesStatus" VARCHAR DEFAULT 'none'`,
+        `ALTER TABLE payments ADD COLUMN IF NOT EXISTS "simplesCompetence" VARCHAR`,
       ];
       for (const sql of payExtraCols) { await this.dataSource.query(sql).catch(() => {}); }
     } catch (e) { console.warn('Finance tables migration:', e?.message); }
+  }
+
+  /**
+   * Consolidate DAS for a set of payments:
+   * - paymentIds: which payments to include
+   * - dasAmount: actual DAS value paid
+   * - competence: month (YYYY-MM)
+   * - status: 'provisioned' | 'realized'
+   * Distributes dasAmount proportionally by gross amount across selected payments.
+   */
+  async consolidateDAS(paymentIds: string[], dasAmount: number, competence: string, status: string = 'realized'): Promise<any> {
+    if (!paymentIds.length) return { updated: 0 };
+    const payments = await this.paymentRepository.findByIds(paymentIds);
+    const totalGross = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+    if (totalGross <= 0) return { updated: 0 };
+    const effectiveRate = (dasAmount / totalGross) * 100;
+    for (const p of payments) {
+      const gross = Number(p.amount || 0);
+      const proportional = totalGross > 0 ? (gross / totalGross) * dasAmount : 0;
+      await this.paymentRepository.update(p.id, {
+        simplesRate: Number(effectiveRate.toFixed(4)),
+        simplesAmount: Number(proportional.toFixed(2)),
+        simplesStatus: status,
+        simplesCompetence: competence,
+      } as any);
+    }
+    return { updated: payments.length, effectiveRate: Number(effectiveRate.toFixed(4)), totalGross, dasAmount };
   }
 
   // ═══ PAYMENTS ═══════════════════════════════════════════════════════════
