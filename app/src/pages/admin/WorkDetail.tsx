@@ -1018,6 +1018,7 @@ export default function AdminWorkDetail() {
             <Button variant="outline" size="sm" onClick={async () => {
               await api.recalculateWorkProgress(id!);
               handleRefresh();
+              fetchPhases();
               toast.success('Progresso recalculado!');
             }}>
               <TrendingUp className="w-4 h-4 mr-1" />Recalcular
@@ -1051,39 +1052,43 @@ export default function AdminWorkDetail() {
                 <div className="w-28">
                   <Label className="text-xs font-bold text-violet-600 uppercase">Peso (%)</Label>
                   <Input
-                    type="number"
-                    min={1}
-                    max={100}
+                    type="text"
+                    inputMode="numeric"
                     value={newPhase.weight}
-                    onChange={e => setNewPhase(prev => ({ ...prev, weight: e.target.value }))}
-                    placeholder="30"
+                    onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ''); setNewPhase(prev => ({ ...prev, weight: v })); }}
+                    placeholder="Ex: 30"
                     className="mt-1 font-mono"
                   />
                 </div>
                 <Button type="submit" className="bg-violet-600 hover:bg-violet-700"><Plus className="w-4 h-4 mr-1" />Criar</Button>
               </form>
-              {phases.length > 0 && (
-                <div className="mt-2 text-xs text-slate-500">
-                  Peso total: <span className={`font-bold ${phases.reduce((s: number, p: any) => s + Number(p.weight || 0), 0) === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {phases.reduce((s: number, p: any) => s + Number(p.weight || 0), 0)}%
-                  </span>
-                  {phases.reduce((s: number, p: any) => s + Number(p.weight || 0), 0) !== 100 && <span className="text-amber-500 ml-1">(ideal: 100%)</span>}
-                </div>
-              )}
+              {phases.length > 0 && (() => {
+                const topPhases = phases.filter((p: any) => !p.parentId);
+                const totalW = topPhases.reduce((s: number, p: any) => s + Number(p.weight || 0), 0);
+                return (
+                  <div className="mt-2 text-xs text-slate-500">
+                    Peso total: <span className={`font-bold ${totalW === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>{totalW}%</span>
+                    {totalW !== 100 && <span className="text-amber-500 ml-1">(ideal: 100%)</span>}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 
           {/* Phase List */}
           {phases.length === 0 ? (
             <Card><CardContent className="p-8 text-center text-slate-400"><p>Nenhuma etapa cadastrada. Crie etapas para controlar o progresso da obra.</p></CardContent></Card>
-          ) : (
-            <div className="space-y-3">
-              {phases.map((phase: any) => {
-                const phaseTasks = tasks.filter((t: any) => t.phaseId === phase.id);
-                const completedTasks = phaseTasks.filter((t: any) => t.status === 'completed').length;
-                const isEditing = editingPhaseId === phase.id;
-                return (
-                  <Card key={phase.id} className={`transition-all ${phase.status === 'completed' ? 'border-emerald-200 bg-emerald-50/30' : ''}`}>
+          ) : (() => {
+            const topPhases = phases.filter((p: any) => !p.parentId);
+            const getChildren = (parentId: string) => phases.filter((p: any) => p.parentId === parentId);
+            const renderPhase = (phase: any, isChild: boolean) => {
+              const phaseTasks = tasks.filter((t: any) => t.phaseId === phase.id);
+              const completedTasks = phaseTasks.filter((t: any) => t.status === 'completed').length;
+              const isEditing = editingPhaseId === phase.id;
+              const children = getChildren(phase.id);
+              return (
+                <div key={phase.id} className={isChild ? 'ml-8' : ''}>
+                  <Card className={`transition-all ${phase.status === 'completed' ? 'border-emerald-200 bg-emerald-50/30' : ''} ${isChild ? 'border-l-4 border-l-violet-300' : ''}`}>
                     <CardContent className="p-4">
                       {isEditing ? (
                         <div className="space-y-3">
@@ -1094,11 +1099,11 @@ export default function AdminWorkDetail() {
                             </div>
                             <div className="w-24">
                               <Label className="text-xs">Peso (%)</Label>
-                              <Input type="number" min={0} max={100} value={editingPhaseData.weight} onChange={e => setEditingPhaseData(prev => ({ ...prev, weight: Number(e.target.value) }))} className="mt-1 font-mono" />
+                              <Input type="text" inputMode="numeric" value={String(editingPhaseData.weight || '')} onChange={e => setEditingPhaseData(prev => ({ ...prev, weight: Number(e.target.value.replace(/[^0-9.]/g, '')) || 0 }))} className="mt-1 font-mono" />
                             </div>
                             <div className="w-28">
                               <Label className="text-xs">Progresso (%)</Label>
-                              <Input type="number" min={0} max={100} value={editingPhaseData.progress} onChange={e => setEditingPhaseData(prev => ({ ...prev, progress: Number(e.target.value) }))} className="mt-1 font-mono" />
+                              <Input type="text" inputMode="numeric" value={String(editingPhaseData.progress || '')} onChange={e => setEditingPhaseData(prev => ({ ...prev, progress: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 }))} className="mt-1 font-mono" />
                             </div>
                           </div>
                           <div className="flex gap-2 justify-end">
@@ -1116,13 +1121,14 @@ export default function AdminWorkDetail() {
                         </div>
                       ) : (
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0 text-sm font-bold text-violet-700">
-                            {phase.order + 1}
+                          <div className={`w-10 h-10 rounded-full ${isChild ? 'bg-violet-50 border-2 border-violet-200' : 'bg-violet-100'} flex items-center justify-center flex-shrink-0 text-sm font-bold text-violet-700`}>
+                            {isChild ? '↳' : phase.order + 1}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="font-semibold text-slate-900">{phase.title}</span>
                               <Badge variant="outline" className="text-xs font-mono">{Number(phase.weight)}%</Badge>
+                              {isChild && <Badge className="bg-violet-100 text-violet-600 text-[9px]">Sub-etapa</Badge>}
                               {phase.status === 'completed' && <Badge className="bg-emerald-500 text-xs">Concluída</Badge>}
                               {phase.status === 'in_progress' && <Badge className="bg-amber-500 text-xs">Em Andamento</Badge>}
                             </div>
@@ -1133,8 +1139,27 @@ export default function AdminWorkDetail() {
                             {phaseTasks.length > 0 && (
                               <p className="text-xs text-slate-400 mt-1">{completedTasks}/{phaseTasks.length} tarefas concluídas</p>
                             )}
+                            {!isChild && children.length > 0 && (
+                              <p className="text-xs text-violet-500 mt-1">📂 {children.length} sub-etapa(s)</p>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
+                            {!isChild && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-violet-500 hover:bg-violet-50" title="Adicionar Sub-etapa" onClick={() => {
+                                const subTitle = window.prompt('Nome da sub-etapa:');
+                                if (!subTitle?.trim()) return;
+                                const subWeightStr = window.prompt('Peso da sub-etapa (%):', '50');
+                                const subWeight = parseFloat(subWeightStr || '0');
+                                if (subWeight <= 0) return toast.error('Peso inválido');
+                                (async () => {
+                                  try {
+                                    await api.createWorkPhase(id!, { title: subTitle, weight: subWeight, parentId: phase.id } as any);
+                                    toast.success('Sub-etapa criada!');
+                                    fetchPhases();
+                                  } catch { toast.error('Erro ao criar sub-etapa'); }
+                                })();
+                              }}><Plus className="w-3.5 h-3.5" /></Button>
+                            )}
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500 hover:bg-blue-50" onClick={() => {
                               setEditingPhaseId(phase.id);
                               setEditingPhaseData({ title: phase.title, weight: Number(phase.weight), progress: Number(phase.progress) || 0 });
@@ -1153,10 +1178,17 @@ export default function AdminWorkDetail() {
                       )}
                     </CardContent>
                   </Card>
-                );
-              })}
-            </div>
-          )}
+                  {/* Render children */}
+                  {children.map((child: any) => renderPhase(child, true))}
+                </div>
+              );
+            };
+            return (
+              <div className="space-y-3">
+                {topPhases.map((phase: any) => renderPhase(phase, false))}
+              </div>
+            );
+          })()}
         </TabsContent>
 
         {/* ═══ FINANCE TAB (ADMIN ONLY) ═══════════════════════════════════ */}
