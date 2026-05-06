@@ -1,81 +1,89 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
+import { Loader2 } from 'lucide-react';
 
-// Layouts
+// Layouts (keep eager — needed immediately)
 import AdminLayout from './layouts/AdminLayout';
-// EmployeeLayout no longer used (employees use AdminLayout with blue theme)
 import ClientLayout from './layouts/ClientLayout';
 import AuthLayout from './layouts/AuthLayout';
 
-// Auth Pages
+// Auth Pages (keep eager — first screen)
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 
-// Admin Pages
-import AdminDashboard from './pages/admin/Dashboard';
-import AdminPipeline from './pages/admin/Pipeline';
-import AdminWorks from './pages/admin/Works';
-import AdminWorkDetail from './pages/admin/WorkDetail';
-import AdminTasks from './pages/admin/Tasks';
-import EmployeeTasks from './pages/employee/Tasks';
-import AdminProposals from './pages/admin/Proposals';
-import AdminProtocols from './pages/admin/Protocols';
-import AdminDocuments from './pages/admin/Documents';
-import AdminEmployees from './pages/admin/Employees';
-import AdminUsers from './pages/admin/Users';
-import AdminClients from './pages/admin/Clients';
-import AdminFinance from './pages/admin/Finance';
-import AdminFinanceSimulator from './pages/admin/FinanceSimulator';
-import AdminSimulatorWizard from './pages/admin/simulator/SimulatorWizard';
-import AdminSettings from './pages/admin/Settings';
-import AdminCatalogManagement from './pages/admin/CatalogManagement';
-import AdminSuppliers from './pages/admin/Suppliers';
-import AdminQuotations from './pages/admin/Quotations';
-import AdminPriceHistory from './pages/admin/PriceHistory';
-import AdminEmployeeCompliance from './pages/admin/EmployeeCompliance';
-import AdminClientRequests from './pages/admin/ClientRequests';
-import AdminFiscal from './pages/admin/Fiscal';
-import AdminDailyLogs from './pages/admin/DailyLogs';
-import AdminInventory from './pages/admin/Inventory';
-import AdminServiceOrders from './pages/admin/ServiceOrders';
-import AdminContracts from './pages/admin/Contracts';
-import AdminSolarProjects from './pages/admin/SolarProjects';
-import AdminCompanies from './pages/admin/Companies';
-import AdminStructureTemplates from './pages/admin/StructureTemplates';
-import AdminActivityReport from './pages/admin/ActivityReport';
-import AdminCompanyDocuments from './pages/admin/CompanyDocuments';
-import AdminSafetyPrograms from './pages/admin/SafetyPrograms';
-import AdminExamReferrals from './pages/admin/ExamReferrals';
-import AdminOeM from './pages/admin/OeM';
-import AdminSinapiAdmin from './pages/admin/SinapiAdmin';
-import AdminBudgets from './pages/admin/Budgets';
-import AdminSolarReports from './pages/admin/SolarReports';
-import AdminSolarPlans from './pages/admin/SolarPlans';
-import AdminClientSubUsers from './pages/admin/ClientSubUsers';
-import AdminFinanceConfig from './pages/admin/FinanceConfig';
-import AdminEquipment from './pages/admin/Equipment';
-import AdminDailyLogRequests from './pages/admin/DailyLogRequests';
+// Loading fallback
+const PageLoader = () => (
+  <div className="flex items-center justify-center py-32">
+    <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+  </div>
+);
+
+// Lazy-loaded Admin Pages
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminPipeline = lazy(() => import('./pages/admin/Pipeline'));
+const AdminWorks = lazy(() => import('./pages/admin/Works'));
+const AdminWorkDetail = lazy(() => import('./pages/admin/WorkDetail'));
+const AdminTasks = lazy(() => import('./pages/admin/Tasks'));
+const EmployeeTasks = lazy(() => import('./pages/employee/Tasks'));
+const AdminProposals = lazy(() => import('./pages/admin/Proposals'));
+const AdminProtocols = lazy(() => import('./pages/admin/Protocols'));
+const AdminDocuments = lazy(() => import('./pages/admin/Documents'));
+const AdminEmployees = lazy(() => import('./pages/admin/Employees'));
+const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminClients = lazy(() => import('./pages/admin/Clients'));
+const AdminFinance = lazy(() => import('./pages/admin/Finance'));
+const AdminFinanceSimulator = lazy(() => import('./pages/admin/FinanceSimulator'));
+const AdminSimulatorWizard = lazy(() => import('./pages/admin/simulator/SimulatorWizard'));
+const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+const AdminCatalogManagement = lazy(() => import('./pages/admin/CatalogManagement'));
+const AdminSuppliers = lazy(() => import('./pages/admin/Suppliers'));
+const AdminQuotations = lazy(() => import('./pages/admin/Quotations'));
+const AdminPriceHistory = lazy(() => import('./pages/admin/PriceHistory'));
+const AdminEmployeeCompliance = lazy(() => import('./pages/admin/EmployeeCompliance'));
+const AdminClientRequests = lazy(() => import('./pages/admin/ClientRequests'));
+const AdminFiscal = lazy(() => import('./pages/admin/Fiscal'));
+const AdminDailyLogs = lazy(() => import('./pages/admin/DailyLogs'));
+const AdminDailyLogRequests = lazy(() => import('./pages/admin/DailyLogRequests'));
+const AdminInventory = lazy(() => import('./pages/admin/Inventory'));
+const AdminServiceOrders = lazy(() => import('./pages/admin/ServiceOrders'));
+const AdminContracts = lazy(() => import('./pages/admin/Contracts'));
+const AdminSolarProjects = lazy(() => import('./pages/admin/SolarProjects'));
+const AdminCompanies = lazy(() => import('./pages/admin/Companies'));
+const AdminStructureTemplates = lazy(() => import('./pages/admin/StructureTemplates'));
+const AdminActivityReport = lazy(() => import('./pages/admin/ActivityReport'));
+const AdminCompanyDocuments = lazy(() => import('./pages/admin/CompanyDocuments'));
+const AdminSafetyPrograms = lazy(() => import('./pages/admin/SafetyPrograms'));
+const AdminExamReferrals = lazy(() => import('./pages/admin/ExamReferrals'));
+const AdminOeM = lazy(() => import('./pages/admin/OeM'));
+const AdminSinapiAdmin = lazy(() => import('./pages/admin/SinapiAdmin'));
+const AdminBudgets = lazy(() => import('./pages/admin/Budgets'));
+const AdminSolarReports = lazy(() => import('./pages/admin/SolarReports'));
+const AdminSolarPlans = lazy(() => import('./pages/admin/SolarPlans'));
+const AdminClientSubUsers = lazy(() => import('./pages/admin/ClientSubUsers'));
+const AdminFinanceConfig = lazy(() => import('./pages/admin/FinanceConfig'));
+const AdminEquipment = lazy(() => import('./pages/admin/Equipment'));
 
 // Employee Pages (no longer used — employees redirect to admin layout)
 
-// Client Pages
-import ClientDashboard from './pages/client/Dashboard';
-import ClientWorks from './pages/client/Works';
-import ClientWorkDetail from './pages/client/WorkDetail';
-import ClientDocuments from './pages/client/Documents';
-import ClientRequests from './pages/client/Requests';
-import ClientProposals from './pages/client/Proposals';
-import ClientContracts from './pages/client/Contracts';
-import ClientFinancial from './pages/client/Financial';
-import ClientTeam from './pages/client/Team';
+// Client Pages (lazy)
+const ClientDashboard = lazy(() => import('./pages/client/Dashboard'));
+const ClientWorks = lazy(() => import('./pages/client/Works'));
+const ClientWorkDetail = lazy(() => import('./pages/client/WorkDetail'));
+const ClientDocuments = lazy(() => import('./pages/client/Documents'));
+const ClientRequests = lazy(() => import('./pages/client/Requests'));
+const ClientProposals = lazy(() => import('./pages/client/Proposals'));
+const ClientContracts = lazy(() => import('./pages/client/Contracts'));
+const ClientFinancial = lazy(() => import('./pages/client/Financial'));
+const ClientTeam = lazy(() => import('./pages/client/Team'));
 
 // Protected Route
 import ProtectedRoute from './components/ProtectedRoute';
 
-// Public Pages
-import ProposalSignature from './pages/public/ProposalSignature';
-import ContractSignature from './pages/public/ContractSignature';
+// Public Pages (lazy)
+const ProposalSignature = lazy(() => import('./pages/public/ProposalSignature'));
+const ContractSignature = lazy(() => import('./pages/public/ContractSignature'));
 
 // Smart Tasks page: employees see only their tasks; admins see all
 function SmartTasksPage() {
@@ -107,6 +115,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* Public Routes (sem autenticação) */}
           <Route path="/assinar/:token" element={<ProposalSignature />} />
@@ -196,6 +205,7 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
       <Toaster position="top-right" />
     </AuthProvider>
