@@ -610,7 +610,9 @@ export default function AdminWorkDetail() {
         const base = Number(work.totalValue || 0);
         const addTotal = payments.filter((p: any) => p.type === 'income' && (p.notes || '').includes('[Aditivo]')).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
         const custos = workCosts.reduce((s: number, c: any) => s + Number(c.totalPrice || 0), 0);
-        const fatDir = payments.filter((p: any) => p.type === 'expense' && (p.category === 'project' || (p.notes || '').includes('[Fat. Direto]'))).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+        const fatDirMed = measurements.reduce((s: number, m: any) => s + Number(m.directBillingTotal || 0), 0);
+        const fatDirPay = payments.filter((p: any) => p.type === 'expense' && (p.category === 'project' || (p.notes || '').includes('[Fat. Direto]'))).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+        const fatDir = fatDirMed + fatDirPay;
         const totalInvested = custos + fatDir;
         const margem = base + addTotal > 0 ? ((base + addTotal - totalInvested) / (base + addTotal)) * 100 : 0;
         const osCompleted = serviceOrders.filter((o: any) => o.status === 'completed' || o.status === 'closed').length;
@@ -1183,58 +1185,77 @@ export default function AdminWorkDetail() {
             {(() => {
               const additives = payments.filter((p: any) => p.type === 'income' && (p.notes || '').includes('[Aditivo]'));
               const additivesTotal = additives.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-              const paidPayments = payments.filter((p: any) => p.type === 'income' && p.status === 'paid');
-              const incomeReceived = paidPayments.reduce((s: number, p: any) => s + Number(p.paidAmount || p.amount || 0), 0);
-              // incomePending computed but unused — saldoAReceber replaces it
+              // Include PARTIAL payments (baixa com deduções) as received
+              const receivedPayments = payments.filter((p: any) => p.type === 'income' && (p.status === 'paid' || p.status === 'partial'));
+              const incomeReceived = receivedPayments.reduce((s: number, p: any) => s + Number(p.paidAmount || p.amount || 0), 0);
               const despesaExtra = payments.filter((p: any) => p.type === 'expense' && (p.notes || '').includes('[Despesa Extra]')).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
-              const fatDireto = payments.filter((p: any) => p.type === 'expense' && (p.category === 'project' || (p.notes || '').includes('[Fat. Direto]'))).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+              // Fat. Direto from measurements (ex: transformer)
+              const fatDiretoMedicoes = measurements.reduce((s: number, m: any) => s + Number(m.directBillingTotal || 0), 0);
+              // Also from payment expenses tagged as fat direto
+              const fatDiretoPayments = payments.filter((p: any) => p.type === 'expense' && (p.category === 'project' || (p.notes || '').includes('[Fat. Direto]'))).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+              const fatDireto = fatDiretoMedicoes + fatDiretoPayments;
               const custosTotal = workCosts.reduce((s: number, c: any) => s + Number(c.totalPrice || 0), 0);
               const base = Number(work.totalValue || 0);
-              // Deductions from ALL income payments (paid or not)
-              const allIncome = payments.filter((p: any) => p.type === 'income');
-              const dedISS = allIncome.reduce((s: number, p: any) => s + Number(p.taxISSAmount || 0), 0);
-              const dedINSS = allIncome.reduce((s: number, p: any) => s + Number(p.inssAmount || 0), 0);
-              const dedAnt = allIncome.reduce((s: number, p: any) => s + Number(p.anticipationDiscount || 0), 0);
-              const dedOther = allIncome.reduce((s: number, p: any) => s + Number(p.taxCSLLAmount || 0) + Number(p.taxPISCOFINSAmount || 0) + Number(p.taxIRRFAmount || 0) + Number(p.taxWithholding || 0), 0);
+              // Deductions from received income payments only
+              const dedISS = receivedPayments.reduce((s: number, p: any) => s + Number(p.taxISSAmount || 0), 0);
+              const dedINSS = receivedPayments.reduce((s: number, p: any) => s + Number(p.inssAmount || 0), 0);
+              const dedAnt = receivedPayments.reduce((s: number, p: any) => s + Number(p.anticipationDiscount || 0), 0);
+              const dedOther = receivedPayments.reduce((s: number, p: any) => s + Number(p.taxCSLLAmount || 0) + Number(p.taxPISCOFINSAmount || 0) + Number(p.taxIRRFAmount || 0) + Number(p.taxWithholding || 0), 0);
               const totalDeductions = dedISS + dedINSS + dedAnt + dedOther;
-              const saldoReal = base + additivesTotal - custosTotal - fatDireto;
-              const saldoLiquido = incomeReceived - totalDeductions;
-              const saldoAReceber = base + additivesTotal - incomeReceived;
+              // Emitted = total bruto of income received before deductions
+              const emitted = receivedPayments.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+              const saldoLiquido = incomeReceived; // paidAmount already has deductions applied
+              const perdaFiscal = dedISS + dedINSS + dedOther;
+              const perdaFinanceira = dedAnt;
+              const perdaTotal = emitted - incomeReceived;
+              // Saldo do contrato = base - fat. direto - já medido (executado)
+              const medidoTotal = measurements.reduce((s: number, m: any) => s + Number(m.totalAmount || m.netAmount || m.value || m.amount || 0), 0);
+              const saldoContrato = base - fatDireto;
+              const saldoAMedir = saldoContrato - medidoTotal;
               return (
                 <div className="space-y-3">
-                  {/* Row 1: Budget */}
+                  {/* Row 1: Contrato e Composição */}
                   <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                     <Card className="border-l-4 border-l-blue-500">
-                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Orçamento Base</p><p className="text-xl font-bold font-mono">R$ {fmt(base)}</p></CardContent>
+                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Contrato Total</p><p className="text-xl font-bold font-mono">R$ {fmt(base)}</p></CardContent>
                     </Card>
                     <Card className="border-l-4 border-l-indigo-500">
                       <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">+ Aditivos</p><p className="text-xl font-bold font-mono text-indigo-600">R$ {fmt(additivesTotal)}</p></CardContent>
                     </Card>
                     <Card className="border-l-4 border-l-rose-500">
-                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Fat. Direto (custo)</p><p className="text-xl font-bold font-mono text-rose-600">R$ {fmt(fatDireto)}</p></CardContent>
-                    </Card>
-                    <Card className="border-l-4 border-l-orange-400">
-                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Custos Obra</p><p className="text-xl font-bold font-mono text-orange-600">R$ {fmt(custosTotal)}</p></CardContent>
-                    </Card>
-                    <Card className={`border-l-4 ${saldoReal >= 0 ? 'border-l-teal-500' : 'border-l-red-600'}`}>
                       <CardContent className="p-3">
-                        <p className="text-[10px] text-slate-500 uppercase font-medium">= Saldo Disponível</p>
-                        <p className={`text-xl font-bold font-mono ${saldoReal >= 0 ? 'text-teal-600' : 'text-red-600'}`}>R$ {fmt(saldoReal)}</p>
-                        <p className="text-[9px] text-slate-400 mt-0.5">Orçamento − Custos − Fat. Direto</p>
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">Fat. Direto (Dedução)</p>
+                        <p className="text-xl font-bold font-mono text-rose-600">- R$ {fmt(fatDireto)}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Material fornecido pelo cliente</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-l-4 border-l-amber-500">
+                      <CardContent className="p-3">
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">= Saldo Medições</p>
+                        <p className="text-xl font-bold font-mono text-amber-600">R$ {fmt(saldoContrato)}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Contrato − Fat. Direto</p>
+                      </CardContent>
+                    </Card>
+                    <Card className={`border-l-4 ${saldoAMedir >= 0 ? 'border-l-teal-500' : 'border-l-red-600'}`}>
+                      <CardContent className="p-3">
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">📏 A Medir</p>
+                        <p className={`text-xl font-bold font-mono ${saldoAMedir >= 0 ? 'text-teal-600' : 'text-red-600'}`}>R$ {fmt(saldoAMedir)}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Medido: R$ {fmt(medidoTotal)}</p>
                       </CardContent>
                     </Card>
                   </div>
-                  {/* Row 2: Receivables + Deductions */}
+                  {/* Row 2: Recebimentos e Líquido */}
                   <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                     <Card className="border-l-4 border-l-emerald-500">
-                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Receitas Recebidas</p><p className="text-lg font-bold font-mono text-emerald-600">R$ {fmt(incomeReceived)}</p></CardContent>
-                    </Card>
-                    <Card className="border-l-4 border-l-amber-500">
-                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">A Receber</p><p className="text-lg font-bold font-mono text-amber-600">R$ {fmt(saldoAReceber)}</p></CardContent>
+                      <CardContent className="p-3">
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">Faturado (Bruto)</p>
+                        <p className="text-lg font-bold font-mono text-emerald-600">R$ {fmt(emitted)}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">NF emitida</p>
+                      </CardContent>
                     </Card>
                     <Card className="border-l-4 border-l-red-400">
                       <CardContent className="p-3">
-                        <p className="text-[10px] text-slate-500 uppercase font-medium">Deduções Totais</p>
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">Deduções</p>
                         <p className="text-lg font-bold font-mono text-red-600">- R$ {fmt(totalDeductions)}</p>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {dedISS > 0 && <span className="px-1.5 py-0 bg-red-50 text-red-500 rounded text-[9px] font-medium">ISS R$ {fmt(dedISS)}</span>}
@@ -1244,14 +1265,28 @@ export default function AdminWorkDetail() {
                         </div>
                       </CardContent>
                     </Card>
-                    <Card className="border-l-4 border-l-orange-400">
-                      <CardContent className="p-3"><p className="text-[10px] text-slate-500 uppercase font-medium">Desp. Extra</p><p className="text-lg font-bold font-mono text-orange-600">R$ {fmt(despesaExtra)}</p></CardContent>
-                    </Card>
-                    <Card className={`border-l-4 ${saldoLiquido >= 0 ? 'border-l-cyan-500 bg-cyan-50/30' : 'border-l-red-400 bg-red-50/30'}`}>
+                    <Card className="border-l-4 border-l-cyan-500 bg-cyan-50/30">
                       <CardContent className="p-3">
-                        <p className="text-[10px] text-slate-500 uppercase font-medium">💰 Saldo Líquido Recebido</p>
-                        <p className={`text-lg font-bold font-mono ${saldoLiquido >= 0 ? 'text-cyan-700' : 'text-red-600'}`}>R$ {fmt(saldoLiquido)}</p>
-                        <p className="text-[9px] text-slate-400 mt-0.5">Recebido − Deduções (ISS/INSS/Antec.)</p>
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">💰 Líquido Recebido</p>
+                        <p className="text-lg font-bold font-mono text-cyan-700">R$ {fmt(saldoLiquido)}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Efetivamente na conta</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-l-4 border-l-purple-400 bg-purple-50/30">
+                      <CardContent className="p-3">
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">⚠️ Perda Total</p>
+                        <p className="text-lg font-bold font-mono text-purple-700">- R$ {fmt(perdaTotal)}</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {perdaFiscal > 0 && <span className="px-1.5 py-0 bg-purple-50 text-purple-500 rounded text-[9px] font-medium">Fiscal R$ {fmt(perdaFiscal)}</span>}
+                          {perdaFinanceira > 0 && <span className="px-1.5 py-0 bg-orange-50 text-orange-500 rounded text-[9px] font-medium">Financ. R$ {fmt(perdaFinanceira)}</span>}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-l-4 border-l-orange-400">
+                      <CardContent className="p-3">
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">Custos Obra</p>
+                        <p className="text-lg font-bold font-mono text-orange-600">R$ {fmt(custosTotal)}</p>
+                        {despesaExtra > 0 && <p className="text-[9px] text-rose-500 mt-0.5">+ Extra: R$ {fmt(despesaExtra)}</p>}
                       </CardContent>
                     </Card>
                   </div>
