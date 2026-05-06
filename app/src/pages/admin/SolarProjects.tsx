@@ -1607,176 +1607,236 @@ export default function SolarProjects() {
             </div>
           )}
 
-          {/* STEP 6: Condições de Pagamento */}
-          {step === 6 && (
-            <div className="space-y-5">
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><CreditCard className="w-5 h-5 text-amber-500" /> Condições de Pagamento</h2>
-              <p className="text-xs text-slate-500">Configure a forma de pagamento que será exibida na proposta (última página com termo de aceite).</p>
+          {/* STEP 6: Condições de Pagamento (MÚLTIPLAS OPÇÕES) */}
+          {step === 6 && (() => {
+            const pcList: any[] = Array.isArray(form.paymentConditions) ? form.paymentConditions : (form.paymentConditions ? [form.paymentConditions] : []);
+            const activePC = pcList[form._activePaymentTab || 0] || null;
+            const aPCIdx = form._activePaymentTab || 0;
 
-              {/* Método de pagamento */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  { value: 'avista', label: 'À Vista', icon: '💰', desc: 'PIX / Transferência' },
-                  { value: 'parcelado', label: 'Parcelado', icon: '💳', desc: 'Cartão de Crédito' },
-                  { value: 'entrada_parcelas', label: 'Entrada + Parcelas', icon: '📋', desc: 'Negociação mista' },
-                  { value: 'financiamento', label: 'Financiamento', icon: '🏦', desc: 'Banco / CDC Solar' },
-                ].map(m => (
-                  <div
-                    key={m.value}
-                    onClick={() => setForm((f: any) => ({
-                      ...f,
-                      paymentConditions: { ...(f.paymentConditions || {}), method: m.value },
-                    }))}
-                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all text-center ${
-                      form.paymentConditions?.method === m.value
-                        ? 'border-amber-400 bg-amber-50 shadow-md'
-                        : 'border-slate-200 hover:border-amber-200 bg-white'
-                    }`}
-                  >
-                    <div className="text-2xl mb-1">{m.icon}</div>
-                    <div className="text-sm font-bold text-slate-900">{m.label}</div>
-                    <div className="text-[10px] text-slate-500">{m.desc}</div>
-                  </div>
-                ))}
+            const updatePC = (idx: number, key: string, value: any) => {
+              setForm((f: any) => {
+                const list = Array.isArray(f.paymentConditions) ? [...f.paymentConditions] : (f.paymentConditions ? [f.paymentConditions] : []);
+                list[idx] = { ...list[idx], [key]: value };
+                return { ...f, paymentConditions: list };
+              });
+            };
+            const updatePCMulti = (idx: number, updates: Record<string, any>) => {
+              setForm((f: any) => {
+                const list = Array.isArray(f.paymentConditions) ? [...f.paymentConditions] : (f.paymentConditions ? [f.paymentConditions] : []);
+                list[idx] = { ...list[idx], ...updates };
+                return { ...f, paymentConditions: list };
+              });
+            };
+            const addPaymentOption = () => {
+              setForm((f: any) => {
+                const list = Array.isArray(f.paymentConditions) ? [...f.paymentConditions] : (f.paymentConditions ? [f.paymentConditions] : []);
+                list.push({ method: 'parcelado', downPayment: 0, downPaymentPercent: 0, installments: 0, installmentValue: 0, interestRate: 0, interestType: 'sem_juros', cardBrand: '', financingBank: '', financingLine: '', pixDiscount: 0, notes: '', label: `Opção ${list.length + 1}` });
+                return { ...f, paymentConditions: list, _activePaymentTab: list.length - 1 };
+              });
+            };
+            const removePaymentOption = (idx: number) => {
+              setForm((f: any) => {
+                const list = Array.isArray(f.paymentConditions) ? [...f.paymentConditions] : [];
+                list.splice(idx, 1);
+                return { ...f, paymentConditions: list, _activePaymentTab: Math.max(0, idx - 1) };
+              });
+            };
+
+            const recKit = (form.commercialKits || []).find((k: any) => k.isRecommended) || form.commercialKits?.[0];
+            const totalValue = recKit?.totalPrice || Number(form.totalInvestment || 0);
+            const methodOptions = [
+              { value: 'avista', label: 'À Vista', icon: '💰' },
+              { value: 'parcelado', label: 'Parcelado', icon: '💳' },
+              { value: 'entrada_parcelas', label: 'Entrada + Parcelas', icon: '📋' },
+              { value: 'financiamento', label: 'Financiamento', icon: '🏦' },
+            ];
+
+            return (
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><CreditCard className="w-5 h-5 text-amber-500" /> Condições de Pagamento</h2>
+                  <p className="text-xs text-slate-500 mt-1">Adicione múltiplas opções de pagamento (ex: 12x, 21x, à vista) para o cliente escolher.</p>
+                </div>
+                <Button onClick={addPaymentOption} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold">
+                  <Plus className="w-4 h-4 mr-1" /> Nova Opção
+                </Button>
               </div>
 
-              {/* Campos condicionais */}
-              {form.paymentConditions?.method && (
-                <div className="border rounded-xl p-5 space-y-4 bg-slate-50/50">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {/* Entrada */}
-                    {['entrada_parcelas', 'parcelado', 'financiamento'].includes(form.paymentConditions.method) && (
-                      <>
-                        <div>
-                          <Label className="text-xs">Entrada (R$)</Label>
-                          <Input type="number" step="0.01" value={numVal(form.paymentConditions?.downPayment)} onChange={e => {
-                            const val = Number(e.target.value);
-                            const recKit = (form.commercialKits || []).find((k: any) => k.isRecommended) || form.commercialKits?.[0];
-                            const total = recKit?.totalPrice || Number(form.totalInvestment || 0);
-                            const pct = total > 0 ? Math.round((val / total) * 100) : 0;
-                            setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, downPayment: val, downPaymentPercent: pct } }));
-                          }} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Entrada (%)</Label>
-                          <Input type="number" step="1" value={numVal(form.paymentConditions?.downPaymentPercent)} onChange={e => {
-                            const pct = Number(e.target.value);
-                            const recKit = (form.commercialKits || []).find((k: any) => k.isRecommended) || form.commercialKits?.[0];
-                            const total = recKit?.totalPrice || Number(form.totalInvestment || 0);
-                            const val = total * pct / 100;
-                            setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, downPayment: Math.round(val * 100) / 100, downPaymentPercent: pct } }));
-                          }} />
-                        </div>
-                      </>
-                    )}
-
-                    {/* Parcelas */}
-                    {['parcelado', 'entrada_parcelas', 'financiamento'].includes(form.paymentConditions.method) && (
-                      <>
-                        <div>
-                          <Label className="text-xs">Nº de Parcelas</Label>
-                          <Input type="number" step="1" value={numVal(form.paymentConditions?.installments)} onChange={e => {
-                            const inst = Number(e.target.value);
-                            const recKit = (form.commercialKits || []).find((k: any) => k.isRecommended) || form.commercialKits?.[0];
-                            const total = recKit?.totalPrice || Number(form.totalInvestment || 0);
-                            const remaining = total - Number(form.paymentConditions?.downPayment || 0);
-                            const instValue = inst > 0 ? Math.round((remaining / inst) * 100) / 100 : 0;
-                            setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, installments: inst, installmentValue: instValue } }));
-                          }} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Valor da Parcela (R$)</Label>
-                          <Input type="number" step="0.01" value={numVal(form.paymentConditions?.installmentValue)} onChange={e => {
-                            setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, installmentValue: Number(e.target.value) } }));
-                          }} />
-                        </div>
-                      </>
-                    )}
-
-                    {/* Juros */}
-                    {['parcelado', 'entrada_parcelas', 'financiamento'].includes(form.paymentConditions.method) && (
-                      <>
-                        <div>
-                          <Label className="text-xs">Taxa de Juros (% a.m.)</Label>
-                          <Input type="number" step="0.01" value={numVal(form.paymentConditions?.interestRate)} onChange={e => {
-                            setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, interestRate: Number(e.target.value) } }));
-                          }} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Tipo de Juros</Label>
-                          <Select value={form.paymentConditions?.interestType || 'sem_juros'} onValueChange={v => setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, interestType: v } }))}>
-                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="sem_juros">Sem Juros</SelectItem>
-                              <SelectItem value="embutido">Juros Embutidos</SelectItem>
-                              <SelectItem value="sobre_saldo">Sobre Saldo Devedor</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </>
-                    )}
-
-                    {/* Cartão */}
-                    {form.paymentConditions.method === 'parcelado' && (
-                      <div>
-                        <Label className="text-xs">Bandeira do Cartão</Label>
-                        <Input value={form.paymentConditions?.cardBrand || ''} onChange={e => setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, cardBrand: e.target.value } }))} placeholder="Visa, Master, Elo..." />
-                      </div>
-                    )}
-
-                    {/* Financiamento */}
-                    {form.paymentConditions.method === 'financiamento' && (
-                      <>
-                        <div>
-                          <Label className="text-xs">Banco / Instituição</Label>
-                          <Input value={form.paymentConditions?.financingBank || ''} onChange={e => setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, financingBank: e.target.value } }))} placeholder="BV, Santander, Sicoob..." />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Linha de Crédito</Label>
-                          <Input value={form.paymentConditions?.financingLine || ''} onChange={e => setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, financingLine: e.target.value } }))} placeholder="CDC Solar, BNDES..." />
-                        </div>
-                      </>
-                    )}
-
-                    {/* PIX Discount */}
-                    <div>
-                      <Label className="text-xs">Desconto PIX à Vista (%)</Label>
-                      <Input type="number" step="0.5" value={numVal(form.paymentConditions?.pixDiscount)} onChange={e => {
-                        setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, pixDiscount: Number(e.target.value) } }));
-                      }} placeholder="0" />
-                    </div>
-                  </div>
-
-                  {/* Observações */}
-                  <div>
-                    <Label className="text-xs">Observações (aparece na proposta)</Label>
-                    <Textarea rows={2} value={form.paymentConditions?.notes || ''} onChange={e => setForm((f: any) => ({ ...f, paymentConditions: { ...f.paymentConditions, notes: e.target.value } }))} placeholder="Condições especiais, prazos de validade da negociação..." />
-                  </div>
-
-                  {/* Resumo visual */}
-                  {(() => {
-                    const pc = form.paymentConditions;
-                    const recKit = (form.commercialKits || []).find((k: any) => k.isRecommended) || form.commercialKits?.[0];
-                    const total = recKit?.totalPrice || Number(form.totalInvestment || 0);
-                    return (
-                      <div className="p-4 bg-white rounded-xl border-2 border-amber-200">
-                        <p className="text-xs font-bold text-amber-700 uppercase mb-2">📋 Preview — Como aparecerá na proposta</p>
-                        <div className="text-sm text-slate-700 space-y-1">
-                          <p><strong>Investimento:</strong> {fmt(total)}</p>
-                          {pc.downPayment > 0 && <p><strong>Entrada:</strong> {fmt(pc.downPayment)} ({pc.downPaymentPercent || 0}%)</p>}
-                          {pc.installments > 0 && <p><strong>Parcelas:</strong> {pc.installments}x de {fmt(pc.installmentValue || 0)}</p>}
-                          {pc.interestRate > 0 && <p><strong>Juros:</strong> {pc.interestRate}% a.m. ({pc.interestType === 'embutido' ? 'embutido' : pc.interestType === 'sobre_saldo' ? 'sobre saldo' : 'sem juros'})</p>}
-                          {pc.interestRate === 0 && pc.installments > 0 && <p className="text-green-600 font-bold">✅ SEM JUROS</p>}
-                          {pc.pixDiscount > 0 && <p><strong>Desconto PIX:</strong> <span className="text-green-600 font-bold">{pc.pixDiscount}% OFF</span></p>}
-                          {pc.financingBank && <p><strong>Banco:</strong> {pc.financingBank} {pc.financingLine && `— ${pc.financingLine}`}</p>}
-                        </div>
-                      </div>
-                    );
-                  })()}
+              {pcList.length === 0 ? (
+                <div className="text-center py-16 text-slate-400">
+                  <CreditCard className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                  <p className="font-medium">Nenhuma opção de pagamento configurada</p>
+                  <p className="text-xs mt-1">Clique em "Nova Opção" para adicionar formas de pagamento à proposta.</p>
                 </div>
+              ) : (
+                <>
+                  {/* Tabs das opções */}
+                  <div className="flex gap-2 flex-wrap">
+                    {pcList.map((pc: any, pi: number) => {
+                      const mOpt = methodOptions.find(m => m.value === pc.method);
+                      return (
+                        <div key={pi} role="button" tabIndex={0}
+                          onClick={() => setForm((f: any) => ({ ...f, _activePaymentTab: pi }))}
+                          className={`flex-1 min-w-[140px] px-4 py-3 rounded-xl text-sm font-bold border-2 transition-all relative group cursor-pointer ${
+                            aPCIdx === pi ? 'border-amber-400 bg-amber-50 text-amber-900 shadow-md' : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'
+                          }`}>
+                          {pcList.length > 1 && (
+                            <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center"
+                              onClick={e => { e.stopPropagation(); removePaymentOption(pi); }}>×</span>
+                          )}
+                          <div className="text-center">
+                            <span className="text-lg">{mOpt?.icon || '💳'}</span>
+                            <input className="bg-transparent text-center font-bold border-none outline-none w-full text-sm"
+                              value={pc.label || `Opção ${pi + 1}`}
+                              onChange={e => updatePC(pi, 'label', e.target.value)}
+                              onClick={e => e.stopPropagation()} />
+                            {pc.installments > 0 && <p className="text-xs text-slate-500">{pc.installments}x de {fmt(pc.installmentValue || 0)}</p>}
+                            {pc.method === 'avista' && <p className="text-xs text-green-600 font-bold">À Vista</p>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <button onClick={addPaymentOption}
+                      className="min-w-[60px] px-3 py-3 rounded-xl border-2 border-dashed border-slate-300 text-slate-400 hover:border-amber-400 hover:text-amber-600 transition-all flex flex-col items-center justify-center">
+                      <Plus className="w-5 h-5" />
+                      <span className="text-[10px] mt-0.5">Nova</span>
+                    </button>
+                  </div>
+
+                  {/* Editor da opção ativa */}
+                  {activePC && (
+                    <div className="border rounded-xl p-5 space-y-4 bg-white">
+                      {/* Método */}
+                      <div>
+                        <Label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Forma de Pagamento</Label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {methodOptions.map(m => (
+                            <div key={m.value}
+                              onClick={() => updatePC(aPCIdx, 'method', m.value)}
+                              className={`p-3 rounded-lg border-2 cursor-pointer transition-all text-center text-sm ${
+                                activePC.method === m.value ? 'border-amber-400 bg-amber-50 font-bold' : 'border-slate-200 hover:border-amber-200'
+                              }`}>
+                              <span className="text-lg">{m.icon}</span> {m.label}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Campos */}
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {['entrada_parcelas', 'parcelado', 'financiamento'].includes(activePC.method) && (
+                          <>
+                            <div>
+                              <Label className="text-xs">Entrada (R$)</Label>
+                              <Input type="number" step="0.01" value={numVal(activePC.downPayment)} onChange={e => {
+                                const val = Number(e.target.value);
+                                const pct = totalValue > 0 ? Math.round((val / totalValue) * 100) : 0;
+                                updatePCMulti(aPCIdx, { downPayment: val, downPaymentPercent: pct });
+                              }} />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Entrada (%)</Label>
+                              <Input type="number" step="1" value={numVal(activePC.downPaymentPercent)} onChange={e => {
+                                const pct = Number(e.target.value);
+                                const val = totalValue * pct / 100;
+                                updatePCMulti(aPCIdx, { downPayment: Math.round(val * 100) / 100, downPaymentPercent: pct });
+                              }} />
+                            </div>
+                          </>
+                        )}
+                        {['parcelado', 'entrada_parcelas', 'financiamento'].includes(activePC.method) && (
+                          <>
+                            <div>
+                              <Label className="text-xs">Nº de Parcelas</Label>
+                              <Input type="number" step="1" value={numVal(activePC.installments)} onChange={e => {
+                                const inst = Number(e.target.value);
+                                const remaining = totalValue - Number(activePC.downPayment || 0);
+                                const instValue = inst > 0 ? Math.round((remaining / inst) * 100) / 100 : 0;
+                                updatePCMulti(aPCIdx, { installments: inst, installmentValue: instValue });
+                              }} />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Valor da Parcela (R$)</Label>
+                              <Input type="number" step="0.01" value={numVal(activePC.installmentValue)} onChange={e => {
+                                updatePC(aPCIdx, 'installmentValue', Number(e.target.value));
+                              }} />
+                            </div>
+                          </>
+                        )}
+                        {['parcelado', 'entrada_parcelas', 'financiamento'].includes(activePC.method) && (
+                          <>
+                            <div>
+                              <Label className="text-xs">Taxa de Juros (% a.m.)</Label>
+                              <Input type="number" step="0.01" value={numVal(activePC.interestRate)} onChange={e => updatePC(aPCIdx, 'interestRate', Number(e.target.value))} />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Tipo de Juros</Label>
+                              <Select value={activePC.interestType || 'sem_juros'} onValueChange={v => updatePC(aPCIdx, 'interestType', v)}>
+                                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="sem_juros">Sem Juros</SelectItem>
+                                  <SelectItem value="embutido">Juros Embutidos</SelectItem>
+                                  <SelectItem value="sobre_saldo">Sobre Saldo Devedor</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </>
+                        )}
+                        {activePC.method === 'parcelado' && (
+                          <div>
+                            <Label className="text-xs">Bandeira do Cartão</Label>
+                            <Input value={activePC.cardBrand || ''} onChange={e => updatePC(aPCIdx, 'cardBrand', e.target.value)} placeholder="Visa, Master, Elo..." />
+                          </div>
+                        )}
+                        {activePC.method === 'financiamento' && (
+                          <>
+                            <div>
+                              <Label className="text-xs">Banco / Instituição</Label>
+                              <Input value={activePC.financingBank || ''} onChange={e => updatePC(aPCIdx, 'financingBank', e.target.value)} placeholder="BV, Santander, Sicoob..." />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Linha de Crédito</Label>
+                              <Input value={activePC.financingLine || ''} onChange={e => updatePC(aPCIdx, 'financingLine', e.target.value)} placeholder="CDC Solar, BNDES..." />
+                            </div>
+                          </>
+                        )}
+                        <div>
+                          <Label className="text-xs">Desconto PIX à Vista (%)</Label>
+                          <Input type="number" step="0.5" value={numVal(activePC.pixDiscount)} onChange={e => updatePC(aPCIdx, 'pixDiscount', Number(e.target.value))} placeholder="0" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Observações</Label>
+                        <Textarea rows={2} value={activePC.notes || ''} onChange={e => updatePC(aPCIdx, 'notes', e.target.value)} placeholder="Condições especiais..." />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Preview de TODAS as opções */}
+                  {pcList.length > 0 && (
+                    <div className="p-4 bg-white rounded-xl border-2 border-amber-200">
+                      <p className="text-xs font-bold text-amber-700 uppercase mb-3">📋 Preview — Todas as opções na proposta</p>
+                      <div className={`grid gap-3 ${pcList.length === 1 ? 'grid-cols-1 max-w-md' : pcList.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                        {pcList.map((pc: any, pi: number) => (
+                          <div key={pi} className="p-3 bg-slate-50 rounded-lg border text-sm space-y-1">
+                            <p className="font-bold text-slate-900 text-center">{pc.label || `Opção ${pi + 1}`}</p>
+                            {pc.downPayment > 0 && <p className="text-xs"><strong>Entrada:</strong> {fmt(pc.downPayment)}</p>}
+                            {pc.installments > 0 && <p className="text-xs"><strong>{pc.installments}x</strong> de <strong>{fmt(pc.installmentValue || 0)}</strong></p>}
+                            {pc.method === 'avista' && <p className="text-xs text-green-600 font-bold">💰 À Vista</p>}
+                            {pc.interestRate > 0 ? <p className="text-[10px] text-slate-500">Juros: {pc.interestRate}% a.m.</p> : pc.installments > 0 && <p className="text-[10px] text-green-600 font-bold">✅ SEM JUROS</p>}
+                            {pc.pixDiscount > 0 && <p className="text-[10px] text-green-600">{pc.pixDiscount}% desc. PIX</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
-          )}
+          );
+          })()}
 
           {/* STEP 7: Simulação Financeira */}
           {step === 7 && (

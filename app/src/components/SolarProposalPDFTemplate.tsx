@@ -1744,25 +1744,114 @@ const Page9 = ({ data }: { data: any }) => {
 // PÁGINA 10 — CONDIÇÕES DE PAGAMENTO & TERMO DE ACEITE
 // ══════════════════════════════════════════════════════════════════════════
 const Page10 = ({ data }: { data: any }) => {
-  const { empresa, cliente, proposta, kits, paymentConditions: pc } = data;
+  const { empresa, cliente, proposta, kits, paymentConditions: rawPC } = data;
+  // Normalize: support both single object (legacy) and array (new)
+  const pcList: any[] = Array.isArray(rawPC) ? rawPC : (rawPC ? [rawPC] : []);
   const methodLabels: Record<string, string> = {
     avista: 'À Vista (PIX/Transferência)',
-    parcelado: 'Parcelamento no Cartão de Crédito',
+    parcelado: 'Parcelamento no Cartão',
     financiamento: 'Financiamento Bancário',
     entrada_parcelas: 'Entrada + Parcelas',
   };
   const interestLabels: Record<string, string> = {
     sem_juros: 'Sem juros',
-    embutido: 'Juros embutidos no valor',
-    sobre_saldo: 'Juros sobre saldo devedor',
+    embutido: 'Juros embutidos',
+    sobre_saldo: 'Juros s/ saldo devedor',
   };
   const recKit = kits?.find((k: any) => k.badge) || kits?.[0];
   const totalValue = recKit?.precoFinal || 0;
 
+  const PaymentOptionCard = ({ pc, index }: { pc: any; index: number }) => (
+    <div style={{
+      flex: 1, minWidth: pcList.length === 1 ? '100%' : '45%',
+      border: `2px solid ${C.green}`, borderRadius: 12, overflow: "hidden",
+    }}>
+      <div style={{
+        backgroundColor: C.green, padding: "10px 16px",
+        display: "flex", alignItems: "center", gap: 8,
+      }}>
+        <span style={{ fontSize: 16 }}>💳</span>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: C.white }}>{pc.label || `Opção ${index + 1}`}</div>
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.7)" }}>{methodLabels[pc.method] || pc.method}</div>
+        </div>
+      </div>
+      <div style={{ padding: "12px 14px" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+          <tbody>
+            {pc.downPayment > 0 && (
+              <tr>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Entrada</td>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontWeight: 700, color: C.green }}>
+                  R$ {fmt(pc.downPayment)} {pc.downPaymentPercent > 0 && <span style={{ fontSize: 9, color: C.gray400 }}>({pc.downPaymentPercent}%)</span>}
+                </td>
+              </tr>
+            )}
+            {pc.installments > 0 && (
+              <tr>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Parcelas</td>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontWeight: 700, color: C.navy }}>
+                  {pc.installments}x de R$ {fmt(pc.installmentValue)}
+                </td>
+              </tr>
+            )}
+            {pc.interestRate > 0 && (
+              <tr>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Juros</td>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.gray600, fontSize: 10 }}>
+                  {pc.interestRate}% a.m. — {interestLabels[pc.interestType] || pc.interestType}
+                </td>
+              </tr>
+            )}
+            {pc.interestRate === 0 && pc.installments > 0 && (
+              <tr>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Juros</td>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.green, fontWeight: 700 }}>SEM JUROS ✅</td>
+              </tr>
+            )}
+            {pc.cardBrand && (
+              <tr>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Cartão</td>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.gray600 }}>{pc.cardBrand}</td>
+              </tr>
+            )}
+            {pc.financingBank && (
+              <tr>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Banco</td>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.gray600 }}>{pc.financingBank}</td>
+              </tr>
+            )}
+            {pc.financingLine && (
+              <tr>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Linha</td>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.gray600 }}>{pc.financingLine}</td>
+              </tr>
+            )}
+            {pc.pixDiscount > 0 && (
+              <tr>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Desc. PIX</td>
+                <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontWeight: 700, color: C.green }}>{pc.pixDiscount}% OFF</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        {pc.notes && (
+          <div style={{
+            marginTop: 8, padding: "8px 10px",
+            backgroundColor: C.gray50, borderRadius: 6, border: `1px solid ${C.gray200}`,
+            fontSize: 9, color: C.gray600, lineHeight: 1.5,
+          }}>
+            <strong style={{ color: C.gray800 }}>Obs:</strong> {pc.notes}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <Page bg={C.white} style={{ color: C.navy }}>
       <div style={{ padding: "0 0 80px" }}>
-        <SectionHeader num="10" title="Condições de Pagamento" subtitle="Forma de pagamento negociada para esta proposta" />
+        <SectionHeader num="10" title="Condições de Pagamento" subtitle="Opções de pagamento negociadas para esta proposta" />
 
         <div style={{ padding: "0 40px" }}>
 
@@ -1783,90 +1872,12 @@ const Page10 = ({ data }: { data: any }) => {
             </div>
           </div>
 
-          {/* Detalhamento da forma de pagamento */}
-          {pc ? (
-            <div style={{
-              border: `2px solid ${C.green}`, borderRadius: 12, overflow: "hidden", marginBottom: 24,
-            }}>
-              <div style={{
-                backgroundColor: C.green, padding: "12px 20px",
-                display: "flex", alignItems: "center", gap: 10,
-              }}>
-                <span style={{ fontSize: 18 }}>💳</span>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.white }}>{methodLabels[pc.method] || pc.method}</div>
-              </div>
-
-              <div style={{ padding: "20px 24px" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                  <tbody>
-                    {pc.downPayment > 0 && (
-                      <tr>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, width: "45%", color: C.gray800 }}>Entrada</td>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontWeight: 700, color: C.green }}>
-                          R$ {fmt(pc.downPayment)} {pc.downPaymentPercent > 0 && <span style={{ fontSize: 10, color: C.gray400 }}>({pc.downPaymentPercent}%)</span>}
-                        </td>
-                      </tr>
-                    )}
-                    {pc.installments > 0 && (
-                      <tr>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Parcelas</td>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontWeight: 700, color: C.navy }}>
-                          {pc.installments}x de R$ {fmt(pc.installmentValue)}
-                        </td>
-                      </tr>
-                    )}
-                    {pc.interestRate > 0 && (
-                      <tr>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Juros</td>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.gray600 }}>
-                          {pc.interestRate}% a.m. — {interestLabels[pc.interestType] || pc.interestType}
-                        </td>
-                      </tr>
-                    )}
-                    {pc.interestRate === 0 && pc.installments > 0 && (
-                      <tr>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Juros</td>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.green, fontWeight: 700 }}>SEM JUROS ✅</td>
-                      </tr>
-                    )}
-                    {pc.cardBrand && (
-                      <tr>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Bandeira do Cartão</td>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.gray600 }}>{pc.cardBrand}</td>
-                      </tr>
-                    )}
-                    {pc.financingBank && (
-                      <tr>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Instituição Financeira</td>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.gray600 }}>{pc.financingBank}</td>
-                      </tr>
-                    )}
-                    {pc.financingLine && (
-                      <tr>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Linha de Crédito</td>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", color: C.gray600 }}>{pc.financingLine}</td>
-                      </tr>
-                    )}
-                    {pc.pixDiscount > 0 && (
-                      <tr>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Desconto PIX à Vista</td>
-                        <td style={{ padding: "8px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontWeight: 700, color: C.green }}>{pc.pixDiscount}% OFF</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-
-                {pc.notes && (
-                  <div style={{
-                    marginTop: 16, padding: "12px 16px",
-                    backgroundColor: C.gray50, borderRadius: 8, border: `1px solid ${C.gray200}`,
-                    fontSize: 11, color: C.gray600, lineHeight: 1.6,
-                  }}>
-                    <strong style={{ color: C.gray800 }}>Observações:</strong><br />
-                    {pc.notes}
-                  </div>
-                )}
-              </div>
+          {/* Opções de pagamento (múltiplas) */}
+          {pcList.length > 0 ? (
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
+              {pcList.map((pc: any, pi: number) => (
+                <PaymentOptionCard key={pi} pc={pc} index={pi} />
+              ))}
             </div>
           ) : (
             <div style={{
