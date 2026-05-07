@@ -1749,140 +1749,179 @@ const Page10 = ({ data }: { data: any }) => {
   const rawList: any[] = Array.isArray(rawPC) ? rawPC : (rawPC ? [rawPC] : []);
   // Each item might be old-format (with method/installments) or new-format (with lines[])
   const pcList = rawList;
-  const interestLabels: Record<string, string> = {
-    sem_juros: 'Sem juros',
-    embutido: 'Juros embutidos',
-    sobre_saldo: 'Juros s/ saldo devedor',
-  };
   const recKit = kits?.find((k: any) => k.badge) || kits?.[0];
   const totalValue = recKit?.precoFinal || 0;
 
-  // Calculate line total (new format)
-  const lineTotal = (line: any) => {
+  // ─── Helpers: support new format (unitValue/qty) and legacy (value/installments) ───
+  const lineAmt = (line: any) => {
+    // New format uses unitValue + qty
+    if (line.unitValue !== undefined) return Number(line.unitValue || 0) * Math.max(1, Number(line.qty || 1));
+    // Legacy: value + installments
     if (line.installments > 0) return Number(line.value || 0) * Number(line.installments);
     return Number(line.value || 0);
   };
   const optionTotal = (opt: any) => {
-    // New format: lines[]
-    if (opt?.lines?.length > 0) return opt.lines.reduce((s: number, l: any) => s + lineTotal(l), 0);
-    // Legacy format
+    if (opt?.lines?.length > 0) return opt.lines.reduce((s: number, l: any) => s + lineAmt(l), 0);
     if (opt?.installments > 0) return Number(opt.installmentValue || 0) * Number(opt.installments) + Number(opt.downPayment || 0);
     return Number(opt?.downPayment || 0);
+  };
+
+  // Interest cost for a line
+  const lineInterestCost = (line: any) => {
+    const pv = Number(line.unitValue || line.value || 0);
+    const n = Math.max(1, Number(line.qty || line.installments || 1));
+    const r = Number(line.interestRate || 0) / 100;
+    if (r === 0 || n <= 1) return 0;
+    const total = pv * n;
+    const principal = pv * (1 - Math.pow(1 + r, -n)) / r;
+    return Math.max(0, total - principal);
+  };
+
+  const typeIcon: Record<string, string> = {
+    entrada: '💵', parcelas: '📅', financiamento: '🏦',
+    avista: '💰', desconto: '🏷️', outro: '📌',
+  };
+  const typeName: Record<string, string> = {
+    entrada: 'Entrada', parcelas: 'Parcelas', financiamento: 'Financiamento',
+    avista: 'À Vista', desconto: 'Desconto', outro: 'Outro',
+  };
+  const typeColor: Record<string, string> = {
+    entrada: C.green, parcelas: '#F59E0B', financiamento: '#8B5CF6',
+    avista: C.green, desconto: '#EF4444', outro: C.gray600,
   };
 
   const PaymentOptionCard = ({ pc, index }: { pc: any; index: number }) => {
     const hasLines = pc?.lines?.length > 0;
     const cardTotal = optionTotal(pc);
+    const diff = totalValue > 0 ? cardTotal - totalValue : 0;
+    const totalInterest = hasLines ? pc.lines.reduce((s: number, l: any) => s + lineInterestCost(l), 0) : 0;
+
     return (
       <div style={{
         flex: 1, minWidth: pcList.length === 1 ? '100%' : '45%',
-        border: `2px solid ${C.green}`, borderRadius: 12, overflow: "hidden",
-        breakInside: "avoid",
+        borderRadius: 14, overflow: 'hidden',
+        border: `2px solid ${C.green}`,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+        breakInside: 'avoid',
       }}>
-        {/* Header */}
+        {/* Card Header */}
         <div style={{
-          backgroundColor: C.navy, padding: "12px 16px",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
+          background: `linear-gradient(135deg, ${C.navy} 0%, #1e3a5f 100%)`,
+          padding: '14px 18px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 18 }}>💳</span>
-            <div style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{pc.label || `Opção ${index + 1}`}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: '50%',
+              backgroundColor: 'rgba(255,255,255,0.12)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18,
+            }}>💳</div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.white }}>{pc.label || `Opção ${index + 1}`}</div>
+              {totalInterest > 0 && (
+                <div style={{ fontSize: 9, color: '#FCD34D', marginTop: 2 }}>
+                  Custo do dinheiro: +R$ {fmt(totalInterest)}
+                </div>
+              )}
+              {totalInterest === 0 && hasLines && (
+                <div style={{ fontSize: 9, color: C.green, fontWeight: 700, marginTop: 2 }}>✓ Sem acréscimo de juros</div>
+              )}
+            </div>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>Total</div>
-            <div style={{ fontSize: 14, fontWeight: 900, color: C.gold }}>R$ {fmt(cardTotal)}</div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', marginBottom: 2 }}>Total</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: C.gold }}>R$ {fmt(cardTotal)}</div>
+            {diff > 1 && <div style={{ fontSize: 8, color: '#FCA5A5' }}>+R$ {fmt(diff)} em juros</div>}
+            {diff < -1 && <div style={{ fontSize: 8, color: C.green }}>R$ {fmt(Math.abs(diff))} de desconto</div>}
           </div>
         </div>
 
-        {/* New format: lines[] */}
+        {/* Lines */}
         {hasLines && (
-          <div style={{ padding: "12px 14px" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-              <thead>
-                <tr>
-                  <td style={{ fontSize: 9, fontWeight: 700, color: C.gray400, paddingBottom: 6, textTransform: "uppercase" }}>Etapa / Descrição</td>
-                  <td style={{ fontSize: 9, fontWeight: 700, color: C.gray400, paddingBottom: 6, textTransform: "uppercase", textAlign: "right" }}>Valor</td>
-                  <td style={{ fontSize: 9, fontWeight: 700, color: C.gray400, paddingBottom: 6, textTransform: "uppercase", textAlign: "right" }}>Quando</td>
-                </tr>
-              </thead>
-              <tbody>
-                {pc.lines.map((line: any, li: number) => (
-                  <tr key={li}>
-                    <td style={{ padding: "7px 0", borderBottom: `1px solid ${C.gray200}`, color: C.gray800, fontWeight: 600 }}>
-                      {line.description || `Etapa ${li + 1}`}
-                      {line.installments > 0 && (
-                        <div style={{ fontSize: 9, color: Number(line.interestRate) === 0 ? C.green : "#F59E0B", fontWeight: 700 }}>
-                          {line.installments}x de R$ {fmt(line.value)}
-                          {Number(line.interestRate) === 0 ? " • SEM JUROS" : ` • ${line.interestRate}% a.m. (${interestLabels[line.interestType] || line.interestType})`}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ padding: "7px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontWeight: 700, color: C.navy, whiteSpace: "nowrap" }}>
-                      {line.installments > 0 ? `${line.installments}x ${fmt(line.value)}` : `R$ ${fmt(line.value)}`}
-                    </td>
-                    <td style={{ padding: "7px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontSize: 9, color: C.gray400, whiteSpace: "nowrap" }}>
-                      {line.when || "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td style={{ paddingTop: 8, fontWeight: 800, color: C.navy }}>Total</td>
-                  <td colSpan={2} style={{ paddingTop: 8, textAlign: "right", fontWeight: 800, color: C.green, fontSize: 13 }}>R$ {fmt(cardTotal)}</td>
-                </tr>
-              </tfoot>
-            </table>
+          <div style={{ backgroundColor: C.white, padding: '10px 14px' }}>
+            {pc.lines.map((line: any, li: number) => {
+              const qty = Math.max(1, Number(line.qty || line.installments || 1));
+              const uv = Number(line.unitValue || line.value || 0);
+              const amt = lineAmt(line);
+              const ic = lineInterestCost(line);
+              const tKey = line.type || 'parcelas';
+              return (
+                <div key={li} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '8px 0',
+                  borderBottom: li < pc.lines.length - 1 ? `1px solid ${C.gray100}` : 'none',
+                }}>
+                  <div style={{
+                    width: 22, height: 22, borderRadius: '50%',
+                    backgroundColor: `${typeColor[tKey]}22`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, flexShrink: 0, marginTop: 1,
+                  }}>{typeIcon[tKey] || '📌'}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>
+                      {line.description || typeName[tKey] || `Etapa ${li + 1}`}
+                    </div>
+                    <div style={{ fontSize: 9, color: typeColor[tKey], fontWeight: 700, marginTop: 1 }}>
+                      {typeName[tKey]?.toUpperCase()}
+                      {qty > 1 && ` · ${qty}x de R$ ${fmt(uv)}`}
+                      {Number(line.interestRate) === 0 && qty > 1 && ' · SEM JUROS 🟢'}
+                      {Number(line.interestRate) > 0 && ` · ${line.interestRate}% a.m.`}
+                    </div>
+                    {line.when && (
+                      <div style={{ fontSize: 8, color: C.gray400, marginTop: 1 }}>📅 {line.when}</div>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: C.navy }}>R$ {fmt(amt)}</div>
+                    {ic > 0 && <div style={{ fontSize: 8, color: '#F59E0B' }}>+R$ {fmt(ic)} juros</div>}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Total Row */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              marginTop: 8, paddingTop: 8,
+              borderTop: `2px solid ${C.navy}`,
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.navy }}>Total</div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: C.green }}>R$ {fmt(cardTotal)}</div>
+            </div>
+
             {pc.notes && (
               <div style={{
-                marginTop: 10, padding: "8px 10px",
-                backgroundColor: C.gray50, borderRadius: 6, border: `1px solid ${C.gray200}`,
-                fontSize: 9, color: C.gray600, lineHeight: 1.5,
+                marginTop: 8, padding: '6px 10px',
+                backgroundColor: '#FFFBEB', borderRadius: 6,
+                border: `1px solid #FDE68A`,
+                fontSize: 9, color: C.gray800, lineHeight: 1.5,
               }}>
-                <strong style={{ color: C.gray800 }}>Obs:</strong> {pc.notes}
+                <strong>📝 Obs:</strong> {pc.notes}
               </div>
             )}
           </div>
         )}
 
-        {/* Legacy format: old single method/installments structure */}
+        {/* Legacy format fallback */}
         {!hasLines && (
-          <div style={{ padding: "12px 14px" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-              <tbody>
-                {pc.downPayment > 0 && (
-                  <tr>
-                    <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Entrada</td>
-                    <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontWeight: 700, color: C.green }}>
-                      R$ {fmt(pc.downPayment)}{pc.downPaymentPercent > 0 && ` (${pc.downPaymentPercent}%)`}
-                    </td>
-                  </tr>
-                )}
-                {pc.installments > 0 && (
-                  <tr>
-                    <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Parcelas</td>
-                    <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontWeight: 700, color: C.navy }}>
-                      {pc.installments}x de R$ {fmt(pc.installmentValue)}
-                      {Number(pc.interestRate) === 0 && <span style={{ color: C.green, fontSize: 9 }}> • SEM JUROS</span>}
-                    </td>
-                  </tr>
-                )}
-                {pc.pixDiscount > 0 && (
-                  <tr>
-                    <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, fontWeight: 700, color: C.gray800 }}>Desc. PIX</td>
-                    <td style={{ padding: "5px 0", borderBottom: `1px solid ${C.gray200}`, textAlign: "right", fontWeight: 700, color: C.green }}>{pc.pixDiscount}% OFF</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-            {pc.notes && (
-              <div style={{
-                marginTop: 8, padding: "8px 10px", backgroundColor: C.gray50,
-                borderRadius: 6, border: `1px solid ${C.gray200}`, fontSize: 9, color: C.gray600,
-              }}>
-                <strong>Obs:</strong> {pc.notes}
+          <div style={{ backgroundColor: C.white, padding: '10px 14px' }}>
+            {pc.downPayment > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${C.gray100}` }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.gray800 }}>Entrada</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.green }}>R$ {fmt(pc.downPayment)}</span>
               </div>
             )}
+            {pc.installments > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${C.gray100}` }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.gray800 }}>Parcelas</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>{pc.installments}x R$ {fmt(pc.installmentValue)}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: `2px solid ${C.navy}` }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: C.navy }}>Total</span>
+              <span style={{ fontSize: 14, fontWeight: 900, color: C.green }}>R$ {fmt(cardTotal)}</span>
+            </div>
           </div>
         )}
       </div>
@@ -1896,22 +1935,91 @@ const Page10 = ({ data }: { data: any }) => {
 
         <div style={{ padding: "0 40px" }}>
 
-          {/* Valor de referência */}
-          <div style={{
-            backgroundColor: C.navy, borderRadius: 12, padding: "20px 28px",
-            marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between",
-          }}>
-            <div>
-              <div style={{ fontSize: 10, color: C.gold, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Investimento Total</div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: C.white, marginTop: 4 }}>R$ {fmt(totalValue)}</div>
-              {recKit && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>{recKit.nome}</div>}
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)" }}>Proposta Nº</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.gold }}>{proposta.numero}</div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>Válida até {proposta.validade}</div>
-            </div>
-          </div>
+          {/* Valor de referência — Banner Comercial */}
+          {(() => {
+            // Find plan with most installments for the "parcelamento" highlight
+            let bestPlan: any = null;
+            let maxQty = 0;
+            pcList.forEach((pc: any) => {
+              (pc.lines || []).forEach((l: any) => {
+                const q = Number(l.qty || l.installments || 1);
+                if (q > maxQty) { maxQty = q; bestPlan = { ...l, planLabel: pc.label }; }
+              });
+            });
+            const aVistaOpt = pcList.find((pc: any) =>
+              (pc.lines || []).some((l: any) => l.type === 'avista') ||
+              pc.label?.toLowerCase().includes('vista')
+            );
+            const aVistaTotal = aVistaOpt ? optionTotal(aVistaOpt) : totalValue;
+            return (
+              <div style={{
+                background: `linear-gradient(135deg, ${C.navy} 0%, #0f2744 100%)`,
+                borderRadius: 14, padding: '24px 28px',
+                marginBottom: 24,
+                boxShadow: '0 8px 32px rgba(10,22,40,0.2)',
+                border: `1px solid rgba(232,146,10,0.3)`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
+                  {/* Left: investment value */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontSize: 9, color: C.gold, fontWeight: 800,
+                      textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6,
+                    }}>Investimento Total</div>
+                    <div style={{ fontSize: 32, fontWeight: 900, color: C.white, lineHeight: 1 }}>
+                      R$ {fmt(aVistaTotal > 0 ? aVistaTotal : totalValue)}
+                    </div>
+                    {recKit && (
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 6 }}>
+                        {recKit.nome} · Sistema completo instalado e homologado
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Center divider */}
+                  <div style={{ width: 1, height: 60, backgroundColor: 'rgba(255,255,255,0.15)' }} />
+
+                  {/* Right: installment highlight */}
+                  {bestPlan && maxQty > 1 ? (
+                    <div style={{ flex: 1, textAlign: 'center' }}>
+                      <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+                        ou parcelado em
+                      </div>
+                      <div style={{ fontSize: 26, fontWeight: 900, color: C.gold }}>
+                        {maxQty}x R$ {fmt(Number(bestPlan.unitValue || bestPlan.value || 0))}
+                      </div>
+                      {Number(bestPlan.interestRate) === 0 ? (
+                        <div style={{
+                          display: 'inline-block', marginTop: 4,
+                          backgroundColor: '#16a34a22', border: `1px solid ${C.green}`,
+                          borderRadius: 20, padding: '2px 10px',
+                          fontSize: 9, color: C.green, fontWeight: 700,
+                        }}>✓ SEM JUROS</div>
+                      ) : (
+                        <div style={{ fontSize: 9, color: '#FCD34D', marginTop: 4 }}>
+                          {bestPlan.interestRate}% a.m. · {bestPlan.planLabel}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ flex: 1, textAlign: 'center' }}>
+                      <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', marginBottom: 6 }}>Condições Disponíveis</div>
+                      <div style={{ fontSize: 13, color: C.white, fontWeight: 700 }}>💳 PIX · Cartão · Financiamento</div>
+                    </div>
+                  )}
+
+                  {/* Proposal info */}
+                  <div style={{ width: 1, height: 60, backgroundColor: 'rgba(255,255,255,0.15)' }} />
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)' }}>Proposta Nº</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.gold }}>{proposta.numero}</div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', marginTop: 4 }}>Válida até {proposta.validade}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
 
           {/* Opções de pagamento (múltiplas) */}
           {pcList.length > 0 ? (
