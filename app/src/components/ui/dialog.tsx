@@ -53,6 +53,16 @@ function DialogContent({
   showCloseButton?: boolean
 }) {
   const [maximized, setMaximized] = React.useState(false)
+  // Auto-detect mobile (< 640px) to start maximized
+  const [isMobile, setIsMobile] = React.useState(false)
+  React.useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  const isFullscreen = maximized || isMobile
 
   return (
     <DialogPortal data-slot="dialog-portal">
@@ -61,26 +71,28 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed z-50 grid border shadow-lg duration-200 outline-none",
-          maximized
-            ? "inset-2 translate-x-0 translate-y-0 rounded-lg max-w-none max-h-none overflow-y-auto p-6 gap-4"
+          isFullscreen
+            ? "inset-0 translate-x-0 translate-y-0 rounded-none max-w-none max-h-none w-screen h-screen overflow-y-auto p-4 gap-4"
             : "top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-full max-w-[calc(100%-2rem)] rounded-lg p-6 gap-4 sm:max-w-4xl max-h-[90vh] overflow-y-auto",
           className
         )}
-        style={maximized ? { top: '8px', left: '8px', right: '8px', bottom: '8px' } : undefined}
+        style={isFullscreen && !isMobile ? { top: 0, left: 0, right: 0, bottom: 0 } : undefined}
         {...props}
       >
         {children}
-        <div className="absolute top-4 right-4 flex items-center gap-1">
-          {/* Maximize / Restore button */}
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setMaximized(m => !m); }}
-            className="ring-offset-background focus:ring-ring rounded-md opacity-60 transition-all hover:opacity-100 hover:bg-slate-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden p-1.5"
-            title={maximized ? "Restaurar" : "Maximizar"}
-          >
-            {maximized ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-            <span className="sr-only">{maximized ? "Restaurar" : "Maximizar"}</span>
-          </button>
+        <div className="absolute top-3 right-3 flex items-center gap-1 z-10">
+          {/* Maximize / Restore button — hidden on mobile (already fullscreen) */}
+          {!isMobile && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setMaximized(m => !m); }}
+              className="ring-offset-background focus:ring-ring rounded-md opacity-60 transition-all hover:opacity-100 hover:bg-slate-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden p-1.5"
+              title={maximized ? "Restaurar" : "Maximizar"}
+            >
+              {maximized ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+              <span className="sr-only">{maximized ? "Restaurar" : "Maximizar"}</span>
+            </button>
+          )}
           {/* Close button */}
           {showCloseButton && (
             <DialogPrimitive.Close

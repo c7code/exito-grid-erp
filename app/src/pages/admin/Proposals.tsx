@@ -1446,11 +1446,20 @@ export default function AdminProposals() {
               </div>
             </div>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto bg-slate-200/60 p-6">
+          {/* Mobile download hint */}
+          <div className="sm:hidden flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-700">
+            <Download className="w-3.5 h-3.5 shrink-0" />
+            <span>Para melhor visualização, baixe o PDF ou gire o celular.</span>
+            <Button size="sm" className="ml-auto shrink-0 h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={() => { if (previewProposalData) handleDownloadPDF(previewProposalData); }}>
+              Baixar PDF
+            </Button>
+          </div>
+          <div className="flex-1 overflow-auto bg-slate-200/60 p-2 sm:p-6">
             {/* Signature Selector */}
             {previewProposalData && (
               <>
-              <div className="mx-auto mb-4" style={{ maxWidth: 794 }}>
+              <div className="mx-auto mb-4 w-full" style={{ maxWidth: 794 }}>
                 <SignatureSelector
                   documentType="proposal"
                   documentId={previewProposalData.id}
@@ -1464,28 +1473,31 @@ export default function AdminProposals() {
               </div>
               {/* ═══ ANEXOS DA PROPOSTA ═══ */}
               {previewProposalData.id && (
-                <div className="mx-auto mb-4" style={{ maxWidth: 794 }}>
+                <div className="mx-auto mb-4 w-full" style={{ maxWidth: 794 }}>
                   <ProposalAttachments proposalId={previewProposalData.id} />
                 </div>
               )}
               </>
             )}
-            <div className="mx-auto shadow-xl rounded-lg overflow-hidden" style={{ maxWidth: 794 }}>
-              {previewProposalData && (
-                previewProposalData.activityType === 'energia_solar'
-                  ? <SolarProposalPDFTemplate proposal={previewProposalData} solarProject={solarProjectData || {}} company={companyData} />
-                  : previewProposalData.activityType === 'plano_oem'
-                    ? <OeMProposalPDFTemplate proposal={previewProposalData} company={companyData} signatures={resolvedSignatures} />
-                    : previewProposalData.activityType === 'locacao_equipamento'
-                      ? <RentalProposalPDFTemplate proposal={previewProposalData} company={companyData} signatures={resolvedSignatures} />
-                      : <ProposalPDFTemplate
-                          proposal={previewProposalData}
-                          client={previewProposalData.client || previewProposalData.opportunity?.client}
-                          company={companyData}
-                          hideFinancialValues={hideFinancialValues}
-                          signatures={resolvedSignatures}
-                        />
-              )}
+            {/* PDF container — scrollable on mobile */}
+            <div className="overflow-x-auto pb-4">
+              <div className="shadow-xl rounded-lg overflow-hidden" style={{ minWidth: 794, maxWidth: 794, margin: '0 auto' }}>
+                {previewProposalData && (
+                  previewProposalData.activityType === 'energia_solar'
+                    ? <SolarProposalPDFTemplate proposal={previewProposalData} solarProject={solarProjectData || {}} company={companyData} />
+                    : previewProposalData.activityType === 'plano_oem'
+                      ? <OeMProposalPDFTemplate proposal={previewProposalData} company={companyData} signatures={resolvedSignatures} />
+                      : previewProposalData.activityType === 'locacao_equipamento'
+                        ? <RentalProposalPDFTemplate proposal={previewProposalData} company={companyData} signatures={resolvedSignatures} />
+                        : <ProposalPDFTemplate
+                            proposal={previewProposalData}
+                            client={previewProposalData.client || previewProposalData.opportunity?.client}
+                            company={companyData}
+                            hideFinancialValues={hideFinancialValues}
+                            signatures={resolvedSignatures}
+                          />
+                )}
+              </div>
             </div>
           </div>
         </DialogContent>
