@@ -1767,15 +1767,6 @@ const Page10 = ({ data }: { data: any }) => {
   };
 
   // Interest cost for a line
-  const lineInterestCost = (line: any) => {
-    const pv = Number(line.unitValue || line.value || 0);
-    const n = Math.max(1, Number(line.qty || line.installments || 1));
-    const r = Number(line.interestRate || 0) / 100;
-    if (r === 0 || n <= 1) return 0;
-    const total = pv * n;
-    const principal = pv * (1 - Math.pow(1 + r, -n)) / r;
-    return Math.max(0, total - principal);
-  };
 
   const typeIcon: Record<string, string> = {
     entrada: '💵', parcelas: '📅', financiamento: '🏦',
@@ -1793,59 +1784,93 @@ const Page10 = ({ data }: { data: any }) => {
   const PaymentOptionCard = ({ pc, index }: { pc: any; index: number }) => {
     const hasLines = pc?.lines?.length > 0;
     const cardTotal = optionTotal(pc);
-    const diff = totalValue > 0 ? cardTotal - totalValue : 0;
-    const totalInterest = hasLines ? pc.lines.reduce((s: number, l: any) => s + lineInterestCost(l), 0) : 0;
+
+    // ── Honest surcharge: based on ACTUAL diff vs base, not interestRate field ──
+    const surcharge = totalValue > 0 ? Math.max(0, cardTotal - totalValue) : 0;
+    const surchargePercent = totalValue > 0 && surcharge > 0 ? (surcharge / totalValue * 100) : 0;
+    const isNoSurcharge = surcharge < 1; // truly no extra cost
+    const isAvista = (pc.lines || []).some((l: any) => l.type === 'avista') || pc.label?.toLowerCase().includes('vista');
+
+    // Find total installments for main installment line (for commercial copy)
+    const mainInstLine = (pc.lines || []).find((l: any) => Math.max(1, Number(l.qty || 1)) > 1);
+    const mainQty = mainInstLine ? Math.max(1, Number(mainInstLine.qty || 1)) : 0;
+    const mainUv = mainInstLine ? Number(mainInstLine.unitValue || mainInstLine.value || 0) : 0;
+
+    // Border color: green = no surcharge / best deal; amber = has surcharge
+    const borderColor = isNoSurcharge ? C.green : '#F59E0B';
 
     return (
       <div style={{
         flex: 1, minWidth: pcList.length === 1 ? '100%' : '45%',
         borderRadius: 14, overflow: 'hidden',
-        border: `2px solid ${C.green}`,
-        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+        border: `2px solid ${borderColor}`,
+        boxShadow: isNoSurcharge ? `0 4px 20px rgba(22,163,74,0.12)` : '0 4px 20px rgba(0,0,0,0.08)',
         breakInside: 'avoid',
       }}>
+        {/* Badge — top strip */}
+        {isAvista ? (
+          <div style={{ backgroundColor: C.green, padding: '4px 14px', textAlign: 'center', fontSize: 9, fontWeight: 900, color: C.white, letterSpacing: 1 }}>
+            🏆 MELHOR CUSTO-BENEFÍCIO — PAGAMENTO À VISTA
+          </div>
+        ) : isNoSurcharge ? (
+          <div style={{ backgroundColor: '#16a34a', padding: '4px 14px', textAlign: 'center', fontSize: 9, fontWeight: 900, color: C.white, letterSpacing: 1 }}>
+            ✅ SEM ACRÉSCIMO — VOCÊ PAGA APENAS O VALOR DO INVESTIMENTO
+          </div>
+        ) : (
+          <div style={{ backgroundColor: '#D97706', padding: '4px 14px', textAlign: 'center', fontSize: 9, fontWeight: 900, color: C.white, letterSpacing: 1 }}>
+            💳 PARCELADO — TAXAS DO CARTÃO INCLUSAS
+          </div>
+        )}
+
         {/* Card Header */}
         <div style={{
           background: `linear-gradient(135deg, ${C.navy} 0%, #1e3a5f 100%)`,
-          padding: '14px 18px',
+          padding: '12px 16px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: '50%',
-              backgroundColor: 'rgba(255,255,255,0.12)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18,
-            }}>💳</div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: C.white }}>{pc.label || `Opção ${index + 1}`}</div>
-              {totalInterest > 0 && (
-                <div style={{ fontSize: 9, color: '#FCD34D', marginTop: 2 }}>
-                  Custo do dinheiro: +R$ {fmt(totalInterest)}
-                </div>
-              )}
-              {totalInterest === 0 && hasLines && (
-                <div style={{ fontSize: 9, color: C.green, fontWeight: 700, marginTop: 2 }}>✓ Sem acréscimo de juros</div>
-              )}
-            </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.white }}>{pc.label || `Opção ${index + 1}`}</div>
+            {/* Commercial hook line */}
+            {isAvista && (
+              <div style={{ fontSize: 9, color: '#86EFAC', fontWeight: 700, marginTop: 3 }}>
+                Economia de R$ {fmt(surcharge >= 0 ? (pcList.reduce((max: number, p: any) => Math.max(max, optionTotal(p)), 0) - cardTotal) : 0)} em relação ao parcelamento máximo
+              </div>
+            )}
+            {!isAvista && isNoSurcharge && mainQty > 1 && (
+              <div style={{ fontSize: 9, color: '#86EFAC', fontWeight: 700, marginTop: 3 }}>
+                Divida em {mainQty}x sem pagar nada a mais
+              </div>
+            )}
+            {!isAvista && !isNoSurcharge && mainQty > 1 && (
+              <div style={{ fontSize: 9, color: '#FCD34D', marginTop: 3 }}>
+                {mainQty}x de R$ {fmt(mainUv)} · Acréscimo de {surchargePercent.toFixed(1)}% (taxa do cartão)
+              </div>
+            )}
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', marginBottom: 2 }}>Total</div>
-            <div style={{ fontSize: 16, fontWeight: 900, color: C.gold }}>R$ {fmt(cardTotal)}</div>
-            {diff > 1 && <div style={{ fontSize: 8, color: '#FCA5A5' }}>+R$ {fmt(diff)} em juros</div>}
-            {diff < -1 && <div style={{ fontSize: 8, color: C.green }}>R$ {fmt(Math.abs(diff))} de desconto</div>}
+          <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+            <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', marginBottom: 1 }}>Total a pagar</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: isNoSurcharge ? C.green : C.gold }}>R$ {fmt(cardTotal)}</div>
+            {surcharge > 1 && (
+              <div style={{ fontSize: 8, color: '#FCA5A5', marginTop: 1 }}>
+                +R$ {fmt(surcharge)} ({surchargePercent.toFixed(1)}% de acréscimo)
+              </div>
+            )}
+            {isNoSurcharge && totalValue > 0 && (
+              <div style={{ fontSize: 8, color: '#86EFAC', marginTop: 1 }}>= valor do investimento</div>
+            )}
           </div>
         </div>
 
-        {/* Lines */}
+        {/* Lines — honest display */}
         {hasLines && (
           <div style={{ backgroundColor: C.white, padding: '10px 14px' }}>
             {pc.lines.map((line: any, li: number) => {
               const qty = Math.max(1, Number(line.qty || line.installments || 1));
               const uv = Number(line.unitValue || line.value || 0);
               const amt = lineAmt(line);
-              const ic = lineInterestCost(line);
               const tKey = line.type || 'parcelas';
+              // For this specific line: check if it contributes to the surcharge
+              const lineHasRate = Number(line.interestRate) > 0;
               return (
                 <div key={li} style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10,
@@ -1862,11 +1887,11 @@ const Page10 = ({ data }: { data: any }) => {
                     <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>
                       {line.description || typeName[tKey] || `Etapa ${li + 1}`}
                     </div>
-                    <div style={{ fontSize: 9, color: typeColor[tKey], fontWeight: 700, marginTop: 1 }}>
-                      {typeName[tKey]?.toUpperCase()}
-                      {qty > 1 && ` · ${qty}x de R$ ${fmt(uv)}`}
-                      {Number(line.interestRate) === 0 && qty > 1 && ' · SEM JUROS 🟢'}
-                      {Number(line.interestRate) > 0 && ` · ${line.interestRate}% a.m.`}
+                    <div style={{ fontSize: 9, fontWeight: 700, marginTop: 1, color: lineHasRate ? '#F59E0B' : typeColor[tKey] }}>
+                      {qty > 1 ? `${qty}x de R$ ${fmt(uv)}` : `R$ ${fmt(uv)}`}
+                      {lineHasRate && ` · ${line.interestRate}% a.m.`}
+                      {!lineHasRate && qty > 1 && isNoSurcharge && ' ✅ Sem juros'}
+                      {!lineHasRate && qty > 1 && !isNoSurcharge && ' · Taxas inclusas no valor'}
                     </div>
                     {line.when && (
                       <div style={{ fontSize: 8, color: C.gray400, marginTop: 1 }}>📅 {line.when}</div>
@@ -1874,7 +1899,6 @@ const Page10 = ({ data }: { data: any }) => {
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 800, color: C.navy }}>R$ {fmt(amt)}</div>
-                    {ic > 0 && <div style={{ fontSize: 8, color: '#F59E0B' }}>+R$ {fmt(ic)} juros</div>}
                   </div>
                 </div>
               );
@@ -1884,17 +1908,45 @@ const Page10 = ({ data }: { data: any }) => {
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               marginTop: 8, paddingTop: 8,
-              borderTop: `2px solid ${C.navy}`,
+              borderTop: `2px solid ${borderColor}`,
             }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: C.navy }}>Total</div>
-              <div style={{ fontSize: 14, fontWeight: 900, color: C.green }}>R$ {fmt(cardTotal)}</div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: C.navy }}>Total</div>
+                {surcharge > 1 && (
+                  <div style={{ fontSize: 8, color: C.gray400, marginTop: 1 }}>
+                    Base: R$ {fmt(totalValue)} + R$ {fmt(surcharge)} de taxas
+                  </div>
+                )}
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 15, fontWeight: 900, color: isNoSurcharge ? C.green : '#D97706' }}>R$ {fmt(cardTotal)}</div>
+              </div>
+            </div>
+
+            {/* Commercial footer note */}
+            <div style={{
+              marginTop: 8, padding: '7px 10px',
+              backgroundColor: isNoSurcharge ? '#F0FDF4' : '#FFFBEB',
+              borderRadius: 6,
+              border: `1px solid ${isNoSurcharge ? '#BBF7D0' : '#FDE68A'}`,
+              fontSize: 9, color: C.gray800, lineHeight: 1.6,
+            }}>
+              {isAvista && (
+                <span>💡 <strong>Pagamento à vista.</strong> Você investe R$ {fmt(totalValue)} e já começa a gerar economia na próxima conta de luz.</span>
+              )}
+              {!isAvista && isNoSurcharge && mainQty > 1 && (
+                <span>💡 <strong>Parcelamento sem acréscimo.</strong> Você paga exatamente o valor do investimento dividido em {mainQty} vezes — seu sistema solar gera economia desde a 1ª parcela.</span>
+              )}
+              {!isAvista && !isNoSurcharge && (
+                <span>💡 <strong>Parcelamento no cartão.</strong> O acréscimo de R$ {fmt(surcharge)} ({surchargePercent.toFixed(1)}%) cobre as taxas da operadora de cartão. Ainda assim, a economia na conta de luz supera o custo do parcelamento em menos de 1 ano.</span>
+              )}
             </div>
 
             {pc.notes && (
               <div style={{
-                marginTop: 8, padding: '6px 10px',
-                backgroundColor: '#FFFBEB', borderRadius: 6,
-                border: `1px solid #FDE68A`,
+                marginTop: 6, padding: '6px 10px',
+                backgroundColor: '#F8FAFC', borderRadius: 6,
+                border: `1px solid ${C.gray200}`,
                 fontSize: 9, color: C.gray800, lineHeight: 1.5,
               }}>
                 <strong>📝 Obs:</strong> {pc.notes}
