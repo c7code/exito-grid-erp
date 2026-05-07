@@ -1682,10 +1682,6 @@ export default function SolarProjects() {
             const optInterestCost = (opt: any) => (opt?.lines || []).reduce((s: number, l: any) => s + lineInterestCost(l), 0);
             const coveragePct = activePC && baseValue > 0 ? Math.min(100, (optTotal(activePC) / baseValue) * 100) : 0;
             const diff = activePC ? optTotal(activePC) - baseValue : 0;
-            const typeLabels: Record<string, string> = {
-              entrada: 'Entrada', parcelas: 'Parcelas', financiamento: 'Financiamento',
-              avista: 'A Vista', desconto: 'Desconto', outro: 'Outro',
-            };
             const typeColors: Record<string, string> = {
               entrada: 'bg-blue-100 text-blue-700', parcelas: 'bg-amber-100 text-amber-700',
               financiamento: 'bg-purple-100 text-purple-700', avista: 'bg-green-100 text-green-700',
@@ -1813,7 +1809,7 @@ export default function SolarProjects() {
                     <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
                       <div className="bg-slate-800 text-white px-4 py-2.5 flex items-center justify-between">
                         <span className="text-sm font-bold">
-                          {activePC.label || `Opcao ${aPCIdx + 1}`} â€” Plano de Pagamento
+                          {activePC.label || `Opção ${aPCIdx + 1}`} — Plano de Pagamento
                         </span>
                         <Button variant="ghost" size="sm" onClick={() => addLine(aPCIdx)}
                           className="text-amber-400 hover:text-amber-300 hover:bg-white/10 h-7 text-xs">
@@ -1839,20 +1835,17 @@ export default function SolarProjects() {
                             {(activePC.lines || []).map((line: any, li: number) => (
                               <tr key={li} className="hover:bg-slate-50/60 transition-colors group/row">
                                 <td className="px-2 py-2">
-                                  <Select value={line.type || 'parcelas'} onValueChange={v => setLine(aPCIdx, li, 'type', v)}>
-                                    <SelectTrigger className="h-7 text-xs border border-slate-200 rounded px-2">
-                                      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${typeColors[line.type || 'parcelas']}`}>
-                                        {typeLabels[line.type || 'parcelas']}
-                                      </span>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {Object.entries(typeLabels).map(([v, l]) => (
-                                        <SelectItem key={v} value={v}>
-                                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${typeColors[v]}`}>{l}</span>
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
+                                  <select
+                                     value={line.type || 'parcelas'}
+                                     onChange={e => setLine(aPCIdx, li, 'type', e.target.value)}
+                                     className="h-7 text-xs border border-slate-200 rounded px-2 bg-white cursor-pointer font-semibold w-[120px]">
+                                     <option value="entrada">Entrada</option>
+                                     <option value="parcelas">Parcelas</option>
+                                     <option value="financiamento">Financiamento</option>
+                                     <option value="avista">À Vista</option>
+                                     <option value="desconto">Desconto</option>
+                                     <option value="outro">Outro</option>
+                                   </select>
                                 </td>
                                 <td className="px-2 py-2">
                                   <Input className="h-7 text-sm border-slate-200 min-w-[160px]" value={line.description || ''}
