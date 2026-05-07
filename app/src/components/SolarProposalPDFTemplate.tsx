@@ -2012,7 +2012,7 @@ const Page10 = ({ data }: { data: any }) => {
                 border: `1px solid rgba(232,146,10,0.3)`,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
-                  {/* Left: investment value */}
+                  {/* Left: À Vista value */}
                   <div style={{ flex: 1 }}>
                     <div style={{
                       fontSize: 9, color: C.gold, fontWeight: 800,
@@ -2021,17 +2021,20 @@ const Page10 = ({ data }: { data: any }) => {
                     <div style={{ fontSize: 32, fontWeight: 900, color: C.white, lineHeight: 1 }}>
                       R$ {fmt(aVistaTotal > 0 ? aVistaTotal : totalValue)}
                     </div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 5 }}>
+                      💰 à vista
+                    </div>
                     {recKit && (
-                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 6 }}>
+                      <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 3 }}>
                         {recKit.nome} · Sistema completo instalado e homologado
                       </div>
                     )}
                   </div>
 
                   {/* Center divider */}
-                  <div style={{ width: 1, height: 60, backgroundColor: 'rgba(255,255,255,0.15)' }} />
+                  <div style={{ width: 1, height: 70, backgroundColor: 'rgba(255,255,255,0.15)' }} />
 
-                  {/* Right: installment highlight */}
+                  {/* Center: installment highlight — clean, no interest claim */}
                   {bestPlan && maxQty > 1 ? (
                     <div style={{ flex: 1, textAlign: 'center' }}>
                       <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
@@ -2040,18 +2043,9 @@ const Page10 = ({ data }: { data: any }) => {
                       <div style={{ fontSize: 26, fontWeight: 900, color: C.gold }}>
                         {maxQty}x R$ {fmt(Number(bestPlan.unitValue || bestPlan.value || 0))}
                       </div>
-                      {Number(bestPlan.interestRate) === 0 ? (
-                        <div style={{
-                          display: 'inline-block', marginTop: 4,
-                          backgroundColor: '#16a34a22', border: `1px solid ${C.green}`,
-                          borderRadius: 20, padding: '2px 10px',
-                          fontSize: 9, color: C.green, fontWeight: 700,
-                        }}>✓ SEM JUROS</div>
-                      ) : (
-                        <div style={{ fontSize: 9, color: '#FCD34D', marginTop: 4 }}>
-                          {bestPlan.interestRate}% a.m. · {bestPlan.planLabel}
-                        </div>
-                      )}
+                      <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', marginTop: 5 }}>
+                        {bestPlan.planLabel || 'Ver condições abaixo'}
+                      </div>
                     </div>
                   ) : (
                     <div style={{ flex: 1, textAlign: 'center' }}>
@@ -2061,7 +2055,7 @@ const Page10 = ({ data }: { data: any }) => {
                   )}
 
                   {/* Proposal info */}
-                  <div style={{ width: 1, height: 60, backgroundColor: 'rgba(255,255,255,0.15)' }} />
+                  <div style={{ width: 1, height: 70, backgroundColor: 'rgba(255,255,255,0.15)' }} />
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)' }}>Proposta Nº</div>
                     <div style={{ fontSize: 13, fontWeight: 800, color: C.gold }}>{proposta.numero}</div>
