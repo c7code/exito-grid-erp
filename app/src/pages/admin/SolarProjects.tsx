@@ -1932,7 +1932,7 @@ export default function SolarProjects() {
                               <td colSpan={6} className="px-3 py-3">
                                 {baseValue > 0 && (
                                   <span className="text-xs text-slate-500">
-                                    Valor base: <strong className="text-slate-800">R$ {fmt(baseValue)}</strong>
+                                    Valor base: <strong className="text-slate-800">{fmt(baseValue)}</strong>
                                     {Math.abs(diff) < 1 && <span className="ml-2 text-green-600 font-bold">Igual ao valor base</span>}
                                     {diff > 1 && <span className="ml-2 text-red-500 font-bold">+{fmt(diff)} (juros/acrescimos)</span>}
                                     {diff < -1 && <span className="ml-2 text-green-600 font-bold">{fmt(diff)} (desconto)</span>}
@@ -1941,7 +1941,7 @@ export default function SolarProjects() {
                               </td>
                               <td className="px-3 py-3 text-right">
                                 <div className={`text-lg font-black font-mono ${Math.abs(diff) < 1 ? 'text-green-700' : diff > 0 ? 'text-red-600' : 'text-blue-700'}`}>
-                                  R$ {fmt(optTotal(activePC))}
+                                  {fmt(optTotal(activePC))}
                                 </div>
                                 <div className="text-[10px] text-slate-400">Total a pagar</div>
                               </td>
@@ -1971,7 +1971,7 @@ export default function SolarProjects() {
                             <div key={pi} className={`p-3 rounded-lg border bg-white space-y-1.5 ${aPCIdx === pi ? 'border-amber-300 shadow-sm' : 'border-slate-200'}`}>
                               <div className="flex items-center justify-between border-b pb-1.5">
                                 <span className="font-bold text-slate-900 text-sm">{pc.label || `Opcao ${pi + 1}`}</span>
-                                <span className="font-black text-base font-mono text-amber-800">R$ {fmt(tot)}</span>
+                                <span className="font-black text-base font-mono text-amber-800">{fmt(tot)}</span>
                               </div>
                               {(pc.lines || []).map((line: any, li: number) => (
                                 <div key={li} className="flex items-start justify-between text-xs gap-1">
@@ -1983,7 +1983,7 @@ export default function SolarProjects() {
                                     {line.when && <span className="text-slate-400 ml-1">({line.when})</span>}
                                   </div>
                                   <span className="font-bold text-slate-900 font-mono shrink-0 ml-2">
-                                    {Number(line.qty || 1) > 1 ? `${line.qty}x ${fmt(line.unitValue)}` : `R$ ${fmt(line.unitValue)}`}
+                                    {Number(line.qty || 1) > 1 ? `${line.qty}x ${fmt(line.unitValue)}` : `${fmt(line.unitValue)}`}
                                   </span>
                                 </div>
                               ))}
