@@ -182,6 +182,8 @@ export const finance = {
       transactionId,
     }),
   getSummary: () => api.get('/finance/summary'),
+  consolidateDAS: (paymentIds: string[], dasAmount: number, competence: string, status?: string) =>
+    api.post('/finance/consolidate-das', { paymentIds, dasAmount, competence, status: status || 'realized' }),
 };
 
 // Solar Projects

@@ -348,7 +348,7 @@ export default function EmployeeCompliance() {
     }
 
     function getFilePreviewUrl(fileUrl: string): string {
-        const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '');
+        const baseUrl = (api.client.defaults.baseURL || '').replace(/\/api\/?$/, '');
         const token = localStorage.getItem('electraflow_token');
         const filename = fileUrl.split('/').pop() || '';
         return `${baseUrl}/api/compliance/files/${filename}?token=${token}`;

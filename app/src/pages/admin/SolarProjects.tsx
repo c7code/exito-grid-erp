@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '@/api';
 import { toast } from 'sonner';
 import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate';
@@ -39,25 +39,25 @@ const statusMap: Record<string, { label: string; color: string }> = {
 
 const STEPS = [
   { key: 'client', label: 'Cliente', icon: Building2 },
-  { key: 'diagnosis', label: 'DiagnÃƒÂ³stico', icon: Zap },
-  { key: 'property', label: 'ImÃƒÂ³vel', icon: MapPin },
+  { key: 'diagnosis', label: 'Diagnóstico', icon: Zap },
+  { key: 'property', label: 'Imóvel', icon: MapPin },
   { key: 'dimensioning', label: 'Dimensionamento', icon: Calculator },
   { key: 'equipment', label: 'Equipamentos', icon: Package },
   { key: 'kits', label: 'Kits Comerciais', icon: Crown },
   { key: 'payment', label: 'Pagamento', icon: CreditCard },
-  { key: 'financial', label: 'SimulaÃƒÂ§ÃƒÂ£o', icon: BarChart3 },
+  { key: 'financial', label: 'Simulação', icon: BarChart3 },
   { key: 'proposal', label: 'Proposta', icon: FileText },
 ];
 
 const DEFAULT_GUARANTEES: { text: string; value: number }[] = [
-  { text: 'Suporte tÃƒÂ©cnico especializado', value: 200 },
-  { text: 'Garantia de 6 meses na instalaÃƒÂ§ÃƒÂ£o', value: 500 },
-  { text: 'Gerenciamento de geraÃƒÂ§ÃƒÂ£o', value: 300 },
+  { text: 'Suporte técnico especializado', value: 200 },
+  { text: 'Garantia de 6 meses na instalação', value: 500 },
+  { text: 'Gerenciamento de geração', value: 300 },
   { text: 'Resumos mensais', value: 150 },
-  { text: '3 Consultorias de geraÃƒÂ§ÃƒÂ£o', value: 450 },
-  { text: 'Custeio de itens de proteÃƒÂ§ÃƒÂ£o durante garantia', value: 800 },
+  { text: '3 Consultorias de geração', value: 450 },
+  { text: 'Custeio de itens de proteção durante garantia', value: 800 },
   { text: 'Sem custo adicional de cabeamento', value: 600 },
-  { text: '1 ManutenÃƒÂ§ÃƒÂ£o preventiva (limpeza), apÃƒÂ³s 1 ano', value: 350 },
+  { text: '1 Manutenção preventiva (limpeza), após 1 ano', value: 350 },
 ];
 
 const createEmptyKit = (name: string, isRecommended: boolean, equipment: any[] = []) => ({
@@ -68,12 +68,12 @@ const createEmptyKit = (name: string, isRecommended: boolean, equipment: any[] =
 });
 
 const DEFAULT_EQUIPMENT_TYPES = [
-  { value: 'module', label: 'MÃƒÂ³dulo Solar' },
+  { value: 'module', label: 'Módulo Solar' },
   { value: 'inverter', label: 'Inversor' },
-  { value: 'structure', label: 'Estrutura de FixaÃƒÂ§ÃƒÂ£o' },
+  { value: 'structure', label: 'Estrutura de Fixação' },
   { value: 'stringbox', label: 'String Box' },
   { value: 'cable', label: 'Cabos' },
-  { value: 'protection', label: 'ProteÃƒÂ§ÃƒÂµes ElÃƒÂ©tricas' },
+  { value: 'protection', label: 'Proteções Elétricas' },
   { value: 'other', label: 'Outro' },
 ];
 
@@ -151,7 +151,7 @@ export default function SolarProjects() {
     } catch { /* */ }
   };
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CLIENT AUTO-FILL Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â CLIENT AUTO-FILL ââ€¢Âââ€¢Âââ€¢Â
   const handleClientChange = (clientId: string) => {
     if (!clientId || clientId === '__none__') {
       setForm((f: any) => ({ ...f, clientId: '' }));
@@ -170,7 +170,7 @@ export default function SolarProjects() {
     }
   };
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â NEW PROJECT Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â NEW PROJECT ââ€¢Âââ€¢Âââ€¢Â
   const handleStartNew = () => {
     setForm({
       title: '', clientId: '',
@@ -197,7 +197,7 @@ export default function SolarProjects() {
     setView('wizard');
   };
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â OPEN EXISTING Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â OPEN EXISTING ââ€¢Âââ€¢Âââ€¢Â
   const handleOpenProject = async (project: any) => {
     try {
       const full = await api.getSolarProject(project.id);
@@ -236,7 +236,7 @@ export default function SolarProjects() {
     } catch { toast.error('Erro ao carregar projeto'); }
   };
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â SAVE / UPDATE Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â SAVE / UPDATE ââ€¢Âââ€¢Âââ€¢Â
   const handleSave = async (silent = false): Promise<boolean> => {
     // Guard against concurrent saves (race condition when clicking 'Next' rapidly)
     if (savingRef.current) {
@@ -262,7 +262,7 @@ export default function SolarProjects() {
         setCurrentProject(updated);
         if (!silent) toast.success('Projeto salvo!');
       } else {
-        if (!payload.title) payload.title = `Sistema Solar Ã¢â‚¬â€ ${clients.find((c: any) => c.id === payload.clientId)?.name || 'Novo'}`;
+        if (!payload.title) payload.title = `Sistema Solar ââ‚¬â€ ${clients.find((c: any) => c.id === payload.clientId)?.name || 'Novo'}`;
         const created = await api.createSolarProject(payload);
         setCurrentProject(created);
         if (!silent) toast.success('Projeto criado!');
@@ -277,7 +277,7 @@ export default function SolarProjects() {
     }
   };
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â DIMENSIONING Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â DIMENSIONING ââ€¢Âââ€¢Âââ€¢Â
   const handleDimension = async () => {
     await handleSave(true);
     if (!currentProject?.id) { toast.error('Salve o projeto primeiro'); return; }
@@ -285,12 +285,12 @@ export default function SolarProjects() {
     try {
       const result = await api.dimensionSolarProject(currentProject.id);
       setCurrentProject(result);
-      toast.success('Dimensionamento concluÃƒÂ­do!');
+      toast.success('Dimensionamento concluído!');
     } catch (e: any) { toast.error(e?.response?.data?.message || 'Erro no dimensionamento'); }
     finally { setSaving(false); }
   };
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CALCULATE FINANCIALS Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â CALCULATE FINANCIALS ââ€¢Âââ€¢Âââ€¢Â
   const handleCalcFinancials = async () => {
     await handleSave(true);
     if (!currentProject?.id) { toast.error('Salve o projeto primeiro'); return; }
@@ -298,12 +298,12 @@ export default function SolarProjects() {
     try {
       const result = await api.calculateSolarFinancials(currentProject.id);
       setCurrentProject(result);
-      toast.success('CÃƒÂ¡lculo financeiro concluÃƒÂ­do!');
-    } catch (e: any) { toast.error(e?.response?.data?.message || 'Erro no cÃƒÂ¡lculo'); }
+      toast.success('Cálculo financeiro concluído!');
+    } catch (e: any) { toast.error(e?.response?.data?.message || 'Erro no cálculo'); }
     finally { setSaving(false); }
   };
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â GENERATE PROPOSAL Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â GENERATE PROPOSAL ââ€¢Âââ€¢Âââ€¢Â
   const handleGenerateProposal = async () => {
     await handleSave(true);
     if (!currentProject?.id) { toast.error('Salve o projeto primeiro'); return; }
@@ -311,12 +311,12 @@ export default function SolarProjects() {
     try {
       const result = await api.generateSolarProposal(currentProject.id);
       setCurrentProject(result);
-      toast.success('Proposta gerada no mÃƒÂ³dulo Propostas!');
+      toast.success('Proposta gerada no módulo Propostas!');
     } catch (e: any) { toast.error(e?.response?.data?.message || 'Erro ao gerar proposta'); }
     finally { setSaving(false); }
   };
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â UPDATE PROPOSAL (re-generate with latest data) Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â UPDATE PROPOSAL (re-generate with latest data) ââ€¢Âââ€¢Âââ€¢Â
   const handleUpdateProposal = async () => {
     await handleSave(true);
     if (!currentProject?.id) return;
@@ -329,7 +329,7 @@ export default function SolarProjects() {
     finally { setSaving(false); }
   };
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â DOWNLOAD SOLAR PDF Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â DOWNLOAD SOLAR PDF ââ€¢Âââ€¢Âââ€¢Â
   const handleDownloadSolarPDF = async () => {
     if (!currentProject?.id) { toast.error('Salve o projeto primeiro'); return; }
     setPdfGenerating(true);
@@ -355,7 +355,7 @@ export default function SolarProjects() {
           setTimeout(() => tryCapture(attempt + 1), 500);
           return;
         }
-        toast.error('Erro ao gerar PDF: elemento nÃƒÂ£o encontrado.');
+        toast.error('Erro ao gerar PDF: elemento não encontrado.');
         setShowPdfRender(false);
         setPdfGenerating(false);
         return;
@@ -385,18 +385,18 @@ export default function SolarProjects() {
     setTimeout(() => tryCapture(), 1500);
   };
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â DELETE Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â DELETE ââ€¢Âââ€¢Âââ€¢Â
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir este projeto solar?')) return;
     try {
       await api.deleteSolarProject(id);
-      toast.success('Projeto excluÃƒÂ­do');
+      toast.success('Projeto excluído');
       setView('list');
       loadData();
     } catch { toast.error('Erro ao excluir'); }
   };
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CATALOG SEARCH Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â CATALOG SEARCH ââ€¢Âââ€¢Âââ€¢Â
   const handleSearchCatalog = async () => {
     setSearchingCatalog(true);
     try {
@@ -451,7 +451,7 @@ export default function SolarProjects() {
     [form.equipment]
   );
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â COMMERCIAL KITS Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â COMMERCIAL KITS ââ€¢Âââ€¢Âââ€¢Â
   const handleToggleStrategy = (enabled: boolean) => {
     if (enabled && (!form.commercialKits || form.commercialKits.length === 0)) {
       // Initialize with 1 default kit, cloning equipment from main
@@ -460,7 +460,7 @@ export default function SolarProjects() {
         ...f,
         commercialStrategyEnabled: true,
         commercialKits: [
-          createEmptyKit('Kit PadrÃƒÂ£o', true, baseEquip),
+          createEmptyKit('Kit Padrão', true, baseEquip),
         ],
       }));
     } else {
@@ -471,7 +471,7 @@ export default function SolarProjects() {
   const handleAddKit = () => {
     const baseEquip = form.equipment || [];
     const idx = (form.commercialKits || []).length;
-    const names = ['Kit Premium', 'Kit BÃƒÂ¡sico', 'Kit EconÃƒÂ´mico', 'Kit Especial', 'Kit Ouro', 'Kit Prata'];
+    const names = ['Kit Premium', 'Kit Básico', 'Kit Econômico', 'Kit Especial', 'Kit Ouro', 'Kit Prata'];
     const name = names[idx - 1] || `Kit ${idx + 1}`;
     setForm((f: any) => ({
       ...f,
@@ -581,7 +581,7 @@ export default function SolarProjects() {
 
   const [activeKitTab, setActiveKitTab] = useState(0);
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â NAVIGATION Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â NAVIGATION ââ€¢Âââ€¢Âââ€¢Â
   const goNext = async () => {
     if (saving) return; // Prevent double-click
     if (step === 0 && !form.clientId) { toast.error('Selecione um cliente'); return; }
@@ -592,7 +592,7 @@ export default function SolarProjects() {
 
   const goPrev = () => setStep(s => Math.max(s - 1, 0));
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â FILTERED LIST Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Â FILTERED LIST ââ€¢Âââ€¢Âââ€¢Â
   const filtered = projects.filter(p => {
     if (!search) return true;
     const s = search.toLowerCase();
@@ -608,9 +608,9 @@ export default function SolarProjects() {
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>;
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Â
   // WIZARD VIEW
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Â
   if (view === 'wizard') {
     const p = currentProject;
 
@@ -687,8 +687,8 @@ export default function SolarProjects() {
                   </div>
                 </div>
                 <div>
-                  <Label>TÃƒÂ­tulo do Projeto</Label>
-                  <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Ex: Sistema Solar 10kWp - ResidÃƒÂªncia" />
+                  <Label>Título do Projeto</Label>
+                  <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Ex: Sistema Solar 10kWp - Residência" />
                 </div>
                 <div>
                   <Label>Empresa (para proposta)</Label>
@@ -696,7 +696,7 @@ export default function SolarProjects() {
                     <SelectTrigger><SelectValue placeholder="Selecione a empresa..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">Selecione...</SelectItem>
-                      {companies.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.tradeName || c.name}{c.isPrimary ? ' Ã¢Ëœâ€¦' : ''}</SelectItem>)}
+                      {companies.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.tradeName || c.name}{c.isPrimary ? ' âËœâ€¦' : ''}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -709,12 +709,12 @@ export default function SolarProjects() {
                     <p className="text-sm font-semibold text-blue-800">Dados do cliente (auto-preenchidos)</p>
                     <div className="grid grid-cols-3 gap-3 text-sm text-slate-700">
                       <div><span className="text-slate-400">Nome:</span> {c.name}</div>
-                      <div><span className="text-slate-400">Doc:</span> {c.document || 'Ã¢â‚¬â€'}</div>
-                      <div><span className="text-slate-400">Telefone:</span> {c.phone || c.whatsapp || 'Ã¢â‚¬â€'}</div>
-                      <div><span className="text-slate-400">Email:</span> {c.email || 'Ã¢â‚¬â€'}</div>
-                      <div><span className="text-slate-400">EndereÃƒÂ§o:</span> {c.address || 'Ã¢â‚¬â€'}</div>
-                      <div><span className="text-slate-400">Cidade/UF:</span> {c.city || 'Ã¢â‚¬â€'}/{c.state || 'Ã¢â‚¬â€'}</div>
-                      <div><span className="text-slate-400">ConcessionÃƒÂ¡ria:</span> {c.concessionaria || 'Ã¢â‚¬â€'}</div>
+                      <div><span className="text-slate-400">Doc:</span> {c.document || 'ââ‚¬â€'}</div>
+                      <div><span className="text-slate-400">Telefone:</span> {c.phone || c.whatsapp || 'ââ‚¬â€'}</div>
+                      <div><span className="text-slate-400">Email:</span> {c.email || 'ââ‚¬â€'}</div>
+                      <div><span className="text-slate-400">Endereço:</span> {c.address || 'ââ‚¬â€'}</div>
+                      <div><span className="text-slate-400">Cidade/UF:</span> {c.city || 'ââ‚¬â€'}/{c.state || 'ââ‚¬â€'}</div>
+                      <div><span className="text-slate-400">Concessionária:</span> {c.concessionaria || 'ââ‚¬â€'}</div>
                     </div>
                   </div>
                 );
@@ -722,15 +722,15 @@ export default function SolarProjects() {
             </div>
           )}
 
-          {/* STEP 1: DiagnÃƒÂ³stico EnergÃƒÂ©tico */}
+          {/* STEP 1: Diagnóstico Energético */}
           {step === 1 && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Zap className="w-5 h-5 text-amber-500" /> DiagnÃƒÂ³stico EnergÃƒÂ©tico</h2>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Zap className="w-5 h-5 text-amber-500" /> Diagnóstico Energético</h2>
                 <div className="flex items-center gap-3">
                   <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                     <input type="checkbox" checked={form.detailedAnalysis || false} onChange={e => setForm({ ...form, detailedAnalysis: e.target.checked })} className="rounded" />
-                    <span className="text-slate-500">AnÃƒÂ¡lise Detalhada</span>
+                    <span className="text-slate-500">Análise Detalhada</span>
                   </label>
                 </div>
               </div>
@@ -743,17 +743,17 @@ export default function SolarProjects() {
                       ? cat === 'BT' ? 'border-blue-400 bg-blue-50 text-blue-900' : 'border-orange-400 bg-orange-50 text-orange-900'
                       : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'
                       }`}>
-                    <p className="font-bold">{cat === 'BT' ? 'Ã¢Å¡Â¡ Baixa TensÃƒÂ£o (BT)' : 'Ã°Å¸ÂÂ­ MÃƒÂ©dia TensÃƒÂ£o (MT)'}</p>
-                    <p className="text-[10px] mt-0.5 font-normal">{cat === 'BT' ? 'Residencial / Comercial pequeno' : 'Industrial / Comercial Ã¢â‚¬â€ Ponta e Fora Ponta'}</p>
+                    <p className="font-bold">{cat === 'BT' ? 'âÅ¡Â¡ Baixa Tensão (BT)' : 'Ã°Å¸ÂÂ­ Média Tensão (MT)'}</p>
+                    <p className="text-[10px] mt-0.5 font-normal">{cat === 'BT' ? 'Residencial / Comercial pequeno' : 'Industrial / Comercial ââ‚¬â€ Ponta e Fora Ponta'}</p>
                   </button>
                 ))}
               </div>
 
-              {/* BT Ã¢â‚¬â€ Analysis Simples */}
+              {/* BT ââ‚¬â€ Analysis Simples */}
               {form.billingCategory === 'BT' && (
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label>Consumo MÃƒÂ©dio Mensal (kWh) *</Label>
+                    <Label>Consumo Médio Mensal (kWh) *</Label>
                     <Input type="number" value={numVal(form.consumptionKwh)} onChange={e => {
                       const kwh = Number(e.target.value || 0);
                       const bill = Number(form.avgBillValue || 0);
@@ -762,7 +762,7 @@ export default function SolarProjects() {
                     }} placeholder="Ex: 800" />
                   </div>
                   <div>
-                    <Label>Valor MÃƒÂ©dio da Conta (R$)</Label>
+                    <Label>Valor Médio da Conta (R$)</Label>
                     <Input type="number" step="0.01" value={numVal(form.avgBillValue)} onChange={e => {
                       const bill = Number(e.target.value || 0);
                       const kwh = Number(form.consumptionKwh || 0);
@@ -771,13 +771,13 @@ export default function SolarProjects() {
                     }} placeholder="Ex: 450.00" />
                   </div>
                   <div>
-                    <Label>Tarifa (R$/kWh) <span className="text-[10px] text-amber-600">Ã¢â€ Â auto</span></Label>
+                    <Label>Tarifa (R$/kWh) <span className="text-[10px] text-amber-600">ââ€ Â auto</span></Label>
                     <Input type="number" step="0.0001" value={numVal(form.tariff)} onChange={e => setForm({ ...form, tariff: e.target.value })} placeholder="Ex: 0.85" className="bg-amber-50 border-amber-200" />
                   </div>
                 </div>
               )}
 
-              {/* Consumo MÃƒÂªs a MÃƒÂªs (BT e MT) */}
+              {/* Consumo Mês a Mês (BT e MT) */}
               {(() => {
                 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
                 const hasMonthly = form.monthlyConsumptions && form.monthlyConsumptions.length === 12;
@@ -807,11 +807,11 @@ export default function SolarProjects() {
                 return (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs font-bold text-slate-500 uppercase">Consumo MÃƒÂªs a MÃƒÂªs (12 meses)</p>
+                      <p className="text-xs font-bold text-slate-500 uppercase">Consumo Mês a Mês (12 meses)</p>
                       {!hasMonthly ? (
                         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={initMonthly}><Plus className="w-3 h-3 mr-1" /> Preencher Meses</Button>
                       ) : (
-                        <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500" onClick={clearMonthly}>Limpar / Usar MÃƒÂ©dia</Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500" onClick={clearMonthly}>Limpar / Usar Média</Button>
                       )}
                     </div>
                     {hasMonthly && (
@@ -819,7 +819,7 @@ export default function SolarProjects() {
                         <table className="w-full text-xs">
                           <thead className="bg-slate-50">
                             <tr>
-                              <th className="px-2 py-1.5 text-left">MÃƒÂªs</th>
+                              <th className="px-2 py-1.5 text-left">Mês</th>
                               {form.billingCategory === 'MT' && <th className="px-2 py-1.5 text-right">Ponta (kWh)</th>}
                               {form.billingCategory === 'MT' && <th className="px-2 py-1.5 text-right">F. Ponta (kWh)</th>}
                               <th className="px-2 py-1.5 text-right">Total (kWh)</th>
@@ -848,7 +848,7 @@ export default function SolarProjects() {
                           </tbody>
                           <tfoot>
                             <tr className="bg-amber-50 border-t-2 border-amber-200 font-bold">
-                              <td className="px-2 py-1.5 text-amber-800">MÃƒÂ©dia</td>
+                              <td className="px-2 py-1.5 text-amber-800">Média</td>
                               {form.billingCategory === 'MT' && (
                                 <td className="px-2 py-1.5 text-right text-orange-700">{fmtN(form.monthlyConsumptions.reduce((s: number, m: any) => s + Number(m.peakKwh || 0), 0) / 12, 0)}</td>
                               )}
@@ -866,12 +866,12 @@ export default function SolarProjects() {
                 );
               })()}
 
-              {/* MT Ã¢â‚¬â€ Ponta / Fora Ponta */}
+              {/* MT ââ‚¬â€ Ponta / Fora Ponta */}
               {form.billingCategory === 'MT' && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-4 gap-3">
                     <div className="col-span-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
-                      <p className="text-xs font-bold text-orange-700 uppercase mb-2">HorÃƒÂ¡rio Ponta</p>
+                      <p className="text-xs font-bold text-orange-700 uppercase mb-2">Horário Ponta</p>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <Label className="text-xs">Consumo Ponta (kWh)</Label>
@@ -901,7 +901,7 @@ export default function SolarProjects() {
                     </div>
 
                     <div className="col-span-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-xs font-bold text-blue-700 uppercase mb-2">HorÃƒÂ¡rio Fora Ponta</p>
+                      <p className="text-xs font-bold text-blue-700 uppercase mb-2">Horário Fora Ponta</p>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <Label className="text-xs">Consumo F. Ponta (kWh)</Label>
@@ -939,7 +939,7 @@ export default function SolarProjects() {
                         <p className="text-lg font-bold text-slate-900">{fmtN(Number(form.consumptionPeakKwh || 0) + Number(form.consumptionOffPeakKwh || 0), 0)} <span className="text-xs">kWh</span></p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-500 uppercase font-bold">Tarifa MÃƒÂ©dia Ponderada</p>
+                        <p className="text-[10px] text-slate-500 uppercase font-bold">Tarifa Média Ponderada</p>
                         <p className="text-lg font-bold text-amber-800">R$ {fmtN(Number(form.tariff || 0), 4)}/kWh</p>
                       </div>
                       <div>
@@ -955,11 +955,11 @@ export default function SolarProjects() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label>Valor MÃƒÂ©dio da Conta (R$)</Label>
+                      <Label>Valor Médio da Conta (R$)</Label>
                       <Input type="number" step="0.01" value={form.avgBillValue} onChange={e => setForm({ ...form, avgBillValue: e.target.value })} placeholder="Ex: 5000.00" />
                     </div>
                     <div>
-                      <Label>Modalidade TarifÃƒÂ¡ria</Label>
+                      <Label>Modalidade Tarifária</Label>
                       <Select value={form.tariffModality || ''} onValueChange={v => setForm({ ...form, tariffModality: v })}>
                         <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         <SelectContent>
@@ -977,13 +977,13 @@ export default function SolarProjects() {
               <div className="grid grid-cols-3 gap-4">
                 {form.billingCategory === 'BT' && (
                   <div>
-                    <Label>Tipo de LigaÃƒÂ§ÃƒÂ£o</Label>
+                    <Label>Tipo de Ligação</Label>
                     <Select value={form.connectionType} onValueChange={v => setForm({ ...form, connectionType: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="monophasic">MonofÃƒÂ¡sico</SelectItem>
-                        <SelectItem value="biphasic">BifÃƒÂ¡sico</SelectItem>
-                        <SelectItem value="triphasic">TrifÃƒÂ¡sico</SelectItem>
+                        <SelectItem value="monophasic">Monofásico</SelectItem>
+                        <SelectItem value="biphasic">Bifásico</SelectItem>
+                        <SelectItem value="triphasic">Trifásico</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -997,7 +997,7 @@ export default function SolarProjects() {
                   <Input value={form.meterType} onChange={e => setForm({ ...form, meterType: e.target.value })} placeholder="Convencional, Bidirecional..." />
                 </div>
                 <div>
-                  <Label>ConcessionÃƒÂ¡ria</Label>
+                  <Label>Concessionária</Label>
                   <Input value={form.concessionaria} onChange={e => setForm({ ...form, concessionaria: e.target.value })} placeholder="CELPE, CEMIG, Enel..." />
                 </div>
               </div>
@@ -1005,7 +1005,7 @@ export default function SolarProjects() {
               {/* Detailed Analysis extras */}
               {form.detailedAnalysis && (
                 <div className="p-4 bg-slate-50 rounded-xl border space-y-2">
-                  <p className="text-xs font-bold text-slate-500 uppercase">AnÃƒÂ¡lise Detalhada da Conta</p>
+                  <p className="text-xs font-bold text-slate-500 uppercase">Análise Detalhada da Conta</p>
                   <div className="grid grid-cols-3 gap-3 text-sm">
                     <div className="p-3 bg-white rounded-lg border text-center">
                       <p className="text-[10px] text-slate-500 uppercase font-bold">Custo por kWh Real</p>
@@ -1017,22 +1017,22 @@ export default function SolarProjects() {
                     <div className="p-3 bg-white rounded-lg border text-center">
                       <p className="text-[10px] text-slate-500 uppercase font-bold">Gasto Anual Estimado</p>
                       <p className="text-xl font-bold text-red-600">{fmt(Number(form.avgBillValue || 0) * 12)}</p>
-                      <p className="text-[10px] text-slate-400">Valor mÃƒÂ©dio Ãƒâ€” 12 meses</p>
+                      <p className="text-[10px] text-slate-400">Valor médio Ãƒâ€” 12 meses</p>
                     </div>
                     <div className="p-3 bg-white rounded-lg border text-center">
                       <p className="text-[10px] text-slate-500 uppercase font-bold">Gasto em 25 Anos</p>
                       <p className="text-xl font-bold text-red-700">{fmt(Number(form.avgBillValue || 0) * 12 * 25)}</p>
-                      <p className="text-[10px] text-slate-400">Sem solar, pagando ÃƒÂ  concessionÃƒÂ¡ria</p>
+                      <p className="text-[10px] text-slate-400">Sem solar, pagando à concessionária</p>
                     </div>
                   </div>
                   {form.billingCategory === 'MT' && Number(form.consumptionPeakKwh) > 0 && (
                     <div className="grid grid-cols-2 gap-3 mt-2">
                       <div className="p-3 bg-orange-50 rounded-lg border border-orange-200 text-center">
-                        <p className="text-[10px] text-orange-600 uppercase font-bold">Custo Ponta (Ãƒâ€” mÃƒÂªs)</p>
+                        <p className="text-[10px] text-orange-600 uppercase font-bold">Custo Ponta (Ãƒâ€” mês)</p>
                         <p className="text-lg font-bold text-orange-800">{fmt(Number(form.consumptionPeakKwh || 0) * Number(form.tariffPeak || 0))}</p>
                       </div>
                       <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 text-center">
-                        <p className="text-[10px] text-blue-600 uppercase font-bold">Custo Fora Ponta (Ãƒâ€” mÃƒÂªs)</p>
+                        <p className="text-[10px] text-blue-600 uppercase font-bold">Custo Fora Ponta (Ãƒâ€” mês)</p>
                         <p className="text-lg font-bold text-blue-800">{fmt(Number(form.consumptionOffPeakKwh || 0) * Number(form.tariffOffPeak || 0))}</p>
                       </div>
                     </div>
@@ -1042,13 +1042,13 @@ export default function SolarProjects() {
             </div>
           )}
 
-          {/* STEP 2: Dados do ImÃƒÂ³vel */}
+          {/* STEP 2: Dados do Imóvel */}
           {step === 2 && (
             <div className="space-y-5">
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><MapPin className="w-5 h-5 text-amber-500" /> Dados do ImÃƒÂ³vel</h2>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><MapPin className="w-5 h-5 text-amber-500" /> Dados do Imóvel</h2>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label>Tipo de InstalaÃƒÂ§ÃƒÂ£o</Label>
+                  <Label>Tipo de Instalação</Label>
                   <Select value={form.installationType} onValueChange={v => setForm({ ...form, installationType: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -1058,11 +1058,11 @@ export default function SolarProjects() {
                   </Select>
                 </div>
                 <div>
-                  <Label>ÃƒÂrea DisponÃƒÂ­vel (mÃ‚Â²)</Label>
+                  <Label>Área Disponível (mÃ‚²)</Label>
                   <Input type="number" value={form.availableArea} onChange={e => setForm({ ...form, availableArea: e.target.value })} />
                 </div>
                 <div>
-                  <Label>OrientaÃƒÂ§ÃƒÂ£o do Telhado</Label>
+                  <Label>Orientação do Telhado</Label>
                   <Select value={form.roofOrientation} onValueChange={v => setForm({ ...form, roofOrientation: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -1076,7 +1076,7 @@ export default function SolarProjects() {
                   </Select>
                 </div>
                 <div>
-                  <Label>InclinaÃƒÂ§ÃƒÂ£o (graus)</Label>
+                  <Label>Inclinação (graus)</Label>
                   <Input type="number" value={form.roofInclination} onChange={e => setForm({ ...form, roofInclination: e.target.value })} placeholder="Ex: 15" />
                 </div>
                 <div className="flex items-end gap-3">
@@ -1104,14 +1104,14 @@ export default function SolarProjects() {
                               propertyCity: data.localidade || f.propertyCity,
                               propertyState: data.uf || f.propertyState,
                             }));
-                            toast.success('EndereÃƒÂ§o preenchido via CEP!');
+                            toast.success('Endereço preenchido via CEP!');
                           }
                         }).catch(() => { });
                     }
                   }} placeholder="00000-000" maxLength={9} />
                 </div>
                 <div className="col-span-2">
-                  <Label>EndereÃƒÂ§o</Label>
+                  <Label>Endereço</Label>
                   <Input value={form.propertyAddress} onChange={e => setForm({ ...form, propertyAddress: e.target.value })} />
                 </div>
                 <div>
@@ -1134,7 +1134,7 @@ export default function SolarProjects() {
           {step === 3 && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Calculator className="w-5 h-5 text-amber-500" /> Dimensionamento AutomÃƒÂ¡tico</h2>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Calculator className="w-5 h-5 text-amber-500" /> Dimensionamento Automático</h2>
                 <Button onClick={handleDimension} disabled={saving} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold">
                   {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Calculator className="w-4 h-4 mr-2" />}
                   Calcular Dimensionamento
@@ -1143,11 +1143,11 @@ export default function SolarProjects() {
               {p?.systemPowerKwp ? (
                 <div className="grid grid-cols-3 gap-4">
                   <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl border border-amber-200 text-center">
-                    <p className="text-xs text-amber-700 font-bold uppercase">PotÃƒÂªncia do Sistema</p>
+                    <p className="text-xs text-amber-700 font-bold uppercase">Potência do Sistema</p>
                     <p className="text-3xl font-bold text-amber-800 mt-1">{fmtN(p.systemPowerKwp)} <span className="text-lg">kWp</span></p>
                   </div>
                   <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 text-center">
-                    <p className="text-xs text-blue-700 font-bold uppercase">Quantidade de MÃƒÂ³dulos</p>
+                    <p className="text-xs text-blue-700 font-bold uppercase">Quantidade de Módulos</p>
                     <p className="text-3xl font-bold text-blue-800 mt-1">{p.moduleCount} <span className="text-lg">un</span></p>
                     <p className="text-xs text-blue-500 mt-1">{p.modulePowerWp}Wp cada</p>
                   </div>
@@ -1156,19 +1156,19 @@ export default function SolarProjects() {
                     <p className="text-3xl font-bold text-purple-800 mt-1">{fmtN(p.inverterPowerKw, 0)} <span className="text-lg">kW</span></p>
                   </div>
                   <div className="p-4 bg-white rounded-xl border text-center">
-                    <p className="text-xs text-slate-500 font-bold uppercase">GeraÃƒÂ§ÃƒÂ£o Mensal</p>
+                    <p className="text-xs text-slate-500 font-bold uppercase">Geração Mensal</p>
                     <p className="text-2xl font-bold text-slate-900 mt-1">{fmtN(p.monthlyGenerationKwh, 0)} <span className="text-sm">kWh</span></p>
                   </div>
                   <div className="p-4 bg-white rounded-xl border text-center">
-                    <p className="text-xs text-slate-500 font-bold uppercase">GeraÃƒÂ§ÃƒÂ£o Anual</p>
+                    <p className="text-xs text-slate-500 font-bold uppercase">Geração Anual</p>
                     <p className="text-2xl font-bold text-slate-900 mt-1">{fmtN(p.annualGenerationKwh, 0)} <span className="text-sm">kWh</span></p>
                   </div>
                   <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 text-center">
-                    <p className="text-xs text-green-700 font-bold uppercase">CompensaÃƒÂ§ÃƒÂ£o</p>
+                    <p className="text-xs text-green-700 font-bold uppercase">Compensação</p>
                     <p className="text-3xl font-bold text-green-800 mt-1">{fmtN(p.compensationPercent)}%</p>
                   </div>
                   <div className="col-span-3 p-3 bg-slate-50 rounded-lg text-xs text-slate-500">
-                    HSP utilizado: <strong>{p.hspValue}h/dia</strong> ({form.propertyState || 'BR'}) | EficiÃƒÂªncia: 80% | Consumo informado: {fmtN(Number(form.consumptionKwh), 0)} kWh/mÃƒÂªs
+                    HSP utilizado: <strong>{p.hspValue}h/dia</strong> ({form.propertyState || 'BR'}) | Eficiência: 80% | Consumo informado: {fmtN(Number(form.consumptionKwh), 0)} kWh/mês
                     {p.pricePerWp > 0 && <> | <strong className="text-amber-700">R$/Wp: {fmtN(p.pricePerWp, 2)}</strong></>}
                   </div>
                 </div>
@@ -1186,16 +1186,16 @@ export default function SolarProjects() {
           {step === 4 && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Package className="w-5 h-5 text-amber-500" /> SeleÃƒÂ§ÃƒÂ£o de Equipamentos</h2>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Package className="w-5 h-5 text-amber-500" /> Seleção de Equipamentos</h2>
                 <Button variant="outline" size="sm" onClick={addManualEquipment}><Plus className="w-4 h-4 mr-1" /> Adicionar Manual</Button>
               </div>
 
               {/* Catalog Search */}
               <div className="border rounded-lg p-4 bg-blue-50/50 space-y-3">
-                <p className="text-sm font-semibold text-blue-800 flex items-center gap-2"><Search className="w-4 h-4" /> Buscar no CatÃƒÂ¡logo (Produtos & Estoque)</p>
+                <p className="text-sm font-semibold text-blue-800 flex items-center gap-2"><Search className="w-4 h-4" /> Buscar no Catálogo (Produtos & Estoque)</p>
                 <div className="flex gap-2">
                   <Input value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)}
-                    placeholder="Pesquise mÃƒÂ³dulos, inversores, cabos..." className="flex-1"
+                    placeholder="Pesquise módulos, inversores, cabos..." className="flex-1"
                     onKeyDown={e => e.key === 'Enter' && handleSearchCatalog()} />
                   <Button onClick={handleSearchCatalog} disabled={searchingCatalog} variant="outline">
                     {searchingCatalog ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
@@ -1207,7 +1207,7 @@ export default function SolarProjects() {
                       <div key={item.id} className="flex items-center justify-between py-2 px-2 hover:bg-white rounded">
                         <div className="flex-1">
                           <p className="text-sm font-medium">{item.name}</p>
-                          <p className="text-xs text-slate-500">{item.brand} {item.model} Ã¢â‚¬â€ {fmt(item.unitPrice || item.costPrice || 0)}</p>
+                          <p className="text-xs text-slate-500">{item.brand} {item.model} ââ‚¬â€ {fmt(item.unitPrice || item.costPrice || 0)}</p>
                         </div>
                         <Button size="sm" variant="outline" onClick={() => addEquipmentFromCatalog(item)}><Plus className="w-3 h-3 mr-1" /> Adicionar</Button>
                       </div>
@@ -1223,10 +1223,10 @@ export default function SolarProjects() {
                     <thead className="bg-slate-50">
                       <tr>
                         <th className="px-3 py-2 text-left">Tipo</th>
-                        <th className="px-3 py-2 text-left">DescriÃƒÂ§ÃƒÂ£o</th>
+                        <th className="px-3 py-2 text-left">Descrição</th>
                         <th className="px-3 py-2 text-left">Marca</th>
                         <th className="px-3 py-2 text-center">Qtd</th>
-                        <th className="px-3 py-2 text-right">PreÃƒÂ§o Un.</th>
+                        <th className="px-3 py-2 text-right">Preço Un.</th>
                         <th className="px-3 py-2 text-right">Total</th>
                         <th className="px-3 py-2"></th>
                       </tr>
@@ -1305,7 +1305,7 @@ export default function SolarProjects() {
               ) : (
                 <div className="text-center py-12 text-slate-400">
                   <Package className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                  <p>Nenhum equipamento adicionado. Busque no catÃƒÂ¡logo acima ou adicione manualmente.</p>
+                  <p>Nenhum equipamento adicionado. Busque no catálogo acima ou adicione manualmente.</p>
                 </div>
               )}
 
@@ -1325,37 +1325,37 @@ export default function SolarProjects() {
                           <span className="text-lg font-bold text-amber-900">{fmtN(rWp, 2)}</span>
                         </div>
                         <div className="text-[10px] text-slate-400 leading-tight">
-                          <p>ReferÃƒÂªncia mercado: R$ 3,50 ~ 5,50/Wp</p>
-                          <p className={rWp < 5.5 ? 'text-green-600 font-bold' : 'text-red-500 font-bold'}>{rWp < 3.5 ? 'Ã°Å¸â€Â¥ Muito competitivo!' : rWp < 5.5 ? 'Ã¢Å“â€¦ Dentro do mercado' : 'Ã¢Å¡Â Ã¯Â¸Â Acima do mercado'}</p>
+                          <p>Referência mercado: R$ 3,50 ~ 5,50/Wp</p>
+                          <p className={rWp < 5.5 ? 'text-green-600 font-bold' : 'text-red-500 font-bold'}>{rWp < 3.5 ? 'Ã°Å¸â€Â¥ Muito competitivo!' : rWp < 5.5 ? 'âÅ“â€¦ Dentro do mercado' : 'âÅ¡ Ã¯Â¸Â Acima do mercado'}</p>
                         </div>
                       </div>
                     );
                   })()}
                 </div>
                 <div className="grid grid-cols-4 gap-3">
-                  <div><Label className="text-xs">MÃƒÂ£o de Obra (R$)</Label><Input type="number" step="0.01" value={numVal(form.laborCost)} onChange={e => setForm({ ...form, laborCost: e.target.value })} /></div>
-                  <div><Label className="text-xs">InstalaÃƒÂ§ÃƒÂ£o (R$)</Label><Input type="number" step="0.01" value={numVal(form.installationCost)} onChange={e => setForm({ ...form, installationCost: e.target.value })} /></div>
-                  <div><Label className="text-xs">LogÃƒÂ­stica / Frete (R$)</Label><Input type="number" step="0.01" value={numVal(form.logisticsCost)} onChange={e => setForm({ ...form, logisticsCost: e.target.value })} /></div>
+                  <div><Label className="text-xs">Mão de Obra (R$)</Label><Input type="number" step="0.01" value={numVal(form.laborCost)} onChange={e => setForm({ ...form, laborCost: e.target.value })} /></div>
+                  <div><Label className="text-xs">Instalação (R$)</Label><Input type="number" step="0.01" value={numVal(form.installationCost)} onChange={e => setForm({ ...form, installationCost: e.target.value })} /></div>
+                  <div><Label className="text-xs">Logística / Frete (R$)</Label><Input type="number" step="0.01" value={numVal(form.logisticsCost)} onChange={e => setForm({ ...form, logisticsCost: e.target.value })} /></div>
                   <div><Label className="text-xs">Seguro (R$)</Label><Input type="number" step="0.01" value={numVal(form.insuranceCost)} onChange={e => setForm({ ...form, insuranceCost: e.target.value })} /></div>
                   <div><Label className="text-xs">Engenharia / Projeto (R$)</Label><Input type="number" step="0.01" value={numVal(form.engineeringCost)} onChange={e => setForm({ ...form, engineeringCost: e.target.value })} /></div>
-                  <div><Label className="text-xs">HomologaÃƒÂ§ÃƒÂ£o / ART (R$)</Label><Input type="number" step="0.01" value={numVal(form.documentationCost)} onChange={e => setForm({ ...form, documentationCost: e.target.value })} /></div>
+                  <div><Label className="text-xs">Homologação / ART (R$)</Label><Input type="number" step="0.01" value={numVal(form.documentationCost)} onChange={e => setForm({ ...form, documentationCost: e.target.value })} /></div>
                   <div><Label className="text-xs">Outros Custos (R$)</Label><Input type="number" step="0.01" value={numVal(form.otherCosts)} onChange={e => setForm({ ...form, otherCosts: e.target.value })} /></div>
                   <div><Label className="text-xs">Margem (%)</Label><Input type="number" step="0.1" value={numVal(form.margin)} onChange={e => setForm({ ...form, margin: e.target.value })} /></div>
                 </div>
 
-                {/* R$/Wp Quick Calculator (referÃƒÂªncia interna) */}
+                {/* R$/Wp Quick Calculator (referência interna) */}
                 {p?.systemPowerKwp > 0 && (
                   <div className="p-3 bg-slate-50 rounded-lg border space-y-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Calculadora R$/Wp Ã¢â‚¬â€ ReferÃƒÂªncia Interna</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Calculadora R$/Wp ââ‚¬â€ Referência Interna</p>
                     <p className="text-[10px] text-slate-400">Sistema: <strong className="text-slate-700">{fmtN(p.systemPowerKwp)} kWp ({fmtN(p.systemPowerKwp * 1000, 0)} Wp)</strong>. Digite o R$/Wp e clique para aplicar ao campo.</p>
                     <div className="grid grid-cols-4 gap-2">
                       {[
-                        { label: 'MÃƒÂ£o de Obra', field: 'laborCost' },
-                        { label: 'InstalaÃƒÂ§ÃƒÂ£o', field: 'installationCost' },
-                        { label: 'LogÃƒÂ­stica', field: 'logisticsCost' },
+                        { label: 'Mão de Obra', field: 'laborCost' },
+                        { label: 'Instalação', field: 'installationCost' },
+                        { label: 'Logística', field: 'logisticsCost' },
                         { label: 'Seguro', field: 'insuranceCost' },
                         { label: 'Engenharia', field: 'engineeringCost' },
-                        { label: 'HomologaÃƒÂ§ÃƒÂ£o', field: 'documentationCost' },
+                        { label: 'Homologação', field: 'documentationCost' },
                         { label: 'Outros', field: 'otherCosts' },
                       ].map(item => {
                         const wpTotal = p.systemPowerKwp * 1000;
@@ -1381,22 +1381,22 @@ export default function SolarProjects() {
             </div>
           )}
 
-          {/* STEP 5: Kits Comerciais (EstratÃƒÂ©gia Isca) */}
+          {/* STEP 5: Kits Comerciais (Estratégia Isca) */}
           {step === 5 && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Crown className="w-5 h-5 text-amber-500" /> EstratÃƒÂ©gia Comercial Ã¢â‚¬â€ Kits</h2>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Crown className="w-5 h-5 text-amber-500" /> Estratégia Comercial ââ‚¬â€ Kits</h2>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={form.commercialStrategyEnabled} onChange={e => handleToggleStrategy(e.target.checked)} className="rounded border-amber-300 text-amber-500" />
-                  <span className="text-sm font-medium text-slate-700">Ativar EstratÃƒÂ©gia de Kits</span>
+                  <span className="text-sm font-medium text-slate-700">Ativar Estratégia de Kits</span>
                 </label>
               </div>
 
               {!form.commercialStrategyEnabled ? (
                 <div className="text-center py-16 text-slate-400">
                   <Crown className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                  <p className="font-medium">EstratÃƒÂ©gia Comercial Desativada</p>
-                  <p className="text-xs mt-1 max-w-lg mx-auto">Ative a estratÃƒÂ©gia para criar kits com precificaÃƒÂ§ÃƒÂ£o estratÃƒÂ©gica (efeito isca). Adicione quantos kits quiser Ã¢â‚¬â€ o cliente serÃƒÂ¡ naturalmente induzido a escolher o kit recomendado.</p>
+                  <p className="font-medium">Estratégia Comercial Desativada</p>
+                  <p className="text-xs mt-1 max-w-lg mx-auto">Ative a estratégia para criar kits com precificação estratégica (efeito isca). Adicione quantos kits quiser ââ‚¬â€ o cliente será naturalmente induzido a escolher o kit recomendado.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1468,7 +1468,7 @@ export default function SolarProjects() {
                             <div className="border rounded-lg overflow-hidden">
                               <table className="w-full text-xs">
                                 <thead className="bg-slate-50">
-                                  <tr><th className="px-2 py-1.5 text-left">DescriÃƒÂ§ÃƒÂ£o</th><th className="px-2 py-1.5 text-left">Marca</th><th className="px-2 py-1.5 text-left">Modelo</th><th className="px-2 py-1.5 text-center">Qtd</th><th className="px-2 py-1.5 text-right">PreÃƒÂ§o</th><th className="px-2 py-1.5 text-right">Total</th><th></th></tr>
+                                  <tr><th className="px-2 py-1.5 text-left">Descrição</th><th className="px-2 py-1.5 text-left">Marca</th><th className="px-2 py-1.5 text-left">Modelo</th><th className="px-2 py-1.5 text-center">Qtd</th><th className="px-2 py-1.5 text-right">Preço</th><th className="px-2 py-1.5 text-right">Total</th><th></th></tr>
                                 </thead>
                                 <tbody>
                                   {kit.equipment.map((eq: any, ei: number) => (
@@ -1492,17 +1492,17 @@ export default function SolarProjects() {
 
                         {/* Kit Costs */}
                         <div className="grid grid-cols-5 gap-3">
-                          <div><Label className="text-xs">MÃƒÂ£o de Obra</Label><Input type="number" step="0.01" className="h-8 text-xs" value={numVal(kit.laborCost)} onChange={e => updateKit(ki, 'laborCost', Number(e.target.value))} /></div>
-                          <div><Label className="text-xs">InstalaÃƒÂ§ÃƒÂ£o</Label><Input type="number" step="0.01" className="h-8 text-xs" value={numVal(kit.installationCost)} onChange={e => updateKit(ki, 'installationCost', Number(e.target.value))} /></div>
+                          <div><Label className="text-xs">Mão de Obra</Label><Input type="number" step="0.01" className="h-8 text-xs" value={numVal(kit.laborCost)} onChange={e => updateKit(ki, 'laborCost', Number(e.target.value))} /></div>
+                          <div><Label className="text-xs">Instalação</Label><Input type="number" step="0.01" className="h-8 text-xs" value={numVal(kit.installationCost)} onChange={e => updateKit(ki, 'installationCost', Number(e.target.value))} /></div>
                           <div><Label className="text-xs">Outros</Label><Input type="number" step="0.01" className="h-8 text-xs" value={numVal(kit.otherCosts)} onChange={e => updateKit(ki, 'otherCosts', Number(e.target.value))} /></div>
                           <div><Label className="text-xs">Margem %</Label><Input type="number" step="0.1" className="h-8 text-xs" value={numVal(kit.margin)} onChange={e => updateKit(ki, 'margin', Number(e.target.value))} /></div>
-                          <div><Label className="text-xs">PreÃƒÂ§o Final</Label><div className="px-3 py-1.5 bg-amber-50 rounded border border-amber-200 font-bold text-amber-900 text-sm">{fmt(kit.totalPrice)}</div></div>
+                          <div><Label className="text-xs">Preço Final</Label><div className="px-3 py-1.5 bg-amber-50 rounded border border-amber-200 font-bold text-amber-900 text-sm">{fmt(kit.totalPrice)}</div></div>
                         </div>
 
                         {/* Kit Guarantees */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <p className="text-xs font-bold text-slate-500 uppercase">Garantias & BenefÃƒÂ­cios {kit.showGuaranteeValues && <span className="text-amber-600">(com valores Ã¢â‚¬â€ Hormozi Value Stack)</span>}</p>
+                            <p className="text-xs font-bold text-slate-500 uppercase">Garantias & Benefícios {kit.showGuaranteeValues && <span className="text-amber-600">(com valores ââ‚¬â€ Hormozi Value Stack)</span>}</p>
                             <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => addKitGuarantee(ki)}><Plus className="w-3 h-3 mr-1" /> Adicionar</Button>
                           </div>
                           <div className="space-y-1.5">
@@ -1513,7 +1513,7 @@ export default function SolarProjects() {
                                     }`}>
                                   {g.included ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
                                 </button>
-                                <Input className="h-7 text-xs flex-1" value={g.text} onChange={e => updateKitGuarantee(ki, gi, 'text', e.target.value)} placeholder="DescriÃƒÂ§ÃƒÂ£o da garantia..." />
+                                <Input className="h-7 text-xs flex-1" value={g.text} onChange={e => updateKitGuarantee(ki, gi, 'text', e.target.value)} placeholder="Descrição da garantia..." />
                                 {kit.showGuaranteeValues && (
                                   <div className="flex items-center gap-1 w-28">
                                     <span className="text-[10px] text-slate-400">R$</span>
@@ -1528,7 +1528,7 @@ export default function SolarProjects() {
                             const guaranteeTotal = (kit.guarantees || []).filter((g: any) => g.included).reduce((s: number, g: any) => s + Number(g.value || 0), 0);
                             return guaranteeTotal > 0 ? (
                               <div className="mt-2 p-2 bg-emerald-50 rounded border border-emerald-200 text-xs">
-                                <span className="text-emerald-700 font-bold">Valor total dos benefÃƒÂ­cios inclusos: {fmt(guaranteeTotal)}</span>
+                                <span className="text-emerald-700 font-bold">Valor total dos benefícios inclusos: {fmt(guaranteeTotal)}</span>
                               </div>
                             ) : null;
                           })()}
@@ -1537,10 +1537,10 @@ export default function SolarProjects() {
                     );
                   })()}
 
-                  {/* Preview Ã¢â‚¬â€ Kit Cards Side by Side (Value Stack + Anchoring) */}
+                  {/* Preview ââ‚¬â€ Kit Cards Side by Side (Value Stack + Anchoring) */}
                   {(form.commercialKits || []).length >= 1 && (
                     <div>
-                      <p className="text-xs font-bold text-slate-500 uppercase mb-3">Preview Ã¢â‚¬â€ VisÃƒÂ£o do Cliente (Ariely + Hormozi)</p>
+                      <p className="text-xs font-bold text-slate-500 uppercase mb-3">Preview ââ‚¬â€ Visão do Cliente (Ariely + Hormozi)</p>
                       <div className={`grid gap-3 ${(form.commercialKits || []).length === 1 ? 'grid-cols-1 max-w-md mx-auto' : (form.commercialKits || []).length === 2 ? 'grid-cols-2' : (form.commercialKits || []).length === 3 ? 'grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'}`}>
                         {form.commercialKits.map((kit: any, ki: number) => {
                           const guaranteeValueIncluded = (kit.guarantees || []).filter((g: any) => g.included).reduce((s: number, g: any) => s + Number(g.value || 0), 0);
@@ -1592,9 +1592,9 @@ export default function SolarProjects() {
                               )}
                               {/* Price â€” Anchoring */}
                               <div className={`text-center pt-2 border-t ${kit.isRecommended ? 'border-amber-300' : 'border-slate-200'}`}>
-                                <p className="text-[10px] text-slate-400 uppercase font-bold">VocÃª Paga Apenas</p>
+                                <p className="text-[10px] text-slate-400 uppercase font-bold">Você Paga Apenas</p>
                                 <p className={`text-2xl font-bold ${kit.isRecommended ? 'text-amber-800' : 'text-slate-900'}`}>{fmt(kit.totalPrice)}</p>
-                                <p className="text-[10px] text-slate-400">Ã  vista</p>
+                                <p className="text-[10px] text-slate-400">à vista</p>
                               </div>
                             </div>
                           );
@@ -1607,7 +1607,7 @@ export default function SolarProjects() {
             </div>
           )}
 
-          {/* STEP 6: CondiÃ§Ãµes de Pagamento */}
+          {/* STEP 6: Condições de Pagamento */}
           {step === 6 && (() => {
             const pcList: any[] = Array.isArray(form.paymentConditions) ? form.paymentConditions : (form.paymentConditions ? [form.paymentConditions] : []);
             const aPCIdx = form._activePaymentTab || 0;
@@ -1628,9 +1628,23 @@ export default function SolarProjects() {
               list[optIdx] = { ...list[optIdx], lines };
               return { ...f, paymentConditions: list };
             });
-            const addOption = () => setForm((f: any) => {
+            const addOption = (template?: string) => setForm((f: any) => {
               const list = [...(Array.isArray(f.paymentConditions) ? f.paymentConditions : f.paymentConditions ? [f.paymentConditions] : [])];
-              list.push({ label: `Opcao ${list.length + 1}`, lines: [{ type: 'entrada', description: '', unitValue: 0, qty: 1, interestRate: 0, when: '' }], notes: '' });
+              const bv = (f.commercialKits || []).find((k: any) => k.isRecommended)?.totalPrice || (f.commercialKits || [])[0]?.totalPrice || Number(f.totalInvestment || 0);
+              const pct = (p: number) => Math.round(bv * p / 100 * 100) / 100;
+              let newPlan: any;
+              if (template === 'avista') {
+                newPlan = { label: 'À Vista', lines: [{ type: 'avista', description: 'Pagamento à vista', unitValue: bv, qty: 1, interestRate: 0, when: 'Na assinatura' }], notes: '' };
+              } else if (template === 'entrada_parcelas') {
+                newPlan = { label: 'Entrada + Parcelas', lines: [{ type: 'entrada', description: 'Entrada inicial', unitValue: pct(30), qty: 1, interestRate: 0, when: 'Na assinatura' }, { type: 'parcelas', description: 'Saldo parcelado', unitValue: pct(70) / 12, qty: 12, interestRate: 0, when: 'Mensalmente' }], notes: '' };
+              } else if (template === 'cartao') {
+                newPlan = { label: 'Cartão Parcelado', lines: [{ type: 'parcelas', description: 'Parcelado no cartão', unitValue: bv / 21, qty: 21, interestRate: 1.99, when: 'Mensalmente' }], notes: '' };
+              } else if (template === 'hibrido') {
+                newPlan = { label: 'Híbrido', lines: [{ type: 'entrada', description: 'Entrada à vista', unitValue: pct(40), qty: 1, interestRate: 0, when: 'Na assinatura' }, { type: 'parcelas', description: 'Restante no cartão', unitValue: pct(60) / 12, qty: 12, interestRate: 1.99, when: 'Mensalmente' }], notes: '' };
+              } else {
+                newPlan = { label: `Opção ${list.length + 1}`, lines: [{ type: 'entrada', description: '', unitValue: 0, qty: 1, interestRate: 0, when: '' }], notes: '' };
+              }
+              list.push(newPlan);
               return { ...f, paymentConditions: list, _activePaymentTab: list.length - 1 };
             });
             const removeOption = (idx: number) => setForm((f: any) => {
@@ -1654,7 +1668,19 @@ export default function SolarProjects() {
             });
 
             const lineTotal = (line: any) => Number(line.unitValue || 0) * Number(line.qty || 1);
+            const lineInterestCost = (line: any) => {
+              const pv = Number(line.unitValue || 0);
+              const n = Number(line.qty || 1);
+              const r = Number(line.interestRate || 0) / 100;
+              if (r === 0 || n <= 1) return 0;
+              const total = pv * n;
+              // Principal = total / (1 + r*n) approximation → use exact: P_pv = PMT * (1-(1+r)^-n)/r
+              const principal = pv * (1 - Math.pow(1 + r, -n)) / r;
+              return Math.max(0, total - principal);
+            };
             const optTotal = (opt: any) => (opt?.lines || []).reduce((s: number, l: any) => s + lineTotal(l), 0);
+            const optInterestCost = (opt: any) => (opt?.lines || []).reduce((s: number, l: any) => s + lineInterestCost(l), 0);
+            const coveragePct = activePC && baseValue > 0 ? Math.min(100, (optTotal(activePC) / baseValue) * 100) : 0;
             const diff = activePC ? optTotal(activePC) - baseValue : 0;
             const typeLabels: Record<string, string> = {
               entrada: 'Entrada', parcelas: 'Parcelas', financiamento: 'Financiamento',
@@ -1671,22 +1697,39 @@ export default function SolarProjects() {
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
                   <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <CreditCard className="w-5 h-5 text-amber-500" /> Condicoes de Pagamento
+                    <CreditCard className="w-5 h-5 text-amber-500" /> Condições de Pagamento
                   </h2>
                   <p className="text-xs text-slate-500 mt-1">
-                    Monte o plano financeiro. Cada opcao tem linhas livres: entrada, parcelas, fase, desconto, financiamento.
+                    Crie planos prontos ou personalize linha por linha.
                   </p>
                 </div>
-                <Button onClick={addOption} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold shrink-0">
-                  <Plus className="w-4 h-4 mr-1" /> Nova Opcao
-                </Button>
+                <button onClick={() => addOption()} className="px-3 py-2 rounded-lg border-2 border-dashed border-slate-300 text-slate-400 hover:border-amber-400 hover:text-amber-600 transition-all text-xs font-semibold flex items-center gap-1">
+                  <Plus className="w-3.5 h-3.5" /> Plano Personalizado
+                </button>
+              </div>
+
+              {/* Quick-start templates */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {[
+                  { id: 'avista', icon: '💵', label: 'À Vista', sub: 'Desconto máximo', color: 'border-green-300 bg-green-50 hover:bg-green-100 text-green-800' },
+                  { id: 'entrada_parcelas', icon: '📅', label: 'Entrada + Parcelas', sub: '30% entrada + 12x', color: 'border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-800' },
+                  { id: 'cartao', icon: '💳', label: 'Cartão Parcelado', sub: '21x 1,99% a.m.', color: 'border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-800' },
+                  { id: 'hibrido', icon: '⚡', label: 'Híbrido', sub: '40% + restante 12x', color: 'border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800' },
+                ].map(t => (
+                  <button key={t.id} onClick={() => addOption(t.id)}
+                    className={`p-3 rounded-xl border-2 text-left transition-all ${t.color}`}>
+                    <div className="text-xl mb-1">{t.icon}</div>
+                    <p className="text-xs font-bold">{t.label}</p>
+                    <p className="text-[10px] opacity-70">{t.sub}</p>
+                  </button>
+                ))}
               </div>
 
               {baseValue > 0 && (
                 <div className="flex items-center justify-between p-4 rounded-xl bg-slate-900 text-white">
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide">Valor Base da Proposta</p>
-                    <p className="text-2xl font-black text-amber-400 mt-0.5">R$ {fmt(baseValue)}</p>
+                    <p className="text-2xl font-black text-amber-400 mt-0.5">{fmt(baseValue)}</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       Cada forma de pagamento pode aumentar (juros) ou reduzir (desconto) este valor.
                     </p>
@@ -1697,13 +1740,14 @@ export default function SolarProjects() {
                 </div>
               )}
 
+
               {pcList.length === 0 ? (
                 <div className="text-center py-14 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
                   <CreditCard className="w-10 h-10 mx-auto mb-3 opacity-30" />
                   <p className="font-semibold text-slate-500">Nenhum plano configurado</p>
-                  <p className="text-xs mt-1">Clique em "Nova Opcao" para comecar</p>
-                  <Button onClick={addOption} className="mt-4 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold" size="sm">
-                    <Plus className="w-4 h-4 mr-1" /> Criar Primeira Opcao
+                  <p className="text-xs mt-1">Use os atalhos acima ou crie do zero</p>
+                  <Button onClick={() => addOption()} className="mt-4 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold" size="sm">
+                    <Plus className="w-4 h-4 mr-1" /> Criar Plano Personalizado
                   </Button>
                 </div>
               ) : (
@@ -1735,11 +1779,35 @@ export default function SolarProjects() {
                         </div>
                       );
                     })}
-                    <button onClick={addOption}
+                  <button onClick={() => addOption()}
                       className="px-4 py-2.5 rounded-lg border-2 border-dashed border-slate-300 text-slate-400 hover:border-amber-400 hover:text-amber-600 transition-all text-sm font-semibold flex items-center gap-1">
                       <Plus className="w-4 h-4" /> Nova
                     </button>
                   </div>
+
+                  {/* Coverage progress bar */}
+                  {activePC && baseValue > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500 font-medium">Cobertura do valor base</span>
+                        <span className={`font-bold ${Math.abs(diff) < 1 ? 'text-green-600' : diff > 0 ? 'text-red-500' : 'text-blue-600'}`}>
+                          {fmtN(coveragePct, 1)}% coberto
+                          {Math.abs(diff) < 1 && ' ✓'}
+                          {diff > 1 && ` (+${fmt(diff)} em juros/acréscimos)`}
+                          {diff < -1 && ` (${fmt(Math.abs(diff))} de desconto)`}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${coveragePct >= 100 ? (diff > 1 ? 'bg-red-400' : 'bg-green-500') : 'bg-amber-400'}`}
+                          style={{ width: `${Math.min(coveragePct, 100)}%` }} />
+                      </div>
+                      {optInterestCost(activePC) > 0 && (
+                        <p className="text-[11px] text-amber-700 bg-amber-50 rounded px-2 py-1 border border-amber-200">
+                          💰 Custo do dinheiro (juros): <strong>{fmt(optInterestCost(activePC))}</strong> — o cliente paga {fmt(optTotal(activePC))} no lugar de {fmt(baseValue)}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {activePC && (
                     <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
@@ -1758,11 +1826,11 @@ export default function SolarProjects() {
                           <thead>
                             <tr className="bg-slate-50 text-xs text-slate-500 uppercase border-b">
                               <th className="text-left px-3 py-2 font-semibold w-[130px]">Tipo</th>
-                              <th className="text-left px-3 py-2 font-semibold">Descricao</th>
-                              <th className="text-right px-3 py-2 font-semibold w-[110px]">Valor Unit. (R$)</th>
+                              <th className="text-left px-3 py-2 font-semibold">Descrição</th>
+                              <th className="text-right px-3 py-2 font-semibold w-[180px]">Valor Unit. (R$ / %)</th>
                               <th className="text-center px-3 py-2 font-semibold w-[80px]">Qtd/Parcelas</th>
                               <th className="text-center px-3 py-2 font-semibold w-[85px]">Juros % a.m.</th>
-                              <th className="text-left px-3 py-2 font-semibold w-[130px]">Quando</th>
+                              <th className="text-left px-3 py-2 font-semibold w-[140px]">Quando</th>
                               <th className="text-right px-3 py-2 font-semibold w-[110px]">Subtotal</th>
                               <th className="w-8"></th>
                             </tr>
@@ -1789,12 +1857,29 @@ export default function SolarProjects() {
                                 <td className="px-2 py-2">
                                   <Input className="h-7 text-sm border-slate-200 min-w-[160px]" value={line.description || ''}
                                     onChange={e => setLine(aPCIdx, li, 'description', e.target.value)}
-                                    placeholder="Ex: Entrada ao fornecedor, 21x no cartao..." />
+                                    placeholder="Ex: Entrada ao fornecedor, 21x no cartão..." />
                                 </td>
                                 <td className="px-2 py-2">
-                                  <Input className="h-7 text-sm text-right border-slate-200 font-mono" type="number" step="0.01"
-                                    value={numVal(line.unitValue)}
-                                    onChange={e => setLine(aPCIdx, li, 'unitValue', Number(e.target.value))} />
+                                  <div className="flex items-center gap-1">
+                                    <Input className="h-7 text-sm text-right border-slate-200 font-mono w-24" type="number" step="0.01"
+                                      value={numVal(line.unitValue)}
+                                      onChange={e => setLine(aPCIdx, li, 'unitValue', Number(e.target.value))} />
+                                    {baseValue > 0 && (
+                                      <div className="flex items-center gap-0.5">
+                                        <Input className="h-7 text-xs text-center border-slate-100 bg-slate-50 w-14 font-mono" type="number" step="1" min="0" max="100"
+                                          placeholder="%"
+                                          value={line.unitValue && baseValue ? fmtN(Number(line.unitValue) / baseValue * 100 * (line.qty || 1), 0) : ''}
+                                          onChange={e => {
+                                            const pct = Number(e.target.value);
+                                            if (!isNaN(pct) && pct >= 0) {
+                                              const qty = Number(line.qty || 1);
+                                              setLine(aPCIdx, li, 'unitValue', Math.round(baseValue * pct / 100 / qty * 100) / 100);
+                                            }
+                                          }} />
+                                        <span className="text-[10px] text-slate-400">%</span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="px-2 py-2">
                                   <Input className="h-7 text-sm text-center border-slate-200 font-mono" type="number" step="1"
@@ -1807,9 +1892,20 @@ export default function SolarProjects() {
                                     onChange={e => setLine(aPCIdx, li, 'interestRate', Number(e.target.value))} />
                                 </td>
                                 <td className="px-2 py-2">
-                                  <Input className="h-7 text-xs border-slate-200" value={line.when || ''}
-                                    onChange={e => setLine(aPCIdx, li, 'when', e.target.value)}
-                                    placeholder="Na assinatura, Fase 2..." />
+                                  <select className="h-7 text-xs border border-slate-200 rounded px-1.5 bg-white w-full"
+                                    value={line.when || ''}
+                                    onChange={e => setLine(aPCIdx, li, 'when', e.target.value)}>
+                                    <option value="">Selecionar...</option>
+                                    <option value="Na assinatura">Na assinatura</option>
+                                    <option value="Na entrega">Na entrega</option>
+                                    <option value="Na instalação">Na instalação</option>
+                                    <option value="Na vistoria">Na vistoria</option>
+                                    <option value="Mensalmente">Mensalmente</option>
+                                    <option value="30 dias">30 dias</option>
+                                    <option value="60 dias">60 dias</option>
+                                    <option value="90 dias">90 dias</option>
+                                    <option value="Personalizado">Personalizado</option>
+                                  </select>
                                 </td>
                                 <td className="px-3 py-2 text-right">
                                   <div className="font-bold text-slate-900 font-mono">{fmt(lineTotal(line))}</div>
@@ -1818,6 +1914,9 @@ export default function SolarProjects() {
                                   )}
                                   {Number(line.interestRate) > 0 && (
                                     <div className="text-[10px] text-amber-600 font-semibold">{line.interestRate}% a.m.</div>
+                                  )}
+                                  {Number(line.interestRate) > 0 && Number(line.qty || 1) > 1 && lineInterestCost(line) > 0 && (
+                                    <div className="text-[10px] text-red-500">+{fmt(lineInterestCost(line))} juros</div>
                                   )}
                                   {Number(line.interestRate) === 0 && Number(line.qty || 1) > 1 && (
                                     <div className="text-[10px] text-green-600 font-bold">SEM JUROS</div>
@@ -1860,7 +1959,7 @@ export default function SolarProjects() {
                       </div>
 
                       <div className="border-t px-4 py-3 bg-slate-50">
-                        <Label className="text-xs text-slate-500">Observacoes desta opcao (aparece na proposta)</Label>
+                        <Label className="text-xs text-slate-500">Observações desta opção (aparece na proposta)</Label>
                         <Textarea rows={2} className="text-sm mt-1 resize-none"
                           value={activePC.notes || ''} onChange={e => setPC(aPCIdx, 'notes', e.target.value)}
                           placeholder="Condicoes especiais, prazo de validade, banco aceito..." />
@@ -1870,7 +1969,7 @@ export default function SolarProjects() {
 
                   {pcList.length > 1 && (
                     <div className="p-4 rounded-xl border-2 border-amber-100 bg-amber-50/30">
-                      <p className="text-xs font-bold text-amber-700 uppercase mb-3">Resumo â€” Todas as opcoes para o cliente</p>
+                      <p className="text-xs font-bold text-amber-700 uppercase mb-3">Resumo — Todas as opções para o cliente</p>
                       <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                         {pcList.map((pc: any, pi: number) => {
                           const tot = optTotal(pc);
@@ -1912,11 +2011,11 @@ export default function SolarProjects() {
           );
           })()}
 
-          {/* STEP 7: SimulaÃƒÂ§ÃƒÂ£o Financeira */}
+          {/* STEP 7: Simulação Financeira */}
           {step === 7 && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><BarChart3 className="w-5 h-5 text-amber-500" /> SimulaÃƒÂ§ÃƒÂ£o Financeira</h2>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><BarChart3 className="w-5 h-5 text-amber-500" /> Simulação Financeira</h2>
                 <Button onClick={handleCalcFinancials} disabled={saving} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold">
                   {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TrendingUp className="w-4 h-4 mr-2" />}
                   Calcular Financeiro
@@ -1926,7 +2025,7 @@ export default function SolarProjects() {
               {/* Params */}
               <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-lg border">
                 <div><Label className="text-xs">Aumento Anual da Energia (%)</Label><Input type="number" step="0.1" value={form.annualEnergyIncrease} onChange={e => setForm({ ...form, annualEnergyIncrease: e.target.value })} /></div>
-                <div><Label className="text-xs">DegradaÃƒÂ§ÃƒÂ£o Anual dos PainÃƒÂ©is (%)</Label><Input type="number" step="0.1" value={form.annualDegradation} onChange={e => setForm({ ...form, annualDegradation: e.target.value })} /></div>
+                <div><Label className="text-xs">Degradação Anual dos Painéis (%)</Label><Input type="number" step="0.1" value={form.annualDegradation} onChange={e => setForm({ ...form, annualDegradation: e.target.value })} /></div>
               </div>
 
               {p?.totalInvestment ? (
@@ -1963,7 +2062,7 @@ export default function SolarProjects() {
                   {/* Cash Flow Chart (simple bar chart) */}
                   {p.cashFlow && (
                     <div className="border rounded-xl p-4">
-                      <p className="text-sm font-bold text-slate-700 mb-4">Fluxo de Caixa Ã¢â‚¬â€ Economia Acumulada vs Investimento</p>
+                      <p className="text-sm font-bold text-slate-700 mb-4">Fluxo de Caixa ââ‚¬â€ Economia Acumulada vs Investimento</p>
                       <div className="flex items-end gap-1 h-48">
                         {p.cashFlow.map((cf: any) => {
                           const maxVal = Math.max(...p.cashFlow.map((c: any) => c.accumulated));
@@ -1982,7 +2081,7 @@ export default function SolarProjects() {
                       </div>
                       <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
                         <div className="flex items-center gap-1"><div className="w-3 h-3 bg-amber-400 rounded" /> Antes do payback</div>
-                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-400 rounded" /> ApÃƒÂ³s o payback</div>
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-400 rounded" /> Após o payback</div>
                         <div className="ml-auto">Investimento: <span className="font-bold text-slate-700">{fmt(p.totalInvestment)}</span></div>
                       </div>
                     </div>
@@ -1993,21 +2092,21 @@ export default function SolarProjects() {
                     <div className="border rounded-xl p-4 text-center">
                       <p className="text-xs text-red-600 font-bold uppercase mb-2">Conta Atual (sem solar)</p>
                       <p className="text-3xl font-bold text-red-700">{fmt(Number(form.avgBillValue || 0))}</p>
-                      <p className="text-xs text-red-500 mt-1">por mÃƒÂªs</p>
+                      <p className="text-xs text-red-500 mt-1">por mês</p>
                       <p className="text-sm text-red-600 mt-2 font-medium">Em 25 anos: {fmt(Number(form.avgBillValue || 0) * 12 * 25)}</p>
                     </div>
                     <div className="border rounded-xl p-4 text-center bg-green-50">
                       <p className="text-xs text-green-700 font-bold uppercase mb-2">Com Solar</p>
                       <p className="text-3xl font-bold text-green-800">{fmt(Math.max(Number(form.avgBillValue || 0) - Number(p.monthlySavings), 0))}</p>
-                      <p className="text-xs text-green-600 mt-1">por mÃƒÂªs (estimado)</p>
-                      <p className="text-sm text-green-700 mt-2 font-medium">Economia: {fmt(p.monthlySavings)}/mÃƒÂªs</p>
+                      <p className="text-xs text-green-600 mt-1">por mês (estimado)</p>
+                      <p className="text-sm text-green-700 mt-2 font-medium">Economia: {fmt(p.monthlySavings)}/mês</p>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-16 text-slate-400">
                   <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                  <p>Clique em "Calcular Financeiro" para gerar a simulaÃƒÂ§ÃƒÂ£o</p>
+                  <p>Clique em "Calcular Financeiro" para gerar a simulação</p>
                   <p className="text-xs mt-1">Certifique-se de ter adicionado equipamentos e custos no Step anterior</p>
                 </div>
               )}
@@ -2044,10 +2143,10 @@ export default function SolarProjects() {
               <div className="border rounded-xl p-5 space-y-4">
                 <h3 className="text-sm font-bold text-slate-700 uppercase">Resumo do Projeto</h3>
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-slate-400">Cliente:</span> <strong>{clients.find((c: any) => c.id === form.clientId)?.name || 'Ã¢â‚¬â€'}</strong></div>
-                  <div><span className="text-slate-400">PotÃƒÂªncia:</span> <strong>{fmtN(p?.systemPowerKwp || 0)} kWp</strong></div>
-                  <div><span className="text-slate-400">MÃƒÂ³dulos:</span> <strong>{p?.moduleCount || 0} un</strong></div>
-                  <div><span className="text-slate-400">GeraÃƒÂ§ÃƒÂ£o:</span> <strong>{fmtN(p?.monthlyGenerationKwh || 0, 0)} kWh/mÃƒÂªs</strong></div>
+                  <div><span className="text-slate-400">Cliente:</span> <strong>{clients.find((c: any) => c.id === form.clientId)?.name || 'ââ‚¬â€'}</strong></div>
+                  <div><span className="text-slate-400">Potência:</span> <strong>{fmtN(p?.systemPowerKwp || 0)} kWp</strong></div>
+                  <div><span className="text-slate-400">Módulos:</span> <strong>{p?.moduleCount || 0} un</strong></div>
+                  <div><span className="text-slate-400">Geração:</span> <strong>{fmtN(p?.monthlyGenerationKwh || 0, 0)} kWh/mês</strong></div>
                   <div><span className="text-slate-400">Investimento:</span> <strong>{fmt(p?.totalInvestment || 0)}</strong></div>
                   <div><span className="text-slate-400">Payback:</span> <strong>{fmtN(p?.paybackMonths || 0)} meses</strong></div>
                   <div><span className="text-slate-400">ROI:</span> <strong>{fmtN(p?.roiPercent || 0)}%</strong></div>
@@ -2061,7 +2160,7 @@ export default function SolarProjects() {
                     <CheckCircle2 className="w-6 h-6 text-green-500" />
                     <div>
                       <p className="text-sm font-bold text-green-800">Proposta registrada no ERP</p>
-                      <p className="text-xs text-green-600">Se fez ediÃƒÂ§ÃƒÂµes, clique em "Atualizar Proposta" antes de baixar o PDF.</p>
+                      <p className="text-xs text-green-600">Se fez edições, clique em "Atualizar Proposta" antes de baixar o PDF.</p>
                     </div>
                   </div>
                   <Button variant="outline" size="sm" onClick={() => window.open(`/admin/proposals`, '_blank')}>
@@ -2071,7 +2170,7 @@ export default function SolarProjects() {
               )}
 
               <div className="text-sm text-slate-500">
-                <Label>ObservaÃƒÂ§ÃƒÂµes</Label>
+                <Label>Observações</Label>
                 <Textarea rows={3} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Notas adicionais para a proposta..." />
               </div>
             </div>
@@ -2098,7 +2197,7 @@ export default function SolarProjects() {
             </Button>
             {step < STEPS.length - 1 && (
               <Button onClick={goNext} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold">
-                PrÃƒÂ³ximo <ArrowRight className="w-4 h-4 ml-1" />
+                Próximo <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             )}
           </div>
@@ -2114,9 +2213,9 @@ export default function SolarProjects() {
     );
   }
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Â
   // LIST VIEW
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Âââ€¢Â
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -2148,7 +2247,7 @@ export default function SolarProjects() {
         <div className="text-center py-20 text-slate-400">
           <Sun className="w-12 h-12 mx-auto mb-3 opacity-40" />
           <p className="font-medium">Nenhum projeto solar encontrado</p>
-          <p className="text-sm mt-1">Clique em "Novo Projeto Solar" para comeÃƒÂ§ar</p>
+          <p className="text-sm mt-1">Clique em "Novo Projeto Solar" para começar</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -2167,7 +2266,7 @@ export default function SolarProjects() {
                     <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-slate-500">
                       {p.client && <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" />{p.client.name}</span>}
                       {p.totalInvestment > 0 && <span className="flex items-center gap-1"><DollarSign className="w-3.5 h-3.5" />{fmt(p.totalInvestment)}</span>}
-                      {p.monthlyGenerationKwh > 0 && <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5" />{fmtN(p.monthlyGenerationKwh, 0)} kWh/mÃƒÂªs</span>}
+                      {p.monthlyGenerationKwh > 0 && <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5" />{fmtN(p.monthlyGenerationKwh, 0)} kWh/mês</span>}
                       <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{new Date(p.createdAt).toLocaleDateString('pt-BR')}</span>
                     </div>
                   </div>
@@ -2179,7 +2278,7 @@ export default function SolarProjects() {
         </div>
       )}
 
-      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â NEW CLIENT DIALOG Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
+      {/* ââ€¢Âââ€¢Âââ€¢Â NEW CLIENT DIALOG ââ€¢Âââ€¢Âââ€¢Â */}
       <ClientDialog
         open={newClientDialogOpen}
         onOpenChange={setNewClientDialogOpen}
