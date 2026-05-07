@@ -709,12 +709,12 @@ export default function SolarProjects() {
                     <p className="text-sm font-semibold text-blue-800">Dados do cliente (auto-preenchidos)</p>
                     <div className="grid grid-cols-3 gap-3 text-sm text-slate-700">
                       <div><span className="text-slate-400">Nome:</span> {c.name}</div>
-                      <div><span className="text-slate-400">Doc:</span> {c.document || 'ââ‚¬â€'}</div>
-                      <div><span className="text-slate-400">Telefone:</span> {c.phone || c.whatsapp || 'ââ‚¬â€'}</div>
-                      <div><span className="text-slate-400">Email:</span> {c.email || 'ââ‚¬â€'}</div>
-                      <div><span className="text-slate-400">Endereço:</span> {c.address || 'ââ‚¬â€'}</div>
-                      <div><span className="text-slate-400">Cidade/UF:</span> {c.city || 'ââ‚¬â€'}/{c.state || 'ââ‚¬â€'}</div>
-                      <div><span className="text-slate-400">Concessionária:</span> {c.concessionaria || 'ââ‚¬â€'}</div>
+                      <div><span className="text-slate-400">Doc:</span> {c.document || '—'}</div>
+                      <div><span className="text-slate-400">Telefone:</span> {c.phone || c.whatsapp || '—'}</div>
+                      <div><span className="text-slate-400">Email:</span> {c.email || '—'}</div>
+                      <div><span className="text-slate-400">Endereço:</span> {c.address || '—'}</div>
+                      <div><span className="text-slate-400">Cidade/UF:</span> {c.city || '—'}/{c.state || '—'}</div>
+                      <div><span className="text-slate-400">Concessionária:</span> {c.concessionaria || '—'}</div>
                     </div>
                   </div>
                 );
@@ -743,8 +743,8 @@ export default function SolarProjects() {
                       ? cat === 'BT' ? 'border-blue-400 bg-blue-50 text-blue-900' : 'border-orange-400 bg-orange-50 text-orange-900'
                       : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'
                       }`}>
-                    <p className="font-bold">{cat === 'BT' ? 'âÅ¡Â¡ Baixa Tensão (BT)' : 'Ã°Å¸ÂÂ­ Média Tensão (MT)'}</p>
-                    <p className="text-[10px] mt-0.5 font-normal">{cat === 'BT' ? 'Residencial / Comercial pequeno' : 'Industrial / Comercial ââ‚¬â€ Ponta e Fora Ponta'}</p>
+                    <p className="font-bold">{cat === 'BT' ? '⚡ Baixa Tensão (BT)' : '🏭 Média Tensão (MT)'}</p>
+                    <p className="text-[10px] mt-0.5 font-normal">{cat === 'BT' ? 'Residencial / Comercial pequeno' : 'Industrial / Comercial — Ponta e Fora Ponta'}</p>
                   </button>
                 ))}
               </div>
@@ -1012,12 +1012,12 @@ export default function SolarProjects() {
                       <p className="text-xl font-bold text-slate-900">
                         R$ {fmtN(Number(form.consumptionKwh || 0) > 0 ? Number(form.avgBillValue || 0) / Number(form.consumptionKwh || 1) : 0, 4)}/kWh
                       </p>
-                      <p className="text-[10px] text-slate-400">Valor da conta ÃƒÂ· consumo</p>
+                      <p className="text-[10px] text-slate-400">Valor da conta ÷ consumo</p>
                     </div>
                     <div className="p-3 bg-white rounded-lg border text-center">
                       <p className="text-[10px] text-slate-500 uppercase font-bold">Gasto Anual Estimado</p>
                       <p className="text-xl font-bold text-red-600">{fmt(Number(form.avgBillValue || 0) * 12)}</p>
-                      <p className="text-[10px] text-slate-400">Valor médio Ãƒâ€” 12 meses</p>
+                      <p className="text-[10px] text-slate-400">Valor médio × 12 meses</p>
                     </div>
                     <div className="p-3 bg-white rounded-lg border text-center">
                       <p className="text-[10px] text-slate-500 uppercase font-bold">Gasto em 25 Anos</p>
@@ -1028,11 +1028,11 @@ export default function SolarProjects() {
                   {form.billingCategory === 'MT' && Number(form.consumptionPeakKwh) > 0 && (
                     <div className="grid grid-cols-2 gap-3 mt-2">
                       <div className="p-3 bg-orange-50 rounded-lg border border-orange-200 text-center">
-                        <p className="text-[10px] text-orange-600 uppercase font-bold">Custo Ponta (Ãƒâ€” mês)</p>
+                        <p className="text-[10px] text-orange-600 uppercase font-bold">Custo Ponta (× mês)</p>
                         <p className="text-lg font-bold text-orange-800">{fmt(Number(form.consumptionPeakKwh || 0) * Number(form.tariffPeak || 0))}</p>
                       </div>
                       <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 text-center">
-                        <p className="text-[10px] text-blue-600 uppercase font-bold">Custo Fora Ponta (Ãƒâ€” mês)</p>
+                        <p className="text-[10px] text-blue-600 uppercase font-bold">Custo Fora Ponta (× mês)</p>
                         <p className="text-lg font-bold text-blue-800">{fmt(Number(form.consumptionOffPeakKwh || 0) * Number(form.tariffOffPeak || 0))}</p>
                       </div>
                     </div>
@@ -1058,7 +1058,7 @@ export default function SolarProjects() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Área Disponível (mÃ‚²)</Label>
+                  <Label>Área Disponível (m²)</Label>
                   <Input type="number" value={form.availableArea} onChange={e => setForm({ ...form, availableArea: e.target.value })} />
                 </div>
                 <div>
@@ -1326,7 +1326,7 @@ export default function SolarProjects() {
                         </div>
                         <div className="text-[10px] text-slate-400 leading-tight">
                           <p>Referência mercado: R$ 3,50 ~ 5,50/Wp</p>
-                          <p className={rWp < 5.5 ? 'text-green-600 font-bold' : 'text-red-500 font-bold'}>{rWp < 3.5 ? 'Ã°Å¸â€Â¥ Muito competitivo!' : rWp < 5.5 ? 'âÅ“â€¦ Dentro do mercado' : 'âÅ¡ Ã¯Â¸Â Acima do mercado'}</p>
+                          <p className={rWp < 5.5 ? 'text-green-600 font-bold' : 'text-red-500 font-bold'}>{rWp < 3.5 ? '🏆 Muito competitivo!' : rWp < 5.5 ? '✅ Dentro do mercado' : '⚠️ Acima do mercado'}</p>
                         </div>
                       </div>
                     );
@@ -1564,7 +1564,7 @@ export default function SolarProjects() {
                                 {(kit.equipment || []).slice(0, 3).map((eq: any, ei: number) => (
                                   <div key={ei} className="p-1.5 bg-white rounded border text-center">
                                     <p className="font-bold text-slate-700">{eq.description || eq.type}</p>
-                                    <p className="text-slate-400">{eq.brand} {eq.model} Ãƒâ€” {eq.quantity}</p>
+                                    <p className="text-slate-400">{eq.brand} {eq.model} × {eq.quantity}</p>
                                   </div>
                                 ))}
                               </div>
