@@ -130,6 +130,9 @@ export class Client {
   stateRegistration: string;
 
   @Column({ nullable: true })
+  obraName: string;               // Nome da Obra / Identificação do Projeto (diferencia clientes com mesmo CNPJ)
+
+  @Column({ nullable: true })
   ibgeCode: string;                // Código IBGE do município (7 dígitos)
 
   @Column({ nullable: true })

@@ -71,6 +71,7 @@ export class ClientsService {
           { name: Like(`%${query}%`) },
           { email: Like(`%${query}%`) },
           { document: Like(`%${query}%`) },
+          { obraName: Like(`%${query}%`) },
         ],
         relations: ['documents'],
         order: { createdAt: 'DESC' },

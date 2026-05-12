@@ -170,7 +170,8 @@ export default function AdminClients() {
     client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.document?.includes(searchTerm)
+    client.document?.includes(searchTerm) ||
+    (client as any).obraName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const portalAccessCount = clients.filter(c => c.hasPortalAccess).length;
@@ -323,7 +324,14 @@ export default function AdminClients() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <p className="text-sm font-medium text-slate-600 truncate max-w-[180px]">{client.companyName || '-'}</p>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-slate-600 truncate max-w-[180px]">{client.companyName || '-'}</p>
+                      {(client as any).obraName && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 truncate max-w-[180px]">
+                          🏗️ {(client as any).obraName}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">

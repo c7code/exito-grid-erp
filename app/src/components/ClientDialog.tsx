@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -71,10 +71,14 @@ export function ClientDialog({
         state: '',
         zipCode: '',
         stateRegistration: '',
+        obraName: '',
         notes: '',
     });
     const [isLookupLoading, setIsLookupLoading] = useState(false);
     const [isCepLoading, setIsCepLoading] = useState(false);
+    // Controla se o user está digitando (bloqueia auto-lookup no carregamento inicial de edição)
+    const isUserTypingDocument = useRef(false);
+    const isUserTypingCep = useRef(false);
 
     const [files, setFiles] = useState<{ file: File; type: string; issueDate?: string; expiryDate?: string }[]>([]);
 
@@ -87,6 +91,10 @@ export function ClientDialog({
 
     useEffect(() => {
         if (open) {
+            // Reset flags — quando o dialog abre, não é o user digitando
+            isUserTypingDocument.current = false;
+            isUserTypingCep.current = false;
+
             if (client) {
                 setFormData({
                     name: client.name || '',
@@ -105,6 +113,7 @@ export function ClientDialog({
                     state: client.state || '',
                     zipCode: client.zipCode || '',
                     stateRegistration: client.stateRegistration || '',
+                    obraName: (client as any).obraName || '',
                     notes: client.notes || '',
                 });
             } else {
@@ -125,6 +134,7 @@ export function ClientDialog({
                     state: '',
                     zipCode: '',
                     stateRegistration: '',
+                    obraName: '',
                     notes: '',
                 });
             }
@@ -181,6 +191,8 @@ export function ClientDialog({
     };
 
     useEffect(() => {
+        // Só dispara auto-lookup se o usuário está digitando (não no carregamento do dialog de edição)
+        if (!isUserTypingDocument.current) return;
         if (formData.type === 'company' && formData.document.replace(/\D/g, '').length === 14) {
             const timer = setTimeout(() => {
                 handleCnpjLookup(formData.document);
@@ -213,6 +225,8 @@ export function ClientDialog({
     };
 
     useEffect(() => {
+        // Só dispara auto-lookup de CEP se o usuário está digitando
+        if (!isUserTypingCep.current) return;
         if (formData.zipCode.replace(/\D/g, '').length === 8) {
             const timer = setTimeout(() => {
                 handleCepLookup(formData.zipCode);
@@ -386,7 +400,10 @@ export function ClientDialog({
                                 <div className="relative">
                                     <Input
                                         value={formData.document}
-                                        onChange={e => setFormData({ ...formData, document: e.target.value })}
+                                        onChange={e => {
+                                            isUserTypingDocument.current = true;
+                                            setFormData({ ...formData, document: e.target.value });
+                                        }}
                                         className="bg-white border-slate-200 focus:ring-amber-500 h-10 pr-10"
                                         placeholder="00.000.000/0000-00"
                                     />
@@ -396,7 +413,7 @@ export function ClientDialog({
                                         </div>
                                     )}
                                 </div>
-                                {formData.type === 'company' && formData.document.replace(/\D/g, '').length === 14 && !isLookupLoading && (
+                                {formData.type === 'company' && formData.document.replace(/\D/g, '').length === 14 && !isLookupLoading && isUserTypingDocument.current && (
                                     <p className="text-[10px] text-amber-600 font-medium">Buscando dados automaticamente...</p>
                                 )}
                             </div>
@@ -424,6 +441,22 @@ export function ClientDialog({
                                     placeholder="Isento ou Nº"
                                 />
                             </div>
+                            <div className="md:col-span-2 space-y-2">
+                                <Label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                                    <Building2 className="w-3.5 h-3.5 text-amber-500" />
+                                    Nome da Obra / Identificação do Projeto
+                                    <span className="text-[9px] font-normal text-slate-400 normal-case">(quando o mesmo CNPJ possui obras distintas)</span>
+                                </Label>
+                                <Input
+                                    value={formData.obraName}
+                                    onChange={e => setFormData({ ...formData, obraName: e.target.value })}
+                                    className="bg-white border-slate-200 focus:ring-amber-500 h-10"
+                                    placeholder="Ex: Edifício Aurora, Condomínio Brisa, Loja Centro..."
+                                />
+                                {formData.obraName && (
+                                    <p className="text-[10px] text-amber-600 font-medium">✓ Este cliente será identificado como: <strong>{formData.name || 'Cliente'}</strong> — {formData.obraName}</p>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -439,7 +472,10 @@ export function ClientDialog({
                                 <div className="relative">
                                     <Input
                                         value={formData.zipCode}
-                                        onChange={e => setFormData({ ...formData, zipCode: e.target.value })}
+                                        onChange={e => {
+                                            isUserTypingCep.current = true;
+                                            setFormData({ ...formData, zipCode: e.target.value });
+                                        }}
                                         className="bg-white border-slate-200 focus:ring-amber-500 h-10 pr-10"
                                         placeholder="00000-000"
                                         maxLength={9}
