@@ -386,10 +386,11 @@ export class ProposalsService implements OnModuleInit {
     proposal.revisionNumber = newRevisionNumber;
 
     try {
-      const saved = await this.proposalRepository.save(proposal);
+      await this.proposalRepository.save(proposal);
       // ── Propagar alterações para contratos e obras vinculadas ──
       await this.syncLinkedEntities(id);
-      return saved;
+      // ── Recarregar proposta com todas as relações atualizadas (incluindo o novo cliente) ──
+      return this.findOne(id);
     } catch (saveErr: any) {
       // If save fails due to unknown column, log and retry with safe fields only
       this.logger.error('Error saving proposal: ' + saveErr?.message);
