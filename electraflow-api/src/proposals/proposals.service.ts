@@ -382,17 +382,40 @@ export class ProposalsService implements OnModuleInit {
     // Remover campos que não devem ser sobrescritos
     const { id: _id, proposalNumber: _pn, createdAt: _ca, updatedAt: _ua, deletedAt: _da, revisionNumber: _rn, items: _items, client: _cl, opportunity: _op, revisions: _rev, fiscalInvoices: _fi, ...safeData } = proposalData as any;
 
-    Object.assign(proposal, safeData);
-    proposal.revisionNumber = newRevisionNumber;
+    // ═══════════════════════════════════════════════════════════════
+    // BUG FIX: TypeORM sobrescreve o FK column com o id do objeto de
+    // relação carregado (proposal.client.id) ao fazer save(), ignorando
+    // o novo clientId definido em safeData.
+    // Solução: usar UPDATE direto via QueryBuilder para as FKs críticas,
+    // garantindo que o banco receba os novos valores corretos.
+    // ═══════════════════════════════════════════════════════════════
+
+    // 1. Construir o SET do UPDATE com todos os campos escalares de safeData
+    const scalarFields: Record<string, any> = {};
+    const skipFields = new Set(['client', 'opportunity', 'items', 'revisions', 'fiscalInvoices', 'createdByUser']);
+    for (const [key, value] of Object.entries(safeData)) {
+      if (!skipFields.has(key)) {
+        scalarFields[key] = value;
+      }
+    }
+    scalarFields['revisionNumber'] = newRevisionNumber;
+    scalarFields['updatedAt'] = new Date();
 
     try {
-      await this.proposalRepository.save(proposal);
+      // UPDATE direto — não sofre interferência das relações carregadas
+      await this.proposalRepository
+        .createQueryBuilder()
+        .update(Proposal)
+        .set(scalarFields)
+        .where('id = :id', { id })
+        .execute();
+
       // ── Propagar alterações para contratos e obras vinculadas ──
       await this.syncLinkedEntities(id);
+
       // ── Recarregar proposta com todas as relações atualizadas (incluindo o novo cliente) ──
       return this.findOne(id);
     } catch (saveErr: any) {
-      // If save fails due to unknown column, log and retry with safe fields only
       this.logger.error('Error saving proposal: ' + saveErr?.message);
       throw saveErr;
     }
