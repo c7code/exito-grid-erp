@@ -114,6 +114,7 @@ export class ProposalsService implements OnModuleInit {
       { col: 'insuranceCostEmbedServicePct', type: 'numeric(5,2) DEFAULT 0', table: 'proposals' },
       { col: 'insuranceCostDescription', type: 'TEXT DEFAULT NULL', table: 'proposals' },
       { col: 'complianceText', type: 'TEXT DEFAULT NULL', table: 'proposals' },
+      { col: 'customLabel', type: 'VARCHAR DEFAULT NULL', table: 'proposals' },
       // proposal_items
       { col: 'overridePrice', type: 'numeric(15,2) DEFAULT NULL', table: 'proposal_items' },
       { col: 'isBundleParent', type: 'BOOLEAN DEFAULT false', table: 'proposal_items' },
@@ -188,6 +189,67 @@ export class ProposalsService implements OnModuleInit {
     }
 
     return proposal;
+  }
+
+  async duplicate(id: string, overrides?: Partial<Proposal>): Promise<Proposal> {
+    const source = await this.findOne(id);
+
+    // Copy all safe scalar fields
+    const knownFields = [
+      'title', 'clientId', 'opportunityId', 'subtotal', 'discount', 'total',
+      'validUntil', 'scope', 'deadline', 'paymentConditions', 'obligations', 'notes',
+      'workDescription', 'workAddress', 'materialFornecimento', 'materialFaturamento',
+      'serviceDescription', 'paymentBank', 'paymentDueCondition', 'workDeadlineDays',
+      'workDeadlineType', 'workDeadlineText', 'objectiveType', 'objectiveText',
+      'thirdPartyDeadlines', 'contractorObligations', 'clientObligations', 'generalProvisions',
+      'activityType', 'itemVisibilityMode', 'materialSummaryText', 'serviceSummaryText',
+      'summaryTotalLabel', 'logisticsCostValue', 'logisticsCostMode', 'logisticsCostPercent',
+      'logisticsCostApplyTo', 'logisticsCostEmbedMaterialPct', 'logisticsCostEmbedServicePct',
+      'logisticsCostDescription', 'adminCostValue', 'adminCostMode', 'adminCostPercent',
+      'adminCostApplyTo', 'adminCostEmbedMaterialPct', 'adminCostEmbedServicePct',
+      'adminCostDescription', 'brokerageCostValue', 'brokerageCostMode', 'brokerageCostPercent',
+      'brokerageCostApplyTo', 'brokerageCostEmbedMaterialPct', 'brokerageCostEmbedServicePct',
+      'brokerageCostDescription', 'insuranceCostValue', 'insuranceCostMode', 'insuranceCostPercent',
+      'insuranceCostApplyTo', 'insuranceCostEmbedMaterialPct', 'insuranceCostEmbedServicePct',
+      'insuranceCostDescription', 'complianceText', 'customLabel',
+    ];
+
+    const newData: any = { status: 'draft', revisionNumber: 1 };
+    for (const key of knownFields) {
+      if ((source as any)[key] !== undefined && (source as any)[key] !== null) {
+        newData[key] = (source as any)[key];
+      }
+    }
+    // Mark as copy
+    newData.title = `${source.title} (Cópia)`;
+    // Apply any overrides (e.g. new clientId)
+    if (overrides) Object.assign(newData, overrides);
+
+    const newProposal: Proposal = this.proposalRepository.create(newData) as unknown as Proposal;
+    newProposal.proposalNumber = await this.generateProposalNumber();
+    const saved: Proposal = await this.proposalRepository.save(newProposal) as Proposal;
+
+    // Copy items
+    if (source.items && source.items.length > 0) {
+      const itemsToCopy = source.items.map(it => ({
+        description: it.description,
+        serviceType: it.serviceType,
+        unitPrice: it.unitPrice,
+        quantity: it.quantity,
+        unit: it.unit,
+        total: it.total,
+        isBundleParent: it.isBundleParent,
+        parentId: it.parentId,
+        showDetailedPrices: it.showDetailedPrices,
+        showGroupTitle: it.showGroupTitle,
+        overridePrice: it.overridePrice,
+        notes: it.notes,
+        sortOrder: (it as any).sortOrder,
+      }));
+      await this.saveProposalItems(saved.id, itemsToCopy);
+    }
+
+    return this.findOne(saved.id);
   }
 
   async diagnoseSchema() {

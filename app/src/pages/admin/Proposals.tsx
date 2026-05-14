@@ -106,6 +106,10 @@ export default function AdminProposals() {
   const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(null);
   const [previewRevision, setPreviewRevision] = useState<any>(null);
 
+  // Label/Rename inline edit
+  const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
+  const [editingLabelValue, setEditingLabelValue] = useState('');
+
   // Preview & visibility toggle
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewProposalData, setPreviewProposalData] = useState<any>(null);
@@ -220,7 +224,8 @@ export default function AdminProposals() {
   const filteredProposals = proposals.filter((p) => {
     const matchesSearch = (p.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.proposalNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.client?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+      (p.client?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.customLabel || '').toLowerCase().includes(searchTerm.toLowerCase());
     if (!matchesSearch) return false;
     if (originFilter === 'all') return true;
     const at = p.activityType || '';
@@ -355,6 +360,32 @@ export default function AdminProposals() {
       loadProposals();
     } catch (error) {
       toast.error('Erro ao excluir proposta.');
+    }
+  };
+
+  const handleDuplicate = async (proposal: any) => {
+    try {
+      toast.loading('Duplicando proposta...', { id: 'dup' });
+      const duped = await api.duplicateProposal(proposal.id);
+      toast.dismiss('dup');
+      toast.success(`Proposta ${duped.proposalNumber} criada como cópia!`);
+      loadProposals();
+    } catch {
+      toast.dismiss('dup');
+      toast.error('Erro ao duplicar proposta.');
+    }
+  };
+
+  const handleUpdateLabel = async (proposal: any) => {
+    try {
+      await api.updateProposalLabel(proposal.id, editingLabelValue.trim());
+      setEditingLabelId(null);
+      setProposals(prev => prev.map(p =>
+        p.id === proposal.id ? { ...p, customLabel: editingLabelValue.trim() } : p
+      ));
+      toast.success('Rótulo atualizado!');
+    } catch {
+      toast.error('Erro ao salvar rótulo.');
     }
   };
 
@@ -839,7 +870,7 @@ export default function AdminProposals() {
                   const statusInfo = statusLabels[proposal.status] || statusLabels.draft;
                   const StatusIcon = statusInfo.icon;
                   return (
-                    <TableRow key={proposal.id}>
+                    <TableRow key={proposal.id} className="group/row">
                       <TableCell className="font-medium">
                         <div className="flex flex-col gap-1">
                           <span>{proposal.proposalNumber}</span>
@@ -859,7 +890,43 @@ export default function AdminProposals() {
                           })()}
                         </div>
                       </TableCell>
-                      <TableCell>{proposal.title || '—'}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium text-slate-800">{proposal.title || '—'}</span>
+                          {editingLabelId === proposal.id ? (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <input
+                                autoFocus
+                                className="text-xs border rounded px-1.5 py-0.5 w-36 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                placeholder="Rótulo interno..."
+                                value={editingLabelValue}
+                                onChange={e => setEditingLabelValue(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') handleUpdateLabel(proposal);
+                                  if (e.key === 'Escape') setEditingLabelId(null);
+                                }}
+                              />
+                              <button onClick={() => handleUpdateLabel(proposal)} className="text-green-600 hover:text-green-800 text-xs font-bold">✓</button>
+                              <button onClick={() => setEditingLabelId(null)} className="text-slate-400 hover:text-slate-600 text-xs">✕</button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              {proposal.customLabel && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                  🏷️ {proposal.customLabel}
+                                </span>
+                              )}
+                              <button
+                                onClick={() => { setEditingLabelId(proposal.id); setEditingLabelValue(proposal.customLabel || ''); }}
+                                className="opacity-0 group-hover/row:opacity-100 transition-opacity text-slate-300 hover:text-indigo-500"
+                                title="Adicionar/editar rótulo"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 group/client">
                           <Avatar className="w-5 h-5 shrink-0 border border-white shadow-sm">
@@ -1078,6 +1145,15 @@ export default function AdminProposals() {
                               <DropdownMenuItem onClick={() => navigate(`/admin/tasks?proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&title=${encodeURIComponent(proposal.title || '')}`)}>
                                 <ClipboardList className="w-4 h-4 mr-2 text-purple-600" />
                                 Criar Tarefa
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleDuplicate(proposal)}>
+                                <Copy className="w-4 h-4 mr-2 text-indigo-500" />
+                                Duplicar Proposta
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setEditingLabelId(proposal.id); setEditingLabelValue(proposal.customLabel || ''); }}>
+                                <Pencil className="w-4 h-4 mr-2 text-slate-500" />
+                                {proposal.customLabel ? 'Editar Rótulo' : 'Adicionar Rótulo'}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem

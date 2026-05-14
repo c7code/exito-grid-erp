@@ -1,0 +1,435 @@
+import { Injectable, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
+import {
+  ReferralConsultant,
+  ReferralLead,
+  ReferralCommitment,
+  ReferralFollowup,
+  ReferralCommission,
+} from './referral.entity';
+
+@Injectable()
+export class ReferralsService implements OnModuleInit {
+  private readonly logger = new Logger(ReferralsService.name);
+
+  constructor(
+    @InjectRepository(ReferralConsultant)
+    private consultantRepo: Repository<ReferralConsultant>,
+    @InjectRepository(ReferralLead)
+    private leadRepo: Repository<ReferralLead>,
+    @InjectRepository(ReferralCommitment)
+    private commitmentRepo: Repository<ReferralCommitment>,
+    @InjectRepository(ReferralFollowup)
+    private followupRepo: Repository<ReferralFollowup>,
+    @InjectRepository(ReferralCommission)
+    private commissionRepo: Repository<ReferralCommission>,
+    private dataSource: DataSource,
+  ) {}
+
+  async onModuleInit() {
+    // Criar tabelas e colunas necessárias (padrão do projeto — sem synchronize)
+    const tables = [
+      `CREATE TABLE IF NOT EXISTS referral_consultants (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR NOT NULL,
+        email VARCHAR,
+        phone VARCHAR,
+        document VARCHAR,
+        status VARCHAR DEFAULT 'active',
+        city VARCHAR,
+        state VARCHAR,
+        region VARCHAR,
+        "responsibleUserId" UUID,
+        "weeklyGoal" INT DEFAULT 0,
+        "monthlyGoal" INT DEFAULT 0,
+        "commissionPercent" NUMERIC(5,2) DEFAULT 2.00,
+        notes TEXT,
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        "updatedAt" TIMESTAMP DEFAULT NOW(),
+        "deletedAt" TIMESTAMP
+      )`,
+      `CREATE TABLE IF NOT EXISTS referral_leads (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR NOT NULL,
+        phone VARCHAR,
+        email VARCHAR,
+        document VARCHAR,
+        city VARCHAR,
+        state VARCHAR,
+        address VARCHAR,
+        "consultantId" UUID,
+        status VARCHAR DEFAULT 'new',
+        "potentialKwp" NUMERIC(10,2),
+        "potentialValue" NUMERIC(15,2),
+        "proposalId" UUID,
+        "clientId" UUID,
+        "lostReason" VARCHAR,
+        notes TEXT,
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        "updatedAt" TIMESTAMP DEFAULT NOW(),
+        "deletedAt" TIMESTAMP
+      )`,
+      `CREATE TABLE IF NOT EXISTS referral_commitments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "consultantId" UUID,
+        type VARCHAR DEFAULT 'monthly',
+        "targetCount" INT DEFAULT 0,
+        "periodStart" TIMESTAMP,
+        "periodEnd" TIMESTAMP,
+        notes TEXT,
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        "updatedAt" TIMESTAMP DEFAULT NOW()
+      )`,
+      `CREATE TABLE IF NOT EXISTS referral_followups (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "consultantId" UUID,
+        "leadId" UUID,
+        type VARCHAR DEFAULT 'internal_note',
+        description TEXT NOT NULL,
+        outcome TEXT,
+        "nextActionDate" TIMESTAMP,
+        "nextActionDescription" VARCHAR,
+        "createdById" UUID,
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        "updatedAt" TIMESTAMP DEFAULT NOW()
+      )`,
+      `CREATE TABLE IF NOT EXISTS referral_commissions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "consultantId" UUID,
+        "leadId" UUID,
+        "proposalId" UUID,
+        "saleValue" NUMERIC(15,2),
+        "commissionPercent" NUMERIC(5,2),
+        "commissionValue" NUMERIC(15,2),
+        status VARCHAR DEFAULT 'pending',
+        "paidAt" TIMESTAMP,
+        "paidBy" VARCHAR,
+        notes TEXT,
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        "updatedAt" TIMESTAMP DEFAULT NOW()
+      )`,
+    ];
+
+    for (const sql of tables) {
+      try {
+        await this.dataSource.query(sql);
+      } catch (err) {
+        this.logger.warn('Referrals table init: ' + err?.message);
+      }
+    }
+    this.logger.log('Referrals tables ensured');
+  }
+
+  // ═══════════════════════════════════════════════
+  // CONSULTORES
+  // ═══════════════════════════════════════════════
+
+  async getConsultants(filters?: { status?: string; search?: string }) {
+    const qb = this.consultantRepo.createQueryBuilder('c')
+      .leftJoinAndSelect('c.leads', 'leads', 'leads."deletedAt" IS NULL')
+      .where('c."deletedAt" IS NULL');
+
+    if (filters?.status) {
+      qb.andWhere('c.status = :status', { status: filters.status });
+    }
+    if (filters?.search) {
+      qb.andWhere('(c.name ILIKE :q OR c.email ILIKE :q OR c.phone ILIKE :q)', {
+        q: `%${filters.search}%`,
+      });
+    }
+    return qb.orderBy('c."createdAt"', 'DESC').getMany();
+  }
+
+  async getConsultant(id: string) {
+    const c = await this.consultantRepo.findOne({
+      where: { id },
+      relations: ['leads', 'commitments', 'followups', 'commissions'],
+    });
+    if (!c) throw new NotFoundException('Consultor não encontrado');
+    return c;
+  }
+
+  async createConsultant(data: Partial<ReferralConsultant>) {
+    const c = this.consultantRepo.create(data);
+    return this.consultantRepo.save(c);
+  }
+
+  async updateConsultant(id: string, data: Partial<ReferralConsultant>) {
+    await this.consultantRepo
+      .createQueryBuilder()
+      .update(ReferralConsultant)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where('id = :id', { id })
+      .execute();
+    return this.getConsultant(id);
+  }
+
+  async deleteConsultant(id: string) {
+    await this.consultantRepo
+      .createQueryBuilder()
+      .update(ReferralConsultant)
+      .set({ deletedAt: new Date() } as any)
+      .where('id = :id', { id })
+      .execute();
+  }
+
+  // ═══════════════════════════════════════════════
+  // LEADS
+  // ═══════════════════════════════════════════════
+
+  async getLeads(filters?: { consultantId?: string; status?: string; search?: string; startDate?: string; endDate?: string }) {
+    const qb = this.leadRepo.createQueryBuilder('l')
+      .leftJoinAndSelect('l.consultant', 'c')
+      .where('l."deletedAt" IS NULL');
+
+    if (filters?.consultantId) {
+      qb.andWhere('l."consultantId" = :cid', { cid: filters.consultantId });
+    }
+    if (filters?.status) {
+      qb.andWhere('l.status = :status', { status: filters.status });
+    }
+    if (filters?.search) {
+      qb.andWhere('(l.name ILIKE :q OR l.email ILIKE :q OR l.phone ILIKE :q OR l.city ILIKE :q)', {
+        q: `%${filters.search}%`,
+      });
+    }
+    if (filters?.startDate) {
+      qb.andWhere('l."createdAt" >= :start', { start: filters.startDate });
+    }
+    if (filters?.endDate) {
+      qb.andWhere('l."createdAt" <= :end', { end: filters.endDate });
+    }
+    return qb.orderBy('l."createdAt"', 'DESC').getMany();
+  }
+
+  async getLead(id: string) {
+    const l = await this.leadRepo.findOne({
+      where: { id },
+      relations: ['consultant', 'followups', 'commissions'],
+    });
+    if (!l) throw new NotFoundException('Lead não encontrado');
+    return l;
+  }
+
+  async createLead(data: Partial<ReferralLead>) {
+    const l = this.leadRepo.create(data);
+    return this.leadRepo.save(l);
+  }
+
+  async updateLead(id: string, data: Partial<ReferralLead>) {
+    await this.leadRepo
+      .createQueryBuilder()
+      .update(ReferralLead)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where('id = :id', { id })
+      .execute();
+    return this.getLead(id);
+  }
+
+  async deleteLead(id: string) {
+    await this.leadRepo
+      .createQueryBuilder()
+      .update(ReferralLead)
+      .set({ deletedAt: new Date() } as any)
+      .where('id = :id', { id })
+      .execute();
+  }
+
+  async linkLeadToProposal(id: string, proposalId: string) {
+    await this.leadRepo
+      .createQueryBuilder()
+      .update(ReferralLead)
+      .set({ proposalId, status: 'proposal_sent', updatedAt: new Date() } as any)
+      .where('id = :id', { id })
+      .execute();
+    return this.getLead(id);
+  }
+
+  // ═══════════════════════════════════════════════
+  // COMPROMISSOS
+  // ═══════════════════════════════════════════════
+
+  async getCommitments(consultantId?: string) {
+    const where: any = {};
+    if (consultantId) where.consultantId = consultantId;
+    return this.commitmentRepo.find({
+      where,
+      relations: ['consultant'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async createCommitment(data: Partial<ReferralCommitment>) {
+    const c = this.commitmentRepo.create(data);
+    return this.commitmentRepo.save(c);
+  }
+
+  async updateCommitment(id: string, data: Partial<ReferralCommitment>) {
+    await this.commitmentRepo.update(id, data as any);
+    return this.commitmentRepo.findOne({ where: { id }, relations: ['consultant'] });
+  }
+
+  async deleteCommitment(id: string) {
+    await this.commitmentRepo.delete(id);
+  }
+
+  // ═══════════════════════════════════════════════
+  // ACOMPANHAMENTOS
+  // ═══════════════════════════════════════════════
+
+  async getFollowups(filters?: { consultantId?: string; leadId?: string }) {
+    const qb = this.followupRepo.createQueryBuilder('f')
+      .leftJoinAndSelect('f.consultant', 'c')
+      .leftJoinAndSelect('f.lead', 'l');
+
+    if (filters?.consultantId) {
+      qb.andWhere('f."consultantId" = :cid', { cid: filters.consultantId });
+    }
+    if (filters?.leadId) {
+      qb.andWhere('f."leadId" = :lid', { lid: filters.leadId });
+    }
+    return qb.orderBy('f."createdAt"', 'DESC').getMany();
+  }
+
+  async createFollowup(data: Partial<ReferralFollowup>) {
+    const f = this.followupRepo.create(data);
+    return this.followupRepo.save(f);
+  }
+
+  async updateFollowup(id: string, data: Partial<ReferralFollowup>) {
+    await this.followupRepo.update(id, data as any);
+    return this.followupRepo.findOne({ where: { id } });
+  }
+
+  async deleteFollowup(id: string) {
+    await this.followupRepo.delete(id);
+  }
+
+  // ═══════════════════════════════════════════════
+  // COMISSÕES
+  // ═══════════════════════════════════════════════
+
+  async getCommissions(filters?: { consultantId?: string; status?: string }) {
+    const qb = this.commissionRepo.createQueryBuilder('cm')
+      .leftJoinAndSelect('cm.consultant', 'c')
+      .leftJoinAndSelect('cm.lead', 'l');
+
+    if (filters?.consultantId) {
+      qb.andWhere('cm."consultantId" = :cid', { cid: filters.consultantId });
+    }
+    if (filters?.status) {
+      qb.andWhere('cm.status = :status', { status: filters.status });
+    }
+    return qb.orderBy('cm."createdAt"', 'DESC').getMany();
+  }
+
+  async createCommission(data: Partial<ReferralCommission>) {
+    // Auto-calcular valor se não fornecido
+    const d = { ...data } as any;
+    if (d.saleValue && d.commissionPercent && !d.commissionValue) {
+      d.commissionValue = Number(d.saleValue) * Number(d.commissionPercent) / 100;
+    }
+    const c = this.commissionRepo.create(d);
+    return this.commissionRepo.save(c);
+  }
+
+  async updateCommission(id: string, data: Partial<ReferralCommission>) {
+    const d = { ...data } as any;
+    if (d.status === 'paid' && !d.paidAt) {
+      d.paidAt = new Date();
+    }
+    await this.commissionRepo.update(id, d);
+    return this.commissionRepo.findOne({ where: { id }, relations: ['consultant', 'lead'] });
+  }
+
+  // ═══════════════════════════════════════════════
+  // DASHBOARD
+  // ═══════════════════════════════════════════════
+
+  async getDashboard() {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const [
+      totalConsultants,
+      activeConsultants,
+      trainingConsultants,
+      idleConsultants,
+      leadsThisMonth,
+      proposalsSent,
+      closedWon,
+      closedLost,
+      pendingCommissions,
+      paidCommissions,
+    ] = await Promise.all([
+      this.consultantRepo.count({ where: { deletedAt: null as any } }),
+      this.consultantRepo.count({ where: { status: 'active', deletedAt: null as any } }),
+      this.consultantRepo.count({ where: { status: 'training', deletedAt: null as any } }),
+      this.consultantRepo.count({ where: { status: 'idle', deletedAt: null as any } }),
+      // leads criados no mês
+      this.dataSource.query(
+        `SELECT COUNT(*) as cnt FROM referral_leads WHERE "createdAt" >= $1 AND "createdAt" <= $2 AND "deletedAt" IS NULL`,
+        [startOfMonth, endOfMonth],
+      ),
+      this.leadRepo.count({ where: { status: 'proposal_sent', deletedAt: null as any } }),
+      this.leadRepo.count({ where: { status: 'closed_won', deletedAt: null as any } }),
+      this.leadRepo.count({ where: { status: 'closed_lost', deletedAt: null as any } }),
+      // comissões pendentes
+      this.dataSource.query(
+        `SELECT COALESCE(SUM("commissionValue"), 0) as total FROM referral_commissions WHERE status = 'pending'`,
+      ),
+      // comissões pagas
+      this.dataSource.query(
+        `SELECT COALESCE(SUM("commissionValue"), 0) as total FROM referral_commissions WHERE status = 'paid'`,
+      ),
+    ]);
+
+    // Leads por consultor (top 10)
+    const leadsByConsultant = await this.dataSource.query(`
+      SELECT c.id, c.name, COUNT(l.id)::int as total,
+             SUM(CASE WHEN l.status = 'closed_won' THEN 1 ELSE 0 END)::int as won
+      FROM referral_consultants c
+      LEFT JOIN referral_leads l ON l."consultantId" = c.id AND l."deletedAt" IS NULL
+      WHERE c."deletedAt" IS NULL
+      GROUP BY c.id, c.name
+      ORDER BY total DESC
+      LIMIT 10
+    `);
+
+    // Consultores abaixo da meta mensal
+    const belowGoal = await this.dataSource.query(`
+      SELECT c.id, c.name, c."monthlyGoal",
+             COUNT(l.id)::int as leadsThisMonth
+      FROM referral_consultants c
+      LEFT JOIN referral_leads l
+        ON l."consultantId" = c.id
+        AND l."createdAt" >= $1 AND l."createdAt" <= $2
+        AND l."deletedAt" IS NULL
+      WHERE c."deletedAt" IS NULL AND c.status = 'active' AND c."monthlyGoal" > 0
+      GROUP BY c.id, c.name, c."monthlyGoal"
+      HAVING COUNT(l.id) < c."monthlyGoal"
+      ORDER BY c.name
+    `, [startOfMonth, endOfMonth]);
+
+    const totalLeads = closedWon + closedLost;
+    const conversionRate = totalLeads > 0 ? Math.round((closedWon / totalLeads) * 100) : 0;
+
+    return {
+      totalConsultants,
+      activeConsultants,
+      trainingConsultants,
+      idleConsultants,
+      leadsThisMonth: Number(leadsThisMonth[0]?.cnt || 0),
+      proposalsSent,
+      closedWon,
+      closedLost,
+      conversionRate,
+      pendingCommissions: Number(pendingCommissions[0]?.total || 0),
+      paidCommissions: Number(paidCommissions[0]?.total || 0),
+      leadsByConsultant,
+      belowGoal,
+    };
+  }
+}

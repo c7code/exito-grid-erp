@@ -40,6 +40,7 @@ import { SignaturesModule } from './signatures/signatures.module';
 import { SimulationsModule } from './simulations/simulations.module';
 import { PortalModule } from './portal/portal.module';
 import { EquipmentModule } from './equipment/equipment.module';
+import { ReferralsModule } from './referrals/referrals.module';
 
 @Module({
   imports: [
@@ -98,6 +99,7 @@ import { EquipmentModule } from './equipment/equipment.module';
     SimulationsModule,
     PortalModule,
     EquipmentModule,
+    ReferralsModule,
   ],
 })
 export class AppModule { }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req, HttpException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Req, HttpException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ProposalsService } from './proposals.service';
@@ -152,6 +152,31 @@ export class ProposalsController {
   @ApiOperation({ summary: 'Verificar status da assinatura' })
   async getSignatureStatus(@Param('id') id: string) {
     return this.proposalsService.getSignatureStatus(id);
+  }
+  // ═══ Duplicar proposta ═══
+
+  @Post(':id/duplicate')
+  @ApiOperation({ summary: 'Duplicar proposta com novo número' })
+  async duplicate(
+    @Param('id') id: string,
+    @Body() overrides?: { clientId?: string; customLabel?: string },
+  ) {
+    return this.proposalsService.duplicate(id, overrides as any);
+  }
+
+  @Patch(':id/label')
+  @ApiOperation({ summary: 'Atualizar rótulo personalizado da proposta' })
+  async updateLabel(
+    @Param('id') id: string,
+    @Body() body: { customLabel: string },
+  ) {
+    await this.proposalsService['proposalRepository']
+      .createQueryBuilder()
+      .update()
+      .set({ customLabel: body.customLabel } as any)
+      .where('id = :id', { id })
+      .execute();
+    return { id, customLabel: body.customLabel };
   }
 }
 

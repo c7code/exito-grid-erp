@@ -699,6 +699,16 @@ class ApiService {
     return response.data;
   }
 
+  async duplicateProposal(id: string, overrides?: { clientId?: string; customLabel?: string }) {
+    const response = await this.client.post(`/proposals/${id}/duplicate`, overrides || {});
+    return response.data;
+  }
+
+  async updateProposalLabel(id: string, customLabel: string) {
+    const response = await this.client.patch(`/proposals/${id}/label`, { customLabel });
+    return response.data;
+  }
+
   async getProposalRevisions(id: string) {
     const response = await this.client.get(`/proposals/${id}/revisions`);
     return response.data;
@@ -3049,6 +3059,57 @@ class ApiService {
   async createEquipmentLiftingPlan(data: any) { return (await this.client.post('/equipment/lifting-plans', data)).data; }
   async updateEquipmentLiftingPlan(id: string, data: any) { return (await this.client.put(`/equipment/lifting-plans/${id}`, data)).data; }
   async deleteEquipmentLiftingPlan(id: string) { return (await this.client.delete(`/equipment/lifting-plans/${id}`)).data; }
+
+  // ═══════════════════════════════════════════════════
+  // Canal de Indicações Solar — Referrals
+  // ═══════════════════════════════════════════════════
+
+  // Dashboard
+  async getReferralsDashboard() { return (await this.client.get('/referrals/dashboard')).data; }
+
+  // Consultores
+  async getReferralConsultants(params?: { status?: string; search?: string }) {
+    return (await this.client.get('/referrals/consultants', { params })).data;
+  }
+  async getReferralConsultant(id: string) { return (await this.client.get(`/referrals/consultants/${id}`)).data; }
+  async createReferralConsultant(data: any) { return (await this.client.post('/referrals/consultants', data)).data; }
+  async updateReferralConsultant(id: string, data: any) { return (await this.client.put(`/referrals/consultants/${id}`, data)).data; }
+  async deleteReferralConsultant(id: string) { return (await this.client.delete(`/referrals/consultants/${id}`)).data; }
+
+  // Leads
+  async getReferralLeads(params?: { consultantId?: string; status?: string; search?: string; startDate?: string; endDate?: string }) {
+    return (await this.client.get('/referrals/leads', { params })).data;
+  }
+  async getReferralLead(id: string) { return (await this.client.get(`/referrals/leads/${id}`)).data; }
+  async createReferralLead(data: any) { return (await this.client.post('/referrals/leads', data)).data; }
+  async updateReferralLead(id: string, data: any) { return (await this.client.put(`/referrals/leads/${id}`, data)).data; }
+  async deleteReferralLead(id: string) { return (await this.client.delete(`/referrals/leads/${id}`)).data; }
+  async linkReferralLeadToProposal(id: string, proposalId: string) {
+    return (await this.client.post(`/referrals/leads/${id}/link-proposal`, { proposalId })).data;
+  }
+
+  // Compromissos
+  async getReferralCommitments(consultantId?: string) {
+    return (await this.client.get('/referrals/commitments', { params: consultantId ? { consultantId } : {} })).data;
+  }
+  async createReferralCommitment(data: any) { return (await this.client.post('/referrals/commitments', data)).data; }
+  async updateReferralCommitment(id: string, data: any) { return (await this.client.put(`/referrals/commitments/${id}`, data)).data; }
+  async deleteReferralCommitment(id: string) { return (await this.client.delete(`/referrals/commitments/${id}`)).data; }
+
+  // Acompanhamentos
+  async getReferralFollowups(params?: { consultantId?: string; leadId?: string }) {
+    return (await this.client.get('/referrals/followups', { params })).data;
+  }
+  async createReferralFollowup(data: any) { return (await this.client.post('/referrals/followups', data)).data; }
+  async updateReferralFollowup(id: string, data: any) { return (await this.client.put(`/referrals/followups/${id}`, data)).data; }
+  async deleteReferralFollowup(id: string) { return (await this.client.delete(`/referrals/followups/${id}`)).data; }
+
+  // Comissões
+  async getReferralCommissions(params?: { consultantId?: string; status?: string }) {
+    return (await this.client.get('/referrals/commissions', { params })).data;
+  }
+  async createReferralCommission(data: any) { return (await this.client.post('/referrals/commissions', data)).data; }
+  async updateReferralCommission(id: string, data: any) { return (await this.client.put(`/referrals/commissions/${id}`, data)).data; }
 }
 
 export const api = new ApiService();
