@@ -374,12 +374,46 @@ export class ReferralsService implements OnModuleInit {
   }
 
   async updateLead(id: string, data: Partial<ReferralLead>) {
+    const leadBefore = await this.getLead(id);
+
     await this.leadRepo
       .createQueryBuilder()
       .update(ReferralLead)
       .set({ ...data, updatedAt: new Date() } as any)
       .where('id = :id', { id })
       .execute();
+
+    // ─── Auto-comissão ao fechar lead como ganho ──────────────────────────
+    if ((data.status as string) === 'closed_won' && (leadBefore?.status as string) !== 'closed_won') {
+      try {
+        const consultant = await this.consultantRepo.findOne({ where: { id: leadBefore.consultantId } });
+        if (consultant && leadBefore.proposalId) {
+          const proposalRows = await this.dataSource.query(
+            `SELECT "totalValue" FROM proposals WHERE id = $1 LIMIT 1`,
+            [leadBefore.proposalId],
+          );
+          const proposalValue = proposalRows?.[0]?.totalValue ? Number(proposalRows[0].totalValue) : 0;
+          const commissionPercent = Number(consultant.commissionPercent || 0);
+          const commissionValue = proposalValue > 0 ? (proposalValue * commissionPercent) / 100 : 0;
+          const existing = await this.commissionRepo.findOne({ where: { leadId: id } as any });
+          if (!existing) {
+            const commission = this.commissionRepo.create({
+              consultantId: consultant.id,
+              leadId: id,
+              proposalId: leadBefore.proposalId,
+              commissionPercent,
+              commissionValue,
+              status: 'pending',
+              notes: `Gerada automaticamente ao fechar lead ${leadBefore.name}`,
+            } as any);
+            await this.commissionRepo.save(commission);
+          }
+        }
+      } catch (e) {
+        console.error('[Referrals] Erro ao auto-gerar comissão:', e.message);
+      }
+    }
+
     return this.getLead(id);
   }
 

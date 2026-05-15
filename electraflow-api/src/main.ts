@@ -5,6 +5,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { join } from 'path';
 import * as bodyParser from 'body-parser';
+import helmet from 'helmet';
 
 @Catch()
 class AllExceptionsFilter implements ExceptionFilter {
@@ -52,7 +53,13 @@ async function bootstrap() {
     bodyParser: false,
   });
 
-  // ═══ CORS — must be FIRST, before any other middleware ═══
+  // ═══ HELMET — Security HTTP headers ═══
+  app.use(helmet({
+    crossOriginEmbedderPolicy: false, // allow PDF/iframe
+    contentSecurityPolicy: false,     // allow inline styles used by React
+  }));
+
+  // ═══ CORS — must be after helmet ═══
   app.enableCors({
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, curl, Postman, etc.)
@@ -117,6 +124,9 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({
     transform: true,
+    whitelist: true,           // strips unknown fields from body
+    forbidNonWhitelisted: false, // don't throw on extra fields (backward compat)
+    transformOptions: { enableImplicitConversion: true },
   }));
 
   const config = new DocumentBuilder()
@@ -132,5 +142,6 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 ElectraFlow API rodando na porta ${port}`);
   console.log(`📚 Documentação: http://localhost:${port}/api/docs`);
+  console.log(`🔒 Helmet: ON | ValidationPipe: whitelist=true`);
 }
 bootstrap();

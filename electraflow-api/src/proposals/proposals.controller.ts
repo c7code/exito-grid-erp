@@ -13,9 +13,13 @@ export class ProposalsController {
   constructor(private proposalsService: ProposalsService) { }
 
   @Get()
-  @ApiOperation({ summary: 'Listar propostas' })
-  async findAll(@Query('status') status?: ProposalStatus) {
-    return this.proposalsService.findAll(status);
+  @ApiOperation({ summary: 'Listar propostas (paginado)' })
+  async findAll(
+    @Query('status') status?: ProposalStatus,
+    @Query('page') page = 1,
+    @Query('pageSize') pageSize = 50,
+  ) {
+    return this.proposalsService.findAll(status, Number(page), Number(pageSize));
   }
 
   @Get('admin/all')

@@ -643,9 +643,11 @@ class ApiService {
   }
 
   // Proposals
-  async getProposals(status?: string) {
-    const params = status ? { status } : {};
+  async getProposals(status?: string, page = 1, pageSize = 100) {
+    const params: any = { page, pageSize };
+    if (status) params.status = status;
     const response = await this.client.get('/proposals', { params });
+    // Supports both legacy (array) and new paginated ({ data, total }) response
     return response.data;
   }
 

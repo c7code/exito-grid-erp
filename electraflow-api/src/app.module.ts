@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ClientsModule } from './clients/clients.module';
@@ -48,6 +50,15 @@ import { ReferralsModule } from './referrals/referrals.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ThrottlerModule.forRoot([{
+      name: 'default',
+      ttl: 60000,   // 1 minuto
+      limit: 60,    // 60 requests por minuto por IP (para rotas normais)
+    }, {
+      name: 'auth',
+      ttl: 60000,   // 1 minuto
+      limit: 10,    // 10 tentativas de login por minuto
+    }]),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -100,6 +111,12 @@ import { ReferralsModule } from './referrals/referrals.module';
     PortalModule,
     EquipmentModule,
     ReferralsModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule { }

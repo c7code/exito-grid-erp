@@ -149,14 +149,17 @@ export class ProposalsService implements OnModuleInit {
     }
   }
 
-  async findAll(status?: ProposalStatus): Promise<Proposal[]> {
+  async findAll(status?: ProposalStatus, page = 1, pageSize = 50): Promise<{ data: Proposal[]; total: number; page: number; pageSize: number }> {
     const where: any = {};
     if (status) where.status = status;
-    return this.proposalRepository.find({
+    const [data, total] = await this.proposalRepository.findAndCount({
       where,
       relations: ['client', 'opportunity', 'opportunity.client', 'items', 'createdByUser'],
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     });
+    return { data, total, page, pageSize };
   }
 
   async findAllWithDeleted(): Promise<Proposal[]> {
