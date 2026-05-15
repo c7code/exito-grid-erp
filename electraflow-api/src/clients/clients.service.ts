@@ -64,20 +64,24 @@ export class ClientsService {
 
   // ═══ CRUD ═════════════════════════════════════════════════════════════════
 
-  async findAll(query?: string): Promise<Client[]> {
-    if (query) {
-      return this.clientRepository.find({
-        where: [
+  async findAll(query?: string, page = 1, pageSize = 100): Promise<{ data: Client[]; total: number; page: number; pageSize: number }> {
+    const where: any = query
+      ? [
           { name: Like(`%${query}%`) },
           { email: Like(`%${query}%`) },
           { document: Like(`%${query}%`) },
           { obraName: Like(`%${query}%`) },
-        ],
-        relations: ['documents'],
-        order: { createdAt: 'DESC' },
-      });
-    }
-    return this.clientRepository.find({ relations: ['documents'], order: { createdAt: 'DESC' } });
+        ]
+      : undefined;
+
+    const [data, total] = await this.clientRepository.findAndCount({
+      where,
+      relations: ['documents'],
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+    return { data, total, page, pageSize };
   }
 
   async findOne(id: string): Promise<Client> {

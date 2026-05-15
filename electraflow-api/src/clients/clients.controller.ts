@@ -34,9 +34,13 @@ export class ClientsController {
   constructor(private clientsService: ClientsService) { }
 
   @Get()
-  @ApiOperation({ summary: 'Listar clientes' })
-  async findAll(@Query('q') query?: string) {
-    return this.clientsService.findAll(query);
+  @ApiOperation({ summary: 'Listar clientes (paginado)' })
+  async findAll(
+    @Query('q') query?: string,
+    @Query('page') page = 1,
+    @Query('pageSize') pageSize = 100,
+  ) {
+    return this.clientsService.findAll(query, Number(page), Number(pageSize));
   }
 
   @Get(':id')

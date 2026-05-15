@@ -24,9 +24,13 @@ export class WorksController {
   constructor(private worksService: WorksService) { }
 
   @Get()
-  @ApiOperation({ summary: 'Listar obras' })
-  async findAll(@Query('status') status?: WorkStatus) {
-    return this.worksService.findAll(status);
+  @ApiOperation({ summary: 'Listar obras (paginado)' })
+  async findAll(
+    @Query('status') status?: WorkStatus,
+    @Query('page') page = 1,
+    @Query('pageSize') pageSize = 100,
+  ) {
+    return this.worksService.findAll(status, Number(page), Number(pageSize));
   }
 
   @Get('my-works')

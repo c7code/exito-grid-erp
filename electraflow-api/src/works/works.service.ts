@@ -31,14 +31,17 @@ export class WorksService {
     private workTypeConfigRepository: Repository<WorkTypeConfig>,
   ) { }
 
-  async findAll(status?: WorkStatus): Promise<Work[]> {
+  async findAll(status?: WorkStatus, page = 1, pageSize = 100): Promise<{ data: Work[]; total: number; page: number; pageSize: number }> {
     const where: any = {};
     if (status) where.status = status;
-    return this.workRepository.find({
+    const [data, total] = await this.workRepository.findAndCount({
       where,
       relations: ['client', 'createdByUser'],
       order: { updatedAt: 'DESC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     });
+    return { data, total, page, pageSize };
   }
 
   /**
