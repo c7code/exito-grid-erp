@@ -47,6 +47,7 @@ import {
   Database,
   BarChart3,
   Wallet,
+  UserPlus,
 } from 'lucide-react';
 
 type NavItem = { path: string; label: string; icon: any; module: string; roles: string[] };
@@ -77,6 +78,7 @@ const navSections: NavSection[] = [
       { path: '/admin/oem', label: 'O&M Solar', icon: Wrench, module: 'solar', roles: ['admin', 'commercial', 'engineer', 'employee'] },
       { path: '/admin/solar-plans', label: 'Plano Acesso Solar', icon: Wallet, module: 'solar', roles: ['admin', 'commercial', 'employee'] },
       { path: '/admin/solar-reports', label: 'Relatórios Solar', icon: BarChart3, module: 'solar', roles: ['admin', 'commercial', 'engineer', 'employee'] },
+      { path: '/admin/solar-referrals', label: 'Canal de Indicações', icon: UserPlus, module: 'solar', roles: ['admin', 'commercial', 'employee'] },
     ],
   },
   {

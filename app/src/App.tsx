@@ -64,6 +64,7 @@ const AdminSolarPlans = lazy(() => import('./pages/admin/SolarPlans'));
 const AdminClientSubUsers = lazy(() => import('./pages/admin/ClientSubUsers'));
 const AdminFinanceConfig = lazy(() => import('./pages/admin/FinanceConfig'));
 const AdminEquipment = lazy(() => import('./pages/admin/Equipment'));
+const AdminSolarReferrals = lazy(() => import('./pages/admin/SolarReferrals'));
 
 // Employee Pages (no longer used — employees redirect to admin layout)
 
@@ -162,6 +163,7 @@ function App() {
               <Route path="/admin/solar-reports" element={<AdminSolarReports />} />
               <Route path="/admin/solar-plans" element={<AdminSolarPlans />} />
               <Route path="/admin/equipment" element={<AdminEquipment />} />
+              <Route path="/admin/solar-referrals" element={<AdminSolarReferrals />} />
 
               <Route path="/admin/employees" element={<AdminEmployees />} />
               <Route path="/admin/employees/:id/compliance" element={<AdminEmployeeCompliance />} />
