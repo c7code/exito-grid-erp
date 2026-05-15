@@ -190,9 +190,11 @@ class ApiService {
   }
 
   // Clients
-  async getClients() {
-    const response = await this.client.get('/clients');
-    return response.data;
+  async getClients(params?: { page?: number; pageSize?: number; q?: string }) {
+    const response = await this.client.get('/clients', { params: { pageSize: 1000, ...params } });
+    // Backend now returns { data: [], total, page, pageSize } — unwrap for backward compat
+    const payload = response.data;
+    return Array.isArray(payload) ? payload : (payload?.data ?? payload);
   }
 
   async getClient(id: string) {
@@ -256,9 +258,11 @@ class ApiService {
   }
 
   // Works
-  async getWorks() {
-    const response = await this.client.get('/works');
-    return response.data;
+  async getWorks(params?: { page?: number; pageSize?: number; status?: string }) {
+    const response = await this.client.get('/works', { params: { pageSize: 1000, ...params } });
+    // Backend now returns { data: [], total, page, pageSize } — unwrap for backward compat
+    const payload = response.data;
+    return Array.isArray(payload) ? payload : (payload?.data ?? payload);
   }
 
   async getActiveWorks() {
