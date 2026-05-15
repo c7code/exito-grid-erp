@@ -54,6 +54,8 @@ import {
   Upload,
   Globe,
   Banknote,
+  UserPlus,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -130,6 +132,34 @@ export default function AdminProposals() {
   const [financeCustomInst, setFinanceCustomInst] = useState<Array<{ percentage: string; dueDate: string; description: string }>>([]);
   const [financeLoading, setFinanceLoading] = useState(false);
   const [existingFinanceInfo, setExistingFinanceInfo] = useState<any>(null);
+
+  // Vincular Parceiro (Canal de Indicações)
+  const [referralLinkOpen, setReferralLinkOpen] = useState(false);
+  const [referralLinkProposal, setReferralLinkProposal] = useState<any>(null);
+  const [referralConsultants, setReferralConsultants] = useState<any[]>([]);
+  const [referralLinkSelected, setReferralLinkSelected] = useState('');
+  const [referralLinkSaving, setReferralLinkSaving] = useState(false);
+
+  const openReferralLink = async (proposal: any) => {
+    setReferralLinkProposal(proposal);
+    setReferralLinkSelected(proposal.referralConsultantId || '');
+    setReferralLinkOpen(true);
+    if (referralConsultants.length === 0) {
+      try { setReferralConsultants(await api.getReferralConsultants({})); } catch { }
+    }
+  };
+
+  const handleSaveReferralLink = async () => {
+    if (!referralLinkProposal) return;
+    setReferralLinkSaving(true);
+    try {
+      await api.updateProposal(referralLinkProposal.id, { referralConsultantId: referralLinkSelected || null });
+      toast.success(referralLinkSelected ? 'Parceiro vinculado!' : 'Vínculo removido!');
+      setReferralLinkOpen(false);
+      loadProposals();
+    } catch { toast.error('Erro ao salvar vínculo'); }
+    finally { setReferralLinkSaving(false); }
+  };
 
   const handleOpenFinanceDialog = async (proposal: any) => {
     // Check for existing payments linked to this proposal
@@ -1155,6 +1185,10 @@ export default function AdminProposals() {
                                 <Pencil className="w-4 h-4 mr-2 text-slate-500" />
                                 {proposal.customLabel ? 'Editar Rótulo' : 'Adicionar Rótulo'}
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openReferralLink(proposal)}>
+                                <UserPlus className="w-4 h-4 mr-2 text-emerald-600" />
+                                {proposal.referralConsultantId ? 'Alterar Parceiro Indicador' : 'Vincular Parceiro Indicador'}
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 variant="destructive"
@@ -1186,6 +1220,47 @@ export default function AdminProposals() {
         onProposalCreated={loadProposals}
         initialData={editingProposal}
       />
+
+      {/* Dialog: Vincular Parceiro Indicador */}
+      {referralLinkOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-900">
+              <div className="flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-emerald-400" />
+                <h3 className="font-bold text-white text-sm">Parceiro Indicador</h3>
+              </div>
+              <button onClick={() => setReferralLinkOpen(false)} className="text-white/70 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-sm text-gray-500">Proposta: <strong className="text-gray-900">{referralLinkProposal?.proposalNumber} — {referralLinkProposal?.title}</strong></p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Consultor / Parceiro</label>
+                <Select value={referralLinkSelected || '__none__'} onValueChange={v => setReferralLinkSelected(v === '__none__' ? '' : v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o parceiro..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum / Remover vínculo</SelectItem>
+                    {referralConsultants.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {referralLinkSelected && (
+                <p className="text-xs text-emerald-600">✓ Comissão será atribuída automaticamente ao fechar a venda.</p>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <Button variant="outline" size="sm" onClick={() => setReferralLinkOpen(false)}>Cancelar</Button>
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={referralLinkSaving} onClick={handleSaveReferralLink}>
+                {referralLinkSaving ? 'Salvando...' : 'Salvar Vínculo'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ClientDetailViewer
         open={isClientViewerOpen}

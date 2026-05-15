@@ -67,6 +67,7 @@ const navSections: NavSection[] = [
       { path: '/admin/clients', label: 'Clientes', icon: UserCircle, module: 'clients', roles: ['admin', 'commercial', 'employee'] },
       { path: '/admin/client-sub-users', label: 'Sub-Usuários Portal', icon: Users, module: 'clients', roles: ['admin'] },
       { path: '/admin/proposals', label: 'Propostas', icon: FileText, module: 'proposals', roles: ['admin', 'commercial', 'employee'] },
+      { path: '/admin/solar-referrals', label: 'Canal de Indicações', icon: UserPlus, module: 'referrals', roles: ['admin', 'commercial', 'employee'] },
       { path: '/admin/client-requests', label: 'Solicitações', icon: MessageSquare, module: 'client-requests', roles: ['admin', 'commercial', 'employee'] },
       { path: '/admin/simulator', label: 'Simulador', icon: Calculator, module: 'finance-simulator', roles: ['admin', 'commercial', 'finance', 'employee'] },
     ],
@@ -78,7 +79,6 @@ const navSections: NavSection[] = [
       { path: '/admin/oem', label: 'O&M Solar', icon: Wrench, module: 'solar', roles: ['admin', 'commercial', 'engineer', 'employee'] },
       { path: '/admin/solar-plans', label: 'Plano Acesso Solar', icon: Wallet, module: 'solar', roles: ['admin', 'commercial', 'employee'] },
       { path: '/admin/solar-reports', label: 'Relatórios Solar', icon: BarChart3, module: 'solar', roles: ['admin', 'commercial', 'engineer', 'employee'] },
-      { path: '/admin/solar-referrals', label: 'Canal de Indicações', icon: UserPlus, module: 'solar', roles: ['admin', 'commercial', 'employee'] },
     ],
   },
   {
