@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/api';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -104,7 +103,6 @@ export default function Login() {
   const [portals, setPortals] = useState<any[]>([]);
   const [selectingPortal, setSelectingPortal] = useState(false);
   const [enteringPortal, setEnteringPortal] = useState<string | null>(null);
-  const { login, clientLogin } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
