@@ -125,7 +125,7 @@ export class User {
   @Column({ nullable: true, select: false })
   refreshToken: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   refreshTokenExpiresAt: Date;
 
   @CreateDateColumn()

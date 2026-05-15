@@ -69,16 +69,16 @@ export class AuthService implements OnModuleInit {
       permissions: user.permissions || [],
     };
 
-    // Generate and store refresh token (gracefully skipped if column not yet migrated)
+    // Generate and store refresh token via raw SQL (resilient if columns not yet migrated)
     let refreshToken: string | undefined;
     try {
       refreshToken = this.generateRefreshToken();
       const refreshTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const hashedRefresh = await bcrypt.hash(refreshToken, 8);
-      await this.userRepository.update(user.id, {
-        refreshToken: hashedRefresh,
-        refreshTokenExpiresAt,
-      } as any);
+      await this.dataSource.query(
+        `UPDATE users SET "refreshToken" = $1, "refreshTokenExpiresAt" = $2 WHERE id = $3`,
+        [hashedRefresh, refreshTokenExpiresAt, user.id],
+      );
     } catch (e) {
       this.logger.warn('refresh token storage skipped (migration pending):', e.message);
       refreshToken = undefined;
@@ -104,23 +104,28 @@ export class AuthService implements OnModuleInit {
 
   async refreshAccessToken(token: string) {
     try {
-      // Find users with non-expired refresh tokens
-      const users = await this.userRepository
-        .createQueryBuilder('u')
-        .addSelect('u.refreshToken')
-        .where('u.refreshTokenExpiresAt > :now', { now: new Date() })
-        .andWhere('u.isActive = true')
-        .getMany();
+      // Use raw SQL to avoid TypeORM entity column binding issues during migration
+      const users = await this.dataSource.query(
+        `SELECT id, email, role, permissions, "refreshToken", "refreshTokenExpiresAt"
+         FROM users
+         WHERE "isActive" = true
+           AND "deletedAt" IS NULL
+           AND "refreshTokenExpiresAt" > NOW()
+           AND "refreshToken" IS NOT NULL`,
+      );
 
       for (const user of users) {
         if (user.refreshToken && await bcrypt.compare(token, user.refreshToken)) {
-          const payload = { email: user.email, sub: user.id, role: user.role, permissions: user.permissions || [] };
+          const payload = {
+            email: user.email, sub: user.id, role: user.role,
+            permissions: user.permissions || [],
+          };
           const newRefresh = this.generateRefreshToken();
           const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-          await this.userRepository.update(user.id, {
-            refreshToken: await bcrypt.hash(newRefresh, 8),
-            refreshTokenExpiresAt: newExpiry,
-          } as any);
+          await this.dataSource.query(
+            `UPDATE users SET "refreshToken" = $1, "refreshTokenExpiresAt" = $2 WHERE id = $3`,
+            [await bcrypt.hash(newRefresh, 8), newExpiry, user.id],
+          );
           return {
             access_token: this.jwtService.sign(payload, { expiresIn: '8h' }),
             refresh_token: newRefresh,
@@ -131,18 +136,17 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Refresh token inválido ou expirado.');
     } catch (e) {
       if (e instanceof UnauthorizedException) throw e;
-      // Column not yet migrated — treat as invalid token
-      this.logger.warn('refreshAccessToken error (migration pending):', e.message);
+      this.logger.warn('refreshAccessToken error:', e.message);
       throw new UnauthorizedException('Refresh token inválido ou expirado.');
     }
   }
 
   async revokeRefreshToken(userId: string) {
     try {
-      await this.userRepository.update(userId, {
-        refreshToken: null,
-        refreshTokenExpiresAt: null,
-      } as any);
+      await this.dataSource.query(
+        `UPDATE users SET "refreshToken" = NULL, "refreshTokenExpiresAt" = NULL WHERE id = $1`,
+        [userId],
+      );
     } catch { /* column may not exist yet */ }
   }
 
