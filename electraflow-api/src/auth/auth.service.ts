@@ -138,4 +138,93 @@ export class AuthService {
     const { password, ...result } = client;
     return result;
   }
+
+  // ═══ UNIFIED LOGIN ════════════════════════════════════════════════════════
+
+  async unifiedLogin(email: string, password: string) {
+    const portals: any[] = [];
+
+    // 1. Check admin/employee/commercial user
+    const userResult = await this.validateUser(email, password);
+    if (userResult) {
+      const tokenData = await this.login(userResult);
+      portals.push({
+        type: userResult.role === 'client' ? 'client_user' : 'admin',
+        label: this.getRoleLabel(userResult.role),
+        icon: this.getRoleIcon(userResult.role),
+        token: tokenData.access_token,
+        user: tokenData.user,
+      });
+    }
+
+    // 2. Check client portal
+    const clientResult = await this.validateClient(email, password);
+    if (clientResult) {
+      const tokenData = await this.loginClient(clientResult);
+      portals.push({
+        type: 'client',
+        label: 'Portal do Cliente',
+        icon: 'building2',
+        token: tokenData.access_token,
+        user: tokenData.user,
+      });
+    }
+
+    // 3. Check partner portal (referral_consultants)
+    try {
+      const consultants = await this.userRepository.query(
+        `SELECT * FROM referral_consultants WHERE email = $1 AND "deletedAt" IS NULL AND "isPortalActive" = true AND "passwordHash" IS NOT NULL LIMIT 1`,
+        [email],
+      );
+      if (consultants && consultants.length > 0) {
+        const c = consultants[0];
+        const bcrypt = require('bcryptjs');
+        const valid = await bcrypt.compare(password, c.passwordHash);
+        if (valid) {
+          const payload = { sub: c.id, email: c.email, role: 'partner', consultantId: c.id };
+          portals.push({
+            type: 'partner',
+            label: 'Portal do Parceiro',
+            icon: 'user-plus',
+            token: this.jwtService.sign(payload),
+            user: { id: c.id, name: c.name, email: c.email, commissionPercent: c.commissionPercent },
+          });
+          await this.userRepository.query(
+            `UPDATE referral_consultants SET "lastLoginAt" = NOW() WHERE id = $1`,
+            [c.id],
+          );
+        }
+      }
+    } catch (_) { /* partner table may not exist yet */ }
+
+    if (portals.length === 0) {
+      throw new UnauthorizedException('Credenciais inválidas ou acesso não habilitado.');
+    }
+
+    return { portals };
+  }
+
+  private getRoleLabel(role: string): string {
+    const labels: Record<string, string> = {
+      admin: 'Administrador',
+      commercial: 'Equipe Comercial',
+      engineer: 'Engenharia',
+      finance: 'Financeiro',
+      employee: 'Funcionário',
+      viewer: 'Visualizador',
+    };
+    return labels[role] || 'Equipe';
+  }
+
+  private getRoleIcon(role: string): string {
+    const icons: Record<string, string> = {
+      admin: 'shield',
+      commercial: 'trending-up',
+      engineer: 'hard-hat',
+      finance: 'banknote',
+      employee: 'user',
+      viewer: 'eye',
+    };
+    return icons[role] || 'zap';
+  }
 }

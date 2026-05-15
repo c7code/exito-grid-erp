@@ -82,6 +82,11 @@ class ApiService {
     return response.data;
   }
 
+  async unifiedLogin(email: string, password: string) {
+    const response = await this.client.post('/auth/unified-login', { email, password });
+    return response.data;
+  }
+
   async register(data: { name: string; email: string; password: string; role?: string }) {
     const response = await this.client.post('/auth/register', data);
     return response.data;

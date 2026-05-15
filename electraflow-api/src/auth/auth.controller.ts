@@ -68,5 +68,13 @@ export class AuthController {
   async getClientProfile(@Request() req) {
     return this.authService.getClientProfile(req.user.userId);
   }
+
+  // ═══ UNIFIED LOGIN ═══════════════════════════════════════════════════════
+
+  @Post('unified-login')
+  @ApiOperation({ summary: 'Login unificado - retorna todos os portais disponíveis' })
+  async unifiedLogin(@Body() loginDto: LoginDto) {
+    return this.authService.unifiedLogin(loginDto.email, loginDto.password);
+  }
 }
 
