@@ -1026,6 +1026,32 @@ export default function NewProposalDialog({
                                         }
                                     />
                                 </div>
+
+                                {/* Parceiro Indicador */}
+                                <div className="sm:col-span-2">
+                                    <Label htmlFor="prop-referral" className="flex items-center gap-1.5 mb-1">
+                                        <UserPlus className="w-3.5 h-3.5 text-emerald-500" />
+                                        Parceiro Indicador
+                                        <span className="text-xs text-slate-400 font-normal">(opcional)</span>
+                                    </Label>
+                                    <Select
+                                        value={formData.referralConsultantId || '__none__'}
+                                        onValueChange={(v) => setFormData({ ...formData, referralConsultantId: v === '__none__' ? '' : v })}
+                                    >
+                                        <SelectTrigger id="prop-referral">
+                                            <SelectValue placeholder="Nenhum / Sem indicação de parceiro" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="__none__">Nenhum / Sem indicação</SelectItem>
+                                            {referralConsultants.map((c) => (
+                                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {formData.referralConsultantId && (
+                                        <p className="text-xs text-emerald-600 mt-1">✓ Comissão será atribuída ao parceiro ao fechar a venda.</p>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -2838,36 +2864,6 @@ export default function NewProposalDialog({
                                 }
                             />
                         </div>
-
-                        {/* Parceiro Indicador */}
-                        {referralConsultants.length > 0 && (
-                            <div className="space-y-2">
-                                <Label htmlFor="prop-referral" className="flex items-center gap-1.5">
-                                    <UserPlus className="w-3.5 h-3.5 text-emerald-500" />
-                                    Parceiro Indicador
-                                    <span className="text-xs text-slate-400 font-normal">(opcional)</span>
-                                </Label>
-                                <Select
-                                    value={formData.referralConsultantId || '__none__'}
-                                    onValueChange={(v) => setFormData({ ...formData, referralConsultantId: v === '__none__' ? '' : v })}
-                                >
-                                    <SelectTrigger id="prop-referral" className="h-9">
-                                        <SelectValue placeholder="Selecione o parceiro que indicou..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="__none__">Nenhum / Sem indicação</SelectItem>
-                                        {referralConsultants.map((c) => (
-                                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {formData.referralConsultantId && (
-                                    <p className="text-xs text-emerald-600 flex items-center gap-1">
-                                        <span>✓</span> Comissão será atribuída automaticamente ao fechar a venda.
-                                    </p>
-                                )}
-                            </div>
-                        )}
 
                         {/* Anexos */}
                         <div className="space-y-4 pt-4 border-t">
