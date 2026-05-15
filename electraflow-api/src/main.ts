@@ -1,4 +1,19 @@
-import './instrument'; // Sentry — must be first import
+// ─── Sentry (inline — must be before any other import) ───────────────────────
+import * as Sentry from '@sentry/nestjs';
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'production',
+    tracesSampleRate: 0.1,
+    beforeSend(event) {
+      const data = event.request?.data as any;
+      if (data?.password) data.password = '[REDACTED]';
+      if (data?.refresh_token) data.refresh_token = '[REDACTED]';
+      return event;
+    },
+  });
+}
+// ─────────────────────────────────────────────────────────────────────────────
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Catch, ArgumentsHost, HttpException, HttpStatus, ExceptionFilter } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
