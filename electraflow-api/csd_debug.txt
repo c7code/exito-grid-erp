@@ -1,0 +1,75 @@
+=== CSD HEADER ROWS (0-10) ===
+Row 0: ["SINAPI - Sistema Nacional de Pesquisa de Custos e Índices da Construção Civil","","","","","","",""]
+Row 1: ["RELATÓRIO DE CUSTOS DE COMPOSIÇÕES - ENCARGOS SOCIAIS SEM DESONERAÇÃO","","","","","","",""]
+Row 2: ["Mês de Referência:","02/2026","","Encargos sociais sobre a mão de obra:","","","",""]
+Row 3: ["Data de emissão:","23/03/2026","","(SEM DESONERAÇÃO)","AC","","AL",""]
+Row 4: ["","","","Localidade","RIO BRANCO","","MACEIO",""]
+Row 5: ["Observação:","%AS (porcentagem Atribuído São Paulo) corresponde a porcentagem do custo total da","","Horista","112.61%","","116.12%",""]
+Row 6: ["","composição que foi obtida utilizando preços de insumos de São Paulo por indisponibilidade","","Mensalista","69.03%","","71.25%",""]
+Row 7: ["","dos preços de insumos necessários à composição no estado em questão. Custo zerado (hífen)","","","","","",""]
+Row 8: ["","indica que pelo menos um dos itens da composição não tem custo/preço.","","","AC","","AL",""]
+Row 9: ["Grupo","Código da\r\nComposição","Descrição","Unidade","Custo (R$)","%AS","Custo (R$)","%AS"]
+
+=== ROW WITH 91998 ===
+
+=== DATA ROW (row 11) ===
+  col[0] = "Acessibilidade"
+  col[1] = "0"
+  col[2] = "RAMPA DE ACESSIBILIDADE EM CONCRETO MOLDADO IN LOCO, EM CALÇADA NOVA COM LARGURA MAIOR OU IGUAL À 3,00 M, FCK 25MPA, COM PISO PODOTÁTIL. AF_03/2024"
+  col[3] = "UN"
+  col[4] = "1,026.85"
+  col[5] = "0%"
+  col[6] = "746.51"
+  col[7] = "-"
+  col[8] = "942.85"
+  col[9] = "0%"
+  col[10] = "914.53"
+  col[11] = "-"
+  col[12] = "865.12"
+  col[13] = "-"
+  col[14] = "784.80"
+  col[15] = "-"
+  col[16] = "829.30"
+  col[17] = "-"
+  col[18] = "793.75"
+  col[19] = "-"
+  col[20] = "796.74"
+  col[21] = "-"
+  col[22] = "788.57"
+  col[23] = "-"
+  col[24] = "802.40"
+  col[25] = "-"
+  col[26] = "722.91"
+  col[27] = "-"
+  col[28] = "891.03"
+  col[29] = "-"
+  col[30] = "941.61"
+  col[31] = "-"
+  col[32] = "757.83"
+  col[33] = "0%"
+  col[34] = "786.96"
+  col[35] = "-"
+  col[36] = "866.75"
+  col[37] = "-"
+  col[38] = "841.94"
+  col[39] = "-"
+  col[40] = "858.87"
+  col[41] = "-"
+  col[42] = "793.61"
+  col[43] = "-"
+  col[44] = "976.96"
+  col[45] = "-"
+  col[46] = "1,048.90"
+  col[47] = "-"
+  col[48] = "760.80"
+  col[49] = "-"
+  col[50] = "829.64"
+  col[51] = "-"
+  col[52] = "772.53"
+  col[53] = "0%"
+  col[54] = "795.61"
+  col[55] = "-"
+  col[56] = "829.22"
+  col[57] = "-"
+
+Total: 10370 rows, 58 cols

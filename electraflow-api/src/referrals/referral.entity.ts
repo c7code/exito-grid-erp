@@ -8,6 +8,7 @@ import {
 // 1. CONSULTOR / SDR
 // ═══════════════════════════════════════════
 export type ConsultantStatus = 'active' | 'inactive' | 'training' | 'idle';
+export type AccessChannel = 'solar' | 'oem' | 'equipment' | 'all';
 
 @Entity('referral_consultants')
 export class ReferralConsultant {
@@ -24,10 +25,20 @@ export class ReferralConsultant {
   phone: string;
 
   @Column({ nullable: true })
+  whatsapp: string;
+
+  @Column({ nullable: true })
   document: string; // CPF ou CNPJ
 
   @Column({ default: 'active' })
   status: ConsultantStatus;
+
+  // ─── Endereço ───────────────────────────────
+  @Column({ nullable: true })
+  zipCode: string;
+
+  @Column({ nullable: true })
+  street: string;
 
   @Column({ nullable: true })
   city: string;
@@ -38,21 +49,42 @@ export class ReferralConsultant {
   @Column({ nullable: true })
   region: string;
 
+  // ─── Comercial ──────────────────────────────
   @Column({ nullable: true })
   responsibleUserId: string; // FK → users
 
   @Column({ type: 'int', nullable: true, default: 0 })
-  weeklyGoal: number; // meta semanal de indicações
+  weeklyGoal: number;
 
   @Column({ type: 'int', nullable: true, default: 0 })
-  monthlyGoal: number; // meta mensal de indicações
+  monthlyGoal: number;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true, default: 2.00 })
-  commissionPercent: number; // % padrão de comissão
+  commissionPercent: number;
+
+  @Column({ nullable: true, default: 'all' })
+  accessChannel: AccessChannel;
+
+  @Column({ nullable: true })
+  bankName: string;
+
+  @Column({ nullable: true })
+  pixKey: string;
 
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  // ─── Portal de Acesso ────────────────────────
+  @Column({ nullable: true, select: false })
+  passwordHash: string;
+
+  @Column({ nullable: true, default: false })
+  isPortalActive: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastLoginAt: Date;
+
+  // ─── Timestamps ─────────────────────────────
   @CreateDateColumn()
   createdAt: Date;
 
@@ -62,6 +94,7 @@ export class ReferralConsultant {
   @DeleteDateColumn()
   deletedAt: Date;
 
+  // ─── Relations ──────────────────────────────
   @OneToMany(() => ReferralLead, l => l.consultant)
   leads: ReferralLead[];
 
@@ -126,16 +159,16 @@ export class ReferralLead {
   status: LeadStatus;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  potentialKwp: number; // estimativa de kWp instalado
+  potentialKwp: number;
 
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
-  potentialValue: number; // estimativa R$
+  potentialValue: number;
 
   @Column({ nullable: true })
-  proposalId: string; // FK → proposals (quando virar proposta)
+  proposalId: string; // FK → proposals
 
   @Column({ nullable: true })
-  clientId: string; // FK → clients (quando virar cliente)
+  clientId: string; // FK → clients
 
   @Column({ nullable: true })
   lostReason: string;
@@ -174,11 +207,11 @@ export class ReferralCommitment {
   @JoinColumn({ name: 'consultantId' })
   consultant: ReferralConsultant;
 
-  @Column({ default: 'monthly' }) // 'weekly' | 'monthly' | 'annual'
+  @Column({ default: 'monthly' })
   type: string;
 
   @Column({ type: 'int', default: 0 })
-  targetCount: number; // qtd de indicações prometidas
+  targetCount: number;
 
   @Column({ nullable: true })
   periodStart: Date;
@@ -218,7 +251,7 @@ export class ReferralFollowup {
   @JoinColumn({ name: 'leadId' })
   lead: ReferralLead;
 
-  @Column({ default: 'internal_note' }) // 'call' | 'meeting' | 'whatsapp' | 'email' | 'visit' | 'internal_note'
+  @Column({ default: 'internal_note' })
   type: string;
 
   @Column({ type: 'text' })
@@ -234,7 +267,7 @@ export class ReferralFollowup {
   nextActionDescription: string;
 
   @Column({ nullable: true })
-  createdById: string; // FK → users
+  createdById: string;
 
   @CreateDateColumn()
   createdAt: Date;

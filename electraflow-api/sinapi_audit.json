@@ -1,0 +1,701 @@
+[
+  {
+    "name": "sinapi_budget_links",
+    "rows": 0,
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "proposalId",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "proposalItemId",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "compositionId",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "referenceId",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "coefficient",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "sinapiUnitCost",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "budgetUnitPrice",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "bdiPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "notes",
+        "data_type": "text"
+      },
+      {
+        "column_name": "createdAt",
+        "data_type": "timestamp with time zone"
+      }
+    ],
+    "samples": []
+  },
+  {
+    "name": "sinapi_composition_costs",
+    "rows": 0,
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "referenceId",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "compositionId",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "totalNotTaxed",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "totalTaxed",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "materialCost",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "laborCost",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "equipmentCost",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "calculationMethod",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "createdAt",
+        "data_type": "timestamp with time zone"
+      }
+    ],
+    "samples": []
+  },
+  {
+    "name": "sinapi_composition_items",
+    "rows": 0,
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "compositionId",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "inputId",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "childCompositionId",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "coefficient",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "createdAt",
+        "data_type": "timestamp with time zone"
+      },
+      {
+        "column_name": "itemType",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "sortOrder",
+        "data_type": "integer"
+      }
+    ],
+    "samples": []
+  },
+  {
+    "name": "sinapi_compositions",
+    "rows": 0,
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "code",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text"
+      },
+      {
+        "column_name": "unit",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "classCode",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "className",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "type",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "isActive",
+        "data_type": "boolean"
+      },
+      {
+        "column_name": "createdAt",
+        "data_type": "timestamp with time zone"
+      },
+      {
+        "column_name": "updatedAt",
+        "data_type": "timestamp with time zone"
+      }
+    ],
+    "samples": []
+  },
+  {
+    "name": "sinapi_configs",
+    "rows": 0,
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "key",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "value",
+        "data_type": "text"
+      },
+      {
+        "column_name": "updatedAt",
+        "data_type": "timestamp with time zone"
+      }
+    ],
+    "samples": []
+  },
+  {
+    "name": "sinapi_import_logs",
+    "rows": 4,
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "referenceId",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "fileName",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "fileType",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "state",
+        "data_type": "character"
+      },
+      {
+        "column_name": "year",
+        "data_type": "integer"
+      },
+      {
+        "column_name": "month",
+        "data_type": "integer"
+      },
+      {
+        "column_name": "taxRegime",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "totalRows",
+        "data_type": "integer"
+      },
+      {
+        "column_name": "insertedCount",
+        "data_type": "integer"
+      },
+      {
+        "column_name": "updatedCount",
+        "data_type": "integer"
+      },
+      {
+        "column_name": "skippedCount",
+        "data_type": "integer"
+      },
+      {
+        "column_name": "errorCount",
+        "data_type": "integer"
+      },
+      {
+        "column_name": "errors",
+        "data_type": "text"
+      },
+      {
+        "column_name": "warnings",
+        "data_type": "text"
+      },
+      {
+        "column_name": "durationMs",
+        "data_type": "integer"
+      },
+      {
+        "column_name": "createdAt",
+        "data_type": "timestamp with time zone"
+      }
+    ],
+    "samples": [
+      {
+        "id": "da2098ad-4bf6-4cab-8ac0-2e44a586ac03",
+        "referenceId": "5334d5fc-371c-472b-9f3a-02af0f08cf98",
+        "fileName": "SINAPI_familias_e_coeficientes_2026_02.xlsx",
+        "fileType": "mixed",
+        "state": "AC",
+        "year": 2026,
+        "month": 2,
+        "taxRegime": "nao_desonerado",
+        "status": "success",
+        "totalRows": 4855,
+        "insertedCount": 295,
+        "updatedCount": 4560,
+        "skippedCount": 0,
+        "errorCount": 0,
+        "errors": null,
+        "warnings": "[\"[DEBUG] Sheet \\\"Coeficientes\\\": headerRow=5, cols=[Código da\\r\\nFamília, Código do\\r\\nInsumo, Descrição do Insumo, Unidade, Categoria, AC, AL, AM, AP, BA, CE, DF, ES, GO, MA, MG, MS, MT, PA, PB, PE, PI, PR, RJ, RN, RO, RR, RS, SC, SE, SP, TO], rows=4855\",\"[DEBUG] Row0: {\\\"Código da\\\\r\\\\nFamília\\\":\\\"1\\\",\\\"Código do\\\\r\\\\nInsumo\\\":\\\"1\\\",\\\"Descrição do Insumo\\\":\\\"ACETILENO - RECARGA DE GAS PARA CILINDRO (NAO INCLUI TROCA/MANUTENCAO DO CILINDRO)\\\",\\\"Unidade\\\":\\\"KG\\\",\\\"Categoria\\\":\\\"REPRESENTATIVO\\\",\\\"AC\\\":\\\"1.0000000\\\",\\\"AL\\\":\\\"1.0000000\\\",\\\"AM\\\":\\\"1.0000000\\\",\\\"AP\\\":\\\"1.0000000\\\",\\\"BA\\\":\\\"1.0000000\\\",\\\"CE\\\":\\\"1.00\"]",
+        "durationMs": 59956,
+        "createdAt": "2026-03-25T19:10:27.707Z"
+      },
+      {
+        "id": "cb9f425c-f9de-4f70-b6ab-05098b7d4047",
+        "referenceId": "abda8adf-a83e-4b6e-bcba-b90ce0582ff3",
+        "fileName": "SINAPI_ManutenÃ§Ãµes_2026_02.xlsx",
+        "fileType": "mixed",
+        "state": "PE",
+        "year": 2026,
+        "month": 2,
+        "taxRegime": "nao_desonerado",
+        "status": "running",
+        "totalRows": 0,
+        "insertedCount": 0,
+        "updatedCount": 0,
+        "skippedCount": 0,
+        "errorCount": 0,
+        "errors": null,
+        "warnings": null,
+        "durationMs": null,
+        "createdAt": "2026-03-25T19:23:38.502Z"
+      },
+      {
+        "id": "6b0c3a1c-b491-4f2f-b1cd-238ec213e697",
+        "referenceId": "5334d5fc-371c-472b-9f3a-02af0f08cf98",
+        "fileName": "SINAPI_mao_de_obra_2026_02.xlsx",
+        "fileType": "mixed",
+        "state": "AC",
+        "year": 2026,
+        "month": 2,
+        "taxRegime": "nao_desonerado",
+        "status": "success",
+        "totalRows": 16630,
+        "insertedCount": 496,
+        "updatedCount": 16134,
+        "skippedCount": 0,
+        "errorCount": 0,
+        "errors": null,
+        "warnings": "[\"[DEBUG] Sheet \\\"SEM Desoneração\\\": headerRow=5, cols=[Grupo, Código da Composição, Descrição, Unidade, AC, AL, AM, AP, BA, CE, DF, ES, GO, MA, MG, MS, MT, PA, PB, PE, PI, PR, RJ, RN, RO, RR, RS, SC, SE, SP, TO], rows=8315\",\"[DEBUG] Row0: {\\\"Grupo\\\":\\\"Acessibilidade\\\",\\\"Código da Composição\\\":\\\"104658\\\",\\\"Descrição\\\":\\\"PISO PODOTÁTIL DE ALERTA OU DIRECIONAL, DE CONCRETO, ASSENTADO SOBRE ARGAMASSA. AF_03/2024\\\",\\\"Unidade\\\":\\\"M2\\\",\\\"AC\\\":\\\"19.73%\\\",\\\"AL\\\":\\\"29.91%\\\",\\\"AM\\\":\\\"24.17%\\\",\\\"AP\\\":\\\"22.58%\\\",\\\"BA\\\":\\\"33.07%\\\",\\\"CE\\\":\\\"31.65%\\\",\\\"DF\\\":\\\"28.03%\\\",\\\"ES\\\":\\\"33.12%\\\",\\\"GO\\\":\\\"28.0\",\"[DEBUG] processInputRows: parsed 8315 valid items from 8315 rows (skipped=0)\",\"[DEBUG] Sheet \\\"COM Desoneração\\\": headerRow=5, cols=[Grupo, Código da Composição, Descrição, Unidade, AC, AL, AM, AP, BA, CE, DF, ES, GO, MA, MG, MS, MT, PA, PB, PE, PI, PR, RJ, RN, RO, RR, RS, SC, SE, SP, TO], rows=8315\",\"[DEBUG] Row0: {\\\"Grupo\\\":\\\"Acessibilidade\\\",\\\"Código da Composição\\\":\\\"104658\\\",\\\"Descrição\\\":\\\"PISO PODOTÁTIL DE ALERTA OU DIRECIONAL, DE CONCRETO, ASSENTADO SOBRE ARGAMASSA. AF_03/2024\\\",\\\"Unidade\\\":\\\"M2\\\",\\\"AC\\\":\\\"18.88%\\\",\\\"AL\\\":\\\"28.76%\\\",\\\"AM\\\":\\\"23.32%\\\",\\\"AP\\\":\\\"21.53%\\\",\\\"BA\\\":\\\"31.96%\\\",\\\"CE\\\":\\\"30.57%\\\",\\\"DF\\\":\\\"27.02%\\\",\\\"ES\\\":\\\"32.10%\\\",\\\"GO\\\":\\\"27.0\",\"[DEBUG] processInputRows: parsed 8315 valid items from 8315 rows (skipped=0)\"]",
+        "durationMs": 8452,
+        "createdAt": "2026-03-26T01:19:28.642Z"
+      }
+    ]
+  },
+  {
+    "name": "sinapi_input_prices",
+    "rows": 1,
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "referenceId",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "inputId",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "priceNotTaxed",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "priceTaxed",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "origin",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "createdAt",
+        "data_type": "timestamp with time zone"
+      }
+    ],
+    "samples": [
+      {
+        "id": "31b37d7b-edaf-4faa-b29a-1916e01b441a",
+        "referenceId": "abda8adf-a83e-4b6e-bcba-b90ce0582ff3",
+        "inputId": "ebe38fcc-9d23-4c8e-931f-1bc9a399bf81",
+        "priceNotTaxed": "890.0700",
+        "priceTaxed": null,
+        "origin": "sinapi",
+        "createdAt": "2026-03-26T01:20:13.000Z"
+      }
+    ]
+  },
+  {
+    "name": "sinapi_inputs",
+    "rows": 20042,
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "code",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text"
+      },
+      {
+        "column_name": "unit",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "type",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "origin",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "catalogItemId",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "isActive",
+        "data_type": "boolean"
+      },
+      {
+        "column_name": "createdAt",
+        "data_type": "timestamp with time zone"
+      },
+      {
+        "column_name": "updatedAt",
+        "data_type": "timestamp with time zone"
+      },
+      {
+        "column_name": "groupClass",
+        "data_type": "character varying"
+      }
+    ],
+    "samples": [
+      {
+        "id": "ffb304b6-2e3b-4f0e-9a5f-ea0cbd08b1d4",
+        "code": "106031",
+        "description": "DISJUNTOR TRIPOLAR DIN 80A - FORNECIMENTO E INSTALAÇÃO. AF_07/2025",
+        "unit": "UN",
+        "type": "material",
+        "origin": "sinapi",
+        "catalogItemId": null,
+        "isActive": true,
+        "createdAt": "2026-03-25T19:13:15.059Z",
+        "updatedAt": "2026-03-25T19:24:43.869Z",
+        "groupClass": null
+      },
+      {
+        "id": "5566bbf6-81b9-4c33-b3b1-cb262cf1ec3f",
+        "code": "1518",
+        "description": "CONCRETO BETUMINOSO USINADO A QUENTE (CBUQ) PARA PAVIMENTACAO ASFALTICA, PADRAO DNIT, PARA BINDER, COM CAP 50/70 - AQUISICAO POSTO USINA",
+        "unit": "T",
+        "type": "material",
+        "origin": "sinapi",
+        "catalogItemId": null,
+        "isActive": true,
+        "createdAt": "2026-03-25T19:10:37.848Z",
+        "updatedAt": "2026-03-25T19:10:37.884Z",
+        "groupClass": null
+      },
+      {
+        "id": "f1bdb2f1-50ab-4093-b6f7-02845d3aaa81",
+        "code": "746",
+        "description": "LAVADORA DE ALTA PRESSAO (LAVA - JATO) PARA AGUA FRIA, PRESSAO DE OPERACAO ENTRE 1400 E 1900 LIB/POL2, VAZAO MAXIMA ENTRE 400 E 700 L/H, POTENCIA DE OPERACAO ENTRE 2,50 E 3,00 CV",
+        "unit": "UN",
+        "type": "material",
+        "origin": "sinapi",
+        "catalogItemId": null,
+        "isActive": true,
+        "createdAt": "2026-03-25T19:10:32.243Z",
+        "updatedAt": "2026-03-25T19:25:44.298Z",
+        "groupClass": null
+      }
+    ]
+  },
+  {
+    "name": "sinapi_pricing_profiles",
+    "rows": 1,
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "name",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "description",
+        "data_type": "text"
+      },
+      {
+        "column_name": "isDefault",
+        "data_type": "boolean"
+      },
+      {
+        "column_name": "isActive",
+        "data_type": "boolean"
+      },
+      {
+        "column_name": "bdiAdminPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "bdiFinancialPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "bdiInsurancePercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "bdiProfitPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "mobilizationPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "localAdminPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "logisticsPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "contingencyPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "technicalVisitCost",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "artPermitCost",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "otherFixedCosts",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "issPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "pisPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "cofinsPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "irpjPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "csllPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "inssPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "otherTaxPercent",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "roundingMode",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "customRoundingValue",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "calculationMethod",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "createdAt",
+        "data_type": "timestamp with time zone"
+      },
+      {
+        "column_name": "updatedAt",
+        "data_type": "timestamp with time zone"
+      }
+    ],
+    "samples": [
+      {
+        "id": "90beed85-6400-45b1-9c6f-8c17b5f54a2d",
+        "name": "euller",
+        "description": "cachorro",
+        "isDefault": false,
+        "isActive": true,
+        "bdiAdminPercent": "0.00",
+        "bdiFinancialPercent": "0.00",
+        "bdiInsurancePercent": "0.00",
+        "bdiProfitPercent": "0.00",
+        "mobilizationPercent": "0.00",
+        "localAdminPercent": "0.00",
+        "logisticsPercent": "0.00",
+        "contingencyPercent": "0.00",
+        "technicalVisitCost": "0.00",
+        "artPermitCost": "0.00",
+        "otherFixedCosts": "0.00",
+        "issPercent": "0.00",
+        "pisPercent": "0.00",
+        "cofinsPercent": "0.00",
+        "irpjPercent": "0.00",
+        "csllPercent": "0.00",
+        "inssPercent": "0.00",
+        "otherTaxPercent": "0.00",
+        "roundingMode": "none",
+        "customRoundingValue": null,
+        "calculationMethod": "standard",
+        "createdAt": "2026-03-26T01:51:23.781Z",
+        "updatedAt": "2026-03-26T01:51:23.781Z"
+      }
+    ]
+  },
+  {
+    "name": "sinapi_references",
+    "rows": 2,
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid"
+      },
+      {
+        "column_name": "year",
+        "data_type": "integer"
+      },
+      {
+        "column_name": "month",
+        "data_type": "integer"
+      },
+      {
+        "column_name": "state",
+        "data_type": "character"
+      },
+      {
+        "column_name": "label",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "publishedAt",
+        "data_type": "date"
+      },
+      {
+        "column_name": "source",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "status",
+        "data_type": "character varying"
+      },
+      {
+        "column_name": "createdAt",
+        "data_type": "timestamp with time zone"
+      }
+    ],
+    "samples": [
+      {
+        "id": "5334d5fc-371c-472b-9f3a-02af0f08cf98",
+        "year": 2026,
+        "month": 2,
+        "state": "AC",
+        "label": "SINAPI FEV/2026 - AC",
+        "publishedAt": null,
+        "source": "sinapi_caixa",
+        "status": "active",
+        "createdAt": "2026-03-25T18:35:23.086Z"
+      },
+      {
+        "id": "abda8adf-a83e-4b6e-bcba-b90ce0582ff3",
+        "year": 2026,
+        "month": 2,
+        "state": "PE",
+        "label": "SINAPI FEV/2026 - PE",
+        "publishedAt": null,
+        "source": "sinapi_caixa",
+        "status": "active",
+        "createdAt": "2026-03-25T18:35:36.055Z"
+      }
+    ]
+  }
+]

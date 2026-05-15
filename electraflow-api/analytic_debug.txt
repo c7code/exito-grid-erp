@@ -1,0 +1,23 @@
+Sheet: Analítico, Total rows: 65381
+
+=== FIRST 12 ROWS ===
+Row 0: ["SINAPI - Sistema Nacional de Pesquisa de Custos e Índices da Construção Civil","","","","","","",""]
+Row 1: ["RELATÓRIO ANALÍTICO DE COMPOSIÇÕES","","","","","","",""]
+Row 2: ["Mês de Referência:","02/2026","","Situações","","","",""]
+Row 3: ["Data de emissão:","23/03/2026","","COM PREÇO","Insumos com preço coletado ou obtidos por aplicação de coeficiente em pelo menos uma UF.","","",""]
+Row 4: ["","","","SEM PREÇO","Insumos necessários como item, mas ainda não participam do processo de coleta preços (não aparecem em outros relatórios).","","",""]
+Row 5: ["","","","COM CUSTO","Composições com custo calculado, com todos seus itens em situação COM CUSTO ou COM PREÇO.","","",""]
+Row 6: ["","","","SEM CUSTO","Composições sem custo calculado pela falta de custo/preço de pelo menos um de seus itens.","","",""]
+Row 7: ["","","","EM ESTUDO","Composições necessárias como item, porém atualmente em estudo (não aparecem em outros relatórios).","","",""]
+Row 8: ["","","","","","","",""]
+Row 9: ["Grupo","Código da\r\nComposição","Tipo Item","Código do\r\nItem","Descrição","Unidade","Coeficiente","Situação"]
+Row 10: ["Acessibilidade","104658","","","PISO PODOTÁTIL DE ALERTA OU DIRECIONAL, DE CONCRETO, ASSENTADO SOBRE ARGAMASSA. AF_03/2024","M2","","COM CUSTO"]
+Row 11: ["Acessibilidade","104658","COMPOSICAO","88316","SERVENTE COM ENCARGOS COMPLEMENTARES","H","1.2790000","COM CUSTO"]
+
+=== ROWS WITH 91998 ===
+Row 29412: ["Instalações Elétricas - Eletrodutos Embutidos, Cabos, Caixas, Tomadas e Interruptores","92000","COMPOSICAO","91998","TOMADA BAIXA DE EMBUTIR (1 MÓDULO), 2P+T 10 A, SEM SUPORTE E SEM PLACA - FORNECIMENTO E INSTALAÇÃO. AF_03/2023","UN","1.0000000","COM CUSTO"]
+Row 29413: ["Instalações Elétricas - Eletrodutos Embutidos, Cabos, Caixas, Tomadas e Interruptores","92000","COMPOSICAO","91946","SUPORTE PARAFUSADO COM PLACA DE ENCAIXE 4\" X 2\" MÉDIO (1,30 M DO PISO) PARA PONTO ELÉTRICO - FORNECIMENTO E INSTALAÇÃO. AF_03/2023","UN","1.0000000","COM CUSTO"]
+Row 29414: ["Instalações Elétricas - Eletrodutos Embutidos, Cabos, Caixas, Tomadas e Interruptores","91998","","","TOMADA BAIXA DE EMBUTIR (1 MÓDULO), 2P+T 10 A, SEM SUPORTE E SEM PLACA - FORNECIMENTO E INSTALAÇÃO. AF_03/2023","UN","","COM CUSTO"]
+Row 29415: ["Instalações Elétricas - Eletrodutos Embutidos, Cabos, Caixas, Tomadas e Interruptores","91998","COMPOSICAO","88264","ELETRICISTA COM ENCARGOS COMPLEMENTARES","H","0.2420000","COM CUSTO"]
+Row 29416: ["Instalações Elétricas - Eletrodutos Embutidos, Cabos, Caixas, Tomadas e Interruptores","91998","COMPOSICAO","88247","AUXILIAR DE ELETRICISTA COM ENCARGOS COMPLEMENTARES","H","0.2420000","COM CUSTO"]
+Row 29417: ["Instalações Elétricas - Eletrodutos Embutidos, Cabos, Caixas, Tomadas e Interruptores","91998","INSUMO","38101","TOMADA 2P+T 10A, 250V (APENAS MODULO)","UN","1.0000000","COM PREÇO"]

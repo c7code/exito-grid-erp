@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
 import {
   ReferralConsultant,
   ReferralLead,
@@ -8,6 +9,7 @@ import {
   ReferralFollowup,
   ReferralCommission,
 } from './referral.entity';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class ReferralsService implements OnModuleInit {
@@ -25,18 +27,21 @@ export class ReferralsService implements OnModuleInit {
     @InjectRepository(ReferralCommission)
     private commissionRepo: Repository<ReferralCommission>,
     private dataSource: DataSource,
+    private jwtService: JwtService,
   ) {}
 
   async onModuleInit() {
-    // Criar tabelas e colunas necessárias (padrão do projeto — sem synchronize)
     const tables = [
       `CREATE TABLE IF NOT EXISTS referral_consultants (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR NOT NULL,
         email VARCHAR,
         phone VARCHAR,
+        whatsapp VARCHAR,
         document VARCHAR,
         status VARCHAR DEFAULT 'active',
+        "zipCode" VARCHAR,
+        street VARCHAR,
         city VARCHAR,
         state VARCHAR,
         region VARCHAR,
@@ -44,7 +49,13 @@ export class ReferralsService implements OnModuleInit {
         "weeklyGoal" INT DEFAULT 0,
         "monthlyGoal" INT DEFAULT 0,
         "commissionPercent" NUMERIC(5,2) DEFAULT 2.00,
+        "accessChannel" VARCHAR DEFAULT 'all',
+        "bankName" VARCHAR,
+        "pixKey" VARCHAR,
         notes TEXT,
+        "passwordHash" VARCHAR,
+        "isPortalActive" BOOLEAN DEFAULT false,
+        "lastLoginAt" TIMESTAMP,
         "createdAt" TIMESTAMP DEFAULT NOW(),
         "updatedAt" TIMESTAMP DEFAULT NOW(),
         "deletedAt" TIMESTAMP
@@ -118,7 +129,144 @@ export class ReferralsService implements OnModuleInit {
         this.logger.warn('Referrals table init: ' + err?.message);
       }
     }
-    this.logger.log('Referrals tables ensured');
+
+    // Migrations — add new columns if not exist
+    const alterations = [
+      `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS whatsapp VARCHAR`,
+      `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "zipCode" VARCHAR`,
+      `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS street VARCHAR`,
+      `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "bankName" VARCHAR`,
+      `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "pixKey" VARCHAR`,
+      `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "accessChannel" VARCHAR DEFAULT 'all'`,
+      `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "passwordHash" VARCHAR`,
+      `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "isPortalActive" BOOLEAN DEFAULT false`,
+      `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "lastLoginAt" TIMESTAMP`,
+    ];
+
+    for (const sql of alterations) {
+      try {
+        await this.dataSource.query(sql);
+      } catch (err) {
+        this.logger.warn('Referrals migration: ' + err?.message);
+      }
+    }
+
+    this.logger.log('Referrals tables and migrations ensured');
+  }
+
+  // ═══════════════════════════════════════════════
+  // PORTAL DO PARCEIRO — AUTH
+  // ═══════════════════════════════════════════════
+
+  async partnerLogin(email: string, password: string) {
+    // Busca incluindo passwordHash (campo select: false)
+    const consultant = await this.dataSource.query(
+      `SELECT * FROM referral_consultants WHERE email = $1 AND "deletedAt" IS NULL LIMIT 1`,
+      [email],
+    );
+
+    if (!consultant || consultant.length === 0) {
+      throw new UnauthorizedException('Email ou senha inválidos');
+    }
+
+    const c = consultant[0];
+
+    if (!c.isPortalActive) {
+      throw new UnauthorizedException('Acesso ao portal não habilitado. Contate o administrador.');
+    }
+
+    if (!c.passwordHash) {
+      throw new UnauthorizedException('Senha não configurada. Solicite acesso ao administrador.');
+    }
+
+    const valid = await bcrypt.compare(password, c.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('Email ou senha inválidos');
+    }
+
+    // Atualiza lastLoginAt
+    await this.dataSource.query(
+      `UPDATE referral_consultants SET "lastLoginAt" = NOW() WHERE id = $1`,
+      [c.id],
+    );
+
+    const payload = {
+      sub: c.id,
+      email: c.email,
+      role: 'partner',
+      consultantId: c.id,
+    };
+
+    return {
+      access_token: this.jwtService.sign(payload),
+      consultant: {
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        phone: c.phone,
+        whatsapp: c.whatsapp,
+        commissionPercent: c.commissionPercent,
+        accessChannel: c.accessChannel,
+        status: c.status,
+      },
+    };
+  }
+
+  async getPartnerProfile(consultantId: string) {
+    const rows = await this.dataSource.query(
+      `SELECT id, name, email, phone, whatsapp, document, city, state, region,
+              "accessChannel", "commissionPercent", "bankName", "pixKey",
+              "isPortalActive", "lastLoginAt", "createdAt"
+       FROM referral_consultants WHERE id = $1 AND "deletedAt" IS NULL LIMIT 1`,
+      [consultantId],
+    );
+    if (!rows || rows.length === 0) throw new NotFoundException('Consultor não encontrado');
+    return rows[0];
+  }
+
+  async getPartnerLeads(consultantId: string) {
+    return this.leadRepo.find({
+      where: { consultantId, deletedAt: null as any },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getPartnerCommissions(consultantId: string) {
+    const qb = this.commissionRepo.createQueryBuilder('cm')
+      .leftJoinAndSelect('cm.lead', 'l')
+      .where('cm."consultantId" = :cid', { cid: consultantId })
+      .orderBy('cm."createdAt"', 'DESC');
+    return qb.getMany();
+  }
+
+  async createLeadByPartner(consultantId: string, data: Partial<ReferralLead>) {
+    const l = this.leadRepo.create({ ...data, consultantId });
+    return this.leadRepo.save(l);
+  }
+
+  async generateConsultantAccess(consultantId: string) {
+    const consultant = await this.consultantRepo.findOne({ where: { id: consultantId } });
+    if (!consultant) throw new NotFoundException('Consultor não encontrado');
+
+    // Gera senha: Solar@ + 6 chars aleatórios
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let randomPart = '';
+    for (let i = 0; i < 6; i++) {
+      randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const plainPassword = `Solar@${randomPart}`;
+    const passwordHash = await bcrypt.hash(plainPassword, 10);
+
+    await this.dataSource.query(
+      `UPDATE referral_consultants SET "passwordHash" = $1, "isPortalActive" = true, "updatedAt" = NOW() WHERE id = $2`,
+      [passwordHash, consultantId],
+    );
+
+    return {
+      email: consultant.email,
+      password: plainPassword,
+      message: 'Acesso gerado com sucesso. Guarde esta senha — ela não será exibida novamente.',
+    };
   }
 
   // ═══════════════════════════════════════════════
@@ -172,6 +320,14 @@ export class ReferralsService implements OnModuleInit {
       .set({ deletedAt: new Date() } as any)
       .where('id = :id', { id })
       .execute();
+  }
+
+  async togglePortalAccess(consultantId: string, isPortalActive: boolean) {
+    await this.dataSource.query(
+      `UPDATE referral_consultants SET "isPortalActive" = $1, "updatedAt" = NOW() WHERE id = $2`,
+      [isPortalActive, consultantId],
+    );
+    return this.getConsultant(consultantId);
   }
 
   // ═══════════════════════════════════════════════
@@ -325,7 +481,6 @@ export class ReferralsService implements OnModuleInit {
   }
 
   async createCommission(data: Partial<ReferralCommission>) {
-    // Auto-calcular valor se não fornecido
     const d = { ...data } as any;
     if (d.saleValue && d.commissionPercent && !d.commissionValue) {
       d.commissionValue = Number(d.saleValue) * Number(d.commissionPercent) / 100;
@@ -368,7 +523,6 @@ export class ReferralsService implements OnModuleInit {
       this.consultantRepo.count({ where: { status: 'active', deletedAt: null as any } }),
       this.consultantRepo.count({ where: { status: 'training', deletedAt: null as any } }),
       this.consultantRepo.count({ where: { status: 'idle', deletedAt: null as any } }),
-      // leads criados no mês
       this.dataSource.query(
         `SELECT COUNT(*) as cnt FROM referral_leads WHERE "createdAt" >= $1 AND "createdAt" <= $2 AND "deletedAt" IS NULL`,
         [startOfMonth, endOfMonth],
@@ -376,11 +530,9 @@ export class ReferralsService implements OnModuleInit {
       this.leadRepo.count({ where: { status: 'proposal_sent', deletedAt: null as any } }),
       this.leadRepo.count({ where: { status: 'closed_won', deletedAt: null as any } }),
       this.leadRepo.count({ where: { status: 'closed_lost', deletedAt: null as any } }),
-      // comissões pendentes
       this.dataSource.query(
         `SELECT COALESCE(SUM("commissionValue"), 0) as total FROM referral_commissions WHERE status = 'pending'`,
       ),
-      // comissões pagas
       this.dataSource.query(
         `SELECT COALESCE(SUM("commissionValue"), 0) as total FROM referral_commissions WHERE status = 'paid'`,
       ),
@@ -396,6 +548,17 @@ export class ReferralsService implements OnModuleInit {
       GROUP BY c.id, c.name
       ORDER BY total DESC
       LIMIT 10
+    `);
+
+    // Leads por mês (últimos 6 meses)
+    const leadsByMonth = await this.dataSource.query(`
+      SELECT TO_CHAR("createdAt", 'YYYY-MM') as month,
+             COUNT(*)::int as total
+      FROM referral_leads
+      WHERE "deletedAt" IS NULL
+        AND "createdAt" >= NOW() - INTERVAL '6 months'
+      GROUP BY TO_CHAR("createdAt", 'YYYY-MM')
+      ORDER BY month ASC
     `);
 
     // Consultores abaixo da meta mensal
@@ -429,6 +592,7 @@ export class ReferralsService implements OnModuleInit {
       pendingCommissions: Number(pendingCommissions[0]?.total || 0),
       paidCommissions: Number(paidCommissions[0]?.total || 0),
       leadsByConsultant,
+      leadsByMonth,
       belowGoal,
     };
   }

@@ -1,0 +1,200 @@
+=== SCHEMA ===
+
+sinapi_references (1 rows):
+  id uuid NOT NULL gen_random_uuid()
+  year integer NOT NULL 
+  month integer NOT NULL 
+  state character NULL 
+  label character varying NULL 
+  publishedAt date NULL 
+  source character varying NULL 'sinapi_caixa'::character varying
+  status character varying NULL 'active'::character varying
+  createdAt timestamp with time zone NULL now()
+
+sinapi_inputs (4852 rows):
+  id uuid NOT NULL gen_random_uuid()
+  code character varying NOT NULL 
+  description text NOT NULL 
+  unit character varying NOT NULL 'UN'::character varying
+  type character varying NULL 'material'::character varying
+  origin character varying NULL 'sinapi'::character varying
+  catalogItemId uuid NULL 
+  isActive boolean NULL true
+  createdAt timestamp with time zone NULL now()
+  updatedAt timestamp with time zone NULL now()
+  groupClass character varying NULL 
+
+sinapi_input_prices (95554 rows):
+  id uuid NOT NULL gen_random_uuid()
+  referenceId uuid NOT NULL 
+  inputId uuid NOT NULL 
+  priceNotTaxed numeric NULL 
+  priceTaxed numeric NULL 
+  origin character varying NULL 'sinapi'::character varying
+  createdAt timestamp with time zone NULL now()
+  state character NULL 
+
+sinapi_compositions (1051 rows):
+  id uuid NOT NULL gen_random_uuid()
+  code character varying NOT NULL 
+  description text NOT NULL 
+  unit character varying NOT NULL 'UN'::character varying
+  classCode character varying NULL 
+  className character varying NULL 
+  type character varying NULL 'composition'::character varying
+  isActive boolean NULL true
+  createdAt timestamp with time zone NULL now()
+  updatedAt timestamp with time zone NULL now()
+
+sinapi_composition_items (6850 rows):
+  id uuid NOT NULL gen_random_uuid()
+  compositionId uuid NOT NULL 
+  inputId uuid NULL 
+  childCompositionId uuid NULL 
+  coefficient numeric NOT NULL 1
+  createdAt timestamp with time zone NULL now()
+  itemType character varying NULL 'insumo'::character varying
+  sortOrder integer NULL 0
+
+sinapi_composition_costs (0 rows):
+  id uuid NOT NULL gen_random_uuid()
+  referenceId uuid NOT NULL 
+  compositionId uuid NOT NULL 
+  totalNotTaxed numeric NULL 
+  totalTaxed numeric NULL 
+  materialCost numeric NULL 
+  laborCost numeric NULL 
+  equipmentCost numeric NULL 
+  calculationMethod character varying NULL 'imported'::character varying
+  createdAt timestamp with time zone NULL now()
+  state character NULL 
+  laborPercent numeric NULL 
+
+sinapi_import_logs (2 rows):
+  id uuid NOT NULL gen_random_uuid()
+  referenceId uuid NULL 
+  fileName character varying NULL 
+  fileType character varying NULL 'inputs'::character varying
+  state character NULL 
+  year integer NULL 
+  month integer NULL 
+  taxRegime character varying NULL 'nao_desonerado'::character varying
+  status character varying NULL 'running'::character varying
+  totalRows integer NULL 0
+  insertedCount integer NULL 0
+  updatedCount integer NULL 0
+  skippedCount integer NULL 0
+  errorCount integer NULL 0
+  errors text NULL 
+  warnings text NULL 
+  durationMs integer NULL 
+  createdAt timestamp with time zone NULL now()
+
+sinapi_budget_links (0 rows):
+  id uuid NOT NULL gen_random_uuid()
+  proposalId uuid NOT NULL 
+  proposalItemId character varying NOT NULL 
+  compositionId uuid NOT NULL 
+  referenceId uuid NOT NULL 
+  coefficient numeric NULL 1
+  sinapiUnitCost numeric NOT NULL 
+  budgetUnitPrice numeric NOT NULL 
+  bdiPercent numeric NULL 0
+  notes text NULL 
+  createdAt timestamp with time zone NULL now()
+
+=== INDEXES ===
+sinapi_budget_links: idx_sinapi_budget_link_comp
+sinapi_budget_links: idx_sinapi_budget_link_proposal
+sinapi_budget_links: sinapi_budget_links_pkey
+sinapi_composition_costs: idx_sinapi_ccost_ref_comp_state
+sinapi_composition_costs: idx_sinapi_ccost_state
+sinapi_composition_costs: idx_sinapi_comp_cost_comp
+sinapi_composition_costs: sinapi_composition_costs_pkey
+sinapi_composition_items: sinapi_composition_items_pkey
+sinapi_compositions: idx_sinapi_comp_code
+sinapi_compositions: sinapi_compositions_pkey
+sinapi_configs: sinapi_configs_key_key
+sinapi_configs: sinapi_configs_pkey
+sinapi_import_logs: sinapi_import_logs_pkey
+sinapi_input_prices: idx_sinapi_input_price_input
+sinapi_input_prices: idx_sinapi_iprice_ref_input_state
+sinapi_input_prices: idx_sinapi_iprice_state
+sinapi_input_prices: sinapi_input_prices_pkey
+sinapi_inputs: idx_sinapi_input_code
+sinapi_inputs: sinapi_inputs_pkey
+sinapi_pricing_profiles: sinapi_pricing_profiles_pkey
+sinapi_references: idx_sinapi_ref_year_month
+sinapi_references: sinapi_references_pkey
+
+=== IMPORT LOGS ===
+Thu Mar 26 2026 11:30:26 GMT-0300 (Horário Padrão de Brasília) | SINAPI_mao_de_obra_2026_02.xlsx | success | +0 ~0 skip=0 err=0 | 7403ms
+Thu Mar 26 2026 11:30:01 GMT-0300 (Horário Padrão de Brasília) | SINAPI_ReferÃªncia_2026_02.xlsx | running | +95554 ~191108 skip=31089 err=0 | nullms
+
+=== SAMPLE INPUTS (first 3) ===
+  39643 | ANEL DE BORRACHA PARA VEDACAO DE DUTO PEAD CORRUGADO PARA ELETRICA, DN 2" (NBR 15715) | UN | material
+  39644 | ANEL DE BORRACHA PARA VEDACAO DE DUTO PEAD CORRUGADO PARA ELETRICA, DN 3" (NBR 15715) | UN | material
+  39645 | ANEL DE BORRACHA PARA VEDACAO DE DUTO PEAD CORRUGADO PARA ELETRICA, DN 4" (NBR 15715) | UN | material
+
+=== SAMPLE COMPOSITIONS (first 3) ===
+  104658 | PISO PODOTÁTIL DE ALERTA OU DIRECIONAL, DE CONCRETO, ASSENTADO SOBRE ARGAMASSA. AF_03/2024 | M2 | composition | class=null
+  105002 | RAMPA DE ACESSIBILIDADE EM CONCRETO MOLDADO IN LOCO, EM CALÇADA NOVA COM LARGURA MAIOR OU IGUAL À 3,00 M, FCK 25MPA, COM PISO PODOTÁTIL. AF_03/2024 | UN | composition | class=null
+  105004 | RAMPA DE ACESSIBILIDADE EM CONCRETO MOLDADO IN LOCO, EM CALÇADA NOVA COM LARGURA MENOR À 3,00 M, FCK 25MPA, COM PISO PODOTÁTIL. AF_03/2024 | M2 | composition | class=null
+
+=== PRICE COVERAGE ===
+Input prices by UF:
+  AC: 3385
+  AL: 3191
+  AM: 2801
+  AP: 3185
+  BA: 4212
+  CE: 2976
+  DF: 3464
+  ES: 4224
+  GO: 3684
+  MA: 3123
+  MG: 4170
+  MS: 3607
+  MT: 3604
+  PA: 4030
+  PB: 2965
+  PE: 3289
+  PI: 3524
+  PR: 3401
+  RJ: 3494
+  RN: 3805
+  RO: 3871
+  RR: 2688
+  RS: 4195
+  SC: 3545
+  SE: 2868
+  SP: 4852
+  TO: 3401
+Composition costs by UF:
+
+=== LABOR PERCENT ===
+Records with laborPercent: 0
+
+=== MÃO DE OBRA ===
+  242 | AJUDANTE ESPECIALIZADO (HORISTA) | prices=27
+  2436 | ELETRICISTA (HORISTA) | prices=27
+  2437 | MONTADOR DE MAQUINAS (HORISTA) | prices=27
+  247 | AJUDANTE DE ELETRICISTA (HORISTA) | prices=27
+  248 | AJUDANTE DE OPERACAO EM GERAL (HORISTA) | prices=27
+  252 | AJUDANTE DE SERRALHEIRO (HORISTA) | prices=27
+  25400 | PAR DE TABELAS DE BASQUETE EM COMPENSADO NAVAL, OFICIAL, 1800 X 1200 MM, INCLUINDO ARO DE METAL E REDE EM POLIPROPILENO 100% (SEM SUPORTE DE FIXACAO) | prices=27
+  34466 | AJUDANTE DE PINTOR (HORISTA) | prices=27
+  34761 | MONTADOR DE ELETROELETRONICOS (HORISTA) | prices=27
+  378 | ARMADOR (HORISTA) | prices=27
+Total MO inputs: 59
+
+=== COMPOSITION ITEMS ===
+Total composition items: 6924
+  Comp 104658 → undefined ? | coef=1.279000 | ?
+  Comp 104658 → undefined ? | coef=0.639000 | ?
+  Comp 104658 → undefined ? | coef=6.437500 | ?
+  Comp 104658 → undefined ? | coef=0.240000 | ?
+  Comp 104658 → undefined ? | coef=8.620000 | ?
+
+=== REFERENCES ===
+  538808c2-f6d6-4d46-96fd-141f18a545e9 | 2026/2 | SINAPI FEV/2026 | active

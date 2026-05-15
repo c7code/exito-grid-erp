@@ -1,0 +1,64 @@
+
+=== SINAPI_mao_de_obra_2026_02.xlsx (success) ===
+  Inserted: 224480, Updated: 224480, Skipped: 0, Errors: 0
+  TotalRows: 16630, Duration: 47665ms
+  [INFO] "SEM Desoneração": 8315 rows, tipo=comp_prices_nd, UFs=27, hdrs=Grupo|Código da Composição|Descrição|Unidade|AC|AL
+  [ROW0] "SEM Desoneração": {"Grupo":"Acessibilidade","Código da Composição":"104658","Descrição":"PISO PODOTÁTIL DE ALERTA OU DI","Unidade":"M2","AC":"19.73%","AL":"29.91%"}
+  [RESULT] Composições: +224480 ~0 skip=0 (8315 válidas)
+  [INFO] "COM Desoneração": 8315 rows, tipo=comp_prices_d, UFs=27, hdrs=Grupo|Código da Composição|Descrição|Unidade|AC|AL
+  [ROW0] "COM Desoneração": {"Grupo":"Acessibilidade","Código da Composição":"104658","Descrição":"PISO PODOTÁTIL DE ALERTA OU DI","Unidade":"M2","AC":"18.88%","AL":"28.76%"}
+  [RESULT] Composições: +0 ~224480 skip=0 (8315 válidas)
+
+=== SINAPI_ReferÃªncia_2026_02.xlsx (success) ===
+  Inserted: 105914, Updated: 191108, Skipped: 31089, Errors: 0
+  TotalRows: 111219, Duration: 1296481ms
+  [INFO] "Menu": 11 rows, tipo=unknown, UFs=0, hdrs=__EMPTY|__EMPTY_1|__EMPTY_2|__EMPTY_3|__EMPTY_4
+  [ROW0] "Menu": {"__EMPTY":"","__EMPTY_1":"","__EMPTY_2":"","__EMPTY_3":"SINAPI","__EMPTY_4":""}
+  [SKIP] "Menu" desconhecida
+  [INFO] "Busca": 1 rows, tipo=unknown, UFs=0, hdrs=0|Descrição|Unidade
+  [ROW0] "Busca": {"0":"0","Descrição":"","Unidade":""}
+  [SKIP] "Busca" desconhecida
+  [INFO] "ISD": 4855 rows, tipo=input_prices_nd, UFs=27, hdrs=Classificação|Código do Insumo|Descrição do Insumo|Unidade|Origem de Preço|AC
+  [ROW0] "ISD": {"Classificação":"SERVIÇOS","Código do Insumo":"45333","Descrição do Insumo":"ABERTURA PARA ENCAIXE DE CUBA ","Unidade":"UN","Origem de Preço":"CR","AC":"302.08"}
+  [RESULT] Insumos: +95554 ~0 skip=3 (4852 válidos, 27 UFs)
+  [INFO] "ICD": 4855 rows, tipo=input_prices_d, UFs=27, hdrs=Classificação|Código do Insumo|Descrição do Insumo|Unidade|Origem de Preço|AC
+  [ROW0] "ICD": {"Classificação":"SERVIÇOS","Código do Insumo":"45333","Descrição do Insumo":"ABERTURA PARA ENCAIXE DE CUBA ","Unidade":"UN","Origem de Preço":"CR","AC":"302.08"}
+  [RESULT] Insumos: +0 ~95554 skip=3 (4852 válidos, 27 UFs)
+  [INFO] "ISE": 4855 rows, tipo=input_prices_nd, UFs=27, hdrs=Classificação|Código do Insumo|Descrição do Insumo|Unidade|Origem de Preço|AC
+  [ROW0] "ISE": {"Classificação":"SERVIÇOS","Código do Insumo":"45333","Descrição do Insumo":"ABERTURA PARA ENCAIXE DE CUBA ","Unidade":"UN","Origem de Preço":"CR","AC":"302.08"}
+  [RESULT] Insumos: +0 ~95554 skip=3 (4852 válidos, 27 UFs)
+  [INFO] "CSD": 10360 rows, tipo=comp_prices_nd, UFs=27, hdrs=Grupo|Código da Composição|Descrição|Unidade|AC|%AS
+  [ROW0] "CSD": {"Grupo":"Acessibilidade","Código da Composição":"0","Descrição":"PISO PODOTÁTIL DE ALERTA OU DI","Unidade":"M2","AC":"255.34","%AS":"-"}
+  [WARN] 0 composições válidas, 10360 skipped
+  [INFO] "CCD": 10360 rows, tipo=comp_prices_d, UFs=27, hdrs=Grupo|Código da Composição|Descrição|Unidade|AC|%AS
+  [ROW0] "CCD": {"Grupo":"Acessibilidade","Código da Composição":"0","Descrição":"PISO PODOTÁTIL DE ALERTA OU DI","Unidade":"M2","AC":"252.64","%AS":"-"}
+  [WARN] 0 composições válidas, 10360 skipped
+  [INFO] "CSE": 10360 rows, tipo=comp_prices_nd, UFs=27, hdrs=Grupo|Código da Composição|Descrição|Unidade|AC|%AS
+  [ROW0] "CSE": {"Grupo":"Acessibilidade","Código da Composição":"0","Descrição":"PISO PODOTÁTIL DE ALERTA OU DI","Unidade":"M2","AC":"236.00","%AS":"-"}
+  [WARN] 0 composições válidas, 10360 skipped
+  [INFO] "Analítico": 65371 rows, tipo=analytic, UFs=0, hdrs=Grupo|Código da Composição|Tipo Item|Código do Item|Descrição|Unidade
+  [ROW0] "Analítico": {"Grupo":"Acessibilidade","Código da Composição":"104658","Tipo Item":"","Código do Item":"","Descrição":"PISO PODOTÁTIL DE ALERTA OU DI","Unidade":"M2"}
+  [RESULT] Analítico: 10360 composições
+  [INFO] "Analítico com Custo": 191 rows, tipo=analytic_cost, UFs=0, hdrs=Tipo Item|Código do Item|Descrição|Unidade|Coeficiente|Custo Unit.
+  [ROW0] "Analítico com Custo": {"Tipo Item":"0","Código do Item":"","Descrição":"0","Unidade":"0","Coeficiente":"","Custo Unit.":""}
+  [RESULT] Analítico: 0 composições
+
+sinapi_references: 1
+
+sinapi_inputs: 4852
+
+sinapi_input_prices: 95554
+
+sinapi_compositions: 10360
+
+sinapi_composition_costs: 224480
+
+Inputs type=mao_de_obra: 59
+MO prices: 1583
+
+Sample MO inputs:
+  6111 | SERVENTE DE OBRAS (HORISTA) | ND=7.4300 D=14.7700 | RR
+  6111 | SERVENTE DE OBRAS (HORISTA) | ND=10.0000 D=19.9000 | SP
+  6111 | SERVENTE DE OBRAS (HORISTA) | ND=7.9000 D=15.7000 | PE
+  6111 | SERVENTE DE OBRAS (HORISTA) | ND=7.6600 D=15.0800 | AC
+  6111 | SERVENTE DE OBRAS (HORISTA) | ND=7.3700 D=14.7400 | AL

@@ -1,0 +1,15 @@
+Status: success
+Inserted: 9261, Updated: 9261, Skipped: 0, Errors: 0
+TotalRows: 16630, Duration: 9777ms
+[INFO] "SEM Desoneração": 8315 rows, tipo=labor_pct, UFs=27, hdrs=Grupo|Código da Composição|Descrição|Unidade|AC|AL
+[INFO] "COM Desoneração": 8315 rows, tipo=labor_pct, UFs=27, hdrs=Grupo|Código da Composição|Descrição|Unidade|AC|AL
+[ORDER] SEM Desoneração(labor_pct) → COM Desoneração(labor_pct)
+[DEBUG] %MO lookup: 403 composições
+[RESULT] %MO: +9261 ~0 skip=0
+[DEBUG] %MO lookup: 403 composições
+[RESULT] %MO: +0 ~9261 skip=0
+sinapi_references: 1
+sinapi_inputs: 4852
+sinapi_input_prices: 95554
+sinapi_compositions: 10360
+sinapi_composition_costs: 9261

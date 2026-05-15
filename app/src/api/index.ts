@@ -3110,6 +3110,43 @@ class ApiService {
   }
   async createReferralCommission(data: any) { return (await this.client.post('/referrals/commissions', data)).data; }
   async updateReferralCommission(id: string, data: any) { return (await this.client.put(`/referrals/commissions/${id}`, data)).data; }
+
+  // ─── PORTAL DO PARCEIRO ────────────────────────────────────────────────────
+  async partnerLogin(email: string, password: string) {
+    return (await this.client.post('/referrals/partner/login', { email, password })).data;
+  }
+
+  async getPartnerMe(partnerToken: string) {
+    return (await this.client.get('/referrals/partner/me', {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  async getPartnerLeads(partnerToken: string) {
+    return (await this.client.get('/referrals/partner/leads', {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  async createPartnerLead(partnerToken: string, data: any) {
+    return (await this.client.post('/referrals/partner/leads', data, {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  async getPartnerCommissions(partnerToken: string) {
+    return (await this.client.get('/referrals/partner/commissions', {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  async generateConsultantAccess(consultantId: string) {
+    return (await this.client.post(`/referrals/consultants/${consultantId}/generate-access`)).data;
+  }
+
+  async toggleConsultantPortal(consultantId: string, isPortalActive: boolean) {
+    return (await this.client.put(`/referrals/consultants/${consultantId}/toggle-portal`, { isPortalActive })).data;
+  }
 }
 
 export const api = new ApiService();

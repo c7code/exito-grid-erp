@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { PartnerAuthProvider } from './contexts/PartnerAuthContext';
 import { Toaster } from '@/components/ui/sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -8,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import AdminLayout from './layouts/AdminLayout';
 import ClientLayout from './layouts/ClientLayout';
 import AuthLayout from './layouts/AuthLayout';
+import PartnerLayout from './layouts/PartnerLayout';
 
 // Auth Pages (keep eager — first screen)
 import Login from './pages/auth/Login';
@@ -66,6 +68,12 @@ const AdminFinanceConfig = lazy(() => import('./pages/admin/FinanceConfig'));
 const AdminEquipment = lazy(() => import('./pages/admin/Equipment'));
 const AdminSolarReferrals = lazy(() => import('./pages/admin/SolarReferrals'));
 
+// Partner Portal Pages (lazy)
+const PartnerLogin = lazy(() => import('./pages/partner/PartnerLogin'));
+const PartnerDashboard = lazy(() => import('./pages/partner/PartnerDashboard'));
+const PartnerLeads = lazy(() => import('./pages/partner/PartnerLeads'));
+const PartnerCommissions = lazy(() => import('./pages/partner/PartnerCommissions'));
+
 // Employee Pages (no longer used — employees redirect to admin layout)
 
 // Client Pages (lazy)
@@ -110,6 +118,13 @@ function EmployeeRedirect() {
   
   // Ultimate fallback
   return <Navigate to="/admin/works" replace />;
+}
+
+// Partner Portal Route Guard
+function PartnerRoute({ children }: { children: React.ReactNode }) {
+  const token = localStorage.getItem('partner_token');
+  if (!token) return <Navigate to="/partner/login" replace />;
+  return <>{children}</>;
 }
 
 function App() {
@@ -201,6 +216,32 @@ function App() {
               <Route path="/client/team" element={<ClientTeam />} />
               <Route path="/client/requests" element={<ClientRequests />} />
             </Route>
+          </Route>
+
+          {/* Partner Portal Routes */}
+          <Route
+            path="/partner/login"
+            element={
+              <PartnerAuthProvider>
+                <Suspense fallback={<PageLoader />}>
+                  <PartnerLogin />
+                </Suspense>
+              </PartnerAuthProvider>
+            }
+          />
+          <Route
+            path="/partner/*"
+            element={
+              <PartnerAuthProvider>
+                <PartnerLayout />
+              </PartnerAuthProvider>
+            }
+          >
+            <Route index element={<Navigate to="/partner/dashboard" replace />} />
+            <Route path="dashboard" element={<Suspense fallback={<PageLoader />}><PartnerDashboard /></Suspense>} />
+            <Route path="leads" element={<Suspense fallback={<PageLoader />}><PartnerLeads /></Suspense>} />
+            <Route path="new-lead" element={<Suspense fallback={<PageLoader />}><PartnerLeads /></Suspense>} />
+            <Route path="commissions" element={<Suspense fallback={<PageLoader />}><PartnerCommissions /></Suspense>} />
           </Route>
 
           {/* Default Redirect */}
