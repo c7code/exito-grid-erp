@@ -662,18 +662,21 @@ export class ReferralsService implements OnModuleInit {
   // ═══════════════════════════════════════════════
 
   async getLeadDocuments(leadId: string, consultantId?: string) {
-    // Retorna docs públicos + docs privados para o consultantId específico
-    const docs = await this.docRepo
+    const qb = this.docRepo
       .createQueryBuilder('d')
-      .where('d.leadId = :leadId', { leadId })
-      .andWhere('d.deletedAt IS NULL')
-      .andWhere(
-        '(d.visibility = :pub OR d.targetConsultantId = :cid)',
-        { pub: 'public', cid: consultantId || '' },
-      )
-      .orderBy('d.createdAt', 'DESC')
-      .getMany();
-    return docs;
+      .where('d."leadId" = :leadId', { leadId })
+      .andWhere('d."deletedAt" IS NULL');
+
+    // Se há consultantId válido, mostra públicos + os privados dirigidos a ele
+    // Caso contrário (admin sem filtro), mostra todos os documentos do lead
+    if (consultantId) {
+      qb.andWhere(
+        '(d.visibility = :pub OR d."targetConsultantId" = :cid)',
+        { pub: 'public', cid: consultantId },
+      );
+    }
+
+    return qb.orderBy('d."createdAt"', 'DESC').getMany();
   }
 
   async addLeadDocument(
