@@ -1,21 +1,39 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, OnModuleInit, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { User, UserRole, UserStatus } from '../users/user.entity';
 import { Client } from '../clients/client.entity';
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
     @InjectRepository(Client)
     private clientRepository: Repository<Client>,
     private jwtService: JwtService,
+    private dataSource: DataSource,
   ) { }
+
+  // ═══ AUTO-MIGRATION ═════════════════════════════════════════════════════
+  async onModuleInit() {
+    try {
+      // Add refreshToken columns to users table if missing
+      await this.dataSource.query(`
+        ALTER TABLE users
+          ADD COLUMN IF NOT EXISTS "refreshToken" TEXT,
+          ADD COLUMN IF NOT EXISTS "refreshTokenExpiresAt" TIMESTAMP;
+      `);
+      this.logger.log('Auto-migration: refreshToken columns OK');
+    } catch (e) {
+      this.logger.warn('Auto-migration skipped:', e.message);
+    }
+  }
 
   // ═══ USER AUTH ════════════════════════════════════════════════════════════
 
@@ -51,19 +69,25 @@ export class AuthService {
       permissions: user.permissions || [],
     };
 
-    const refreshToken = this.generateRefreshToken();
-    const refreshTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-    const hashedRefresh = await bcrypt.hash(refreshToken, 8);
-
-    await this.userRepository.update(user.id, {
-      refreshToken: hashedRefresh,
-      refreshTokenExpiresAt,
-    } as any);
+    // Generate and store refresh token (gracefully skipped if column not yet migrated)
+    let refreshToken: string | undefined;
+    try {
+      refreshToken = this.generateRefreshToken();
+      const refreshTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const hashedRefresh = await bcrypt.hash(refreshToken, 8);
+      await this.userRepository.update(user.id, {
+        refreshToken: hashedRefresh,
+        refreshTokenExpiresAt,
+      } as any);
+    } catch (e) {
+      this.logger.warn('refresh token storage skipped (migration pending):', e.message);
+      refreshToken = undefined;
+    }
 
     return {
       access_token: this.jwtService.sign(payload, { expiresIn: '8h' }),
-      refresh_token: refreshToken,
-      expires_in: 8 * 60 * 60, // seconds
+      ...(refreshToken ? { refresh_token: refreshToken } : {}),
+      expires_in: 8 * 60 * 60,
       user: {
         id: user.id,
         name: user.name,
@@ -79,40 +103,47 @@ export class AuthService {
   }
 
   async refreshAccessToken(token: string) {
-    // Find users with non-expired refresh tokens
-    const users = await this.userRepository
-      .createQueryBuilder('u')
-      .addSelect('u.refreshToken')
-      .where('u.refreshTokenExpiresAt > :now', { now: new Date() })
-      .andWhere('u.isActive = true')
-      .getMany();
+    try {
+      // Find users with non-expired refresh tokens
+      const users = await this.userRepository
+        .createQueryBuilder('u')
+        .addSelect('u.refreshToken')
+        .where('u.refreshTokenExpiresAt > :now', { now: new Date() })
+        .andWhere('u.isActive = true')
+        .getMany();
 
-    for (const user of users) {
-      if (user.refreshToken && await bcrypt.compare(token, user.refreshToken)) {
-        // Valid — issue new access token
-        const payload = { email: user.email, sub: user.id, role: user.role, permissions: user.permissions || [] };
-        // Rotate refresh token
-        const newRefresh = this.generateRefreshToken();
-        const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        await this.userRepository.update(user.id, {
-          refreshToken: await bcrypt.hash(newRefresh, 8),
-          refreshTokenExpiresAt: newExpiry,
-        } as any);
-        return {
-          access_token: this.jwtService.sign(payload, { expiresIn: '8h' }),
-          refresh_token: newRefresh,
-          expires_in: 8 * 60 * 60,
-        };
+      for (const user of users) {
+        if (user.refreshToken && await bcrypt.compare(token, user.refreshToken)) {
+          const payload = { email: user.email, sub: user.id, role: user.role, permissions: user.permissions || [] };
+          const newRefresh = this.generateRefreshToken();
+          const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+          await this.userRepository.update(user.id, {
+            refreshToken: await bcrypt.hash(newRefresh, 8),
+            refreshTokenExpiresAt: newExpiry,
+          } as any);
+          return {
+            access_token: this.jwtService.sign(payload, { expiresIn: '8h' }),
+            refresh_token: newRefresh,
+            expires_in: 8 * 60 * 60,
+          };
+        }
       }
+      throw new UnauthorizedException('Refresh token inválido ou expirado.');
+    } catch (e) {
+      if (e instanceof UnauthorizedException) throw e;
+      // Column not yet migrated — treat as invalid token
+      this.logger.warn('refreshAccessToken error (migration pending):', e.message);
+      throw new UnauthorizedException('Refresh token inválido ou expirado.');
     }
-    throw new UnauthorizedException('Refresh token inválido ou expirado.');
   }
 
   async revokeRefreshToken(userId: string) {
-    await this.userRepository.update(userId, {
-      refreshToken: null,
-      refreshTokenExpiresAt: null,
-    } as any);
+    try {
+      await this.userRepository.update(userId, {
+        refreshToken: null,
+        refreshTokenExpiresAt: null,
+      } as any);
+    } catch { /* column may not exist yet */ }
   }
 
   async register(name: string, email: string, password: string, role: UserRole = UserRole.VIEWER) {
