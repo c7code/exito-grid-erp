@@ -133,13 +133,13 @@ export default function Login() {
         localStorage.setItem('partner_user', JSON.stringify(portal.user));
         navigate('/partner/dashboard');
       } else if (portal.type === 'client') {
-        // Re-use clientLogin flow by injecting token
         localStorage.setItem('electraflow_token', portal.token);
+        if (portal.refresh_token) localStorage.setItem('electraflow_refresh_token', portal.refresh_token);
         localStorage.setItem('electraflow_user', JSON.stringify(portal.user));
         navigate('/client/dashboard');
       } else {
-        // admin / employee roles
         localStorage.setItem('electraflow_token', portal.token);
+        if (portal.refresh_token) localStorage.setItem('electraflow_refresh_token', portal.refresh_token);
         localStorage.setItem('electraflow_user', JSON.stringify(portal.user));
         navigate('/admin/dashboard');
       }

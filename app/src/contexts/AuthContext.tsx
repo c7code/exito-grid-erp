@@ -59,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
 
       localStorage.setItem('electraflow_token', data.access_token);
+      if (data.refresh_token) localStorage.setItem('electraflow_refresh_token', data.refresh_token);
       localStorage.setItem('electraflow_user', JSON.stringify(loggedUser));
       setUser(loggedUser);
     } finally {
@@ -99,8 +100,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    // Revoke refresh token server-side (best effort)
+    api.client.post('/auth/logout').catch(() => {});
     setUser(null);
     localStorage.removeItem('electraflow_token');
+    localStorage.removeItem('electraflow_refresh_token');
     localStorage.removeItem('electraflow_user');
   }, []);
 

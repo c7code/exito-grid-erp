@@ -76,5 +76,25 @@ export class AuthController {
   async unifiedLogin(@Body() loginDto: LoginDto) {
     return this.authService.unifiedLogin(loginDto.email, loginDto.password);
   }
+
+  // ═══ REFRESH TOKEN ════════════════════════════════════════════════════════
+
+  @Post('refresh')
+  @ApiOperation({ summary: 'Renovar access token usando refresh token' })
+  async refresh(@Body() body: { refresh_token: string }) {
+    if (!body.refresh_token) {
+      throw new UnauthorizedException('refresh_token é obrigatório');
+    }
+    return this.authService.refreshAccessToken(body.refresh_token);
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Logout — revoga o refresh token' })
+  async logout(@Request() req) {
+    await this.authService.revokeRefreshToken(req.user.userId || req.user.sub);
+    return { message: 'Logout realizado com sucesso.' };
+  }
 }
 

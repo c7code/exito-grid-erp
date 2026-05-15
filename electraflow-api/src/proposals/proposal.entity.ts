@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
 import { Opportunity } from '../opportunities/opportunity.entity';
 import { Client } from '../clients/client.entity';
 import { User } from '../users/user.entity';
@@ -26,6 +26,7 @@ export class Proposal {
   title: string;
 
   @Column({ nullable: true })
+  @Index()
   clientId: string;
 
   @ManyToOne(() => Client, { eager: false })
@@ -40,6 +41,7 @@ export class Proposal {
   opportunity: Opportunity;
 
   @Column({ type: 'enum', enum: ProposalStatus, default: ProposalStatus.DRAFT })
+  @Index()
   status: ProposalStatus;
 
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
@@ -313,12 +315,14 @@ export class Proposal {
   updatedById: string;
 
   @CreateDateColumn()
+  @Index()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
 
   @DeleteDateColumn()
+  @Index()
   deletedAt: Date;
 
   @OneToMany(() => ProposalItem, item => item.proposal, { cascade: true })

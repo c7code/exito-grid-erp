@@ -121,6 +121,13 @@ export class User {
   @Column({ nullable: true })
   invitedBy: string;
 
+  // === Refresh Token ===
+  @Column({ nullable: true, select: false })
+  refreshToken: string;
+
+  @Column({ nullable: true })
+  refreshTokenExpiresAt: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

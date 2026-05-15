@@ -31,46 +31,74 @@ class ApiService {
       (error) => Promise.reject(error)
     );
 
-    let isRedirecting = false;
+    let isRefreshing = false;
+    let refreshQueue: Array<(token: string) => void> = [];
+
+    const processQueue = (token: string) => {
+      refreshQueue.forEach(cb => cb(token));
+      refreshQueue = [];
+    };
 
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError) => {
-        if (error.response?.status === 401) {
-          // Only redirect if user was authenticated AND the 401 came from our own auth
-          // (not from an external API proxied through our backend like Nuvem Fiscal)
-          const hadToken = !!localStorage.getItem('electraflow_token');
-          const requestUrl = error.config?.url || '';
-          const isAuthEndpoint = requestUrl.includes('/auth/');
-          const isFiscalEndpoint = requestUrl.includes('/fiscal/');
-          const isCatalogEndpoint = requestUrl.includes('/catalog/');
-          const isSinapiEndpoint = requestUrl.includes('/sinapi/');
-          const isBudgetsEndpoint = requestUrl.includes('/budgets');
+      async (error: AxiosError) => {
+        const originalRequest = error.config as any;
+        const requestUrl = error.config?.url || '';
 
-          // Don't redirect for fiscal/catalog endpoints — 401 there means
-          // external API auth failed (Nuvem Fiscal, BrasilAPI), not our JWT
-          if (hadToken && !isRedirecting && !isFiscalEndpoint && !isCatalogEndpoint && !isSinapiEndpoint && !isBudgetsEndpoint) {
-            isRedirecting = true;
-            localStorage.removeItem('electraflow_token');
-            localStorage.removeItem('electraflow_user');
-            toast.error('Sessão expirada. Faça login novamente.');
-            setTimeout(() => {
-              window.location.href = '/login';
-            }, 500);
-          } else if (isAuthEndpoint && hadToken && !isRedirecting) {
-            // Auth endpoint 401 = token really expired
-            isRedirecting = true;
-            localStorage.removeItem('electraflow_token');
-            localStorage.removeItem('electraflow_user');
-            toast.error('Sessão expirada. Faça login novamente.');
-            setTimeout(() => {
-              window.location.href = '/login';
-            }, 500);
+        // Skip refresh for external-API 401s (Nuvem Fiscal, BrasilAPI, SINAPI)
+        const isExternalApi = ['/fiscal/', '/catalog/', '/sinapi/', '/budgets'].some(p => requestUrl.includes(p));
+        // Skip refresh for auth endpoints themselves
+        const isAuthEndpoint = requestUrl.includes('/auth/');
+
+        if (error.response?.status === 401 && !originalRequest._retry && !isExternalApi && !isAuthEndpoint) {
+          const refreshToken = localStorage.getItem('electraflow_refresh_token');
+
+          if (refreshToken) {
+            if (isRefreshing) {
+              // Queue while refresh is in progress
+              return new Promise(resolve => {
+                refreshQueue.push((token) => {
+                  originalRequest.headers.Authorization = `Bearer ${token}`;
+                  resolve(this.client(originalRequest));
+                });
+              });
+            }
+
+            originalRequest._retry = true;
+            isRefreshing = true;
+
+            try {
+              const res = await axios.post(`${API_URL}/auth/refresh`, { refresh_token: refreshToken });
+              const { access_token, refresh_token: newRefresh } = res.data;
+              localStorage.setItem('electraflow_token', access_token);
+              if (newRefresh) localStorage.setItem('electraflow_refresh_token', newRefresh);
+              this.client.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+              processQueue(access_token);
+              originalRequest.headers.Authorization = `Bearer ${access_token}`;
+              return this.client(originalRequest);
+            } catch {
+              // Refresh failed → logout
+              localStorage.removeItem('electraflow_token');
+              localStorage.removeItem('electraflow_refresh_token');
+              localStorage.removeItem('electraflow_user');
+              toast.error('Sessão expirada. Faça login novamente.');
+              setTimeout(() => { window.location.href = '/login'; }, 500);
+            } finally {
+              isRefreshing = false;
+            }
+          } else {
+            // No refresh token → redirect to login
+            const hadToken = !!localStorage.getItem('electraflow_token');
+            if (hadToken) {
+              localStorage.removeItem('electraflow_token');
+              localStorage.removeItem('electraflow_user');
+              toast.error('Sessão expirada. Faça login novamente.');
+              setTimeout(() => { window.location.href = '/login'; }, 500);
+            }
           }
         } else if (error.response?.status === 403) {
           toast.error('Você não tem permissão para realizar esta ação.');
         }
-        // Removed auto-toast for 500 — let individual catch blocks handle it
         return Promise.reject(error);
       }
     );

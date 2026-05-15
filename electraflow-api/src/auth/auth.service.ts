@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import { User, UserRole, UserStatus } from '../users/user.entity';
 import { Client } from '../clients/client.entity';
 
@@ -37,6 +38,11 @@ export class AuthService {
     return null;
   }
 
+  // ─── Generate refresh token ───────────────────────────────────────────────
+  private generateRefreshToken(): string {
+    return crypto.randomBytes(64).toString('hex');
+  }
+
   async login(user: any) {
     const payload = {
       email: user.email,
@@ -44,8 +50,20 @@ export class AuthService {
       role: user.role,
       permissions: user.permissions || [],
     };
+
+    const refreshToken = this.generateRefreshToken();
+    const refreshTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const hashedRefresh = await bcrypt.hash(refreshToken, 8);
+
+    await this.userRepository.update(user.id, {
+      refreshToken: hashedRefresh,
+      refreshTokenExpiresAt,
+    } as any);
+
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, { expiresIn: '8h' }),
+      refresh_token: refreshToken,
+      expires_in: 8 * 60 * 60, // seconds
       user: {
         id: user.id,
         name: user.name,
@@ -58,6 +76,43 @@ export class AuthService {
         status: user.status,
       },
     };
+  }
+
+  async refreshAccessToken(token: string) {
+    // Find users with non-expired refresh tokens
+    const users = await this.userRepository
+      .createQueryBuilder('u')
+      .addSelect('u.refreshToken')
+      .where('u.refreshTokenExpiresAt > :now', { now: new Date() })
+      .andWhere('u.isActive = true')
+      .getMany();
+
+    for (const user of users) {
+      if (user.refreshToken && await bcrypt.compare(token, user.refreshToken)) {
+        // Valid — issue new access token
+        const payload = { email: user.email, sub: user.id, role: user.role, permissions: user.permissions || [] };
+        // Rotate refresh token
+        const newRefresh = this.generateRefreshToken();
+        const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        await this.userRepository.update(user.id, {
+          refreshToken: await bcrypt.hash(newRefresh, 8),
+          refreshTokenExpiresAt: newExpiry,
+        } as any);
+        return {
+          access_token: this.jwtService.sign(payload, { expiresIn: '8h' }),
+          refresh_token: newRefresh,
+          expires_in: 8 * 60 * 60,
+        };
+      }
+    }
+    throw new UnauthorizedException('Refresh token inválido ou expirado.');
+  }
+
+  async revokeRefreshToken(userId: string) {
+    await this.userRepository.update(userId, {
+      refreshToken: null,
+      refreshTokenExpiresAt: null,
+    } as any);
   }
 
   async register(name: string, email: string, password: string, role: UserRole = UserRole.VIEWER) {
