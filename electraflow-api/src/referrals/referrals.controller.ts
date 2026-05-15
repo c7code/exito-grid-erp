@@ -1,10 +1,26 @@
 import {
   Controller, Get, Post, Put, Delete, Body, Param, Query,
-  UseGuards, Request,
+  UseGuards, Request, UseInterceptors, UploadedFile, BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import * as fs from 'fs';
 import { ReferralsService } from './referrals.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PartnerAuthGuard } from './partner-auth.guard';
+
+// Garante que a pasta existe
+const LEAD_DOCS_DIR = join(process.cwd(), 'uploads', 'lead-documents');
+if (!fs.existsSync(LEAD_DOCS_DIR)) fs.mkdirSync(LEAD_DOCS_DIR, { recursive: true });
+
+const leadDocStorage = diskStorage({
+  destination: LEAD_DOCS_DIR,
+  filename: (_req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `${unique}${extname(file.originalname)}`);
+  },
+});
 
 @Controller('referrals')
 export class ReferralsController {
@@ -196,5 +212,73 @@ export class ReferralsController {
   @Put('commissions/:id')
   updateCommission(@Param('id') id: string, @Body() body: any) {
     return this.service.updateCommission(id, body);
+  }
+
+  // ─── CANAL DE DOCUMENTOS DO LEAD ─────────────────────────────────────
+
+  // Lista documentos de um lead (admin)
+  @UseGuards(JwtAuthGuard)
+  @Get('leads/:id/documents')
+  getLeadDocuments(
+    @Param('id') leadId: string,
+    @Query('consultantId') consultantId?: string,
+  ) {
+    return this.service.getLeadDocuments(leadId, consultantId);
+  }
+
+  // Lista documentos para o parceiro (filtra por visibilidade)
+  @UseGuards(PartnerAuthGuard)
+  @Get('partner/leads/:id/documents')
+  getPartnerLeadDocuments(@Param('id') leadId: string, @Request() req: any) {
+    return this.service.getLeadDocuments(leadId, req.user.consultantId);
+  }
+
+  // Upload de documento (admin ou time)
+  @UseGuards(JwtAuthGuard)
+  @Post('leads/:id/documents')
+  @UseInterceptors(FileInterceptor('file', { storage: leadDocStorage }))
+  async uploadLeadDocument(
+    @Param('id') leadId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+    @Request() req: any,
+  ) {
+    if (!file) throw new BadRequestException('Nenhum arquivo enviado');
+    return this.service.addLeadDocument(leadId, file, {
+      docType: body.docType || 'share',
+      visibility: body.visibility || 'public',
+      targetConsultantId: body.targetConsultantId || null,
+      uploadedBy: req.user?.name || req.user?.email || 'Admin',
+      uploadedByRole: 'admin',
+      description: body.description || null,
+    });
+  }
+
+  // Upload de documento (parceiro/consultor)
+  @UseGuards(PartnerAuthGuard)
+  @Post('partner/leads/:id/documents')
+  @UseInterceptors(FileInterceptor('file', { storage: leadDocStorage }))
+  async uploadPartnerLeadDocument(
+    @Param('id') leadId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+    @Request() req: any,
+  ) {
+    if (!file) throw new BadRequestException('Nenhum arquivo enviado');
+    return this.service.addLeadDocument(leadId, file, {
+      docType: 'upload',
+      visibility: body.visibility || 'public',
+      targetConsultantId: body.targetConsultantId || null,
+      uploadedBy: req.user?.name || 'Consultor',
+      uploadedByRole: 'consultant',
+      description: body.description || null,
+    });
+  }
+
+  // Deletar documento
+  @UseGuards(JwtAuthGuard)
+  @Delete('leads/documents/:docId')
+  deleteLeadDocument(@Param('docId') docId: string) {
+    return this.service.deleteLeadDocument(docId);
   }
 }

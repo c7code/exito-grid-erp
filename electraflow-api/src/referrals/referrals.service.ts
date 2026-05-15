@@ -8,6 +8,7 @@ import {
   ReferralCommitment,
   ReferralFollowup,
   ReferralCommission,
+  LeadDocument,
 } from './referral.entity';
 import { JwtService } from '@nestjs/jwt';
 
@@ -26,6 +27,8 @@ export class ReferralsService implements OnModuleInit {
     private followupRepo: Repository<ReferralFollowup>,
     @InjectRepository(ReferralCommission)
     private commissionRepo: Repository<ReferralCommission>,
+    @InjectRepository(LeadDocument)
+    private docRepo: Repository<LeadDocument>,
     private dataSource: DataSource,
     private jwtService: JwtService,
   ) {}
@@ -120,6 +123,25 @@ export class ReferralsService implements OnModuleInit {
         "createdAt" TIMESTAMP DEFAULT NOW(),
         "updatedAt" TIMESTAMP DEFAULT NOW()
       )`,
+      // ─ lead_documents ───────────────────────────────────────────────────
+      `CREATE TABLE IF NOT EXISTS lead_documents (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "leadId" UUID NOT NULL,
+        "fileName" VARCHAR NOT NULL,
+        "originalName" VARCHAR NOT NULL,
+        "mimeType" VARCHAR,
+        "size" INT,
+        "url" VARCHAR NOT NULL,
+        "docType" VARCHAR DEFAULT 'upload',
+        "visibility" VARCHAR DEFAULT 'public',
+        "targetConsultantId" UUID,
+        "uploadedBy" VARCHAR,
+        "uploadedByRole" VARCHAR DEFAULT 'consultant',
+        "description" TEXT,
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        "updatedAt" TIMESTAMP DEFAULT NOW(),
+        "deletedAt" TIMESTAMP
+      )`,
     ];
 
     for (const sql of tables) {
@@ -141,6 +163,10 @@ export class ReferralsService implements OnModuleInit {
       `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "passwordHash" VARCHAR`,
       `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "isPortalActive" BOOLEAN DEFAULT false`,
       `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "lastLoginAt" TIMESTAMP`,
+      // Novos campos de lead
+      `ALTER TABLE referral_leads ADD COLUMN IF NOT EXISTS "services" JSONB DEFAULT '[]'`,
+      `ALTER TABLE referral_leads ADD COLUMN IF NOT EXISTS "zipCode" VARCHAR`,
+      `ALTER TABLE referral_leads ADD COLUMN IF NOT EXISTS "neighborhood" VARCHAR`,
     ];
 
     for (const sql of alterations) {
@@ -629,5 +655,64 @@ export class ReferralsService implements OnModuleInit {
       leadsByMonth,
       belowGoal,
     };
+  }
+
+  // ═══════════════════════════════════════════════
+  // CANAL DE DOCUMENTOS DO LEAD
+  // ═══════════════════════════════════════════════
+
+  async getLeadDocuments(leadId: string, consultantId?: string) {
+    // Retorna docs públicos + docs privados para o consultantId específico
+    const docs = await this.docRepo
+      .createQueryBuilder('d')
+      .where('d.leadId = :leadId', { leadId })
+      .andWhere('d.deletedAt IS NULL')
+      .andWhere(
+        '(d.visibility = :pub OR d.targetConsultantId = :cid)',
+        { pub: 'public', cid: consultantId || '' },
+      )
+      .orderBy('d.createdAt', 'DESC')
+      .getMany();
+    return docs;
+  }
+
+  async addLeadDocument(
+    leadId: string,
+    file: Express.Multer.File,
+    meta: {
+      docType?: 'upload' | 'share';
+      visibility?: 'public' | 'private';
+      targetConsultantId?: string;
+      uploadedBy?: string;
+      uploadedByRole?: 'consultant' | 'admin' | 'team';
+      description?: string;
+    },
+  ) {
+    const lead = await this.leadRepo.findOne({ where: { id: leadId } });
+    if (!lead) throw new NotFoundException('Lead não encontrado');
+
+    const doc = this.docRepo.create({
+      leadId,
+      fileName: file.filename,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+      url: `/uploads/lead-documents/${file.filename}`,
+      docType: meta.docType || 'upload',
+      visibility: meta.visibility || 'public',
+      targetConsultantId: meta.targetConsultantId || null,
+      uploadedBy: meta.uploadedBy || 'Sistema',
+      uploadedByRole: meta.uploadedByRole || 'consultant',
+      description: meta.description || null,
+    });
+
+    return this.docRepo.save(doc);
+  }
+
+  async deleteLeadDocument(docId: string) {
+    const doc = await this.docRepo.findOne({ where: { id: docId } });
+    if (!doc) throw new NotFoundException('Documento não encontrado');
+    await this.docRepo.softDelete(docId);
+    return { success: true };
   }
 }

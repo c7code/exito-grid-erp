@@ -173,6 +173,17 @@ export class ReferralLead {
   @Column({ nullable: true })
   lostReason: string;
 
+  // ═ Serviços de interesse (lista de tags) ═
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
+  services: string[];
+
+  // ═ Localização complementar ═
+  @Column({ nullable: true })
+  zipCode: string;
+
+  @Column({ nullable: true })
+  neighborhood: string;
+
   @Column({ type: 'text', nullable: true })
   notes: string;
 
@@ -190,7 +201,11 @@ export class ReferralLead {
 
   @OneToMany(() => ReferralCommission, c => c.lead)
   commissions: ReferralCommission[];
+
+  @OneToMany(() => LeadDocument, d => d.lead)
+  documents: LeadDocument[];
 }
+
 
 // ═══════════════════════════════════════════
 // 3. COMPROMISSO / META
@@ -229,6 +244,70 @@ export class ReferralCommitment {
   updatedAt: Date;
 }
 
+// ═══════════════════════════════════════════
+// 6. DOCUMENTO DO LEAD (canal de documentos)
+// ═══════════════════════════════════════════
+export type LeadDocVisibility = 'public' | 'private';
+export type LeadDocSenderRole = 'consultant' | 'admin' | 'team';
+export type LeadDocType = 'upload' | 'share';
+
+@Entity('lead_documents')
+export class LeadDocument {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  leadId: string;
+
+  @ManyToOne(() => ReferralLead, l => l.documents, { nullable: false })
+  @JoinColumn({ name: 'leadId' })
+  lead: ReferralLead;
+
+  // ─ Arquivo ─────────────────────────────────────────────────────────
+  @Column()
+  fileName: string;
+
+  @Column()
+  originalName: string;
+
+  @Column({ nullable: true })
+  mimeType: string;
+
+  @Column({ type: 'int', nullable: true })
+  size: number;
+
+  @Column()
+  url: string;
+
+  // ─ Metadados ────────────────────────────────────────────────────────
+  @Column({ default: 'upload' })
+  docType: LeadDocType;
+
+  // 'public' = visível para todos no lead | 'private' = só para targetConsultantId
+  @Column({ default: 'public' })
+  visibility: LeadDocVisibility;
+
+  @Column({ nullable: true })
+  targetConsultantId: string;
+
+  @Column({ nullable: true })
+  uploadedBy: string;
+
+  @Column({ default: 'consultant' })
+  uploadedByRole: LeadDocSenderRole;
+
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
+}
 // ═══════════════════════════════════════════
 // 4. ACOMPANHAMENTO / HISTÓRICO
 // ═══════════════════════════════════════════

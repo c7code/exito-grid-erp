@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '@/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -14,12 +14,24 @@ import { Label } from '@/components/ui/label';
 import {
   UserPlus, Users, TrendingUp, DollarSign, Plus, Pencil, Trash2,
   Link2, Loader2, Search, RefreshCw, Key, Copy, CheckCheck,
+  MapPin, FileUp, FolderOpen, Globe, Lock, Download, X, Tag,
 } from 'lucide-react';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 interface Consultant { id: string; name: string; email?: string; phone?: string; commissionPercent?: number; status?: string; }
-interface Lead { id: string; clientName: string; clientPhone?: string; status: string; notes?: string; consultantId: string; consultant?: Consultant; proposalId?: string; createdAt: string; }
+interface Lead {
+  id: string; clientName: string; clientPhone?: string; clientEmail?: string;
+  status: string; notes?: string; consultantId: string; consultant?: Consultant;
+  proposalId?: string; createdAt: string;
+  services?: string[]; zipCode?: string; neighborhood?: string; city?: string; state?: string; address?: string;
+}
+interface LeadDoc {
+  id: string; originalName: string; mimeType?: string; url: string; description?: string;
+  visibility: 'public' | 'private'; uploadedBy?: string; uploadedByRole?: string;
+  targetConsultantId?: string; createdAt: string; docType?: string;
+}
 
+const SERVICES_LIST = ['Solar Fotovoltaico','OEM / Transformadores','Locação de Equipamentos','Elétrica Industrial','Elétrica Predial','Projeto Elétrico','Manutenção Elétrica','Outros'];
 const STATUSES = ['new','contacted','proposal_sent','negotiating','converted','lost'];
 const STATUS_LABEL: Record<string,string> = { new:'Novo', contacted:'Contatado', proposal_sent:'Proposta Enviada', negotiating:'Negociando', converted:'Convertido', lost:'Perdido' };
 const STATUS_COLOR: Record<string,string> = { new:'bg-blue-100 text-blue-700', contacted:'bg-yellow-100 text-yellow-700', proposal_sent:'bg-purple-100 text-purple-700', negotiating:'bg-orange-100 text-orange-700', converted:'bg-green-100 text-green-700', lost:'bg-red-100 text-red-700' };
@@ -39,7 +51,21 @@ export default function SolarReferrals() {
   // Lead dialog
   const [leadDialog, setLeadDialog] = useState(false);
   const [editingLead, setEditingLead] = useState<any>(null);
-  const [lForm, setLForm] = useState({ clientName:'', clientPhone:'', clientEmail:'', consultantId:'', status:'new', notes:'' });
+  const [lForm, setLForm] = useState({
+    clientName:'', clientPhone:'', clientEmail:'', consultantId:'', status:'new', notes:'',
+    services: [] as string[], zipCode:'', neighborhood:'', city:'', state:'', address:'',
+  });
+
+  // Document channel
+  const [docDialog, setDocDialog] = useState(false);
+  const [docLead, setDocLead] = useState<Lead|null>(null);
+  const [docs, setDocs] = useState<LeadDoc[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [uploadVisibility, setUploadVisibility] = useState<'public'|'private'>('public');
+  const [uploadTarget, setUploadTarget] = useState('');
+  const [uploadDesc, setUploadDesc] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // Link proposal dialog
   const [linkDialog, setLinkDialog] = useState(false);
@@ -93,12 +119,17 @@ export default function SolarReferrals() {
   // ─── Lead CRUD ────────────────────────────────────────────────────────────
   const openNewLead = () => {
     setEditingLead(null);
-    setLForm({ clientName:'', clientPhone:'', clientEmail:'', consultantId:'', status:'new', notes:'' });
+    setLForm({ clientName:'', clientPhone:'', clientEmail:'', consultantId:'', status:'new', notes:'', services:[], zipCode:'', neighborhood:'', city:'', state:'', address:'' });
     setLeadDialog(true);
   };
   const openEditLead = (l: Lead) => {
     setEditingLead(l);
-    setLForm({ clientName: l.clientName||'', clientPhone: (l as any).clientPhone||'', clientEmail: (l as any).clientEmail||'', consultantId: l.consultantId||'', status: l.status||'new', notes: l.notes||'' });
+    setLForm({
+      clientName: l.clientName||'', clientPhone: l.clientPhone||'', clientEmail: l.clientEmail||'',
+      consultantId: l.consultantId||'', status: l.status||'new', notes: l.notes||'',
+      services: l.services||[], zipCode: l.zipCode||'', neighborhood: l.neighborhood||'',
+      city: l.city||'', state: l.state||'', address: l.address||'',
+    });
     setLeadDialog(true);
   };
   const saveLead = async () => {
@@ -153,6 +184,37 @@ export default function SolarReferrals() {
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
   };
+
+  // ─── Document Channel ─────────────────────────────────────────────────────
+  const openDocs = async (lead: Lead) => {
+    setDocLead(lead); setDocDialog(true); setDocsLoading(true);
+    try { const d = await api.getLeadDocuments(lead.id); setDocs(Array.isArray(d) ? d : []); }
+    catch { toast.error('Erro ao carregar documentos'); }
+    finally { setDocsLoading(false); }
+  };
+  const uploadDoc = async () => {
+    if (!fileRef.current?.files?.[0] || !docLead) return;
+    const file = fileRef.current.files[0];
+    setUploading(true);
+    try {
+      await api.uploadLeadDocument(docLead.id, file, { visibility: uploadVisibility, targetConsultantId: uploadTarget || undefined, description: uploadDesc || undefined });
+      toast.success('Documento enviado!');
+      setUploadDesc(''); setUploadTarget(''); setUploadVisibility('public');
+      if (fileRef.current) fileRef.current.value = '';
+      const d = await api.getLeadDocuments(docLead.id); setDocs(Array.isArray(d) ? d : []);
+    } catch { toast.error('Erro ao enviar documento'); }
+    finally { setUploading(false); }
+  };
+  const deleteDoc = async (docId: string) => {
+    if (!confirm('Remover documento?')) return;
+    try { await api.deleteLeadDocument(docId); setDocs(p => p.filter(d => d.id !== docId)); toast.success('Removido!'); }
+    catch { toast.error('Erro ao remover'); }
+  };
+  const toggleService = (svc: string) => {
+    setLForm(p => ({ ...p, services: p.services.includes(svc) ? p.services.filter(s => s !== svc) : [...p.services, svc] }));
+  };
+  const isImage = (mime?: string) => mime?.startsWith('image/');
+  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '');
 
   // ─── Filtered ─────────────────────────────────────────────────────────────
   const filteredLeads = leads.filter(l => l.clientName?.toLowerCase().includes(search.toLowerCase()) || l.consultant?.name?.toLowerCase().includes(search.toLowerCase()));
@@ -252,9 +314,19 @@ export default function SolarReferrals() {
                           <span className="text-slate-300 text-xs">—</span>
                         )}
                       </td>
-                      <td className="py-3 pr-4 text-slate-400 text-xs">{new Date(lead.createdAt).toLocaleDateString('pt-BR')}</td>
+                      <td className="py-3 pr-4 text-slate-400 text-xs">
+                        <div>{new Date(lead.createdAt).toLocaleDateString('pt-BR')}</div>
+                        {lead.services && lead.services.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {lead.services.slice(0,2).map(s => <span key={s} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px]">{s}</span>)}
+                            {lead.services.length > 2 && <span className="text-[10px] text-slate-400">+{lead.services.length - 2}</span>}
+                          </div>
+                        )}
+                        {lead.city && <div className="flex items-center gap-1 mt-0.5 text-[10px] text-slate-400"><MapPin className="w-2.5 h-2.5" />{lead.city}{lead.state ? `, ${lead.state}` : ''}</div>}
+                      </td>
                       <td className="py-3">
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-purple-500" title="Canal de documentos" onClick={() => openDocs(lead)}><FolderOpen className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500" title="Vincular proposta" onClick={() => openLink(lead)}><Link2 className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500" onClick={() => openEditLead(lead)}><Pencil className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteLead(lead.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
@@ -349,31 +421,55 @@ export default function SolarReferrals() {
 
       {/* Lead Dialog */}
       <Dialog open={leadDialog} onOpenChange={setLeadDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingLead ? 'Editar Lead' : 'Novo Lead'}</DialogTitle>
             <DialogDescription>Registre um lead indicado por parceiro.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <div><Label>Nome do Cliente *</Label><Input value={lForm.clientName} onChange={e => setLForm({...lForm, clientName: e.target.value})} placeholder="Nome do cliente" /></div>
-            <div><Label>Telefone</Label><Input value={lForm.clientPhone} onChange={e => setLForm({...lForm, clientPhone: e.target.value})} placeholder="(00) 00000-0000" /></div>
-            <div><Label>Email</Label><Input value={lForm.clientEmail} onChange={e => setLForm({...lForm, clientEmail: e.target.value})} placeholder="email@cliente.com" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2"><Label>Nome do Cliente *</Label><Input value={lForm.clientName} onChange={e => setLForm({...lForm, clientName: e.target.value})} placeholder="Nome do cliente" /></div>
+              <div><Label>Telefone</Label><Input value={lForm.clientPhone} onChange={e => setLForm({...lForm, clientPhone: e.target.value})} placeholder="(00) 00000-0000" /></div>
+              <div><Label>Email</Label><Input value={lForm.clientEmail} onChange={e => setLForm({...lForm, clientEmail: e.target.value})} placeholder="email@cliente.com" /></div>
+            </div>
+
+            {/* Serviços de interesse */}
+            <div>
+              <Label className="flex items-center gap-1 mb-2"><Tag className="w-3.5 h-3.5" />Serviços de Interesse</Label>
+              <div className="flex flex-wrap gap-2">
+                {SERVICES_LIST.map(svc => (
+                  <button key={svc} type="button" onClick={() => toggleService(svc)}
+                    className={['px-2.5 py-1 rounded-full text-xs font-medium border transition-colors', lForm.services.includes(svc) ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'].join(' ')}>
+                    {svc}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Localização */}
+            <div>
+              <Label className="flex items-center gap-1 mb-2"><MapPin className="w-3.5 h-3.5" />Localização</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={lForm.zipCode} onChange={e => setLForm({...lForm, zipCode: e.target.value})} placeholder="CEP" />
+                <Input value={lForm.neighborhood} onChange={e => setLForm({...lForm, neighborhood: e.target.value})} placeholder="Bairro" />
+                <Input value={lForm.city} onChange={e => setLForm({...lForm, city: e.target.value})} placeholder="Cidade" />
+                <Input value={lForm.state} onChange={e => setLForm({...lForm, state: e.target.value})} placeholder="UF" maxLength={2} />
+                <div className="col-span-2"><Input value={lForm.address} onChange={e => setLForm({...lForm, address: e.target.value})} placeholder="Endereço completo" /></div>
+              </div>
+            </div>
+
             <div>
               <Label>Parceiro Indicador *</Label>
               <Select value={lForm.consultantId} onValueChange={v => setLForm({...lForm, consultantId: v})}>
                 <SelectTrigger><SelectValue placeholder="Selecione o parceiro" /></SelectTrigger>
-                <SelectContent>
-                  {consultants.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{consultants.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
               <Label>Status</Label>
               <Select value={lForm.status} onValueChange={v => setLForm({...lForm, status: v})}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {STATUSES.map(s => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{STATUSES.map(s => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div><Label>Observações</Label><Input value={lForm.notes} onChange={e => setLForm({...lForm, notes: e.target.value})} placeholder="Detalhes do lead..." /></div>
@@ -477,6 +573,88 @@ export default function SolarReferrals() {
               Copiar Tudo para WhatsApp
             </Button>
             <Button variant="outline" onClick={() => setAccessDialog(false)}>Fechar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Document Channel Dialog ─────────────────────────────────────── */}
+      <Dialog open={docDialog} onOpenChange={setDocDialog}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderOpen className="w-5 h-5 text-purple-500" /> Canal de Documentos
+            </DialogTitle>
+            <DialogDescription>Lead: <strong>{docLead?.clientName}</strong> · Parceiro: <strong>{docLead?.consultant?.name || consultants.find(c => c.id === docLead?.consultantId)?.name || '—'}</strong></DialogDescription>
+          </DialogHeader>
+
+          {/* Upload Section */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-slate-700 flex items-center gap-2"><FileUp className="w-4 h-4 text-purple-500" />Enviar Arquivo</p>
+            <input ref={fileRef} type="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" />
+            <Input value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} placeholder="Título / descrição do arquivo (opcional)" />
+            <div className="flex gap-3 items-center flex-wrap">
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setUploadVisibility('public')}
+                  className={['flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors', uploadVisibility === 'public' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-slate-600 border-slate-200'].join(' ')}>
+                  <Globe className="w-3 h-3" /> Público (todos)
+                </button>
+                <button type="button" onClick={() => setUploadVisibility('private')}
+                  className={['flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors', uploadVisibility === 'private' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-200'].join(' ')}>
+                  <Lock className="w-3 h-3" /> Privado (específico)
+                </button>
+              </div>
+              {uploadVisibility === 'private' && (
+                <Select value={uploadTarget} onValueChange={setUploadTarget}>
+                  <SelectTrigger className="h-8 text-xs w-48"><SelectValue placeholder="Para qual parceiro?" /></SelectTrigger>
+                  <SelectContent>{consultants.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                </Select>
+              )}
+              <Button size="sm" onClick={uploadDoc} disabled={uploading} className="bg-purple-600 hover:bg-purple-700 text-white ml-auto">
+                {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <FileUp className="w-3.5 h-3.5 mr-1" />} Enviar
+              </Button>
+            </div>
+          </div>
+
+          {/* Document List */}
+          <div className="mt-2">
+            <p className="text-sm font-semibold text-slate-700 mb-3">Arquivos do Canal ({docs.length})</p>
+            {docsLoading && <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-purple-500" /></div>}
+            {!docsLoading && docs.length === 0 && <p className="text-center text-slate-400 text-sm py-6">Nenhum documento ainda.</p>}
+            <div className="space-y-2">
+              {docs.map(doc => (
+                <div key={doc.id} className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-3 hover:border-purple-200 transition-colors">
+                  {isImage(doc.mimeType) ? (
+                    <img src={`${apiBase}${doc.url}`} alt={doc.originalName} className="w-12 h-12 object-cover rounded-lg border" />
+                  ) : (
+                    <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+                      <FolderOpen className="w-6 h-6 text-slate-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800 truncate">{doc.description || doc.originalName}</p>
+                    <p className="text-xs text-slate-400">{doc.originalName} · {doc.uploadedBy} · {new Date(doc.createdAt).toLocaleDateString('pt-BR')}</p>
+                    <div className="flex items-center gap-1 mt-1">
+                      {doc.visibility === 'public' ? (
+                        <span className="flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full"><Globe className="w-2.5 h-2.5" />Público</span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full"><Lock className="w-2.5 h-2.5" />Privado</span>
+                      )}
+                      <span className="text-[10px] text-slate-400">{doc.uploadedByRole === 'admin' ? '👨‍💼 Admin' : doc.uploadedByRole === 'team' ? '👥 Time' : '🤝 Parceiro'}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <a href={`${apiBase}${doc.url}`} target="_blank" rel="noreferrer">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500"><Download className="w-3.5 h-3.5" /></Button>
+                    </a>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteDoc(doc.id)}><X className="w-3.5 h-3.5" /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setDocDialog(false)}>Fechar</Button>
           </div>
         </DialogContent>
       </Dialog>

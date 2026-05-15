@@ -3186,6 +3186,52 @@ class ApiService {
   async toggleConsultantPortal(consultantId: string, isPortalActive: boolean) {
     return (await this.client.put(`/referrals/consultants/${consultantId}/toggle-portal`, { isPortalActive })).data;
   }
+
+  // ─── CANAL DE DOCUMENTOS DO LEAD ───────────────────────────────────────────
+
+  async getLeadDocuments(leadId: string, consultantId?: string) {
+    const params = consultantId ? { consultantId } : {};
+    return (await this.client.get(`/referrals/leads/${leadId}/documents`, { params })).data;
+  }
+
+  async uploadLeadDocument(
+    leadId: string,
+    file: File,
+    meta: { visibility?: 'public' | 'private'; targetConsultantId?: string; description?: string },
+  ) {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('docType', 'share');
+    form.append('visibility', meta.visibility || 'public');
+    if (meta.targetConsultantId) form.append('targetConsultantId', meta.targetConsultantId);
+    if (meta.description) form.append('description', meta.description);
+    return (await this.client.post(`/referrals/leads/${leadId}/documents`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })).data;
+  }
+
+  async uploadPartnerLeadDocument(
+    leadId: string,
+    file: File,
+    meta: { visibility?: 'public' | 'private'; description?: string },
+    partnerToken: string,
+  ) {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('docType', 'upload');
+    form.append('visibility', meta.visibility || 'public');
+    if (meta.description) form.append('description', meta.description);
+    return (await this.client.post(`/referrals/partner/leads/${leadId}/documents`, form, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${partnerToken}`,
+      },
+    })).data;
+  }
+
+  async deleteLeadDocument(docId: string) {
+    return (await this.client.delete(`/referrals/leads/documents/${docId}`)).data;
+  }
 }
 
 export const api = new ApiService();

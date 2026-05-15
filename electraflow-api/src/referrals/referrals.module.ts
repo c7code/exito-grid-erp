@@ -9,6 +9,7 @@ import {
   ReferralCommitment,
   ReferralFollowup,
   ReferralCommission,
+  LeadDocument,
 } from './referral.entity';
 import { ReferralsService } from './referrals.service';
 import { ReferralsController } from './referrals.controller';
@@ -22,6 +23,7 @@ import { PartnerJwtStrategy } from './partner-jwt.strategy';
       ReferralCommitment,
       ReferralFollowup,
       ReferralCommission,
+      LeadDocument,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
