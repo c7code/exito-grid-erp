@@ -120,12 +120,7 @@ function EmployeeRedirect() {
   return <Navigate to="/admin/works" replace />;
 }
 
-// Partner Portal Route Guard
-function PartnerRoute({ children }: { children: React.ReactNode }) {
-  const token = localStorage.getItem('partner_token');
-  if (!token) return <Navigate to="/partner/login" replace />;
-  return <>{children}</>;
-}
+
 
 function App() {
   return (

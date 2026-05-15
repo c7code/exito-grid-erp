@@ -9,7 +9,6 @@ import {
   ArrowUpRight,
   Clock,
   CheckCircle2,
-  XCircle,
 } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {

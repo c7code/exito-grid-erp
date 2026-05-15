@@ -13,7 +13,7 @@ import {
 import { Label } from '@/components/ui/label';
 import {
   UserPlus, Users, TrendingUp, DollarSign, Plus, Pencil, Trash2,
-  Phone, Mail, Link2, Loader2, Search, RefreshCw,
+  Link2, Loader2, Search, RefreshCw,
 } from 'lucide-react';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
