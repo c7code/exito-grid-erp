@@ -1,9 +1,10 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, Component } from 'react';
+import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PartnerAuthProvider } from './contexts/PartnerAuthContext';
 import { Toaster } from '@/components/ui/sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 
 // Layouts (keep eager — needed immediately)
 import AdminLayout from './layouts/AdminLayout';
@@ -21,6 +22,63 @@ const PageLoader = () => (
     <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
   </div>
 );
+
+// ─── Chunk Error Boundary ─────────────────────────────────────────────────────
+// Detects when a lazy-loaded chunk fails (stale hash after deploy) and reloads
+class ChunkErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; reloading: boolean }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, reloading: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    const isChunkError =
+      error.message?.includes('Failed to fetch dynamically imported module') ||
+      error.message?.includes('Loading chunk') ||
+      error.name === 'ChunkLoadError';
+
+    if (isChunkError && !this.state.reloading) {
+      this.setState({ reloading: true });
+      // Hard reload to pick up new chunk hashes after a deploy
+      setTimeout(() => window.location.reload(), 1000);
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center py-32 gap-4 text-gray-500">
+          {this.state.reloading ? (
+            <>
+              <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+              <p className="text-sm">Atualizando... aguarde um momento.</p>
+            </>
+          ) : (
+            <>
+              <RefreshCw className="w-8 h-8 text-amber-500" />
+              <p className="text-sm">Erro ao carregar módulo.</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600"
+              >
+                Recarregar página
+              </button>
+            </>
+          )}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Lazy-loaded Admin Pages
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
@@ -126,6 +184,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ChunkErrorBoundary>
         <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* Public Routes (sem autenticação) */}
@@ -244,6 +303,7 @@ function App() {
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
         </Suspense>
+        </ChunkErrorBoundary>
       </BrowserRouter>
       <Toaster position="top-right" />
     </AuthProvider>
