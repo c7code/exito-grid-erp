@@ -98,6 +98,7 @@ export default function NewProposalDialog({
     const [clients, setClients] = useState<ClientOption[]>([]);
     const [loadingClients, setLoadingClients] = useState(false);
     const [showClientDialog, setShowClientDialog] = useState(false);
+    const [referralConsultants, setReferralConsultants] = useState<{id:string;name:string}[]>([]);
 
     // Cada anexo tem: arquivo, visibilidade e nome editável
     interface AttachedFileEntry {
@@ -196,6 +197,8 @@ export default function NewProposalDialog({
         materialSummaryText: '',
         serviceSummaryText: '',
         summaryTotalLabel: 'Valor Global',
+        // Parceiro indicador
+        referralConsultantId: '',
     });
 
     const [items, setItems] = useState<ActivityItem[]>([{ ...emptyItem }]);
@@ -310,6 +313,11 @@ export default function NewProposalDialog({
     useEffect(() => {
         if (open) {
             if (clients.length === 0) loadClients();
+            if (referralConsultants.length === 0) {
+                api.getReferralConsultants({}).then((data: any[]) => {
+                    setReferralConsultants(data.map((c: any) => ({ id: c.id, name: c.name })));
+                }).catch(() => {});
+            }
 
             if (initialData) {
                 // Edit Mode
@@ -374,6 +382,7 @@ export default function NewProposalDialog({
                     materialSummaryText: initialData.materialSummaryText || '',
                     serviceSummaryText: initialData.serviceSummaryText || '',
                     summaryTotalLabel: initialData.summaryTotalLabel || 'Valor Global',
+                    referralConsultantId: initialData.referralConsultantId || '',
                 });
                 if (initialData.items && initialData.items.length > 0) {
                     setItems(initialData.items.map((it: any) => ({
@@ -615,6 +624,7 @@ export default function NewProposalDialog({
             materialSummaryText: '',
             serviceSummaryText: '',
             summaryTotalLabel: 'Valor Global',
+            referralConsultantId: '',
         });
         setItems([{ ...emptyItem }]);
         setErrors({});
@@ -839,6 +849,7 @@ export default function NewProposalDialog({
                     materialSummaryText: formData.materialSummaryText || null,
                     serviceSummaryText: formData.serviceSummaryText || null,
                     summaryTotalLabel: formData.summaryTotalLabel || 'Valor Global',
+                    referralConsultantId: formData.referralConsultantId || null,
                 },
                 items: validItems,
             };
@@ -2827,6 +2838,36 @@ export default function NewProposalDialog({
                                 }
                             />
                         </div>
+
+                        {/* Parceiro Indicador */}
+                        {referralConsultants.length > 0 && (
+                            <div className="space-y-2">
+                                <Label htmlFor="prop-referral" className="flex items-center gap-1.5">
+                                    <UserPlus className="w-3.5 h-3.5 text-emerald-500" />
+                                    Parceiro Indicador
+                                    <span className="text-xs text-slate-400 font-normal">(opcional)</span>
+                                </Label>
+                                <Select
+                                    value={formData.referralConsultantId || '__none__'}
+                                    onValueChange={(v) => setFormData({ ...formData, referralConsultantId: v === '__none__' ? '' : v })}
+                                >
+                                    <SelectTrigger id="prop-referral" className="h-9">
+                                        <SelectValue placeholder="Selecione o parceiro que indicou..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none__">Nenhum / Sem indicação</SelectItem>
+                                        {referralConsultants.map((c) => (
+                                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {formData.referralConsultantId && (
+                                    <p className="text-xs text-emerald-600 flex items-center gap-1">
+                                        <span>✓</span> Comissão será atribuída automaticamente ao fechar a venda.
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
                         {/* Anexos */}
                         <div className="space-y-4 pt-4 border-t">

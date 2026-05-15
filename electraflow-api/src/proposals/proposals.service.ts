@@ -115,6 +115,8 @@ export class ProposalsService implements OnModuleInit {
       { col: 'insuranceCostDescription', type: 'TEXT DEFAULT NULL', table: 'proposals' },
       { col: 'complianceText', type: 'TEXT DEFAULT NULL', table: 'proposals' },
       { col: 'customLabel', type: 'VARCHAR DEFAULT NULL', table: 'proposals' },
+      // proposals: referral partner
+      { col: 'referralConsultantId', type: 'UUID DEFAULT NULL', table: 'proposals' },
       // proposal_items
       { col: 'overridePrice', type: 'numeric(15,2) DEFAULT NULL', table: 'proposal_items' },
       { col: 'isBundleParent', type: 'BOOLEAN DEFAULT false', table: 'proposal_items' },
@@ -307,7 +309,7 @@ export class ProposalsService implements OnModuleInit {
       'brokerageCostDescription', 'insuranceCostValue', 'insuranceCostMode', 'insuranceCostPercent',
       'insuranceCostApplyTo', 'insuranceCostEmbedMaterialPct', 'insuranceCostEmbedServicePct',
       'insuranceCostDescription', 'complianceText', 'simulationData', 'createdById', 'updatedById',
-      'revisionNumber',
+      'revisionNumber', 'customLabel', 'referralConsultantId',
     ];
     for (const key of knownFields) {
       if (key in proposalData) {
