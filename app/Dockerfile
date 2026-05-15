@@ -24,10 +24,12 @@ RUN npm install -g serve
 
 COPY --from=builder /app/dist ./dist
 
-# serve.json prevents caching of index.html so browsers always get the latest JS/CSS hashes
-RUN echo '{"headers":[{"source":"index.html","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"},{"key":"Pragma","value":"no-cache"},{"key":"Expires","value":"0"}]},{"source":"assets/**","headers":[{"key":"Cache-Control","value":"public, max-age=31536000, immutable"}]}]}' > dist/serve.json
+# serve.json na raiz /app (nao dentro de dist) para configurar headers + SPA rewrites
+RUN echo '{"rewrites":[{"source":"/**","destination":"/index.html"}],"headers":[{"source":"index.html","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]},{"source":"assets/**","headers":[{"key":"Cache-Control","value":"public, max-age=31536000, immutable"}]}]}' > serve.json
 
 ENV PORT=3000
 EXPOSE 3000
 
-CMD ["sh", "-c", "serve dist -s -l $PORT"]
+# Serve aponta para dist/ usando serve.json da pasta atual (/app)
+CMD ["sh", "-c", "serve dist -l $PORT --config serve.json"]
+
