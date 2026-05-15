@@ -61,28 +61,35 @@ async function bootstrap() {
   }));
 
   // ═══ CORS — must be after helmet ═══
+  const allowedOrigins = [
+    // Local dev
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000',
+    // Production custom domain
+    'https://erp.producao.grupoexito.app.br',
+    // Any env-var configured frontend
+    process.env.FRONTEND_URL,
+  ].filter(Boolean);
+
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, Postman, etc.)
+      // Allow requests with no origin (mobile apps, curl, Postman, server-to-server)
       if (!origin) return callback(null, true);
-      // Allow any Railway subdomain
-      if (origin.endsWith('.up.railway.app')) return callback(null, true);
-      // Allow localhost dev
-      const allowedOrigins = [
-        process.env.FRONTEND_URL || 'http://localhost:5173',
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:3000',
-        'https://erp.producao.grupoexito.app.br',
-      ];
+      // Allow any Railway subdomain (*.up.railway.app)
+      if (origin.includes('.up.railway.app')) return callback(null, true);
+      // Allow explicit list
       if (allowedOrigins.includes(origin)) return callback(null, true);
-      console.warn(`⚠️ CORS blocked origin: ${origin}`);
-      return callback(null, false);
+      // Blocked — log it so we can diagnose
+      console.warn(`⚠️  CORS BLOCKED origin: "${origin}"`);
+      return callback(new Error(`CORS: origin not allowed: ${origin}`), false);
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-Api-Key'],
     exposedHeaders: ['Content-Disposition'],
     credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
     maxAge: 86400,
   });
 
