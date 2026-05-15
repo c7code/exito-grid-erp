@@ -13,7 +13,7 @@ import {
 import { Label } from '@/components/ui/label';
 import {
   UserPlus, Users, TrendingUp, DollarSign, Plus, Pencil, Trash2,
-  Link2, Loader2, Search, RefreshCw,
+  Link2, Loader2, Search, RefreshCw, Key, Copy, CheckCheck,
 } from 'lucide-react';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -46,6 +46,12 @@ export default function SolarReferrals() {
   const [linkLead, setLinkLead] = useState<Lead|null>(null);
   const [linkProposalId, setLinkProposalId] = useState('');
   const [proposals, setProposals] = useState<any[]>([]);
+
+  // Generate access dialog
+  const [accessDialog, setAccessDialog] = useState(false);
+  const [accessCredentials, setAccessCredentials] = useState<{email:string;password:string}|null>(null);
+  const [generatingAccess, setGeneratingAccess] = useState(false);
+  const [copiedField, setCopiedField] = useState<string|null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -128,6 +134,24 @@ export default function SolarReferrals() {
       toast.success('Proposta vinculada!');
       setLinkDialog(false); load();
     } catch { toast.error('Erro ao vincular proposta'); }
+  };
+
+  // ─── Generate Access ─────────────────────────────────────────────────────
+  const generateAccess = async (consultant: Consultant) => {
+    setGeneratingAccess(true);
+    try {
+      const result = await api.generateConsultantAccess(consultant.id);
+      setAccessCredentials({ email: result.email, password: result.password });
+      setAccessDialog(true);
+      toast.success('Acesso gerado com sucesso!');
+    } catch { toast.error('Erro ao gerar acesso'); }
+    finally { setGeneratingAccess(false); }
+  };
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
   };
 
   // ─── Filtered ─────────────────────────────────────────────────────────────
@@ -276,6 +300,7 @@ export default function SolarReferrals() {
                       </td>
                       <td className="py-3">
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500" title="Gerar Acesso ao Portal" disabled={generatingAccess} onClick={() => generateAccess(c)}><Key className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500" onClick={() => openEditConsultant(c)}><Pencil className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteConsultant(c.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                         </div>
@@ -385,6 +410,73 @@ export default function SolarReferrals() {
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setLinkDialog(false)}>Cancelar</Button>
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={saveLink}>Salvar Vínculo</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Access Credentials Dialog */}
+      <Dialog open={accessDialog} onOpenChange={setAccessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="w-4 h-4 text-emerald-500" /> Acesso Gerado com Sucesso
+            </DialogTitle>
+            <DialogDescription>
+              Envie estas credenciais ao parceiro. A senha <strong>não poderá ser visualizada novamente</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="bg-slate-50 rounded-lg border border-slate-200 p-4 space-y-3">
+              <div>
+                <p className="text-xs text-slate-500 mb-1">URL de Acesso</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-white border border-slate-200 rounded px-3 py-2 text-blue-600 break-all">
+                    {window.location.origin}/partner/login
+                  </code>
+                  <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(`${window.location.origin}/partner/login`, 'url')}>
+                    {copiedField === 'url' ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Email</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-white border border-slate-200 rounded px-3 py-2 text-slate-800">
+                    {accessCredentials?.email}
+                  </code>
+                  <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(accessCredentials?.email || '', 'email')}>
+                    {copiedField === 'email' ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Senha Temporária</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-sm font-bold bg-white border border-emerald-300 rounded px-3 py-2 text-emerald-700">
+                    {accessCredentials?.password}
+                  </code>
+                  <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(accessCredentials?.password || '', 'password')}>
+                    {copiedField === 'password' ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded p-3">
+              ⚠️ Copie e envie agora via WhatsApp ou Email. Esta senha não será exibida novamente.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+              onClick={() => {
+                const text = `*Acesso ao Portal de Indicações*\n\nURL: ${window.location.origin}/partner/login\nEmail: ${accessCredentials?.email}\nSenha: ${accessCredentials?.password}\n\nAcesse e acompanhe seus leads e comissões!`;
+                copyToClipboard(text, 'all');
+              }}
+            >
+              {copiedField === 'all' ? <CheckCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              Copiar Tudo para WhatsApp
+            </Button>
+            <Button variant="outline" onClick={() => setAccessDialog(false)}>Fechar</Button>
           </div>
         </DialogContent>
       </Dialog>
