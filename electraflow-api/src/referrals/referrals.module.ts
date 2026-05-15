@@ -14,9 +14,11 @@ import {
 import { ReferralsService } from './referrals.service';
 import { ReferralsController } from './referrals.controller';
 import { PartnerJwtStrategy } from './partner-jwt.strategy';
+import { SupabaseStorageService } from '../documents/supabase-storage.service';
 
 @Module({
   imports: [
+    ConfigModule,
     TypeOrmModule.forFeature([
       ReferralConsultant,
       ReferralLead,
@@ -38,7 +40,7 @@ import { PartnerJwtStrategy } from './partner-jwt.strategy';
     }),
   ],
   controllers: [ReferralsController],
-  providers: [ReferralsService, PartnerJwtStrategy],
+  providers: [ReferralsService, PartnerJwtStrategy, SupabaseStorageService],
   exports: [ReferralsService],
 })
 export class ReferralsModule {}

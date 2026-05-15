@@ -678,6 +678,8 @@ export class ReferralsService implements OnModuleInit {
 
   async addLeadDocument(
     leadId: string,
+    publicUrl: string,
+    storagePath: string,
     file: Express.Multer.File,
     meta: {
       docType?: 'upload' | 'share';
@@ -693,11 +695,11 @@ export class ReferralsService implements OnModuleInit {
 
     const doc = this.docRepo.create({
       leadId,
-      fileName: file.filename,
+      fileName: storagePath,
       originalName: file.originalname,
       mimeType: file.mimetype,
       size: file.size,
-      url: `/uploads/lead-documents/${file.filename}`,
+      url: publicUrl,
       docType: meta.docType || 'upload',
       visibility: meta.visibility || 'public',
       targetConsultantId: meta.targetConsultantId || null,

@@ -3,28 +3,18 @@ import {
   UseGuards, Request, UseInterceptors, UploadedFile, BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import * as fs from 'fs';
+import { memoryStorage } from 'multer';
 import { ReferralsService } from './referrals.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PartnerAuthGuard } from './partner-auth.guard';
-
-// Garante que a pasta existe
-const LEAD_DOCS_DIR = join(process.cwd(), 'uploads', 'lead-documents');
-if (!fs.existsSync(LEAD_DOCS_DIR)) fs.mkdirSync(LEAD_DOCS_DIR, { recursive: true });
-
-const leadDocStorage = diskStorage({
-  destination: LEAD_DOCS_DIR,
-  filename: (_req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${unique}${extname(file.originalname)}`);
-  },
-});
+import { SupabaseStorageService } from '../documents/supabase-storage.service';
 
 @Controller('referrals')
 export class ReferralsController {
-  constructor(private readonly service: ReferralsService) {}
+  constructor(
+    private readonly service: ReferralsService,
+    private readonly supabaseStorage: SupabaseStorageService,
+  ) {}
 
   // ─── PORTAL DO PARCEIRO — ROTAS PÚBLICAS ─────
   @Post('partner/login')
@@ -233,10 +223,10 @@ export class ReferralsController {
     return this.service.getLeadDocuments(leadId, req.user.consultantId);
   }
 
-  // Upload de documento (admin ou time)
+  // Upload de documento (admin ou time) — Supabase Storage
   @UseGuards(JwtAuthGuard)
   @Post('leads/:id/documents')
-  @UseInterceptors(FileInterceptor('file', { storage: leadDocStorage }))
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
   async uploadLeadDocument(
     @Param('id') leadId: string,
     @UploadedFile() file: Express.Multer.File,
@@ -244,7 +234,9 @@ export class ReferralsController {
     @Request() req: any,
   ) {
     if (!file) throw new BadRequestException('Nenhum arquivo enviado');
-    return this.service.addLeadDocument(leadId, file, {
+    const storagePath = `lead-documents/${leadId}/${Date.now()}-${file.originalname}`;
+    const publicUrl = await this.supabaseStorage.upload(storagePath, file.buffer, file.mimetype);
+    return this.service.addLeadDocument(leadId, publicUrl, storagePath, file, {
       docType: body.docType || 'share',
       visibility: body.visibility || 'public',
       targetConsultantId: body.targetConsultantId || null,
@@ -254,10 +246,10 @@ export class ReferralsController {
     });
   }
 
-  // Upload de documento (parceiro/consultor)
+  // Upload de documento (parceiro/consultor) — Supabase Storage
   @UseGuards(PartnerAuthGuard)
   @Post('partner/leads/:id/documents')
-  @UseInterceptors(FileInterceptor('file', { storage: leadDocStorage }))
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
   async uploadPartnerLeadDocument(
     @Param('id') leadId: string,
     @UploadedFile() file: Express.Multer.File,
@@ -265,7 +257,9 @@ export class ReferralsController {
     @Request() req: any,
   ) {
     if (!file) throw new BadRequestException('Nenhum arquivo enviado');
-    return this.service.addLeadDocument(leadId, file, {
+    const storagePath = `lead-documents/${leadId}/${Date.now()}-${file.originalname}`;
+    const publicUrl = await this.supabaseStorage.upload(storagePath, file.buffer, file.mimetype);
+    return this.service.addLeadDocument(leadId, publicUrl, storagePath, file, {
       docType: 'upload',
       visibility: body.visibility || 'public',
       targetConsultantId: body.targetConsultantId || null,
