@@ -3285,6 +3285,12 @@ class ApiService {
       headers: { Authorization: `Bearer ${partnerToken}` },
     })).data;
   }
+
+  async getPartnerAllDocuments(partnerToken: string) {
+    return (await this.client.get('/referrals/partner/all-documents', {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
 }
 
 export const api = new ApiService();

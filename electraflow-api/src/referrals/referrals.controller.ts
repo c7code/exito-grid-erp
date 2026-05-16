@@ -342,6 +342,13 @@ export class ReferralsController {
     return this.service.deleteBroadcastDocument(docId);
   }
 
+  // Listar todos os documentos do parceiro (broadcast + lead docs) em 3 categorias
+  @UseGuards(PartnerAuthGuard)
+  @Get('partner/all-documents')
+  async getPartnerAllDocuments(@Request() req: any) {
+    return this.service.getPartnerAllDocuments(req.user.consultantId);
+  }
+
   // Listar documentos gerais para o parceiro (filtrado pelo accessChannel do consultor)
   @UseGuards(PartnerAuthGuard)
   @Get('partner/broadcast-docs')

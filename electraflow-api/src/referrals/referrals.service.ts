@@ -816,5 +816,70 @@ export class ReferralsService implements OnModuleInit {
     });
     return this.broadcastDocRepo.findOne({ where: { id: docId } });
   }
+
+  // Retorna TODOS os documentos visíveis ao parceiro em 3 categorias
+  async getPartnerAllDocuments(consultantId: string) {
+    const consultant = await this.consultantRepo.findOne({ where: { id: consultantId } });
+    if (!consultant) throw new NotFoundException('Parceiro não encontrado');
+
+    const channel = consultant.accessChannel || 'all';
+
+    // 1. Documentos broadcast (para todos OU para o canal específico)
+    const broadcastDocs = await this.broadcastDocRepo
+      .createQueryBuilder('b')
+      .where('b."deletedAt" IS NULL')
+      .andWhere('(b."targetChannel" = \'all\' OR b."targetChannel" = :ch)', { ch: channel })
+      .orderBy('b."createdAt"', 'DESC')
+      .getMany();
+
+    // Busca os leads do parceiro
+    const leads = await this.leadRepo.find({ where: { consultantId } });
+    const leadIds = leads.map(l => l.id);
+
+    // 2. Documentos públicos dos leads do parceiro
+    let publicDocs: any[] = [];
+    // 3. Documentos privados endereçados a este parceiro
+    let privateDocs: any[] = [];
+
+    if (leadIds.length > 0) {
+      const allLeadDocs = await this.docRepo
+        .createQueryBuilder('d')
+        .where('d."leadId" IN (:...ids)', { ids: leadIds })
+        .andWhere('d."deletedAt" IS NULL')
+        .andWhere('(d.visibility = \'public\' OR d."targetConsultantId" = :cid)', { cid: consultantId })
+        .leftJoin(
+          'referral_leads', 'l', 'l.id = d."leadId"'
+        )
+        .addSelect(['l."clientName"'])
+        .orderBy('d."createdAt"', 'DESC')
+        .getRawAndEntities();
+
+      // Enriquecer com clientName do lead
+      const rawMap: Record<string, string> = {};
+      allLeadDocs.raw.forEach((r: any) => {
+        rawMap[r.d_id] = r.l_clientName || r['l_clientName'] || '';
+      });
+
+      const enriched = allLeadDocs.entities.map(d => ({
+        ...d,
+        leadClientName: rawMap[d.id] || '',
+      }));
+
+      publicDocs = enriched.filter(d => d.visibility === 'public');
+      privateDocs = enriched.filter(d => d.visibility === 'private' && d.targetConsultantId === consultantId);
+    }
+
+    return {
+      broadcast: broadcastDocs,
+      publicLeadDocs: publicDocs,
+      privateLeadDocs: privateDocs,
+      stats: {
+        total: broadcastDocs.length + publicDocs.length + privateDocs.length,
+        broadcast: broadcastDocs.length,
+        public: publicDocs.length,
+        exclusive: privateDocs.length,
+      },
+    };
+  }
 }
 

@@ -131,6 +131,7 @@ const PartnerLogin = lazy(() => import('./pages/partner/PartnerLogin'));
 const PartnerDashboard = lazy(() => import('./pages/partner/PartnerDashboard'));
 const PartnerLeads = lazy(() => import('./pages/partner/PartnerLeads'));
 const PartnerCommissions = lazy(() => import('./pages/partner/PartnerCommissions'));
+const PartnerDocuments = lazy(() => import('./pages/partner/PartnerDocuments'));
 
 // Employee Pages (no longer used — employees redirect to admin layout)
 
@@ -284,6 +285,7 @@ function App() {
               <Route path="leads" element={<PartnerLeads />} />
               <Route path="new-lead" element={<PartnerLeads />} />
               <Route path="commissions" element={<PartnerCommissions />} />
+              <Route path="documents" element={<PartnerDocuments />} />
             </Route>
           </Route>
 

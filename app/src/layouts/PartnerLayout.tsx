@@ -12,12 +12,14 @@ import {
   X,
   ChevronDown,
   Zap,
+  FileText,
 } from 'lucide-react';
 
 const partnerNavItems = [
   { path: '/partner/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/partner/leads', label: 'Meus Leads', icon: Users },
   { path: '/partner/new-lead', label: 'Indicar Lead', icon: PlusCircle },
+  { path: '/partner/documents', label: 'Documentos', icon: FileText },
   { path: '/partner/commissions', label: 'Financeiro', icon: DollarSign },
 ];
 
