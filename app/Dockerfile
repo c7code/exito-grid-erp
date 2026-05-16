@@ -9,7 +9,7 @@ ENV VITE_API_URL=$VITE_API_URL
 COPY package*.json ./
 RUN npm ci
 
-ARG CACHEBUST=1
+ARG CACHEBUST=2
 COPY . .
 RUN npm run build
 
