@@ -59,6 +59,12 @@ export function PartnerAuthProvider({ children }: { children: ReactNode }) {
 
   const partnerLogin = async (email: string, password: string) => {
     setIsLoading(true);
+    // Remove qualquer token admin stale para evitar que o interceptor da API
+    // envie um token expirado no header e dispare logout antes do login completar
+    const staleAdminToken = localStorage.getItem('electraflow_token');
+    const staleRefreshToken = localStorage.getItem('electraflow_refresh_token');
+    localStorage.removeItem('electraflow_token');
+    localStorage.removeItem('electraflow_refresh_token');
     try {
       const data = await api.partnerLogin(email, password);
       const token = data.access_token;
@@ -68,10 +74,16 @@ export function PartnerAuthProvider({ children }: { children: ReactNode }) {
       setConsultant(consultantData);
       localStorage.setItem(PARTNER_TOKEN_KEY, token);
       localStorage.setItem(PARTNER_USER_KEY, JSON.stringify(consultantData));
+    } catch (err) {
+      // Restaurar tokens admin se o login do parceiro falhar
+      if (staleAdminToken) localStorage.setItem('electraflow_token', staleAdminToken);
+      if (staleRefreshToken) localStorage.setItem('electraflow_refresh_token', staleRefreshToken);
+      throw err;
     } finally {
       setIsLoading(false);
     }
   };
+
 
   const partnerLogout = () => {
     setPartnerToken(null);

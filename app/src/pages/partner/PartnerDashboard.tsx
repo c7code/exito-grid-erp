@@ -9,6 +9,8 @@ import {
   ArrowUpRight,
   Clock,
   CheckCircle2,
+  FileText,
+  Download,
 } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -66,6 +68,7 @@ export default function PartnerDashboard() {
   const { partnerToken } = usePartnerAuth();
   const [leads, setLeads] = useState<any[]>([]);
   const [commissions, setCommissions] = useState<any[]>([]);
+  const [broadcastDocs, setBroadcastDocs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -73,9 +76,11 @@ export default function PartnerDashboard() {
     Promise.all([
       api.getPartnerLeads(partnerToken),
       api.getPartnerCommissions(partnerToken),
-    ]).then(([l, c]) => {
+      api.getPartnerBroadcastDocuments(partnerToken),
+    ]).then(([l, c, docs]) => {
       setLeads(l);
       setCommissions(c);
+      setBroadcastDocs(Array.isArray(docs) ? docs : []);
     }).finally(() => setIsLoading(false));
   }, [partnerToken]);
 
@@ -186,6 +191,37 @@ export default function PartnerDashboard() {
           </div>
         )}
       </div>
+
+      {/* Documentos da Equipe */}
+      {broadcastDocs.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-emerald-500" /> Documentos da Equipe
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">Materiais enviados pela equipe Exito para você</p>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {broadcastDocs.map((doc: any) => (
+              <div key={doc.id} className="px-6 py-3.5 flex items-center gap-3 hover:bg-gray-50/50 transition-colors">
+                <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center text-base flex-shrink-0">
+                  {doc.mimeType === 'application/pdf' ? '📄' : doc.mimeType?.startsWith('image/') ? '🖼️' : '📁'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{doc.description || doc.originalName}</p>
+                  <p className="text-xs text-gray-400">{doc.originalName} · {new Date(doc.createdAt).toLocaleDateString('pt-BR')}</p>
+                </div>
+                <a href={doc.url?.startsWith('http') ? doc.url : `${(import.meta.env.VITE_API_URL||'http://localhost:3001/api').replace(/\/api$/,'')}${doc.url}`}
+                  target="_blank" rel="noreferrer"
+                  className="p-2 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors flex-shrink-0"
+                >
+                  <Download className="w-4 h-4" />
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

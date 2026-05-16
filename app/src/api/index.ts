@@ -22,9 +22,14 @@ class ApiService {
 
     this.client.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem('electraflow_token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+        const url = config.url || '';
+        // Não injetar token admin em rotas do portal do parceiro
+        const isPartnerRoute = url.includes('/referrals/partner/');
+        if (!isPartnerRoute) {
+          const token = localStorage.getItem('electraflow_token');
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
         }
         return config;
       },
@@ -49,8 +54,10 @@ class ApiService {
         const isExternalApi = ['/fiscal/', '/catalog/', '/sinapi/', '/budgets'].some(p => requestUrl.includes(p));
         // Skip refresh for auth endpoints themselves
         const isAuthEndpoint = requestUrl.includes('/auth/');
+        // Skip refresh for partner portal routes (use own token flow)
+        const isPartnerRoute = requestUrl.includes('/referrals/partner/');
 
-        if (error.response?.status === 401 && !originalRequest._retry && !isExternalApi && !isAuthEndpoint) {
+        if (error.response?.status === 401 && !originalRequest._retry && !isExternalApi && !isAuthEndpoint && !isPartnerRoute) {
           const refreshToken = localStorage.getItem('electraflow_refresh_token');
 
           if (refreshToken) {
@@ -3194,6 +3201,12 @@ class ApiService {
     return (await this.client.get(`/referrals/leads/${leadId}/documents`, { params })).data;
   }
 
+  async getPartnerLeadDocuments(leadId: string, partnerToken: string) {
+    return (await this.client.get(`/referrals/partner/leads/${leadId}/documents`, {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
   async uploadLeadDocument(
     leadId: string,
     file: File,
@@ -3235,6 +3248,36 @@ class ApiService {
 
   async updateLeadDocumentVisibility(docId: string, visibility: 'public' | 'private', targetConsultantId?: string) {
     return (await this.client.put(`/referrals/leads/documents/${docId}/visibility`, { visibility, targetConsultantId })).data;
+  }
+
+  // ─── BROADCAST DE DOCUMENTOS ─────────────────────────────────────────────────
+
+  async getBroadcastDocuments(channel?: string) {
+    const params = channel ? { channel } : {};
+    return (await this.client.get('/referrals/broadcast-docs', { params })).data;
+  }
+
+  async uploadBroadcastDocument(
+    file: File,
+    meta: { targetChannel?: 'all' | 'solar' | 'oem' | 'equipment'; description?: string },
+  ) {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('targetChannel', meta.targetChannel || 'all');
+    if (meta.description) form.append('description', meta.description);
+    return (await this.client.post('/referrals/broadcast-docs', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })).data;
+  }
+
+  async deleteBroadcastDocument(docId: string) {
+    return (await this.client.delete(`/referrals/broadcast-docs/${docId}`)).data;
+  }
+
+  async getPartnerBroadcastDocuments(partnerToken: string) {
+    return (await this.client.get('/referrals/partner/broadcast-docs', {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
   }
 }
 

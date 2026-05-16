@@ -5,6 +5,55 @@ import {
 } from 'typeorm';
 
 // ═══════════════════════════════════════════
+// 0. DOCUMENTO GERAL (BROADCAST)
+// ═══════════════════════════════════════════
+export type BroadcastChannel = 'all' | 'solar' | 'oem' | 'equipment';
+
+@Entity('broadcast_documents')
+export class BroadcastDocument {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  fileName: string;
+
+  @Column()
+  originalName: string;
+
+  @Column({ nullable: true })
+  mimeType: string;
+
+  @Column({ type: 'int', nullable: true })
+  size: number;
+
+  @Column()
+  url: string;
+
+  // 'all' = todos os indicadores | 'solar' | 'oem' | 'equipment' = filtro por canal
+  @Column({ default: 'all' })
+  targetChannel: BroadcastChannel;
+
+  @Column({ nullable: true })
+  uploadedBy: string;
+
+  @Column({ default: 'admin' })
+  uploadedByRole: string;
+
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
+}
+
+
+// ═══════════════════════════════════════════
 // 1. CONSULTOR / SDR
 // ═══════════════════════════════════════════
 export type ConsultantStatus = 'active' | 'inactive' | 'training' | 'idle';

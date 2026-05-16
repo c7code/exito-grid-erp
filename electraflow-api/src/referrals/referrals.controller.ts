@@ -286,4 +286,47 @@ export class ReferralsController {
   deleteLeadDocument(@Param('docId') docId: string) {
     return this.service.deleteLeadDocument(docId);
   }
+
+  // ─── BROADCAST DE DOCUMENTOS ─────────────────────────────────────────
+
+  // Listar documentos gerais (admin — sem filtro de canal)
+  @UseGuards(JwtAuthGuard)
+  @Get('broadcast-docs')
+  getBroadcastDocuments(@Query('channel') channel?: string) {
+    return this.service.getBroadcastDocuments(channel);
+  }
+
+  // Upload de documento geral (admin)
+  @UseGuards(JwtAuthGuard)
+  @Post('broadcast-docs')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  async uploadBroadcastDocument(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+    @Request() req: any,
+  ) {
+    if (!file) throw new BadRequestException('Nenhum arquivo enviado');
+    const storagePath = `broadcast-documents/${Date.now()}-${file.originalname}`;
+    const publicUrl = await this.supabaseStorage.upload(storagePath, file.buffer, file.mimetype);
+    return this.service.addBroadcastDocument(publicUrl, storagePath, file, {
+      targetChannel: body.targetChannel || 'all',
+      uploadedBy: req.user?.name || req.user?.email || 'Admin',
+      description: body.description || null,
+    });
+  }
+
+  // Deletar documento geral (admin)
+  @UseGuards(JwtAuthGuard)
+  @Delete('broadcast-docs/:docId')
+  deleteBroadcastDocument(@Param('docId') docId: string) {
+    return this.service.deleteBroadcastDocument(docId);
+  }
+
+  // Listar documentos gerais para o parceiro (filtrado pelo accessChannel do consultor)
+  @UseGuards(PartnerAuthGuard)
+  @Get('partner/broadcast-docs')
+  async getPartnerBroadcastDocs(@Request() req: any) {
+    const profile = await this.service.getPartnerProfile(req.user.consultantId);
+    return this.service.getBroadcastDocuments(profile.accessChannel || 'all');
+  }
 }

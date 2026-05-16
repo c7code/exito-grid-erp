@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import {
   UserPlus, Users, TrendingUp, DollarSign, Plus, Pencil, Trash2,
   Link2, Loader2, Search, RefreshCw, Key, Copy, CheckCheck,
-  MapPin, FileUp, FolderOpen, Globe, Lock, Download, X, Tag,
+  MapPin, FileUp, FolderOpen, Globe, Lock, Download, X, Tag, Radio,
 } from 'lucide-react';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -30,7 +30,8 @@ interface LeadDoc {
   visibility: 'public' | 'private'; uploadedBy?: string; uploadedByRole?: string;
   targetConsultantId?: string; createdAt: string; docType?: string; fileType?: string;
 }
-const FILE_TYPES = ['Conta de Luz','CPF / RG','CNPJ','Comprovante de Endereço','Proposta','Contrato','Foto da Instalação','Projeto Elétrico','Laudo Técnico','Orçamento','Outro'];
+const FILE_TYPES = ['Conta de Luz','CPF / RG','CNPJ','Comprovante de Endereço','Proposta','Contrato','Foto da Instalação','Projeto Elétrico','Laudo Técnico','Orçamento','Outro (personalizado)'];
+const CHANNEL_LABELS: Record<string,string> = { all:'Todos os Indicadores', solar:'Energia Solar', oem:'OEM / Transformadores', equipment:'Locação de Equipamentos' };
 
 const SERVICES_LIST = ['Solar Fotovoltaico','OEM / Transformadores','Locação de Equipamentos','Elétrica Industrial','Elétrica Predial','Projeto Elétrico','Manutenção Elétrica','Outros'];
 const STATUSES = ['new','contacted','proposal_sent','negotiating','converted','lost'];
@@ -38,7 +39,7 @@ const STATUS_LABEL: Record<string,string> = { new:'Novo', contacted:'Contatado',
 const STATUS_COLOR: Record<string,string> = { new:'bg-blue-100 text-blue-700', contacted:'bg-yellow-100 text-yellow-700', proposal_sent:'bg-purple-100 text-purple-700', negotiating:'bg-orange-100 text-orange-700', converted:'bg-green-100 text-green-700', lost:'bg-red-100 text-red-700' };
 
 export default function SolarReferrals() {
-  const [tab, setTab] = useState<'leads'|'consultants'>('leads');
+  const [tab, setTab] = useState<'leads'|'consultants'|'broadcast'>('leads');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [consultants, setConsultants] = useState<Consultant[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,9 +67,18 @@ export default function SolarReferrals() {
   const [uploadTarget, setUploadTarget] = useState('');
   const [uploadDesc, setUploadDesc] = useState('');
   const [uploadFileType, setUploadFileType] = useState('');
+  const [customFileType, setCustomFileType] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [togglingDoc, setTogglingDoc] = useState<string|null>(null);
+
+  // Broadcast docs
+  const [broadcastDocs, setBroadcastDocs] = useState<any[]>([]);
+  const [broadcastLoading, setBroadcastLoading] = useState(false);
+  const [broadcastUploading, setBroadcastUploading] = useState(false);
+  const [broadcastChannel, setBroadcastChannel] = useState<'all'|'solar'|'oem'|'equipment'>('all');
+  const [broadcastDesc, setBroadcastDesc] = useState('');
+  const broadcastFileRef = useRef<HTMLInputElement>(null);
 
   // Link proposal dialog
   const [linkDialog, setLinkDialog] = useState(false);
@@ -93,7 +103,15 @@ export default function SolarReferrals() {
     finally { setLoading(false); }
   };
 
+  const loadBroadcast = async () => {
+    setBroadcastLoading(true);
+    try { const d = await api.getBroadcastDocuments(); setBroadcastDocs(Array.isArray(d) ? d : []); }
+    catch { toast.error('Erro ao carregar documentos gerais'); }
+    finally { setBroadcastLoading(false); }
+  };
+
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (tab === 'broadcast') loadBroadcast(); }, [tab]);
 
   // ─── Consultant CRUD ──────────────────────────────────────────────────────
   const openNewConsultant = () => {
@@ -205,14 +223,35 @@ export default function SolarReferrals() {
     const file = fileRef.current.files[0];
     setUploading(true);
     try {
-      const desc = [uploadFileType, uploadDesc].filter(Boolean).join(' — ');
+      const effectiveType = uploadFileType === 'Outro (personalizado)' ? (customFileType.trim() || 'Outro') : uploadFileType;
+      const desc = [effectiveType, uploadDesc].filter(Boolean).join(' — ');
       await api.uploadLeadDocument(docLead.id, file, { visibility: uploadVisibility, targetConsultantId: uploadTarget || undefined, description: desc || undefined });
       toast.success('Documento enviado!');
-      setUploadDesc(''); setUploadTarget(''); setUploadVisibility('public'); setUploadFileType('');
+      setUploadDesc(''); setUploadTarget(''); setUploadVisibility('public'); setUploadFileType(''); setCustomFileType('');
       if (fileRef.current) fileRef.current.value = '';
       const d = await api.getLeadDocuments(docLead.id); setDocs(Array.isArray(d) ? d : []);
     } catch { toast.error('Erro ao enviar documento'); }
     finally { setUploading(false); }
+  };
+
+  const uploadBroadcast = async () => {
+    if (!broadcastFileRef.current?.files?.[0]) return;
+    const file = broadcastFileRef.current.files[0];
+    setBroadcastUploading(true);
+    try {
+      await api.uploadBroadcastDocument(file, { targetChannel: broadcastChannel, description: broadcastDesc || undefined });
+      toast.success('Documento geral enviado!');
+      setBroadcastDesc('');
+      if (broadcastFileRef.current) broadcastFileRef.current.value = '';
+      await loadBroadcast();
+    } catch { toast.error('Erro ao enviar documento'); }
+    finally { setBroadcastUploading(false); }
+  };
+
+  const deleteBroadcastDoc = async (docId: string) => {
+    if (!confirm('Remover documento geral?')) return;
+    try { await api.deleteBroadcastDocument(docId); setBroadcastDocs(p => p.filter(d => d.id !== docId)); toast.success('Removido!'); }
+    catch { toast.error('Erro ao remover'); }
   };
   const toggleDocVisibility = async (doc: LeadDoc) => {
     setTogglingDoc(doc.id);
@@ -274,13 +313,17 @@ export default function SolarReferrals() {
       {/* Tabs */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="flex border-b border-slate-200">
-          {(['leads','consultants'] as const).map(t => (
+          {([
+            { key: 'leads', label: 'Leads' },
+            { key: 'consultants', label: 'Parceiros' },
+            { key: 'broadcast', label: '📢 Documentos Gerais' },
+          ] as const).map(t => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={['px-6 py-3 text-sm font-medium border-b-2 transition-colors', tab === t ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-slate-500 hover:text-slate-700'].join(' ')}
+              key={t.key}
+              onClick={() => setTab(t.key as any)}
+              className={['px-6 py-3 text-sm font-medium border-b-2 transition-colors', tab === t.key ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-slate-500 hover:text-slate-700'].join(' ')}
             >
-              {t === 'leads' ? 'Leads' : 'Parceiros'}
+              {t.label}
             </button>
           ))}
         </div>
@@ -403,6 +446,81 @@ export default function SolarReferrals() {
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* ─── Broadcast Docs Tab ──────────────────────────────────────── */}
+          {tab === 'broadcast' && (
+            <div className="space-y-5">
+              {/* Upload section */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <Radio className="w-4 h-4 text-amber-500" /> Enviar Documento para Indicadores
+                </p>
+                <input ref={broadcastFileRef} type="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100" />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-medium text-slate-600 mb-1 block">Canal Destino</label>
+                    <Select value={broadcastChannel} onValueChange={(v) => setBroadcastChannel(v as any)}>
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">📢 Todos os Indicadores</SelectItem>
+                        <SelectItem value="solar">☀️ Energia Solar</SelectItem>
+                        <SelectItem value="oem">⚡ OEM / Transformadores</SelectItem>
+                        <SelectItem value="equipment">🏗️ Locação de Equipamentos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600 mb-1 block">Descrição (opcional)</label>
+                    <Input value={broadcastDesc} onChange={e => setBroadcastDesc(e.target.value)} placeholder="Ex: Manual de vendas Solar" />
+                  </div>
+                </div>
+                <Button size="sm" onClick={uploadBroadcast} disabled={broadcastUploading} className="bg-amber-500 hover:bg-amber-600 text-slate-900">
+                  {broadcastUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <FileUp className="w-3.5 h-3.5 mr-1" />}
+                  Enviar para Indicadores
+                </Button>
+              </div>
+
+              {/* List */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-semibold text-slate-700">Documentos Enviados ({broadcastDocs.length})</p>
+                  <Button variant="outline" size="sm" onClick={loadBroadcast}><RefreshCw className="w-3.5 h-3.5 mr-1" />Atualizar</Button>
+                </div>
+                {broadcastLoading && <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-amber-500" /></div>}
+                {!broadcastLoading && broadcastDocs.length === 0 && (
+                  <div className="text-center py-10 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-xl">
+                    <Radio className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    Nenhum documento geral enviado ainda.
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {broadcastDocs.map((doc: any) => (
+                    <div key={doc.id} className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-3 hover:border-amber-200 transition-colors">
+                      <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center text-lg flex-shrink-0">
+                        {doc.mimeType === 'application/pdf' ? '📄' : doc.mimeType?.startsWith('image/') ? '🖼️' : '📁'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">{doc.description || doc.originalName}</p>
+                        <p className="text-xs text-slate-400">{doc.originalName} · {doc.uploadedBy} · {new Date(doc.createdAt).toLocaleDateString('pt-BR')}</p>
+                        <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                          {CHANNEL_LABELS[doc.targetChannel] || doc.targetChannel}
+                        </span>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <a href={resolveUrl(doc.url)} target="_blank" rel="noreferrer">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500"><Download className="w-3.5 h-3.5" /></Button>
+                        </a>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteBroadcastDoc(doc.id)}><X className="w-3.5 h-3.5" /></Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -622,12 +740,18 @@ export default function SolarReferrals() {
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
             <p className="text-sm font-semibold text-slate-700 flex items-center gap-2"><FileUp className="w-4 h-4 text-purple-500" />Enviar Arquivo</p>
             <input ref={fileRef} type="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" />
-            <div className="grid grid-cols-2 gap-2">
-              <Select value={uploadFileType} onValueChange={setUploadFileType}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Tipo / finalidade do arquivo" /></SelectTrigger>
-                <SelectContent>{FILE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-              </Select>
-              <Input value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} placeholder="Observação (opcional)" />
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <Select value={uploadFileType} onValueChange={(v) => { setUploadFileType(v); if (v !== 'Outro (personalizado)') setCustomFileType(''); }}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Tipo / finalidade do arquivo" /></SelectTrigger>
+                  <SelectContent>{FILE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
+                <Input value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} placeholder="Observação (opcional)" />
+              </div>
+              {uploadFileType === 'Outro (personalizado)' && (
+                <Input value={customFileType} onChange={e => setCustomFileType(e.target.value)}
+                  placeholder="Digite o tipo do documento..." className="border-amber-300 focus:ring-amber-400" />
+              )}
             </div>
             <div className="flex gap-3 items-center flex-wrap">
               <div className="flex gap-2">

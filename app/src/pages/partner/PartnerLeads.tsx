@@ -22,7 +22,7 @@ const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
   closed_won: { bg: '#f0fdf4', text: '#15803d' }, lost: { bg: '#fef2f2', text: '#b91c1c' },
   closed_lost: { bg: '#fef2f2', text: '#b91c1c' }, no_profile: { bg: '#f8fafc', text: '#64748b' },
 };
-const FILE_TYPES = ['Conta de Luz','CPF / RG','CNPJ','Comprovante de Endereço','Foto do Local','Projeto Elétrico','Outro'];
+const FILE_TYPES = ['Conta de Luz','CPF / RG','CNPJ','Comprovante de Endereço','Foto do Local','Projeto Elétrico','Contrato','Orçamento','Outro (personalizado)'];
 
 interface LeadDoc {
   id: string; originalName: string; mimeType?: string; url: string;
@@ -37,7 +37,7 @@ const resolveUrl = (url: string) =>
   url?.startsWith('http') ? url : `${(import.meta.env.VITE_API_URL||'http://localhost:3001/api').replace(/\/api$/,'')}${url}`;
 
 export default function PartnerLeads() {
-  const { partnerToken, consultant } = usePartnerAuth();
+  const { partnerToken } = usePartnerAuth();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -51,8 +51,10 @@ export default function PartnerLeads() {
   const [docsLoading, setDocsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadFileType, setUploadFileType] = useState('');
+  const [customFileType, setCustomFileType] = useState('');
   const [uploadDesc, setUploadDesc] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+
 
   const fetchLeads = async () => {
     if (!partnerToken) return;
@@ -63,7 +65,7 @@ export default function PartnerLeads() {
 
   const openDocs = async (lead: any) => {
     setDocLead(lead); setDocsLoading(true);
-    try { const d = await api.getLeadDocuments(lead.id, consultant?.id); setDocs(Array.isArray(d) ? d : []); }
+    try { const d = await api.getPartnerLeadDocuments(lead.id, partnerToken!); setDocs(Array.isArray(d) ? d : []); }
     catch { toast.error('Erro ao carregar documentos'); }
     finally { setDocsLoading(false); }
   };
@@ -73,16 +75,18 @@ export default function PartnerLeads() {
     const file = fileRef.current.files[0];
     setUploading(true);
     try {
-      const desc = [uploadFileType, uploadDesc].filter(Boolean).join(' — ');
+      const effectiveType = uploadFileType === 'Outro (personalizado)' ? (customFileType.trim() || 'Outro') : uploadFileType;
+      const desc = [effectiveType, uploadDesc].filter(Boolean).join(' — ');
       await api.uploadPartnerLeadDocument(docLead.id, file, { visibility: 'public', description: desc || undefined }, partnerToken);
       toast.success('Documento enviado!');
-      setUploadFileType(''); setUploadDesc('');
+      setUploadFileType(''); setCustomFileType(''); setUploadDesc('');
       if (fileRef.current) fileRef.current.value = '';
-      const d = await api.getLeadDocuments(docLead.id, consultant?.id);
+      const d = await api.getPartnerLeadDocuments(docLead.id, partnerToken!);
       setDocs(Array.isArray(d) ? d : []);
     } catch { toast.error('Erro ao enviar documento'); }
     finally { setUploading(false); }
   };
+
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Nome é obrigatório'); return; }
@@ -210,16 +214,22 @@ export default function PartnerLeads() {
                 </p>
                 <input ref={fileRef} type="file" accept="image/*,application/pdf,.doc,.docx"
                   className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200" />
-                <div className="grid grid-cols-2 gap-2">
-                  <select value={uploadFileType} onChange={e => setUploadFileType(e.target.value)}
+                <div className="grid grid-cols-1 gap-2">
+                  <select value={uploadFileType} onChange={e => { setUploadFileType(e.target.value); if (e.target.value !== 'Outro (personalizado)') setCustomFileType(''); }}
                     className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
                     <option value="">Tipo do documento...</option>
                     {FILE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
+                  {uploadFileType === 'Outro (personalizado)' && (
+                    <input value={customFileType} onChange={e => setCustomFileType(e.target.value)}
+                      placeholder="Digite o tipo do documento..."
+                      className="px-3 py-2 rounded-lg border border-purple-300 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-purple-50" />
+                  )}
                   <input value={uploadDesc} onChange={e => setUploadDesc(e.target.value)}
                     placeholder="Observação (opcional)"
                     className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
                 </div>
+
                 <button onClick={uploadDoc} disabled={uploading}
                   className="w-full py-2 rounded-lg font-semibold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-60"
                   style={{ background: 'linear-gradient(135deg, #7c3aed, #1d4ed8)' }}>

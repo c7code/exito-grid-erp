@@ -10,7 +10,9 @@ import {
   ReferralFollowup,
   ReferralCommission,
   LeadDocument,
+  BroadcastDocument,
 } from './referral.entity';
+
 import { ReferralsService } from './referrals.service';
 import { ReferralsController } from './referrals.controller';
 import { PartnerJwtStrategy } from './partner-jwt.strategy';
@@ -26,7 +28,9 @@ import { SupabaseStorageService } from '../documents/supabase-storage.service';
       ReferralFollowup,
       ReferralCommission,
       LeadDocument,
+      BroadcastDocument,
     ]),
+
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

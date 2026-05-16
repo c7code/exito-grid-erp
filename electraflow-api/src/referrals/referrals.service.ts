@@ -9,7 +9,9 @@ import {
   ReferralFollowup,
   ReferralCommission,
   LeadDocument,
+  BroadcastDocument,
 } from './referral.entity';
+
 import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
@@ -29,9 +31,12 @@ export class ReferralsService implements OnModuleInit {
     private commissionRepo: Repository<ReferralCommission>,
     @InjectRepository(LeadDocument)
     private docRepo: Repository<LeadDocument>,
+    @InjectRepository(BroadcastDocument)
+    private broadcastDocRepo: Repository<BroadcastDocument>,
     private dataSource: DataSource,
     private jwtService: JwtService,
   ) {}
+
 
   async onModuleInit() {
     const tables = [
@@ -137,6 +142,22 @@ export class ReferralsService implements OnModuleInit {
         "targetConsultantId" UUID,
         "uploadedBy" VARCHAR,
         "uploadedByRole" VARCHAR DEFAULT 'consultant',
+        "description" TEXT,
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        "updatedAt" TIMESTAMP DEFAULT NOW(),
+        "deletedAt" TIMESTAMP
+      )`,
+      // ─ broadcast_documents ─────────────────────────────────────────────
+      `CREATE TABLE IF NOT EXISTS broadcast_documents (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "fileName" VARCHAR NOT NULL,
+        "originalName" VARCHAR NOT NULL,
+        "mimeType" VARCHAR,
+        "size" INT,
+        "url" VARCHAR NOT NULL,
+        "targetChannel" VARCHAR DEFAULT 'all',
+        "uploadedBy" VARCHAR,
+        "uploadedByRole" VARCHAR DEFAULT 'admin',
         "description" TEXT,
         "createdAt" TIMESTAMP DEFAULT NOW(),
         "updatedAt" TIMESTAMP DEFAULT NOW(),
@@ -729,6 +750,54 @@ export class ReferralsService implements OnModuleInit {
       targetConsultantId: targetConsultantId || null,
     } as any);
     return this.docRepo.findOne({ where: { id: docId } });
+  }
+
+  // ═══════════════════════════════════════════════
+  // BROADCAST DE DOCUMENTOS
+  // ═══════════════════════════════════════════════
+
+  async getBroadcastDocuments(channel?: string) {
+    const qb = this.broadcastDocRepo
+      .createQueryBuilder('b')
+      .where('b."deletedAt" IS NULL');
+
+    if (channel && channel !== 'all') {
+      // Retorna documentos para o canal específico OU para 'all'
+      qb.andWhere('(b."targetChannel" = :ch OR b."targetChannel" = \'all\')', { ch: channel });
+    }
+
+    return qb.orderBy('b."createdAt"', 'DESC').getMany();
+  }
+
+  async addBroadcastDocument(
+    publicUrl: string,
+    storagePath: string,
+    file: Express.Multer.File,
+    meta: {
+      targetChannel?: 'all' | 'solar' | 'oem' | 'equipment';
+      uploadedBy?: string;
+      description?: string;
+    },
+  ) {
+    const doc = this.broadcastDocRepo.create({
+      fileName: storagePath,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+      url: publicUrl,
+      targetChannel: meta.targetChannel || 'all',
+      uploadedBy: meta.uploadedBy || 'Admin',
+      uploadedByRole: 'admin',
+      description: meta.description || null,
+    });
+    return this.broadcastDocRepo.save(doc);
+  }
+
+  async deleteBroadcastDocument(docId: string) {
+    const doc = await this.broadcastDocRepo.findOne({ where: { id: docId } });
+    if (!doc) throw new NotFoundException('Documento não encontrado');
+    await this.broadcastDocRepo.softDelete(docId);
+    return { success: true };
   }
 }
 
