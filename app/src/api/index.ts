@@ -1,13 +1,30 @@
 import axios, { type AxiosInstance, type AxiosError } from 'axios';
 import { toast } from 'sonner';
 
-const RAW_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/+$/, '');
-// Normalise: ensure URL ends with exactly one /api (avoids /api/api duplication)
-const API_URL = RAW_URL.endsWith('/api/api')
-  ? RAW_URL.slice(0, -4)        // strip extra /api
-  : RAW_URL.endsWith('/api')
-    ? RAW_URL                    // already correct
-    : RAW_URL + '/api';          // add /api
+// ─── Detecção automática de URL da API ─────────────────────────────────────
+// Prioridade: VITE_API_URL → detecção Railway → localhost
+function detectApiUrl(): string {
+  const configured = import.meta.env.VITE_API_URL;
+  if (configured) {
+    const raw = configured.replace(/\/+$/, '');
+    if (raw.endsWith('/api/api')) return raw.slice(0, -4);
+    if (raw.endsWith('/api')) return raw;
+    return raw + '/api';
+  }
+  // Auto-detect: se estiver no Railway (*.up.railway.app), tenta inferir a URL da API
+  // baseada na URL do frontend atual, substituindo partes conhecidas do nome do serviço
+  if (typeof window !== 'undefined' && window.location.hostname.includes('.up.railway.app')) {
+    // A URL da API é a variável de ambiente VITE_API_URL definida no Railway
+    // Se não estiver definida, usa a convenção de naming do projeto
+    const host = window.location.hostname;
+    // Tenta construir a URL da API: substitui o hostname do app pelo da api
+    // Ex: exito-grid-erp-production-7cd1.up.railway.app → mesmo host + /api
+    return `https://${host}/api`;
+  }
+  return 'http://localhost:3000/api';
+}
+
+const API_URL = detectApiUrl();
 
 class ApiService {
   public client: AxiosInstance;
