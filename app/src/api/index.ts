@@ -3322,13 +3322,17 @@ class ApiService {
   }
 
   // Parceiro: adicionar mensagem (com ou sem arquivos)
+  // IMPORTANTE: Não setar Content-Type manualmente - axios gera o boundary do multipart automaticamente
   async addPartnerRequestMessage(partnerToken: string, id: string, formDataOrContent: FormData | string) {
-    const isFormData = formDataOrContent instanceof FormData;
     return (await this.client.post(`/partner-requests/partner/${id}/messages`, formDataOrContent, {
-      headers: {
-        Authorization: `Bearer ${partnerToken}`,
-        ...(isFormData ? { 'Content-Type': 'multipart/form-data' } : {}),
-      },
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  // Parceiro: apaga (soft-delete) sua mensagem
+  async deletePartnerRequestMessage(partnerToken: string, msgId: string) {
+    return (await this.client.delete(`/partner-requests/partner/messages/${msgId}`, {
+      headers: { Authorization: `Bearer ${partnerToken}` },
     })).data;
   }
 
@@ -3356,11 +3360,14 @@ class ApiService {
   }
 
   // Admin/Employee: adicionar mensagem como admin/employee (com ou sem arquivos)
+  // IMPORTANTE: Não setar Content-Type manualmente - axios gera o boundary automaticamente
   async addAdminRequestMessage(id: string, formDataOrContent: FormData | string) {
-    const isFormData = formDataOrContent instanceof FormData;
-    return (await this.client.post(`/partner-requests/${id}/messages`, formDataOrContent, {
-      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : {},
-    })).data;
+    return (await this.client.post(`/partner-requests/${id}/messages`, formDataOrContent)).data;
+  }
+
+  // Admin: apaga (soft-delete) qualquer mensagem
+  async deleteAdminRequestMessage(msgId: string) {
+    return (await this.client.delete(`/partner-requests/messages/${msgId}`)).data;
   }
 
   // Admin: excluir requisição

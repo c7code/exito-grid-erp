@@ -15,7 +15,7 @@ export class PartnerRequestsService implements OnModuleInit {
     private dataSource: DataSource,
   ) {}
 
-  // ─── Criação das tabelas (seguro se já existirem) ───────────────────────
+  // ─── Criação/migração das tabelas ───────────────────────────────────────────
   async onModuleInit() {
     try {
       await this.dataSource.query(`
@@ -24,6 +24,7 @@ export class PartnerRequestsService implements OnModuleInit {
           title VARCHAR NOT NULL,
           description TEXT NOT NULL,
           category VARCHAR DEFAULT 'other',
+          "customCategory" VARCHAR,
           status VARCHAR DEFAULT 'open',
           priority VARCHAR DEFAULT 'medium',
           "consultantId" UUID NOT NULL,
@@ -38,30 +39,39 @@ export class PartnerRequestsService implements OnModuleInit {
       await this.dataSource.query(`
         CREATE TABLE IF NOT EXISTS partner_request_messages (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          content TEXT NOT NULL,
+          content TEXT DEFAULT '',
           "senderType" VARCHAR DEFAULT 'admin',
           "senderName" VARCHAR,
           "requestId" UUID NOT NULL REFERENCES partner_requests(id) ON DELETE CASCADE,
           "createdAt" TIMESTAMP DEFAULT NOW()
         );
       `);
-      // Migration segura: adiciona attachments se não existir ainda
-      await this.dataSource.query(`
-        ALTER TABLE partner_request_messages
-        ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
-      `);
-      // Migration segura: permite categoria customizada na requisição
-      await this.dataSource.query(`
-        ALTER TABLE partner_requests
-        ADD COLUMN IF NOT EXISTS "customCategory" VARCHAR;
-      `);
-      this.logger.log('partner_requests tables ready');
+      // Migrações seguras: ADD COLUMN IF NOT EXISTS
+      const safeAlters = [
+        `ALTER TABLE partner_request_messages ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb`,
+        `ALTER TABLE partner_request_messages ADD COLUMN IF NOT EXISTS "isDeleted" BOOLEAN DEFAULT false`,
+        `ALTER TABLE partner_requests ADD COLUMN IF NOT EXISTS "customCategory" VARCHAR`,
+      ];
+      for (const sql of safeAlters) {
+        await this.dataSource.query(sql).catch(() => {});
+      }
+      this.logger.log('partner_requests tables ready (with attachments + isDeleted + customCategory)');
     } catch (err) {
       this.logger.error('Failed to create partner_requests tables', err);
     }
   }
 
-  // ─── PARCEIRO: cria uma requisição ──────────────────────────────────────
+  // ─── Helper: remove mensagens soft-deletadas do resultado ──────────────────
+  private filterMessages(req: PartnerRequest) {
+    if (req.messages) {
+      req.messages = req.messages
+        .filter((m: any) => !m.isDeleted)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    }
+    return req;
+  }
+
+  // ─── PARCEIRO: cria requisição ──────────────────────────────────────────────
   async createRequest(
     consultantId: string,
     consultantName: string,
@@ -73,41 +83,35 @@ export class PartnerRequestsService implements OnModuleInit {
       title: dto.title,
       description: dto.description,
       category: (dto.category as any) || 'other',
+      customCategory: dto.customCategory || null,
       priority: (dto.priority as any) || 'medium',
       status: 'open',
     } as any);
-    if (dto.customCategory) (req as any).customCategory = dto.customCategory;
     return this.requestRepo.save(req);
   }
 
-  // ─── PARCEIRO: lista suas requisições ───────────────────────────────────
+  // ─── PARCEIRO: lista suas requisições ──────────────────────────────────────
   async getConsultantRequests(consultantId: string) {
-    return this.requestRepo.find({
+    const list = await this.requestRepo.find({
       where: { consultantId, deletedAt: null as any },
       order: { createdAt: 'DESC' },
       relations: ['messages'],
     });
+    return list.map(r => this.filterMessages(r));
   }
 
-  // ─── PARCEIRO: detalhes + mensagens ─────────────────────────────────────
+  // ─── PARCEIRO/ADMIN: detalhes + mensagens ──────────────────────────────────
   async getRequest(id: string, consultantId?: string) {
     const req = await this.requestRepo.findOne({
       where: { id, deletedAt: null as any },
       relations: ['messages'],
     });
     if (!req) throw new NotFoundException('Requisição não encontrada');
-    // Se consultantId informado, valida pertencimento
-    if (consultantId && req.consultantId !== consultantId) {
-      throw new ForbiddenException('Acesso negado');
-    }
-    // Ordena mensagens por data
-    if (req.messages) {
-      req.messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    }
-    return req;
+    if (consultantId && req.consultantId !== consultantId) throw new ForbiddenException('Acesso negado');
+    return this.filterMessages(req);
   }
 
-  // ─── ADMIN/EMPLOYEE: lista todas as requisições ─────────────────────────
+  // ─── ADMIN/EMPLOYEE: lista todas as requisições ────────────────────────────
   async getAllRequests(filters?: { status?: string; category?: string }) {
     const qb = this.requestRepo.createQueryBuilder('r')
       .leftJoinAndSelect('r.messages', 'm')
@@ -118,22 +122,11 @@ export class PartnerRequestsService implements OnModuleInit {
     if (filters?.category) qb.andWhere('r.category = :category', { category: filters.category });
 
     const requests = await qb.getMany();
-    // Ordena mensagens de cada requisição
-    return requests.map(r => ({
-      ...r,
-      messages: (r.messages || []).sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      ),
-    }));
+    return requests.map(r => this.filterMessages(r));
   }
 
-  // ─── ADMIN: atualiza status e/ou atribui responsável ────────────────────
-  async updateStatus(
-    id: string,
-    status: string,
-    assignedToId?: string,
-    assignedToName?: string,
-  ) {
+  // ─── ADMIN: atualiza status ─────────────────────────────────────────────────
+  async updateStatus(id: string, status: string, assignedToId?: string, assignedToName?: string) {
     const req = await this.requestRepo.findOne({ where: { id, deletedAt: null as any } });
     if (!req) throw new NotFoundException('Requisição não encontrada');
     req.status = status as any;
@@ -142,7 +135,7 @@ export class PartnerRequestsService implements OnModuleInit {
     return this.requestRepo.save(req);
   }
 
-  // ─── AMBOS: adicionar mensagem na thread ────────────────────────────────
+  // ─── AMBOS: adicionar mensagem na thread ───────────────────────────────────
   async addMessage(
     requestId: string,
     senderType: 'partner' | 'admin' | 'employee',
@@ -153,32 +146,45 @@ export class PartnerRequestsService implements OnModuleInit {
   ) {
     const req = await this.requestRepo.findOne({ where: { id: requestId, deletedAt: null as any } });
     if (!req) throw new NotFoundException('Requisição não encontrada');
-    if (consultantId && req.consultantId !== consultantId) {
-      throw new ForbiddenException('Acesso negado');
-    }
+    if (consultantId && req.consultantId !== consultantId) throw new ForbiddenException('Acesso negado');
+
     if ((senderType === 'admin' || senderType === 'employee') && req.status === 'open') {
       req.status = 'in_progress';
       await this.requestRepo.save(req);
     }
+
     const msg = this.messageRepo.create({
       requestId,
       senderType,
       senderName,
-      content,
+      content: content || '',
       attachments: attachments || [],
+      isDeleted: false,
     } as any);
     return this.messageRepo.save(msg);
   }
 
-  // ─── ADMIN: contador de abertas (para badge no menu) ────────────────────
+  // ─── SOFT DELETE de mensagem (desabilitar sem excluir do banco) ─────────────
+  async deleteMessage(messageId: string, requestorId: string, requestorType: 'partner' | 'admin') {
+    const msg = await this.messageRepo.findOne({ where: { id: messageId } as any });
+    if (!msg) throw new NotFoundException('Mensagem não encontrada');
+    // Parceiro só pode apagar suas próprias mensagens
+    if (requestorType === 'partner') {
+      const req = await this.requestRepo.findOne({ where: { id: (msg as any).requestId } });
+      if (!req || req.consultantId !== requestorId) throw new ForbiddenException('Acesso negado');
+      if ((msg as any).senderType !== 'partner') throw new ForbiddenException('Você só pode remover suas próprias mensagens');
+    }
+    (msg as any).isDeleted = true;
+    return this.messageRepo.save(msg);
+  }
+
+  // ─── ADMIN: contador de abertas ─────────────────────────────────────────────
   async getOpenCount() {
-    const count = await this.requestRepo.count({
-      where: { status: 'open', deletedAt: null as any },
-    });
+    const count = await this.requestRepo.count({ where: { status: 'open', deletedAt: null as any } });
     return { count };
   }
 
-  // ─── ADMIN: soft delete ─────────────────────────────────────────────────
+  // ─── ADMIN: soft delete da requisição ──────────────────────────────────────
   async deleteRequest(id: string) {
     const req = await this.requestRepo.findOne({ where: { id } });
     if (!req) throw new NotFoundException('Requisição não encontrada');

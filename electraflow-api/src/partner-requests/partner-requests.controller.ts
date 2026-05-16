@@ -99,13 +99,19 @@ export class PartnerRequestsController {
     const profile = await this.referralsService.getPartnerProfile(req.user.consultantId);
     const attachments = await uploadFiles(files || [], this.supabaseStorage, 'partner-request-attachments');
     return this.service.addMessage(
-      id,
-      'partner',
+      id, 'partner',
       profile?.name || 'Parceiro',
       content?.trim() || '',
       req.user.consultantId,
       attachments,
     );
+  }
+
+  /** Parceiro soft-deleta sua própria mensagem */
+  @UseGuards(PartnerAuthGuard)
+  @Delete('partner/messages/:msgId')
+  deletePartnerMessage(@Request() req: any, @Param('msgId') msgId: string) {
+    return this.service.deleteMessage(msgId, req.user.consultantId, 'partner');
   }
 
   // ═══════════════════════════════════════════════════════
@@ -169,13 +175,20 @@ export class PartnerRequestsController {
     const senderType = req.user.role === 'admin' ? 'admin' : 'employee';
     const attachments = await uploadFiles(files || [], this.supabaseStorage, 'partner-request-attachments');
     return this.service.addMessage(
-      id,
-      senderType,
+      id, senderType,
       req.user.name || req.user.email || senderType,
       content?.trim() || '',
       undefined,
       attachments,
     );
+  }
+
+  /** Admin soft-deleta qualquer mensagem */
+  @UseGuards(JwtAuthGuard)
+  @Delete('messages/:msgId')
+  deleteAdminMessage(@Request() req: any, @Param('msgId') msgId: string) {
+    checkAdminPermission(req.user);
+    return this.service.deleteMessage(msgId, req.user.id, 'admin');
   }
 
   /** Admin: soft delete */

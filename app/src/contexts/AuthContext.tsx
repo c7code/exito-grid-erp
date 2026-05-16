@@ -106,6 +106,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('electraflow_token');
     localStorage.removeItem('electraflow_refresh_token');
     localStorage.removeItem('electraflow_user');
+    // Limpar também token do parceiro para garantir estado limpo
+    localStorage.removeItem('partner_token');
+    localStorage.removeItem('partner_user');
+    // Force full page reload — garante estado React limpo e chunks frescos
+    // (resolve bug de tela branca ao trocar de conta sem Ctrl+Shift+R)
+    window.location.href = '/login';
   }, []);
 
   const hasRole = useCallback((roles: UserRole[]) => {
