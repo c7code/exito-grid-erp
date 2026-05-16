@@ -23,6 +23,7 @@ function checkAdminPermission(user: any) {
 }
 
 // ─── Helper: upload de múltiplos arquivos para o Supabase ────────────────────
+// Usa o bucket 'documentos' (padrão do SupabaseStorageService) com subfolder dedicado
 async function uploadFiles(
   files: Express.Multer.File[],
   storage: SupabaseStorageService,
@@ -31,7 +32,8 @@ async function uploadFiles(
   if (!files || files.length === 0) return [];
   const results = await Promise.all(
     files.map(async (f) => {
-      const path = `${folder}/${Date.now()}-${f.originalname}`;
+      const safeName = f.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `${folder}/${Date.now()}-${safeName}`;
       const url = await storage.upload(path, f.buffer, f.mimetype);
       return { url, name: f.originalname, mimeType: f.mimetype, size: f.size };
     })
@@ -47,11 +49,21 @@ export class PartnerRequestsController {
     private readonly supabaseStorage: SupabaseStorageService,
   ) {}
 
-  // ═══════════════════════════════════════════════════════
-  // ROTAS DO PARCEIRO (PartnerAuthGuard)
-  // ═══════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⚠️ REGRA CRÍTICA DE ORDEM DAS ROTAS NO NESTJS:
+  // Rotas com strings literais (ex: 'count/open', 'messages/:id')
+  // SEMPRE antes de rotas com parâmetros genéricos (ex: ':id')
+  // para evitar que NestJS capture 'count' ou 'messages' como :id
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  /** Parceiro cria nova requisição */
+  // ─── PARCEIRO: listar ────────────────────────────────────────────────────────
+  @UseGuards(PartnerAuthGuard)
+  @Get('partner')
+  getConsultantRequests(@Request() req: any) {
+    return this.service.getConsultantRequests(req.user.consultantId);
+  }
+
+  // ─── PARCEIRO: criar ─────────────────────────────────────────────────────────
   @UseGuards(PartnerAuthGuard)
   @Post('partner')
   async createRequest(@Request() req: any, @Body() body: any) {
@@ -69,21 +81,8 @@ export class PartnerRequestsController {
     );
   }
 
-  /** Parceiro lista suas requisições */
-  @UseGuards(PartnerAuthGuard)
-  @Get('partner')
-  getConsultantRequests(@Request() req: any) {
-    return this.service.getConsultantRequests(req.user.consultantId);
-  }
-
-  /** Parceiro vê detalhes de uma requisição */
-  @UseGuards(PartnerAuthGuard)
-  @Get('partner/:id')
-  getPartnerRequest(@Request() req: any, @Param('id') id: string) {
-    return this.service.getRequest(id, req.user.consultantId);
-  }
-
-  /** Parceiro adiciona mensagem com até 5 arquivos */
+  // ─── PARCEIRO: adicionar mensagem (com até 5 arquivos) ───────────────────────
+  // Rota 'partner/:id/messages' vem ANTES de 'partner/:id' (mais específica)
   @UseGuards(PartnerAuthGuard)
   @Post('partner/:id/messages')
   @UseInterceptors(FilesInterceptor('files', 5, { storage: memoryStorage() }))
@@ -97,7 +96,7 @@ export class PartnerRequestsController {
       throw new BadRequestException('Envie uma mensagem ou arquivo');
     }
     const profile = await this.referralsService.getPartnerProfile(req.user.consultantId);
-    const attachments = await uploadFiles(files || [], this.supabaseStorage, 'partner-request-attachments');
+    const attachments = await uploadFiles(files || [], this.supabaseStorage, 'requisicoes-parceiro');
     return this.service.addMessage(
       id, 'partner',
       profile?.name || 'Parceiro',
@@ -107,18 +106,23 @@ export class PartnerRequestsController {
     );
   }
 
-  /** Parceiro soft-deleta sua própria mensagem */
+  // ─── PARCEIRO: soft-delete da mensagem ───────────────────────────────────────
+  // 'partner/messages/:msgId' vem ANTES de 'partner/:id' para não conflitar
   @UseGuards(PartnerAuthGuard)
   @Delete('partner/messages/:msgId')
   deletePartnerMessage(@Request() req: any, @Param('msgId') msgId: string) {
     return this.service.deleteMessage(msgId, req.user.consultantId, 'partner');
   }
 
-  // ═══════════════════════════════════════════════════════
-  // ROTAS DO ADMIN/EMPLOYEE (JwtAuthGuard + permissão)
-  // ═══════════════════════════════════════════════════════
+  // ─── PARCEIRO: detalhes de uma requisição ────────────────────────────────────
+  // Rota genérica 'partner/:id' vem APÓS rotas específicas acima
+  @UseGuards(PartnerAuthGuard)
+  @Get('partner/:id')
+  getPartnerRequest(@Request() req: any, @Param('id') id: string) {
+    return this.service.getRequest(id, req.user.consultantId);
+  }
 
-  /** Admin/Employee com permissão lista todas as requisições */
+  // ─── ADMIN: listar todas ─────────────────────────────────────────────────────
   @UseGuards(JwtAuthGuard)
   @Get()
   getAllRequests(
@@ -130,7 +134,8 @@ export class PartnerRequestsController {
     return this.service.getAllRequests({ status, category });
   }
 
-  /** Contador de requisições abertas (para badge no menu) */
+  // ─── ADMIN: contador de abertas ──────────────────────────────────────────────
+  // 'count/open' vem ANTES de ':id' para não ser capturado como :id='count'
   @UseGuards(JwtAuthGuard)
   @Get('count/open')
   getOpenCount(@Request() req: any) {
@@ -138,27 +143,17 @@ export class PartnerRequestsController {
     return this.service.getOpenCount();
   }
 
-  /** Admin/Employee com permissão vê detalhes */
+  // ─── ADMIN: soft-delete de mensagem ──────────────────────────────────────────
+  // 'messages/:msgId' vem ANTES de ':id' para não ser capturado como :id='messages'
   @UseGuards(JwtAuthGuard)
-  @Get(':id')
-  getRequest(@Request() req: any, @Param('id') id: string) {
+  @Delete('messages/:msgId')
+  deleteAdminMessage(@Request() req: any, @Param('msgId') msgId: string) {
     checkAdminPermission(req.user);
-    return this.service.getRequest(id);
+    return this.service.deleteMessage(msgId, req.user.id, 'admin');
   }
 
-  /** Admin/Employee com permissão muda status e atribui responsável */
-  @UseGuards(JwtAuthGuard)
-  @Patch(':id/status')
-  updateStatus(
-    @Request() req: any,
-    @Param('id') id: string,
-    @Body('status') status: string,
-  ) {
-    checkAdminPermission(req.user);
-    return this.service.updateStatus(id, status, req.user.id, req.user.name || req.user.email);
-  }
-
-  /** Admin/Employee com permissão adiciona mensagem com até 5 arquivos */
+  // ─── ADMIN: adicionar mensagem (com até 5 arquivos) ──────────────────────────
+  // ':id/messages' vem ANTES de ':id' e ':id/status'
   @UseGuards(JwtAuthGuard)
   @Post(':id/messages')
   @UseInterceptors(FilesInterceptor('files', 5, { storage: memoryStorage() }))
@@ -173,7 +168,7 @@ export class PartnerRequestsController {
       throw new BadRequestException('Envie uma mensagem ou arquivo');
     }
     const senderType = req.user.role === 'admin' ? 'admin' : 'employee';
-    const attachments = await uploadFiles(files || [], this.supabaseStorage, 'partner-request-attachments');
+    const attachments = await uploadFiles(files || [], this.supabaseStorage, 'requisicoes-parceiro');
     return this.service.addMessage(
       id, senderType,
       req.user.name || req.user.email || senderType,
@@ -183,15 +178,29 @@ export class PartnerRequestsController {
     );
   }
 
-  /** Admin soft-deleta qualquer mensagem */
+  // ─── ADMIN: atualizar status ──────────────────────────────────────────────────
   @UseGuards(JwtAuthGuard)
-  @Delete('messages/:msgId')
-  deleteAdminMessage(@Request() req: any, @Param('msgId') msgId: string) {
+  @Patch(':id/status')
+  updateStatus(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body('status') status: string,
+  ) {
     checkAdminPermission(req.user);
-    return this.service.deleteMessage(msgId, req.user.id, 'admin');
+    return this.service.updateStatus(id, status, req.user.id, req.user.name || req.user.email);
   }
 
-  /** Admin: soft delete */
+  // ─── ADMIN: detalhes de uma requisição ───────────────────────────────────────
+  // Rota genérica ':id' vem APÓS todas as específicas acima
+  @UseGuards(JwtAuthGuard)
+  @Get(':id')
+  getRequest(@Request() req: any, @Param('id') id: string) {
+    checkAdminPermission(req.user);
+    return this.service.getRequest(id);
+  }
+
+  // ─── ADMIN: soft delete da requisição ────────────────────────────────────────
+  // Rota genérica ':id' vem APÓS 'messages/:msgId'
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   deleteRequest(@Request() req: any, @Param('id') id: string) {
