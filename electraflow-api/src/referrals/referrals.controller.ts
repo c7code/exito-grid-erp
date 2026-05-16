@@ -269,6 +269,17 @@ export class ReferralsController {
     });
   }
 
+  // Alterar visibilidade de documento
+  @UseGuards(JwtAuthGuard)
+  @Put('leads/documents/:docId/visibility')
+  updateDocVisibility(
+    @Param('docId') docId: string,
+    @Body('visibility') visibility: 'public' | 'private',
+    @Body('targetConsultantId') targetConsultantId?: string,
+  ) {
+    return this.service.updateLeadDocumentVisibility(docId, visibility, targetConsultantId);
+  }
+
   // Deletar documento
   @UseGuards(JwtAuthGuard)
   @Delete('leads/documents/:docId')

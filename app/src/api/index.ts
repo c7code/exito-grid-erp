@@ -3232,8 +3232,11 @@ class ApiService {
   async deleteLeadDocument(docId: string) {
     return (await this.client.delete(`/referrals/leads/documents/${docId}`)).data;
   }
+
+  async updateLeadDocumentVisibility(docId: string, visibility: 'public' | 'private', targetConsultantId?: string) {
+    return (await this.client.put(`/referrals/leads/documents/${docId}/visibility`, { visibility, targetConsultantId })).data;
+  }
 }
 
-export const api = new ApiService();
 
 

@@ -28,8 +28,9 @@ interface Lead {
 interface LeadDoc {
   id: string; originalName: string; mimeType?: string; url: string; description?: string;
   visibility: 'public' | 'private'; uploadedBy?: string; uploadedByRole?: string;
-  targetConsultantId?: string; createdAt: string; docType?: string;
+  targetConsultantId?: string; createdAt: string; docType?: string; fileType?: string;
 }
+const FILE_TYPES = ['Conta de Luz','CPF / RG','CNPJ','Comprovante de Endereço','Proposta','Contrato','Foto da Instalação','Projeto Elétrico','Laudo Técnico','Orçamento','Outro'];
 
 const SERVICES_LIST = ['Solar Fotovoltaico','OEM / Transformadores','Locação de Equipamentos','Elétrica Industrial','Elétrica Predial','Projeto Elétrico','Manutenção Elétrica','Outros'];
 const STATUSES = ['new','contacted','proposal_sent','negotiating','converted','lost'];
@@ -64,13 +65,16 @@ export default function SolarReferrals() {
   const [uploadVisibility, setUploadVisibility] = useState<'public'|'private'>('public');
   const [uploadTarget, setUploadTarget] = useState('');
   const [uploadDesc, setUploadDesc] = useState('');
+  const [uploadFileType, setUploadFileType] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [togglingDoc, setTogglingDoc] = useState<string|null>(null);
 
   // Link proposal dialog
   const [linkDialog, setLinkDialog] = useState(false);
   const [linkLead, setLinkLead] = useState<Lead|null>(null);
   const [linkProposalId, setLinkProposalId] = useState('');
+  const [linkVisiblePartner, setLinkVisiblePartner] = useState(true);
   const [proposals, setProposals] = useState<any[]>([]);
 
   // Generate access dialog
@@ -162,6 +166,10 @@ export default function SolarReferrals() {
     if (!linkLead) return;
     try {
       await api.updateReferralLead(linkLead.id, { proposalId: linkProposalId || null });
+      // Se há proposta e visível para parceiro, sinaliza via followup
+      if (linkProposalId && linkVisiblePartner) {
+        try { await api.createReferralFollowup({ leadId: linkLead.id, consultantId: linkLead.consultantId, type: 'internal_note', description: `Proposta vinculada e compartilhada com o parceiro.` }); } catch {}
+      }
       toast.success('Proposta vinculada!');
       setLinkDialog(false); load();
     } catch { toast.error('Erro ao vincular proposta'); }
@@ -197,13 +205,24 @@ export default function SolarReferrals() {
     const file = fileRef.current.files[0];
     setUploading(true);
     try {
-      await api.uploadLeadDocument(docLead.id, file, { visibility: uploadVisibility, targetConsultantId: uploadTarget || undefined, description: uploadDesc || undefined });
+      const desc = [uploadFileType, uploadDesc].filter(Boolean).join(' — ');
+      await api.uploadLeadDocument(docLead.id, file, { visibility: uploadVisibility, targetConsultantId: uploadTarget || undefined, description: desc || undefined });
       toast.success('Documento enviado!');
-      setUploadDesc(''); setUploadTarget(''); setUploadVisibility('public');
+      setUploadDesc(''); setUploadTarget(''); setUploadVisibility('public'); setUploadFileType('');
       if (fileRef.current) fileRef.current.value = '';
       const d = await api.getLeadDocuments(docLead.id); setDocs(Array.isArray(d) ? d : []);
     } catch { toast.error('Erro ao enviar documento'); }
     finally { setUploading(false); }
+  };
+  const toggleDocVisibility = async (doc: LeadDoc) => {
+    setTogglingDoc(doc.id);
+    const next = doc.visibility === 'public' ? 'private' : 'public';
+    try {
+      await api.updateLeadDocumentVisibility(doc.id, next, next === 'private' ? (docLead?.consultantId || undefined) : undefined);
+      setDocs(p => p.map(d => d.id === doc.id ? { ...d, visibility: next } : d));
+      toast.success(next === 'public' ? 'Visível para o parceiro' : 'Privado (só admin)');
+    } catch { toast.error('Erro ao alterar visibilidade'); }
+    finally { setTogglingDoc(null); }
   };
   const deleteDoc = async (docId: string) => {
     if (!confirm('Remover documento?')) return;
@@ -214,7 +233,7 @@ export default function SolarReferrals() {
     setLForm(p => ({ ...p, services: p.services.includes(svc) ? p.services.filter(s => s !== svc) : [...p.services, svc] }));
   };
   const isImage = (mime?: string) => mime?.startsWith('image/');
-  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '');
+  const resolveUrl = (url: string) => url?.startsWith('http') ? url : `${(import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')}${url}`;
 
   // ─── Filtered ─────────────────────────────────────────────────────────────
   const filteredLeads = leads.filter(l => l.clientName?.toLowerCase().includes(search.toLowerCase()) || l.consultant?.name?.toLowerCase().includes(search.toLowerCase()));
@@ -501,6 +520,18 @@ export default function SolarReferrals() {
                 </SelectContent>
               </Select>
             </div>
+            {linkProposalId && (
+              <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                <button type="button" onClick={() => setLinkVisiblePartner(p => !p)}
+                  className={['w-10 h-5 rounded-full transition-colors relative shrink-0', linkVisiblePartner ? 'bg-emerald-500' : 'bg-slate-300'].join(' ')}>
+                  <span className={['absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform', linkVisiblePartner ? 'translate-x-5' : 'translate-x-0.5'].join(' ')} />
+                </button>
+                <div>
+                  <p className="text-xs font-medium text-slate-700">{linkVisiblePartner ? '✓ Visível para o parceiro' : 'Oculto do parceiro'}</p>
+                  <p className="text-[10px] text-slate-400">O parceiro verá esta proposta no portal de leads</p>
+                </div>
+              </div>
+            )}
             {linkProposalId && <p className="text-xs text-emerald-600">✓ A comissão será registrada automaticamente ao fechar a venda.</p>}
           </div>
           <div className="flex justify-end gap-3 pt-2">
@@ -591,24 +622,24 @@ export default function SolarReferrals() {
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
             <p className="text-sm font-semibold text-slate-700 flex items-center gap-2"><FileUp className="w-4 h-4 text-purple-500" />Enviar Arquivo</p>
             <input ref={fileRef} type="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" />
-            <Input value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} placeholder="Título / descrição do arquivo (opcional)" />
+            <div className="grid grid-cols-2 gap-2">
+              <Select value={uploadFileType} onValueChange={setUploadFileType}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Tipo / finalidade do arquivo" /></SelectTrigger>
+                <SelectContent>{FILE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+              </Select>
+              <Input value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} placeholder="Observação (opcional)" />
+            </div>
             <div className="flex gap-3 items-center flex-wrap">
               <div className="flex gap-2">
                 <button type="button" onClick={() => setUploadVisibility('public')}
                   className={['flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors', uploadVisibility === 'public' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-slate-600 border-slate-200'].join(' ')}>
-                  <Globe className="w-3 h-3" /> Público (todos)
+                  <Globe className="w-3 h-3" /> Visível ao parceiro
                 </button>
                 <button type="button" onClick={() => setUploadVisibility('private')}
                   className={['flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors', uploadVisibility === 'private' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-200'].join(' ')}>
-                  <Lock className="w-3 h-3" /> Privado (específico)
+                  <Lock className="w-3 h-3" /> Só admin
                 </button>
               </div>
-              {uploadVisibility === 'private' && (
-                <Select value={uploadTarget} onValueChange={setUploadTarget}>
-                  <SelectTrigger className="h-8 text-xs w-48"><SelectValue placeholder="Para qual parceiro?" /></SelectTrigger>
-                  <SelectContent>{consultants.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                </Select>
-              )}
               <Button size="sm" onClick={uploadDoc} disabled={uploading} className="bg-purple-600 hover:bg-purple-700 text-white ml-auto">
                 {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <FileUp className="w-3.5 h-3.5 mr-1" />} Enviar
               </Button>
@@ -624,26 +655,25 @@ export default function SolarReferrals() {
               {docs.map(doc => (
                 <div key={doc.id} className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-3 hover:border-purple-200 transition-colors">
                   {isImage(doc.mimeType) ? (
-                    <img src={`${apiBase}${doc.url}`} alt={doc.originalName} className="w-12 h-12 object-cover rounded-lg border" />
+                    <img src={resolveUrl(doc.url)} alt={doc.originalName} className="w-12 h-12 object-cover rounded-lg border" />
                   ) : (
-                    <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
-                      <FolderOpen className="w-6 h-6 text-slate-400" />
+                    <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center text-lg">
+                      {doc.mimeType === 'application/pdf' ? '📄' : doc.mimeType?.includes('sheet') ? '📊' : '📁'}
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-800 truncate">{doc.description || doc.originalName}</p>
                     <p className="text-xs text-slate-400">{doc.originalName} · {doc.uploadedBy} · {new Date(doc.createdAt).toLocaleDateString('pt-BR')}</p>
                     <div className="flex items-center gap-1 mt-1">
-                      {doc.visibility === 'public' ? (
-                        <span className="flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full"><Globe className="w-2.5 h-2.5" />Público</span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full"><Lock className="w-2.5 h-2.5" />Privado</span>
-                      )}
-                      <span className="text-[10px] text-slate-400">{doc.uploadedByRole === 'admin' ? '👨‍💼 Admin' : doc.uploadedByRole === 'team' ? '👥 Time' : '🤝 Parceiro'}</span>
+                      <button type="button" onClick={() => toggleDocVisibility(doc)} disabled={togglingDoc === doc.id}
+                        className={['flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border transition-colors cursor-pointer', doc.visibility === 'public' ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100'].join(' ')}>
+                        {doc.visibility === 'public' ? <><Globe className="w-2.5 h-2.5" />Visível ao parceiro</> : <><Lock className="w-2.5 h-2.5" />Só admin</>}
+                      </button>
+                      <span className="text-[10px] text-slate-400">{doc.uploadedByRole === 'admin' ? '👨‍💼 Admin' : '🤝 Parceiro'}</span>
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    <a href={`${apiBase}${doc.url}`} target="_blank" rel="noreferrer">
+                    <a href={resolveUrl(doc.url)} target="_blank" rel="noreferrer">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500"><Download className="w-3.5 h-3.5" /></Button>
                     </a>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteDoc(doc.id)}><X className="w-3.5 h-3.5" /></Button>

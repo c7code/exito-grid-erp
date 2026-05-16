@@ -720,4 +720,15 @@ export class ReferralsService implements OnModuleInit {
     await this.docRepo.softDelete(docId);
     return { success: true };
   }
+
+  async updateLeadDocumentVisibility(docId: string, visibility: 'public' | 'private', targetConsultantId?: string) {
+    const doc = await this.docRepo.findOne({ where: { id: docId } });
+    if (!doc) throw new NotFoundException('Documento não encontrado');
+    await this.docRepo.update(docId, {
+      visibility,
+      targetConsultantId: targetConsultantId || null,
+    } as any);
+    return this.docRepo.findOne({ where: { id: docId } });
+  }
 }
+
