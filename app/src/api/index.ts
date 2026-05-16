@@ -24,7 +24,9 @@ class ApiService {
       (config) => {
         const url = config.url || '';
         // Não injetar token admin em rotas do portal do parceiro
-        const isPartnerRoute = url.includes('/referrals/partner/');
+        const isPartnerRoute =
+          url.includes('/referrals/partner/') ||
+          url.includes('/partner-requests/partner');
         if (!isPartnerRoute) {
           const token = localStorage.getItem('electraflow_token');
           if (token) {
@@ -55,7 +57,9 @@ class ApiService {
         // Skip refresh for auth endpoints themselves
         const isAuthEndpoint = requestUrl.includes('/auth/');
         // Skip refresh for partner portal routes (use own token flow)
-        const isPartnerRoute = requestUrl.includes('/referrals/partner/');
+        const isPartnerRoute =
+          requestUrl.includes('/referrals/partner/') ||
+          requestUrl.includes('/partner-requests/partner');
 
         if (error.response?.status === 401 && !originalRequest._retry && !isExternalApi && !isAuthEndpoint && !isPartnerRoute) {
           const refreshToken = localStorage.getItem('electraflow_refresh_token');
