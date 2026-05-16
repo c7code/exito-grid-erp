@@ -1,6 +1,6 @@
 import { lazy, Suspense, Component } from 'react';
 import type { ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PartnerAuthProvider } from './contexts/PartnerAuthContext';
 import { Toaster } from '@/components/ui/sonner';
@@ -272,30 +272,19 @@ function App() {
             </Route>
           </Route>
 
-          {/* Partner Portal Routes */}
+          {/* Partner Portal Routes — único PartnerAuthProvider para login + portal */}
           <Route
-            path="/partner/login"
-            element={
-              <PartnerAuthProvider>
-                <Suspense fallback={<PageLoader />}>
-                  <PartnerLogin />
-                </Suspense>
-              </PartnerAuthProvider>
-            }
-          />
-          <Route
-            path="/partner/*"
-            element={
-              <PartnerAuthProvider>
-                <PartnerLayout />
-              </PartnerAuthProvider>
-            }
+            path="/partner"
+            element={<PartnerAuthProvider><Suspense fallback={<PageLoader />}><Outlet /></Suspense></PartnerAuthProvider>}
           >
-            <Route index element={<Navigate to="/partner/dashboard" replace />} />
-            <Route path="dashboard" element={<Suspense fallback={<PageLoader />}><PartnerDashboard /></Suspense>} />
-            <Route path="leads" element={<Suspense fallback={<PageLoader />}><PartnerLeads /></Suspense>} />
-            <Route path="new-lead" element={<Suspense fallback={<PageLoader />}><PartnerLeads /></Suspense>} />
-            <Route path="commissions" element={<Suspense fallback={<PageLoader />}><PartnerCommissions /></Suspense>} />
+            <Route path="login" element={<PartnerLogin />} />
+            <Route element={<PartnerLayout />}>
+              <Route index element={<Navigate to="/partner/dashboard" replace />} />
+              <Route path="dashboard" element={<PartnerDashboard />} />
+              <Route path="leads" element={<PartnerLeads />} />
+              <Route path="new-lead" element={<PartnerLeads />} />
+              <Route path="commissions" element={<PartnerCommissions />} />
+            </Route>
           </Route>
 
           {/* Default Redirect */}
