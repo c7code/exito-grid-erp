@@ -40,6 +40,17 @@ class ApiService {
     this.client.interceptors.request.use(
       (config) => {
         const url = config.url || '';
+
+        // ─── FIX CRÍTICO: FormData × Content-Type ──────────────────────────
+        // O axios.create() define 'Content-Type: application/json' como padrão.
+        // Quando o body é FormData, esse header padrão sobrescreve o multipart/form-data
+        // e o multer no NestJS recebe o body vazio → arquivos não chegam → 400 Bad Request.
+        // Solução: deletar o Content-Type quando o data for FormData e deixar o
+        // axios/browser gerar automaticamente 'multipart/form-data; boundary=...'
+        if (config.data instanceof FormData) {
+          delete config.headers['Content-Type'];
+        }
+
         // Não injetar token admin em rotas do portal do parceiro
         const isPartnerRoute =
           url.includes('/referrals/partner/') ||
