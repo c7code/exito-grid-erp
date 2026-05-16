@@ -30,25 +30,32 @@ class ApiService {
   public client: AxiosInstance;
 
   constructor() {
+    // ⚠️ NÃO definir 'Content-Type' padrão aqui!
+    // Se definido, sobrescreve o boundary do multipart/form-data quando FormData é enviado.
+    // O Content-Type será definido no interceptor somente para requests JSON.
     this.client = axios.create({
       baseURL: API_URL,
-      headers: {
-        'Content-Type': 'application/json',
-      },
     });
 
     this.client.interceptors.request.use(
       (config) => {
         const url = config.url || '';
 
-        // ─── FIX CRÍTICO: FormData × Content-Type ──────────────────────────
-        // O axios.create() define 'Content-Type: application/json' como padrão.
-        // Quando o body é FormData, esse header padrão sobrescreve o multipart/form-data
-        // e o multer no NestJS recebe o body vazio → arquivos não chegam → 400 Bad Request.
-        // Solução: deletar o Content-Type quando o data for FormData e deixar o
-        // axios/browser gerar automaticamente 'multipart/form-data; boundary=...'
+        // ─── Content-Type inteligente ──────────────────────────────────────
+        // Se o body for FormData: NÃO setar Content-Type (browser gera o boundary)
+        // Se o body for JSON/string: setar 'application/json'
+        // Isso resolve o bug onde o multer no NestJS recebia files=[] (400 Bad Request)
         if (config.data instanceof FormData) {
-          delete config.headers['Content-Type'];
+          // Garantir que NÃO há Content-Type — axios/browser define automaticamente
+          if (config.headers) {
+            delete (config.headers as any)['Content-Type'];
+            delete (config.headers as any)['content-type'];
+          }
+        } else {
+          // Para requests normais JSON
+          if (config.headers) {
+            (config.headers as any)['Content-Type'] = 'application/json';
+          }
         }
 
         // Não injetar token admin em rotas do portal do parceiro
@@ -3350,11 +3357,20 @@ class ApiService {
   }
 
   // Parceiro: adicionar mensagem (com ou sem arquivos)
-  // IMPORTANTE: Não setar Content-Type manualmente - axios gera o boundary do multipart automaticamente
-  async addPartnerRequestMessage(partnerToken: string, id: string, formDataOrContent: FormData | string) {
-    return (await this.client.post(`/partner-requests/partner/${id}/messages`, formDataOrContent, {
+  // USA fetch NATIVO para evitar bug do axios que sobrescreve Content-Type do FormData
+  // Com fetch, o browser gera automaticamente "multipart/form-data; boundary=..." correto
+  async addPartnerRequestMessage(partnerToken: string, id: string, formData: FormData) {
+    const response = await fetch(`${API_URL}/partner-requests/partner/${id}/messages`, {
+      method: 'POST',
       headers: { Authorization: `Bearer ${partnerToken}` },
-    })).data;
+      body: formData,
+      // NÃO setar Content-Type — browser define automaticamente com boundary
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ message: 'Erro ao enviar mensagem' }));
+      throw { response: { data: err } };
+    }
+    return response.json();
   }
 
   // Parceiro: apaga (soft-delete) sua mensagem
@@ -3387,10 +3403,22 @@ class ApiService {
     return (await this.client.patch(`/partner-requests/${id}/status`, { status })).data;
   }
 
-  // Admin/Employee: adicionar mensagem como admin/employee (com ou sem arquivos)
-  // IMPORTANTE: Não setar Content-Type manualmente - axios gera o boundary automaticamente
-  async addAdminRequestMessage(id: string, formDataOrContent: FormData | string) {
-    return (await this.client.post(`/partner-requests/${id}/messages`, formDataOrContent)).data;
+  // Admin/Employee: adicionar mensagem com arquivos
+  // USA fetch NATIVO para evitar bug do axios que sobrescreve Content-Type do FormData
+  // Com fetch, o browser gera automaticamente "multipart/form-data; boundary=..." correto
+  async addAdminRequestMessage(id: string, formData: FormData) {
+    const token = localStorage.getItem('electraflow_token');
+    const response = await fetch(`${API_URL}/partner-requests/${id}/messages`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+      // NÃO setar Content-Type — browser define automaticamente com boundary
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ message: 'Erro ao enviar mensagem' }));
+      throw { response: { data: err } };
+    }
+    return response.json();
   }
 
   // Admin: apaga (soft-delete) qualquer mensagem
