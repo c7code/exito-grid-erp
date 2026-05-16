@@ -6,14 +6,13 @@ WORKDIR /app
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
-COPY package*.json ./
-RUN npm ci
+COPY package.json package-lock.json* ./
+RUN npm install --legacy-peer-deps
 
-ARG CACHEBUST=2
 COPY . .
 RUN npm run build
 
-# Production stage
+# Production stage  
 FROM node:20-alpine
 
 WORKDIR /app
@@ -25,7 +24,6 @@ COPY --from=builder /app/dist ./dist
 ENV PORT=3000
 EXPOSE 3000
 
-# -s = SPA mode (rewrite 404s to index.html, assets servidos normalmente)
 CMD ["sh", "-c", "serve dist -s -l $PORT"]
 
 
