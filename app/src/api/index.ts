@@ -3169,8 +3169,8 @@ class ApiService {
   async createReferralLead(data: any) { return (await this.client.post('/referrals/leads', data)).data; }
   async updateReferralLead(id: string, data: any) { return (await this.client.put(`/referrals/leads/${id}`, data)).data; }
   async deleteReferralLead(id: string) { return (await this.client.delete(`/referrals/leads/${id}`)).data; }
-  async linkReferralLeadToProposal(id: string, proposalId: string) {
-    return (await this.client.post(`/referrals/leads/${id}/link-proposal`, { proposalId })).data;
+  async linkReferralLeadToProposal(id: string, proposalId: string, proposalVisible = false) {
+    return (await this.client.post(`/referrals/leads/${id}/link-proposal`, { proposalId, proposalVisible })).data;
   }
 
   // Compromissos
@@ -3244,6 +3244,18 @@ class ApiService {
     return (await this.client.get(`/referrals/partner/leads/${leadId}/documents`, {
       headers: { Authorization: `Bearer ${partnerToken}` },
     })).data;
+  }
+
+  /** Parceiro obtém dados da proposta vinculada ao seu lead (somente se admin habilitou) */
+  async getPartnerLeadProposal(leadId: string, partnerToken: string) {
+    return (await this.client.get(`/referrals/partner/leads/${leadId}/proposal`, {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  /** Admin: altera visibilidade da proposta vinculada a um lead */
+  async toggleLeadProposalVisibility(leadId: string, visible: boolean) {
+    return (await this.client.patch(`/referrals/leads/${leadId}/proposal-visibility`, { visible })).data;
   }
 
   async uploadLeadDocument(

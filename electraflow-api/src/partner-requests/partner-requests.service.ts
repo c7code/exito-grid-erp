@@ -51,6 +51,7 @@ export class PartnerRequestsService implements OnModuleInit {
         `ALTER TABLE partner_request_messages ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb`,
         `ALTER TABLE partner_request_messages ADD COLUMN IF NOT EXISTS "isDeleted" BOOLEAN DEFAULT false`,
         `ALTER TABLE partner_requests ADD COLUMN IF NOT EXISTS "customCategory" VARCHAR`,
+        `ALTER TABLE referral_leads ADD COLUMN IF NOT EXISTS "proposalVisible" BOOLEAN DEFAULT false`,
       ];
       for (const sql of safeAlters) {
         await this.dataSource.query(sql).catch(() => {});

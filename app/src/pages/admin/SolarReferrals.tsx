@@ -206,14 +206,19 @@ export default function SolarReferrals() {
   const saveLink = async () => {
     if (!linkLead) return;
     try {
-      await api.updateReferralLead(linkLead.id, { proposalId: linkProposalId || null });
-      // Se há proposta e visível para parceiro, sinaliza via followup
-      if (linkProposalId && linkVisiblePartner) {
-        try { await api.createReferralFollowup({ leadId: linkLead.id, consultantId: linkLead.consultantId, type: 'internal_note', description: `Proposta vinculada e compartilhada com o parceiro.` }); } catch {}
-      }
-      toast.success('Proposta vinculada!');
+      await api.linkReferralLeadToProposal(linkLead.id, linkProposalId, linkVisiblePartner);
+      toast.success(linkVisiblePartner ? 'Proposta vinculada e visível ao parceiro!' : 'Proposta vinculada!');
       setLinkDialog(false); load();
     } catch { toast.error('Erro ao vincular proposta'); }
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _toggleLeadProposalVisibility = async (lead: any, visible: boolean) => {
+    try {
+      await api.toggleLeadProposalVisibility(lead.id, visible);
+      toast.success(visible ? 'Proposta liberada para o parceiro!' : 'Proposta ocultada do parceiro');
+      load();
+    } catch { toast.error('Erro ao alterar visibilidade da proposta'); }
   };
 
   // ─── Generate Access ─────────────────────────────────────────────────────

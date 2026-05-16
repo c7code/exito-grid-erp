@@ -489,14 +489,58 @@ export class ReferralsService implements OnModuleInit {
       .execute();
   }
 
-  async linkLeadToProposal(id: string, proposalId: string) {
+  async linkLeadToProposal(id: string, proposalId: string, proposalVisible = false) {
     await this.leadRepo
       .createQueryBuilder()
       .update(ReferralLead)
-      .set({ proposalId, status: 'proposal_sent', updatedAt: new Date() } as any)
+      .set({ proposalId, proposalVisible, status: 'proposal_sent', updatedAt: new Date() } as any)
       .where('id = :id', { id })
       .execute();
     return this.getLead(id);
+  }
+
+  async toggleProposalVisibility(id: string, visible: boolean) {
+    await this.leadRepo
+      .createQueryBuilder()
+      .update(ReferralLead)
+      .set({ proposalVisible: visible, updatedAt: new Date() } as any)
+      .where('id = :id', { id })
+      .execute();
+    return this.getLead(id);
+  }
+
+  /** Parceiro obtém dados da proposta vinculada ao seu lead (somente se proposalVisible = true) */
+  async getPartnerLeadProposal(leadId: string, consultantId: string) {
+    const lead = await this.leadRepo.findOne({
+      where: { id: leadId, consultantId, deletedAt: null as any },
+    });
+    if (!lead) throw new NotFoundException('Lead não encontrado');
+    if (!lead.proposalId) throw new NotFoundException('Nenhuma proposta vinculada a este lead');
+    if (!(lead as any).proposalVisible) {
+      throw new NotFoundException('Proposta ainda não foi liberada para visualização');
+    }
+    // Buscar dados da proposta
+    const rows = await this.dataSource.query(
+      `SELECT p.id, p.number, p.title, p.status, p."totalValue", p."createdAt",
+              p."pdfPath", p."clientName",
+              c.name as client_name
+       FROM proposals p
+       LEFT JOIN clients c ON c.id = p."clientId"
+       WHERE p.id = $1`,
+      [lead.proposalId],
+    );
+    if (!rows.length) throw new NotFoundException('Proposta não encontrada no sistema');
+    const p = rows[0];
+    return {
+      id: p.id,
+      number: p.number,
+      title: p.title,
+      status: p.status,
+      totalValue: p.totalValue,
+      clientName: p.client_name || p.clientName,
+      createdAt: p.createdAt,
+      pdfPath: p.pdfPath || null,
+    };
   }
 
   // ═══════════════════════════════════════════════

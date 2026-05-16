@@ -131,8 +131,25 @@ export class ReferralsController {
 
   @UseGuards(JwtAuthGuard)
   @Post('leads/:id/link-proposal')
-  linkLeadToProposal(@Param('id') id: string, @Body('proposalId') proposalId: string) {
-    return this.service.linkLeadToProposal(id, proposalId);
+  linkLeadToProposal(
+    @Param('id') id: string,
+    @Body('proposalId') proposalId: string,
+    @Body('proposalVisible') proposalVisible: boolean,
+  ) {
+    return this.service.linkLeadToProposal(id, proposalId, proposalVisible);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('leads/:id/proposal-visibility')
+  toggleProposalVisibility(@Param('id') id: string, @Body('visible') visible: boolean) {
+    return this.service.toggleProposalVisibility(id, visible);
+  }
+
+  /** Parceiro vê dados da proposta vinculada ao seu lead (se estiver visível) */
+  @UseGuards(PartnerAuthGuard)
+  @Get('partner/leads/:id/proposal')
+  async getPartnerLeadProposal(@Param('id') id: string, @Request() req: any) {
+    return this.service.getPartnerLeadProposal(id, req.user.consultantId);
   }
 
   // ─── COMPROMISSOS ─────────────────────────────

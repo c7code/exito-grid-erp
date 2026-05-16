@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import {
   Users, PlusCircle, Phone, MapPin, X, Search,
   FolderOpen, FileUp, Download, Globe, Lock, Loader2,
+  FileText, Eye, MoreVertical, Paperclip, ExternalLink,
 } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -55,6 +56,14 @@ export default function PartnerLeads() {
   const [uploadDesc, setUploadDesc] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Proposta vinculada
+  const [proposalLead, setProposalLead] = useState<any|null>(null);
+  const [proposal, setProposal] = useState<any|null>(null);
+  const [proposalLoading, setProposalLoading] = useState(false);
+  const [proposalMenuOpen, setProposalMenuOpen] = useState(false);
+  const [attachingToProposal, setAttachingToProposal] = useState(false);
+  const proposalFileRef = useRef<HTMLInputElement>(null);
+
 
   const fetchLeads = async () => {
     if (!partnerToken) return;
@@ -85,6 +94,38 @@ export default function PartnerLeads() {
       setDocs(Array.isArray(d) ? d : []);
     } catch { toast.error('Erro ao enviar documento'); }
     finally { setUploading(false); }
+  };
+
+  const openProposal = async (lead: any) => {
+    setProposalLead(lead);
+    setProposal(null);
+    setProposalLoading(true);
+    setProposalMenuOpen(false);
+    try {
+      const p = await api.getPartnerLeadProposal(lead.id, partnerToken!);
+      setProposal(p);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Proposta não disponível';
+      toast.error(msg);
+      setProposalLead(null);
+    } finally { setProposalLoading(false); }
+  };
+
+  const uploadProposalAttachment = async () => {
+    if (!proposalFileRef.current?.files?.[0] || !proposalLead) return;
+    const file = proposalFileRef.current.files[0];
+    setAttachingToProposal(true);
+    try {
+      await api.uploadPartnerLeadDocument(
+        proposalLead.id, file,
+        { visibility: 'public', description: `Complemento de proposta — ${file.name}` },
+        partnerToken!
+      );
+      toast.success('Documento complementar enviado à equipe!');
+      if (proposalFileRef.current) proposalFileRef.current.value = '';
+      setProposalMenuOpen(false);
+    } catch { toast.error('Erro ao enviar arquivo'); }
+    finally { setAttachingToProposal(false); }
   };
 
 
@@ -180,10 +221,18 @@ export default function PartnerLeads() {
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <span className="text-xs text-gray-300">{new Date(lead.createdAt).toLocaleDateString('pt-BR')}</span>
-                    <button onClick={() => openDocs(lead)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors">
-                      <FolderOpen className="w-3.5 h-3.5" /> Documentos
-                    </button>
+                    <div className="flex gap-1.5">
+                      {lead.proposalId && (
+                        <button onClick={() => openProposal(lead)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors">
+                          <FileText className="w-3.5 h-3.5" /> Proposta
+                        </button>
+                      )}
+                      <button onClick={() => openDocs(lead)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors">
+                        <FolderOpen className="w-3.5 h-3.5" /> Documentos
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -313,6 +362,133 @@ export default function PartnerLeads() {
                 style={{ background: 'linear-gradient(135deg, #059669, #0284c7)' }}>
                 {isSaving ? 'Salvando...' : 'Indicar Lead'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal: Proposta ─── */}
+      {proposalLead && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) { setProposalLead(null); setProposal(null); } }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between"
+              style={{ background: 'linear-gradient(135deg, #064e3b, #065f46)' }}>
+              <div>
+                <h2 className="font-bold text-white flex items-center gap-2">
+                  <FileText className="w-4 h-4" /> Proposta Vinculada
+                </h2>
+                <p className="text-emerald-200 text-xs mt-0.5">Lead: {proposalLead.name || proposalLead.clientName}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Menu 3 pontos */}
+                <div className="relative">
+                  <button onClick={() => setProposalMenuOpen(v => !v)}
+                    className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+                    <MoreVertical className="w-5 h-5" />
+                  </button>
+                  {proposalMenuOpen && (
+                    <div className="absolute right-0 top-8 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-10 min-w-[200px]">
+                      {proposal?.pdfPath && (
+                        <>
+                          <a href={resolveUrl(proposal.pdfPath)} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                            <Eye className="w-4 h-4 text-blue-500" /> Visualizar PDF
+                          </a>
+                          <a href={resolveUrl(proposal.pdfPath)} download
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                            <Download className="w-4 h-4 text-emerald-500" /> Baixar PDF
+                          </a>
+                          <div className="border-t border-gray-100 my-1" />
+                        </>
+                      )}
+                      <label className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                        <Paperclip className="w-4 h-4 text-purple-500" />
+                        {attachingToProposal ? 'Enviando...' : 'Enviar Documento Complementar'}
+                        <input ref={proposalFileRef} type="file" className="hidden"
+                          onChange={uploadProposalAttachment}
+                          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
+                      </label>
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => { setProposalLead(null); setProposal(null); }}
+                  className="text-white/70 hover:text-white"><X className="w-5 h-5" /></button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {proposalLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-7 h-7 animate-spin text-emerald-500" />
+                </div>
+              ) : proposal ? (
+                <div className="space-y-4">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-emerald-600 font-semibold uppercase tracking-wide">Número</span>
+                      <span className="font-bold text-emerald-800">{proposal.number}</span>
+                    </div>
+                    {proposal.title && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Título</span>
+                        <span className="text-sm text-gray-800 font-medium text-right max-w-[220px]">{proposal.title}</span>
+                      </div>
+                    )}
+                    {proposal.clientName && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Cliente</span>
+                        <span className="text-sm text-gray-800">{proposal.clientName}</span>
+                      </div>
+                    )}
+                    {proposal.totalValue && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Valor Total</span>
+                        <span className="text-sm font-bold text-emerald-700">
+                          {Number(proposal.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">Data</span>
+                      <span className="text-sm text-gray-600">
+                        {new Date(proposal.createdAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Botões principais */}
+                  <div className="flex gap-2">
+                    {proposal.pdfPath ? (
+                      <>
+                        <a href={resolveUrl(proposal.pdfPath)} target="_blank" rel="noopener noreferrer"
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors">
+                          <ExternalLink className="w-4 h-4" /> Visualizar
+                        </a>
+                        <a href={resolveUrl(proposal.pdfPath)} download
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors">
+                          <Download className="w-4 h-4" /> Baixar PDF
+                        </a>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-400 text-center w-full py-2">
+                        PDF ainda não disponível
+                      </p>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-gray-400 text-center">
+                    Para enviar informações complementares, use o menu ⋮ acima
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-400">
+                  <FileText className="w-10 h-10 mx-auto mb-2 text-gray-200" />
+                  <p className="text-sm">Proposta ainda não liberada para visualização</p>
+                  <p className="text-xs mt-1 text-gray-300">Aguarde a equipe liberar o acesso</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
