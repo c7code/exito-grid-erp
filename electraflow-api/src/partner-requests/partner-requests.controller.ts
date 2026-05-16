@@ -1,18 +1,19 @@
 import {
   Controller, Get, Post, Patch, Delete, Body, Param, Query,
-  UseGuards, Request, ForbiddenException,
+  UseGuards, Request, ForbiddenException, UseInterceptors, UploadedFiles, BadRequestException,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { PartnerRequestsService } from './partner-requests.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PartnerAuthGuard } from '../referrals/partner-auth.guard';
 import { ReferralsService } from '../referrals/referrals.service';
+import { SupabaseStorageService } from '../documents/supabase-storage.service';
 
 // ─── Guard helper: valida permissão 'partner-requests' no user admin ─────────
-// admin sempre tem acesso; employee precisa ter 'partner-requests' em permissions
-function checkAdminPermission(user: any, action: 'view' | 'respond') {
+function checkAdminPermission(user: any) {
   if (!user) throw new ForbiddenException('Não autenticado');
-  if (user.role === 'admin') return; // admin sempre pode tudo
-  // Employees e outros roles: precisam da permissão específica
+  if (user.role === 'admin') return;
   const perms: string[] = user.permissions || [];
   if (!perms.includes('partner-requests')) {
     throw new ForbiddenException(
@@ -21,11 +22,29 @@ function checkAdminPermission(user: any, action: 'view' | 'respond') {
   }
 }
 
+// ─── Helper: upload de múltiplos arquivos para o Supabase ────────────────────
+async function uploadFiles(
+  files: Express.Multer.File[],
+  storage: SupabaseStorageService,
+  folder: string,
+): Promise<Array<{ url: string; name: string; mimeType: string; size: number }>> {
+  if (!files || files.length === 0) return [];
+  const results = await Promise.all(
+    files.map(async (f) => {
+      const path = `${folder}/${Date.now()}-${f.originalname}`;
+      const url = await storage.upload(path, f.buffer, f.mimetype);
+      return { url, name: f.originalname, mimeType: f.mimetype, size: f.size };
+    })
+  );
+  return results;
+}
+
 @Controller('partner-requests')
 export class PartnerRequestsController {
   constructor(
     private readonly service: PartnerRequestsService,
     private readonly referralsService: ReferralsService,
+    private readonly supabaseStorage: SupabaseStorageService,
   ) {}
 
   // ═══════════════════════════════════════════════════════
@@ -45,6 +64,7 @@ export class PartnerRequestsController {
         description: body.description,
         category: body.category,
         priority: body.priority,
+        customCategory: body.customCategory,
       },
     );
   }
@@ -63,21 +83,28 @@ export class PartnerRequestsController {
     return this.service.getRequest(id, req.user.consultantId);
   }
 
-  /** Parceiro adiciona mensagem na thread */
+  /** Parceiro adiciona mensagem com até 5 arquivos */
   @UseGuards(PartnerAuthGuard)
   @Post('partner/:id/messages')
+  @UseInterceptors(FilesInterceptor('files', 5, { storage: memoryStorage() }))
   async addPartnerMessage(
     @Request() req: any,
     @Param('id') id: string,
     @Body('content') content: string,
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
+    if (!content?.trim() && (!files || files.length === 0)) {
+      throw new BadRequestException('Envie uma mensagem ou arquivo');
+    }
     const profile = await this.referralsService.getPartnerProfile(req.user.consultantId);
+    const attachments = await uploadFiles(files || [], this.supabaseStorage, 'partner-request-attachments');
     return this.service.addMessage(
       id,
       'partner',
       profile?.name || 'Parceiro',
-      content,
+      content?.trim() || '',
       req.user.consultantId,
+      attachments,
     );
   }
 
@@ -93,7 +120,7 @@ export class PartnerRequestsController {
     @Query('status') status?: string,
     @Query('category') category?: string,
   ) {
-    checkAdminPermission(req.user, 'view');
+    checkAdminPermission(req.user);
     return this.service.getAllRequests({ status, category });
   }
 
@@ -101,7 +128,7 @@ export class PartnerRequestsController {
   @UseGuards(JwtAuthGuard)
   @Get('count/open')
   getOpenCount(@Request() req: any) {
-    checkAdminPermission(req.user, 'view');
+    checkAdminPermission(req.user);
     return this.service.getOpenCount();
   }
 
@@ -109,7 +136,7 @@ export class PartnerRequestsController {
   @UseGuards(JwtAuthGuard)
   @Get(':id')
   getRequest(@Request() req: any, @Param('id') id: string) {
-    checkAdminPermission(req.user, 'view');
+    checkAdminPermission(req.user);
     return this.service.getRequest(id);
   }
 
@@ -121,25 +148,33 @@ export class PartnerRequestsController {
     @Param('id') id: string,
     @Body('status') status: string,
   ) {
-    checkAdminPermission(req.user, 'respond');
+    checkAdminPermission(req.user);
     return this.service.updateStatus(id, status, req.user.id, req.user.name || req.user.email);
   }
 
-  /** Admin/Employee com permissão adiciona mensagem */
+  /** Admin/Employee com permissão adiciona mensagem com até 5 arquivos */
   @UseGuards(JwtAuthGuard)
   @Post(':id/messages')
-  addAdminMessage(
+  @UseInterceptors(FilesInterceptor('files', 5, { storage: memoryStorage() }))
+  async addAdminMessage(
     @Request() req: any,
     @Param('id') id: string,
     @Body('content') content: string,
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
-    checkAdminPermission(req.user, 'respond');
+    checkAdminPermission(req.user);
+    if (!content?.trim() && (!files || files.length === 0)) {
+      throw new BadRequestException('Envie uma mensagem ou arquivo');
+    }
     const senderType = req.user.role === 'admin' ? 'admin' : 'employee';
+    const attachments = await uploadFiles(files || [], this.supabaseStorage, 'partner-request-attachments');
     return this.service.addMessage(
       id,
       senderType,
       req.user.name || req.user.email || senderType,
-      content,
+      content?.trim() || '',
+      undefined,
+      attachments,
     );
   }
 

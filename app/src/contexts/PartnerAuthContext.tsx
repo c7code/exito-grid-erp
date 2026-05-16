@@ -90,6 +90,9 @@ export function PartnerAuthProvider({ children }: { children: ReactNode }) {
     setConsultant(null);
     localStorage.removeItem(PARTNER_TOKEN_KEY);
     localStorage.removeItem(PARTNER_USER_KEY);
+    // Force full page reload so admin login starts with clean JS state
+    // (avoids stale React context / chunk cache requiring Ctrl+Shift+R)
+    window.location.href = '/login';
   };
 
   return (

@@ -45,6 +45,16 @@ export class PartnerRequestsService implements OnModuleInit {
           "createdAt" TIMESTAMP DEFAULT NOW()
         );
       `);
+      // Migration segura: adiciona attachments se não existir ainda
+      await this.dataSource.query(`
+        ALTER TABLE partner_request_messages
+        ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
+      `);
+      // Migration segura: permite categoria customizada na requisição
+      await this.dataSource.query(`
+        ALTER TABLE partner_requests
+        ADD COLUMN IF NOT EXISTS "customCategory" VARCHAR;
+      `);
       this.logger.log('partner_requests tables ready');
     } catch (err) {
       this.logger.error('Failed to create partner_requests tables', err);
@@ -55,7 +65,7 @@ export class PartnerRequestsService implements OnModuleInit {
   async createRequest(
     consultantId: string,
     consultantName: string,
-    dto: { title: string; description: string; category?: string; priority?: string },
+    dto: { title: string; description: string; category?: string; priority?: string; customCategory?: string },
   ) {
     const req = this.requestRepo.create({
       consultantId,
@@ -65,7 +75,8 @@ export class PartnerRequestsService implements OnModuleInit {
       category: (dto.category as any) || 'other',
       priority: (dto.priority as any) || 'medium',
       status: 'open',
-    });
+    } as any);
+    if (dto.customCategory) (req as any).customCategory = dto.customCategory;
     return this.requestRepo.save(req);
   }
 
@@ -137,19 +148,25 @@ export class PartnerRequestsService implements OnModuleInit {
     senderType: 'partner' | 'admin' | 'employee',
     senderName: string,
     content: string,
-    consultantId?: string, // para validar se é o dono (quando parceiro)
+    consultantId?: string,
+    attachments?: Array<{ url: string; name: string; mimeType?: string; size?: number }>,
   ) {
     const req = await this.requestRepo.findOne({ where: { id: requestId, deletedAt: null as any } });
     if (!req) throw new NotFoundException('Requisição não encontrada');
     if (consultantId && req.consultantId !== consultantId) {
       throw new ForbiddenException('Acesso negado');
     }
-    // Se o admin/employee responde, muda status para in_progress automaticamente
     if ((senderType === 'admin' || senderType === 'employee') && req.status === 'open') {
       req.status = 'in_progress';
       await this.requestRepo.save(req);
     }
-    const msg = this.messageRepo.create({ requestId, senderType, senderName, content });
+    const msg = this.messageRepo.create({
+      requestId,
+      senderType,
+      senderName,
+      content,
+      attachments: attachments || [],
+    } as any);
     return this.messageRepo.save(msg);
   }
 

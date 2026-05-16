@@ -3300,7 +3300,7 @@ class ApiService {
 
   // Parceiro: cria requisição
   async createPartnerRequest(partnerToken: string, data: {
-    title: string; description: string; category?: string; priority?: string;
+    title: string; description: string; category?: string; priority?: string; customCategory?: string;
   }) {
     return (await this.client.post('/partner-requests/partner', data, {
       headers: { Authorization: `Bearer ${partnerToken}` },
@@ -3321,10 +3321,14 @@ class ApiService {
     })).data;
   }
 
-  // Parceiro: adicionar mensagem
-  async addPartnerRequestMessage(partnerToken: string, id: string, content: string) {
-    return (await this.client.post(`/partner-requests/partner/${id}/messages`, { content }, {
-      headers: { Authorization: `Bearer ${partnerToken}` },
+  // Parceiro: adicionar mensagem (com ou sem arquivos)
+  async addPartnerRequestMessage(partnerToken: string, id: string, formDataOrContent: FormData | string) {
+    const isFormData = formDataOrContent instanceof FormData;
+    return (await this.client.post(`/partner-requests/partner/${id}/messages`, formDataOrContent, {
+      headers: {
+        Authorization: `Bearer ${partnerToken}`,
+        ...(isFormData ? { 'Content-Type': 'multipart/form-data' } : {}),
+      },
     })).data;
   }
 
@@ -3351,9 +3355,12 @@ class ApiService {
     return (await this.client.patch(`/partner-requests/${id}/status`, { status })).data;
   }
 
-  // Admin/Employee: adicionar mensagem como admin/employee
-  async addAdminRequestMessage(id: string, content: string) {
-    return (await this.client.post(`/partner-requests/${id}/messages`, { content })).data;
+  // Admin/Employee: adicionar mensagem como admin/employee (com ou sem arquivos)
+  async addAdminRequestMessage(id: string, formDataOrContent: FormData | string) {
+    const isFormData = formDataOrContent instanceof FormData;
+    return (await this.client.post(`/partner-requests/${id}/messages`, formDataOrContent, {
+      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : {},
+    })).data;
   }
 
   // Admin: excluir requisição
