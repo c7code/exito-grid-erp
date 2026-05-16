@@ -752,6 +752,13 @@ export class ReferralsService implements OnModuleInit {
     return this.docRepo.findOne({ where: { id: docId } });
   }
 
+  async updateLeadDocumentDescription(docId: string, description: string) {
+    const doc = await this.docRepo.findOne({ where: { id: docId } });
+    if (!doc) throw new NotFoundException('Documento não encontrado');
+    await this.docRepo.update(docId, { description });
+    return this.docRepo.findOne({ where: { id: docId } });
+  }
+
   // ═══════════════════════════════════════════════
   // BROADCAST DE DOCUMENTOS
   // ═══════════════════════════════════════════════
@@ -798,6 +805,16 @@ export class ReferralsService implements OnModuleInit {
     if (!doc) throw new NotFoundException('Documento não encontrado');
     await this.broadcastDocRepo.softDelete(docId);
     return { success: true };
+  }
+
+  async updateBroadcastDocument(docId: string, data: { description?: string; targetChannel?: string }) {
+    const doc = await this.broadcastDocRepo.findOne({ where: { id: docId } });
+    if (!doc) throw new NotFoundException('Documento não encontrado');
+    await this.broadcastDocRepo.update(docId, {
+      ...(data.description !== undefined && { description: data.description }),
+      ...(data.targetChannel !== undefined && { targetChannel: data.targetChannel as any }),
+    });
+    return this.broadcastDocRepo.findOne({ where: { id: docId } });
   }
 }
 

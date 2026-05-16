@@ -38,6 +38,20 @@ const STATUSES = ['new','contacted','proposal_sent','negotiating','converted','l
 const STATUS_LABEL: Record<string,string> = { new:'Novo', contacted:'Contatado', proposal_sent:'Proposta Enviada', negotiating:'Negociando', converted:'Convertido', lost:'Perdido' };
 const STATUS_COLOR: Record<string,string> = { new:'bg-blue-100 text-blue-700', contacted:'bg-yellow-100 text-yellow-700', proposal_sent:'bg-purple-100 text-purple-700', negotiating:'bg-orange-100 text-orange-700', converted:'bg-green-100 text-green-700', lost:'bg-red-100 text-red-700' };
 
+// Ícone consistente por mimeType — usado em todos os pontos da UI
+function getDocIcon(mimeType?: string): string {
+  if (!mimeType) return '📁';
+  if (mimeType.startsWith('image/')) return '🖼️';
+  if (mimeType === 'application/pdf') return '📄';
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel') || mimeType.includes('csv')) return '📊';
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return '📊';
+  if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
+  if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z')) return '🗄️';
+  if (mimeType.includes('video/')) return '🎥';
+  if (mimeType.includes('audio/')) return '🔊';
+  return '📁';
+}
+
 export default function SolarReferrals() {
   const [tab, setTab] = useState<'leads'|'consultants'|'broadcast'>('leads');
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -79,6 +93,15 @@ export default function SolarReferrals() {
   const [broadcastChannel, setBroadcastChannel] = useState<'all'|'solar'|'oem'|'equipment'>('all');
   const [broadcastDesc, setBroadcastDesc] = useState('');
   const broadcastFileRef = useRef<HTMLInputElement>(null);
+
+  // Edição de descrição inline
+  const [editingDocId, setEditingDocId] = useState<string|null>(null);
+  const [editingDocDesc, setEditingDocDesc] = useState('');
+  const [savingDocEdit, setSavingDocEdit] = useState(false);
+  const [editingBroadcastId, setEditingBroadcastId] = useState<string|null>(null);
+  const [editingBroadcastDesc, setEditingBroadcastDesc] = useState('');
+  const [editingBroadcastChannel, setEditingBroadcastChannel] = useState<string>('all');
+  const [savingBroadcastEdit, setSavingBroadcastEdit] = useState(false);
 
   // Link proposal dialog
   const [linkDialog, setLinkDialog] = useState(false);
@@ -264,9 +287,33 @@ export default function SolarReferrals() {
     finally { setTogglingDoc(null); }
   };
   const deleteDoc = async (docId: string) => {
-    if (!confirm('Remover documento?')) return;
-    try { await api.deleteLeadDocument(docId); setDocs(p => p.filter(d => d.id !== docId)); toast.success('Removido!'); }
-    catch { toast.error('Erro ao remover'); }
+    if (!confirm('Desabilitar documento? Ele será ocultado mas permanece no banco de dados.')) return;
+    try { await api.deleteLeadDocument(docId); setDocs(p => p.filter(d => d.id !== docId)); toast.success('Documento desabilitado!'); }
+    catch { toast.error('Erro ao desabilitar'); }
+  };
+
+  const saveDocEdit = async () => {
+    if (!editingDocId) return;
+    setSavingDocEdit(true);
+    try {
+      await api.updateLeadDocumentDescription(editingDocId, editingDocDesc);
+      setDocs(p => p.map(d => d.id === editingDocId ? { ...d, description: editingDocDesc } : d));
+      toast.success('Descrição atualizada!');
+      setEditingDocId(null);
+    } catch { toast.error('Erro ao salvar'); }
+    finally { setSavingDocEdit(false); }
+  };
+
+  const saveBroadcastEdit = async () => {
+    if (!editingBroadcastId) return;
+    setSavingBroadcastEdit(true);
+    try {
+      await api.updateBroadcastDocument(editingBroadcastId, { description: editingBroadcastDesc, targetChannel: editingBroadcastChannel });
+      setBroadcastDocs(p => p.map(d => d.id === editingBroadcastId ? { ...d, description: editingBroadcastDesc, targetChannel: editingBroadcastChannel } : d));
+      toast.success('Documento atualizado!');
+      setEditingBroadcastId(null);
+    } catch { toast.error('Erro ao salvar'); }
+    finally { setSavingBroadcastEdit(false); }
   };
   const toggleService = (svc: string) => {
     setLForm(p => ({ ...p, services: p.services.includes(svc) ? p.services.filter(s => s !== svc) : [...p.services, svc] }));
@@ -500,22 +547,53 @@ export default function SolarReferrals() {
                 )}
                 <div className="space-y-2">
                   {broadcastDocs.map((doc: any) => (
-                    <div key={doc.id} className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-3 hover:border-amber-200 transition-colors">
-                      <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center text-lg flex-shrink-0">
-                        {doc.mimeType === 'application/pdf' ? '📄' : doc.mimeType?.startsWith('image/') ? '🖼️' : '📁'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 truncate">{doc.description || doc.originalName}</p>
-                        <p className="text-xs text-slate-400">{doc.originalName} · {doc.uploadedBy} · {new Date(doc.createdAt).toLocaleDateString('pt-BR')}</p>
-                        <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                          {CHANNEL_LABELS[doc.targetChannel] || doc.targetChannel}
-                        </span>
-                      </div>
-                      <div className="flex gap-1 flex-shrink-0">
-                        <a href={resolveUrl(doc.url)} target="_blank" rel="noreferrer">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500"><Download className="w-3.5 h-3.5" /></Button>
-                        </a>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteBroadcastDoc(doc.id)}><X className="w-3.5 h-3.5" /></Button>
+                    <div key={doc.id} className="bg-white border border-slate-200 rounded-lg p-3 hover:border-amber-200 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center text-xl flex-shrink-0">
+                          {getDocIcon(doc.mimeType)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {editingBroadcastId === doc.id ? (
+                            <div className="space-y-1.5">
+                              <input autoFocus value={editingBroadcastDesc} onChange={e => setEditingBroadcastDesc(e.target.value)}
+                                className="w-full px-2 py-1 text-sm border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                placeholder="Descrição do documento..."
+                                onKeyDown={e => { if (e.key === 'Enter') saveBroadcastEdit(); if (e.key === 'Escape') setEditingBroadcastId(null); }}
+                              />
+                              <div className="flex gap-1.5">
+                                <select value={editingBroadcastChannel} onChange={e => setEditingBroadcastChannel(e.target.value)}
+                                  className="flex-1 px-2 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none">
+                                  <option value="all">📢 Todos</option>
+                                  <option value="solar">☀️ Energia Solar</option>
+                                  <option value="oem">⚡ OEM</option>
+                                  <option value="equipment">🏗️ Equipamentos</option>
+                                </select>
+                                <button onClick={saveBroadcastEdit} disabled={savingBroadcastEdit} className="px-2 py-1 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-60">
+                                  {savingBroadcastEdit ? '...' : 'Salvar'}
+                                </button>
+                                <button onClick={() => setEditingBroadcastId(null)} className="px-2 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-50">✕</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-sm font-medium text-slate-800 truncate">{doc.description || doc.originalName}</p>
+                              <p className="text-xs text-slate-400">{doc.originalName} · {doc.uploadedBy} · {new Date(doc.createdAt).toLocaleDateString('pt-BR')}</p>
+                              <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                {CHANNEL_LABELS[doc.targetChannel] || doc.targetChannel}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-400" title="Editar"
+                            onClick={() => { setEditingBroadcastId(doc.id); setEditingBroadcastDesc(doc.description || ''); setEditingBroadcastChannel(doc.targetChannel || 'all'); }}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <a href={resolveUrl(doc.url)} target="_blank" rel="noreferrer">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500"><Download className="w-3.5 h-3.5" /></Button>
+                          </a>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" title="Desabilitar" onClick={() => deleteBroadcastDoc(doc.id)}><X className="w-3.5 h-3.5" /></Button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -779,14 +857,27 @@ export default function SolarReferrals() {
               {docs.map(doc => (
                 <div key={doc.id} className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-3 hover:border-purple-200 transition-colors">
                   {isImage(doc.mimeType) ? (
-                    <img src={resolveUrl(doc.url)} alt={doc.originalName} className="w-12 h-12 object-cover rounded-lg border" />
+                    <img src={resolveUrl(doc.url)} alt={doc.originalName} className="w-12 h-12 object-cover rounded-lg border flex-shrink-0" />
                   ) : (
-                    <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center text-lg">
-                      {doc.mimeType === 'application/pdf' ? '📄' : doc.mimeType?.includes('sheet') ? '📊' : '📁'}
+                    <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center text-xl flex-shrink-0">
+                      {getDocIcon(doc.mimeType)}
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{doc.description || doc.originalName}</p>
+                    {editingDocId === doc.id ? (
+                      <div className="flex items-center gap-2">
+                        <input autoFocus value={editingDocDesc} onChange={e => setEditingDocDesc(e.target.value)}
+                          className="flex-1 px-2 py-1 text-sm border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                          onKeyDown={e => { if (e.key === 'Enter') saveDocEdit(); if (e.key === 'Escape') setEditingDocId(null); }}
+                        />
+                        <button onClick={saveDocEdit} disabled={savingDocEdit} className="px-2 py-1 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-60">
+                          {savingDocEdit ? '...' : 'OK'}
+                        </button>
+                        <button onClick={() => setEditingDocId(null)} className="px-2 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-50">✕</button>
+                      </div>
+                    ) : (
+                      <p className="text-sm font-medium text-slate-800 truncate">{doc.description || doc.originalName}</p>
+                    )}
                     <p className="text-xs text-slate-400">{doc.originalName} · {doc.uploadedBy} · {new Date(doc.createdAt).toLocaleDateString('pt-BR')}</p>
                     <div className="flex items-center gap-1 mt-1">
                       <button type="button" onClick={() => toggleDocVisibility(doc)} disabled={togglingDoc === doc.id}
@@ -796,11 +887,15 @@ export default function SolarReferrals() {
                       <span className="text-[10px] text-slate-400">{doc.uploadedByRole === 'admin' ? '👨‍💼 Admin' : '🤝 Parceiro'}</span>
                     </div>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-shrink-0">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-400" title="Editar descrição"
+                      onClick={() => { setEditingDocId(doc.id); setEditingDocDesc(doc.description || ''); }}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
                     <a href={resolveUrl(doc.url)} target="_blank" rel="noreferrer">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500"><Download className="w-3.5 h-3.5" /></Button>
                     </a>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteDoc(doc.id)}><X className="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" title="Desabilitar" onClick={() => deleteDoc(doc.id)}><X className="w-3.5 h-3.5" /></Button>
                   </div>
                 </div>
               ))}

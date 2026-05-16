@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Delete, Body, Param, Query,
+  Controller, Get, Post, Put, Patch, Delete, Body, Param, Query,
   UseGuards, Request, UseInterceptors, UploadedFile, BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -280,7 +280,17 @@ export class ReferralsController {
     return this.service.updateLeadDocumentVisibility(docId, visibility, targetConsultantId);
   }
 
-  // Deletar documento
+  // Editar descrição de documento do lead
+  @UseGuards(JwtAuthGuard)
+  @Patch('leads/documents/:docId')
+  updateLeadDocumentDescription(
+    @Param('docId') docId: string,
+    @Body('description') description: string,
+  ) {
+    return this.service.updateLeadDocumentDescription(docId, description);
+  }
+
+  // Deletar documento (soft delete)
   @UseGuards(JwtAuthGuard)
   @Delete('leads/documents/:docId')
   deleteLeadDocument(@Param('docId') docId: string) {
@@ -315,7 +325,17 @@ export class ReferralsController {
     });
   }
 
-  // Deletar documento geral (admin)
+  // Editar documento geral (descrição e/ou canal)
+  @UseGuards(JwtAuthGuard)
+  @Patch('broadcast-docs/:docId')
+  updateBroadcastDocument(
+    @Param('docId') docId: string,
+    @Body() body: { description?: string; targetChannel?: string },
+  ) {
+    return this.service.updateBroadcastDocument(docId, body);
+  }
+
+  // Deletar documento geral (soft delete)
   @UseGuards(JwtAuthGuard)
   @Delete('broadcast-docs/:docId')
   deleteBroadcastDocument(@Param('docId') docId: string) {

@@ -3250,7 +3250,13 @@ class ApiService {
     return (await this.client.put(`/referrals/leads/documents/${docId}/visibility`, { visibility, targetConsultantId })).data;
   }
 
-  // ─── BROADCAST DE DOCUMENTOS ─────────────────────────────────────────────────
+  async updateLeadDocumentDescription(docId: string, description: string) {
+    return (await this.client.patch(`/referrals/leads/documents/${docId}`, { description })).data;
+  }
+
+  async updateBroadcastDocument(docId: string, data: { description?: string; targetChannel?: string }) {
+    return (await this.client.patch(`/referrals/broadcast-docs/${docId}`, data)).data;
+  }
 
   async getBroadcastDocuments(channel?: string) {
     const params = channel ? { channel } : {};
