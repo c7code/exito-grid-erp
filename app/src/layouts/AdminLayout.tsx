@@ -48,6 +48,7 @@ import {
   BarChart3,
   Wallet,
   UserPlus,
+  Headphones,
 } from 'lucide-react';
 
 type NavItem = { path: string; label: string; icon: any; module: string; roles: string[] };
@@ -67,7 +68,8 @@ const navSections: NavSection[] = [
       { path: '/admin/clients', label: 'Clientes', icon: UserCircle, module: 'clients', roles: ['admin', 'commercial', 'employee'] },
       { path: '/admin/client-sub-users', label: 'Sub-Usuários Portal', icon: Users, module: 'clients', roles: ['admin'] },
       { path: '/admin/proposals', label: 'Propostas', icon: FileText, module: 'proposals', roles: ['admin', 'commercial', 'employee'] },
-      { path: '/admin/solar-referrals', label: 'Canal de Indicações', icon: UserPlus, module: 'referrals', roles: ['admin', 'commercial', 'employee'] },
+      { path: '/admin/solar-referrals', label: 'Canal de Indicações', icon: UserPlus, module: 'solar-referrals', roles: ['admin', 'commercial', 'employee'] },
+      { path: '/admin/partner-requests', label: 'Requisições Parceiros', icon: Headphones, module: 'partner-requests', roles: ['admin', 'employee'] },
       { path: '/admin/client-requests', label: 'Solicitações', icon: MessageSquare, module: 'client-requests', roles: ['admin', 'commercial', 'employee'] },
       { path: '/admin/simulator', label: 'Simulador', icon: Calculator, module: 'finance-simulator', roles: ['admin', 'commercial', 'finance', 'employee'] },
     ],

@@ -3,6 +3,11 @@ node_modules/
 .pnp
 .pnp.js
 
+# Scripts com credenciais / utilitários locais
+upload_logo.js
+electraflow-api/upload_logo.js
+
+
 # Build outputs
 dist/
 build/

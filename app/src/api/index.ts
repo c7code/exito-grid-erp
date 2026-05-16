@@ -3291,6 +3291,71 @@ class ApiService {
       headers: { Authorization: `Bearer ${partnerToken}` },
     })).data;
   }
+
+  // ─── REQUISIÇÕES DO PARCEIRO ──────────────────────────────────────────────
+
+  // Parceiro: cria requisição
+  async createPartnerRequest(partnerToken: string, data: {
+    title: string; description: string; category?: string; priority?: string;
+  }) {
+    return (await this.client.post('/partner-requests/partner', data, {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  // Parceiro: lista suas requisições
+  async getMyPartnerRequests(partnerToken: string) {
+    return (await this.client.get('/partner-requests/partner', {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  // Parceiro: detalhes de uma requisição
+  async getMyPartnerRequest(partnerToken: string, id: string) {
+    return (await this.client.get(`/partner-requests/partner/${id}`, {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  // Parceiro: adicionar mensagem
+  async addPartnerRequestMessage(partnerToken: string, id: string, content: string) {
+    return (await this.client.post(`/partner-requests/partner/${id}/messages`, { content }, {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  // Admin/Employee: lista todas as requisições
+  async getAllPartnerRequests(filters?: { status?: string; category?: string }) {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.category) params.set('category', filters.category);
+    return (await this.client.get(`/partner-requests?${params.toString()}`)).data;
+  }
+
+  // Admin: contador de abertas (badge no menu)
+  async getPartnerRequestsOpenCount() {
+    return (await this.client.get('/partner-requests/count/open')).data;
+  }
+
+  // Admin: detalhes de uma requisição
+  async getAdminPartnerRequest(id: string) {
+    return (await this.client.get(`/partner-requests/${id}`)).data;
+  }
+
+  // Admin/Employee: muda status
+  async updatePartnerRequestStatus(id: string, status: string) {
+    return (await this.client.patch(`/partner-requests/${id}/status`, { status })).data;
+  }
+
+  // Admin/Employee: adicionar mensagem como admin/employee
+  async addAdminRequestMessage(id: string, content: string) {
+    return (await this.client.post(`/partner-requests/${id}/messages`, { content })).data;
+  }
+
+  // Admin: excluir requisição
+  async deletePartnerRequest(id: string) {
+    return (await this.client.delete(`/partner-requests/${id}`)).data;
+  }
 }
 
 export const api = new ApiService();

@@ -50,6 +50,9 @@ export const AVAILABLE_MODULES = [
   'company-documents',
   'safety-programs',
   'exam-referrals',
+  // Canal de Indicadores
+  'solar-referrals',
+  'partner-requests',
 ] as const;
 
 export type ModulePermission = typeof AVAILABLE_MODULES[number];

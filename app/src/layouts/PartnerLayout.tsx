@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Zap,
   FileText,
+  Headphones,
 } from 'lucide-react';
 
 const partnerNavItems = [
@@ -20,6 +21,7 @@ const partnerNavItems = [
   { path: '/partner/leads', label: 'Meus Leads', icon: Users },
   { path: '/partner/new-lead', label: 'Indicar Lead', icon: PlusCircle },
   { path: '/partner/documents', label: 'Documentos', icon: FileText },
+  { path: '/partner/requests', label: 'Requisições', icon: Headphones },
   { path: '/partner/commissions', label: 'Financeiro', icon: DollarSign },
 ];
 

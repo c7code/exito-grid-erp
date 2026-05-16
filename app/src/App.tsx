@@ -125,6 +125,7 @@ const AdminClientSubUsers = lazy(() => import('./pages/admin/ClientSubUsers'));
 const AdminFinanceConfig = lazy(() => import('./pages/admin/FinanceConfig'));
 const AdminEquipment = lazy(() => import('./pages/admin/Equipment'));
 const AdminSolarReferrals = lazy(() => import('./pages/admin/SolarReferrals'));
+const AdminPartnerRequests = lazy(() => import('./pages/admin/AdminPartnerRequests'));
 
 // Partner Portal Pages (lazy)
 const PartnerLogin = lazy(() => import('./pages/partner/PartnerLogin'));
@@ -132,6 +133,7 @@ const PartnerDashboard = lazy(() => import('./pages/partner/PartnerDashboard'));
 const PartnerLeads = lazy(() => import('./pages/partner/PartnerLeads'));
 const PartnerCommissions = lazy(() => import('./pages/partner/PartnerCommissions'));
 const PartnerDocuments = lazy(() => import('./pages/partner/PartnerDocuments'));
+const PartnerRequests = lazy(() => import('./pages/partner/PartnerRequests'));
 
 // Employee Pages (no longer used — employees redirect to admin layout)
 
@@ -234,6 +236,7 @@ function App() {
               <Route path="/admin/solar-plans" element={<AdminSolarPlans />} />
               <Route path="/admin/equipment" element={<AdminEquipment />} />
               <Route path="/admin/solar-referrals" element={<AdminSolarReferrals />} />
+              <Route path="/admin/partner-requests" element={<AdminPartnerRequests />} />
 
               <Route path="/admin/employees" element={<AdminEmployees />} />
               <Route path="/admin/employees/:id/compliance" element={<AdminEmployeeCompliance />} />
@@ -286,6 +289,7 @@ function App() {
               <Route path="new-lead" element={<PartnerLeads />} />
               <Route path="commissions" element={<PartnerCommissions />} />
               <Route path="documents" element={<PartnerDocuments />} />
+              <Route path="requests" element={<PartnerRequests />} />
             </Route>
           </Route>
 

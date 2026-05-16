@@ -43,6 +43,7 @@ import { SimulationsModule } from './simulations/simulations.module';
 import { PortalModule } from './portal/portal.module';
 import { EquipmentModule } from './equipment/equipment.module';
 import { ReferralsModule } from './referrals/referrals.module';
+import { PartnerRequestsModule } from './partner-requests/partner-requests.module';
 
 @Module({
   imports: [
@@ -111,6 +112,7 @@ import { ReferralsModule } from './referrals/referrals.module';
     PortalModule,
     EquipmentModule,
     ReferralsModule,
+    PartnerRequestsModule,
   ],
   providers: [
     {

@@ -866,14 +866,14 @@ export class ReferralsService implements OnModuleInit {
         .leftJoin(
           'referral_leads', 'l', 'l.id = d."leadId"'
         )
-        .addSelect(['l."clientName"'])
+        .addSelect(['l.name'])
         .orderBy('d."createdAt"', 'DESC')
         .getRawAndEntities();
 
-      // Enriquecer com clientName do lead
+      // Enriquecer com name do lead (campo correto na tabela)
       const rawMap: Record<string, string> = {};
       allLeadDocs.raw.forEach((r: any) => {
-        rawMap[r.d_id] = r.l_clientName || r['l_clientName'] || '';
+        rawMap[r.d_id] = r.l_name || r['l_name'] || '';
       });
 
       const enriched = allLeadDocs.entities.map(d => ({
@@ -884,6 +884,7 @@ export class ReferralsService implements OnModuleInit {
       publicDocs = enriched.filter(d => d.visibility === 'public');
       privateDocs = enriched.filter(d => d.visibility === 'private' && d.targetConsultantId === consultantId);
     }
+
 
     return {
       broadcast: broadcastDocs,
