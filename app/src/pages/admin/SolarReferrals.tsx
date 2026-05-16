@@ -20,7 +20,7 @@ import {
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 interface Consultant { id: string; name: string; email?: string; phone?: string; commissionPercent?: number; status?: string; }
 interface Lead {
-  id: string; clientName: string; clientPhone?: string; clientEmail?: string;
+  id: string; name: string; phone?: string; email?: string;
   status: string; notes?: string; consultantId: string; consultant?: Consultant;
   proposalId?: string; createdAt: string;
   services?: string[]; zipCode?: string; neighborhood?: string; city?: string; state?: string; address?: string;
@@ -68,7 +68,7 @@ export default function SolarReferrals() {
   const [leadDialog, setLeadDialog] = useState(false);
   const [editingLead, setEditingLead] = useState<any>(null);
   const [lForm, setLForm] = useState({
-    clientName:'', clientPhone:'', clientEmail:'', consultantId:'', status:'new', notes:'',
+    name:'', phone:'', email:'', consultantId:'', status:'new', notes:'',
     services: [] as string[], zipCode:'', neighborhood:'', city:'', state:'', address:'',
   });
 
@@ -164,13 +164,13 @@ export default function SolarReferrals() {
   // ─── Lead CRUD ────────────────────────────────────────────────────────────
   const openNewLead = () => {
     setEditingLead(null);
-    setLForm({ clientName:'', clientPhone:'', clientEmail:'', consultantId:'', status:'new', notes:'', services:[], zipCode:'', neighborhood:'', city:'', state:'', address:'' });
+    setLForm({ name:'', phone:'', email:'', consultantId:'', status:'new', notes:'', services:[], zipCode:'', neighborhood:'', city:'', state:'', address:'' });
     setLeadDialog(true);
   };
   const openEditLead = (l: Lead) => {
     setEditingLead(l);
     setLForm({
-      clientName: l.clientName||'', clientPhone: l.clientPhone||'', clientEmail: l.clientEmail||'',
+      name: l.name||'', phone: l.phone||'', email: l.email||'',
       consultantId: l.consultantId||'', status: l.status||'new', notes: l.notes||'',
       services: l.services||[], zipCode: l.zipCode||'', neighborhood: l.neighborhood||'',
       city: l.city||'', state: l.state||'', address: l.address||'',
@@ -178,7 +178,7 @@ export default function SolarReferrals() {
     setLeadDialog(true);
   };
   const saveLead = async () => {
-    if (!lForm.clientName.trim()) return toast.error('Nome obrigatório');
+    if (!lForm.name.trim()) return toast.error('Nome obrigatório');
     if (!lForm.consultantId) return toast.error('Selecione o consultor');
     try {
       if (editingLead) { await api.updateReferralLead(editingLead.id, lForm); toast.success('Lead atualizado!'); }
@@ -322,7 +322,7 @@ export default function SolarReferrals() {
   const resolveUrl = (url: string) => url?.startsWith('http') ? url : `${(import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')}${url}`;
 
   // ─── Filtered ─────────────────────────────────────────────────────────────
-  const filteredLeads = leads.filter(l => l.clientName?.toLowerCase().includes(search.toLowerCase()) || l.consultant?.name?.toLowerCase().includes(search.toLowerCase()));
+  const filteredLeads = leads.filter(l => l.name?.toLowerCase().includes(search.toLowerCase()) || l.consultant?.name?.toLowerCase().includes(search.toLowerCase()));
   const filteredConsultants = consultants.filter(c => c.name?.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -404,7 +404,7 @@ export default function SolarReferrals() {
                 <tbody className="divide-y divide-slate-50">
                   {filteredLeads.map(lead => (
                     <tr key={lead.id} className="hover:bg-slate-50 group">
-                      <td className="py-3 pr-4 font-medium text-slate-800">{lead.clientName}</td>
+                      <td className="py-3 pr-4 font-medium text-slate-800">{lead.name}</td>
                       <td className="py-3 pr-4 text-slate-600">{lead.consultant?.name || '—'}</td>
                       <td className="py-3 pr-4">
                         <Select value={lead.status} onValueChange={v => updateLeadStatus(lead, v)}>
@@ -643,9 +643,9 @@ export default function SolarReferrals() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2"><Label>Nome do Cliente *</Label><Input value={lForm.clientName} onChange={e => setLForm({...lForm, clientName: e.target.value})} placeholder="Nome do cliente" /></div>
-              <div><Label>Telefone</Label><Input value={lForm.clientPhone} onChange={e => setLForm({...lForm, clientPhone: e.target.value})} placeholder="(00) 00000-0000" /></div>
-              <div><Label>Email</Label><Input value={lForm.clientEmail} onChange={e => setLForm({...lForm, clientEmail: e.target.value})} placeholder="email@cliente.com" /></div>
+              <div className="col-span-2"><Label>Nome do Cliente *</Label><Input value={lForm.name} onChange={e => setLForm({...lForm, name: e.target.value})} placeholder="Nome do cliente" /></div>
+              <div><Label>Telefone</Label><Input value={lForm.phone} onChange={e => setLForm({...lForm, phone: e.target.value})} placeholder="(00) 00000-0000" /></div>
+              <div><Label>Email</Label><Input value={lForm.email} onChange={e => setLForm({...lForm, email: e.target.value})} placeholder="email@cliente.com" /></div>
             </div>
 
             {/* Serviços de interesse */}
@@ -701,7 +701,7 @@ export default function SolarReferrals() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Link2 className="w-4 h-4 text-emerald-500" /> Vincular Proposta</DialogTitle>
-            <DialogDescription>Lead: <strong>{linkLead?.clientName}</strong> — Parceiro: <strong>{linkLead?.consultant?.name}</strong></DialogDescription>
+            <DialogDescription>Lead: <strong>{linkLead?.name}</strong> — Parceiro: <strong>{linkLead?.consultant?.name}</strong></DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div>
@@ -811,7 +811,7 @@ export default function SolarReferrals() {
             <DialogTitle className="flex items-center gap-2">
               <FolderOpen className="w-5 h-5 text-purple-500" /> Canal de Documentos
             </DialogTitle>
-            <DialogDescription>Lead: <strong>{docLead?.clientName}</strong> · Parceiro: <strong>{docLead?.consultant?.name || consultants.find(c => c.id === docLead?.consultantId)?.name || '—'}</strong></DialogDescription>
+            <DialogDescription>Lead: <strong>{docLead?.name}</strong> · Parceiro: <strong>{docLead?.consultant?.name || consultants.find(c => c.id === docLead?.consultantId)?.name || '—'}</strong></DialogDescription>
           </DialogHeader>
 
           {/* Upload Section */}

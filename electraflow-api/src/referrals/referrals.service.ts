@@ -286,8 +286,24 @@ export class ReferralsService implements OnModuleInit {
     return qb.getMany();
   }
 
-  async createLeadByPartner(consultantId: string, data: Partial<ReferralLead>) {
-    const l = this.leadRepo.create({ ...data, consultantId });
+  async createLeadByPartner(consultantId: string, data: any) {
+    // O portal do parceiro envia name/phone/email — mesmo schema da tabela referral_leads
+    const mapped: any = {
+      consultantId,
+      status: 'new',
+      name: data.name || data.clientName,
+      phone: data.phone || data.clientPhone,
+      email: data.email || data.clientEmail,
+      city: data.city,
+      state: data.state,
+      address: data.address,
+      notes: data.notes,
+      potentialValue: data.potentialValue,
+      services: data.services || [],
+      zipCode: data.zipCode,
+      neighborhood: data.neighborhood,
+    };
+    const l = this.leadRepo.create(mapped);
     return this.leadRepo.save(l);
   }
 
