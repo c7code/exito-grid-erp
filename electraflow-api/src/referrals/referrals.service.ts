@@ -288,10 +288,11 @@ export class ReferralsService implements OnModuleInit {
     });
     if (!leads.length) return leads;
 
-    // Buscar propostas vinculadas para cada lead (tabela referral_lead_proposals)
+    // Buscar propostas vinculadas: nova tabela + legado via proposalId
     const leadIds = leads.map(l => l.id);
     const linkedProposals = await this.dataSource.query(
-      `SELECT lp."leadId", lp.id as link_id, lp."proposalId", lp.visible, lp."createdAt" as linked_at,
+      `-- Propostas da nova tabela (múltiplas por lead)
+       SELECT lp."leadId", lp.id as link_id, lp."proposalId", lp.visible, lp."createdAt" as linked_at,
               p."proposalNumber" as number, p.title, p.status as proposal_status, p.total as "totalValue",
               p."createdAt" as proposal_date,
               COALESCE(c.name, '') as client_name
@@ -299,7 +300,26 @@ export class ReferralsService implements OnModuleInit {
        JOIN proposals p ON p.id = lp."proposalId"
        LEFT JOIN clients c ON c.id = p."clientId"
        WHERE lp."leadId" = ANY($1::uuid[])
-       ORDER BY lp."createdAt" DESC`,
+
+       UNION
+
+       -- Proposta legada via referral_leads.proposalId (sem entrada na nova tabela)
+       SELECT rl.id as "leadId", gen_random_uuid() as link_id, rl."proposalId", true as visible,
+              rl."updatedAt" as linked_at,
+              p."proposalNumber" as number, p.title, p.status as proposal_status, p.total as "totalValue",
+              p."createdAt" as proposal_date,
+              COALESCE(c.name, '') as client_name
+       FROM referral_leads rl
+       JOIN proposals p ON p.id = rl."proposalId"
+       LEFT JOIN clients c ON c.id = p."clientId"
+       WHERE rl.id = ANY($1::uuid[])
+         AND rl."proposalId" IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM referral_lead_proposals
+           WHERE "leadId" = rl.id AND "proposalId" = rl."proposalId"
+         )
+
+       ORDER BY linked_at DESC`,
       [leadIds],
     );
 

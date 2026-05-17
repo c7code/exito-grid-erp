@@ -191,49 +191,49 @@ export default function PartnerLeads() {
           <p className="text-gray-300 text-sm mt-1">Comece indicando seu primeiro lead!</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {filtered.map(lead => {
             const sc = STATUS_COLOR[lead.status] || { bg: '#f8fafc', text: '#64748b' };
+            const visibleProposals = (lead.linkedProposals || []).filter((p: any) => p.visible);
             return (
-              <div key={lead.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-gray-900">{lead.name || lead.clientName}</h3>
-                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                        style={{ background: sc.bg, color: sc.text }}>
-                        {STATUS_LABEL[lead.status] || lead.status}
-                      </span>
+              <div key={lead.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+                {/* Lead card header */}
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-gray-900">{lead.name || lead.clientName}</h3>
+                        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
+                          style={{ background: sc.bg, color: sc.text }}>
+                          {STATUS_LABEL[lead.status] || lead.status}
+                        </span>
+                        {visibleProposals.length > 0 && (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                            📄 {visibleProposals.length} proposta{visibleProposals.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 mt-2 flex-wrap">
+                        {(lead.phone||lead.clientPhone) && (
+                          <span className="flex items-center gap-1 text-sm text-gray-500">
+                            <Phone className="w-3.5 h-3.5" />{lead.phone||lead.clientPhone}
+                          </span>
+                        )}
+                        {(lead.city||lead.clientCity) && (
+                          <span className="flex items-center gap-1 text-sm text-gray-500">
+                            <MapPin className="w-3.5 h-3.5" />{lead.city||lead.clientCity}{(lead.state||lead.clientState) ? `, ${lead.state||lead.clientState}` : ''}
+                          </span>
+                        )}
+                        {lead.potentialValue && (
+                          <span className="text-sm text-emerald-600 font-medium">
+                            ≈ {Number(lead.potentialValue).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+                          </span>
+                        )}
+                      </div>
+                      {lead.notes && <p className="text-sm text-gray-400 mt-1.5 line-clamp-2">{lead.notes}</p>}
                     </div>
-                    <div className="flex items-center gap-4 mt-2 flex-wrap">
-                      {(lead.phone||lead.clientPhone) && (
-                        <span className="flex items-center gap-1 text-sm text-gray-500">
-                          <Phone className="w-3.5 h-3.5" />{lead.phone||lead.clientPhone}
-                        </span>
-                      )}
-                      {(lead.city||lead.clientCity) && (
-                        <span className="flex items-center gap-1 text-sm text-gray-500">
-                          <MapPin className="w-3.5 h-3.5" />{lead.city||lead.clientCity}{(lead.state||lead.clientState) ? `, ${lead.state||lead.clientState}` : ''}
-                        </span>
-                      )}
-                      {lead.potentialValue && (
-                        <span className="text-sm text-emerald-600 font-medium">
-                          ≈ {Number(lead.potentialValue).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
-                        </span>
-                      )}
-                    </div>
-                    {lead.notes && <p className="text-sm text-gray-400 mt-1.5 line-clamp-2">{lead.notes}</p>}
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="text-xs text-gray-300">{new Date(lead.createdAt).toLocaleDateString('pt-BR')}</span>
-                    <div className="flex gap-1.5">
-                      {((lead.linkedProposals?.length > 0) || lead.proposalId) && (
-                        <button onClick={() => openProposal(lead)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors">
-                          <FileText className="w-3.5 h-3.5" />
-                          Proposta{lead.linkedProposals?.filter((p: any) => p.visible).length > 0 ? ` (${lead.linkedProposals.filter((p: any) => p.visible).length})` : ''}
-                        </button>
-                      )}
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="text-xs text-gray-300">{new Date(lead.createdAt).toLocaleDateString('pt-BR')}</span>
                       <button onClick={() => openDocs(lead)}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors">
                         <FolderOpen className="w-3.5 h-3.5" /> Documentos
@@ -241,6 +241,103 @@ export default function PartnerLeads() {
                     </div>
                   </div>
                 </div>
+
+                {/* Propostas vinculadas — inline */}
+                {visibleProposals.length > 0 && (
+                  <div className="border-t border-emerald-100 bg-emerald-50/50 px-5 py-3 space-y-2">
+                    <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5" /> Proposta{visibleProposals.length > 1 ? 's' : ''} Vinculada{visibleProposals.length > 1 ? 's' : ''}
+                    </p>
+                    {visibleProposals.map((p: any) => (
+                      <div key={p.proposalId || p.linkId}
+                        className="bg-white border border-emerald-200 rounded-xl overflow-visible">
+                        <div className="flex items-center justify-between px-4 py-2.5">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-emerald-800 text-sm">{p.number}</span>
+                              {p.title && <span className="text-xs text-gray-500 truncate max-w-[180px]">{p.title}</span>}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1 flex-wrap">
+                              {p.clientName && <span className="text-xs text-gray-400">{p.clientName}</span>}
+                              {p.totalValue && (
+                                <span className="text-xs font-bold text-emerald-700">
+                                  {Number(p.totalValue).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+                                </span>
+                              )}
+                              {p.proposalDate && (
+                                <span className="text-xs text-gray-400">
+                                  {new Date(p.proposalDate).toLocaleDateString('pt-BR')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {/* Botões + menu 3 pontos */}
+                          <div className="flex items-center gap-1.5 ml-3 shrink-0">
+                            {p.pdfPath ? (
+                              <>
+                                <a href={resolveUrl(p.pdfPath)} target="_blank" rel="noopener noreferrer"
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors">
+                                  <Eye className="w-3.5 h-3.5" /> Ver
+                                </a>
+                                <a href={resolveUrl(p.pdfPath)} download
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors">
+                                  <Download className="w-3.5 h-3.5" /> PDF
+                                </a>
+                              </>
+                            ) : (
+                              <span className="text-xs text-gray-400">sem PDF</span>
+                            )}
+                            {/* Menu 3 pontos */}
+                            <div className="relative">
+                              <button
+                                onClick={() => setProposalMenuOpen(v => v === (lead.id + p.proposalId) ? null : (lead.id + p.proposalId))}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                              {proposalMenuOpen === (lead.id + p.proposalId) && (
+                                <div className="absolute right-0 top-8 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-30 min-w-[210px]">
+                                  {p.pdfPath && (
+                                    <>
+                                      <a href={resolveUrl(p.pdfPath)} target="_blank" rel="noopener noreferrer"
+                                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                                        <Eye className="w-4 h-4 text-blue-500" /> Visualizar PDF
+                                      </a>
+                                      <a href={resolveUrl(p.pdfPath)} download
+                                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                                        <Download className="w-4 h-4 text-emerald-500" /> Baixar PDF
+                                      </a>
+                                      <div className="border-t border-gray-100 my-1" />
+                                    </>
+                                  )}
+                                  <label className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                    onClick={() => { (proposalFileRef.current as any)._leadId = lead.id; }}>
+                                    <Paperclip className="w-4 h-4 text-purple-500" />
+                                    {attachingToProposal ? 'Enviando...' : 'Enviar Documento / Informação'}
+                                    <input ref={proposalFileRef} type="file" className="hidden"
+                                      onChange={() => {
+                                        // Associa ao lead correto antes de fazer upload
+                                        if (!proposalLead || proposalLead.id !== lead.id) setProposalLead(lead);
+                                        uploadProposalAttachment();
+                                      }}
+                                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
+                                  </label>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Se tem proposalId mas proposalVisible=false (ainda não liberado) */}
+                {lead.proposalId && visibleProposals.length === 0 && (
+                  <div className="border-t border-gray-100 bg-gray-50 px-5 py-2.5 flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5 text-gray-400" />
+                    <p className="text-xs text-gray-400">Proposta vinculada — aguardando liberação pela equipe</p>
+                  </div>
+                )}
               </div>
             );
           })}
