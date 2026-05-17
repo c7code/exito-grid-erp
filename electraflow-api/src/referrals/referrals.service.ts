@@ -292,8 +292,9 @@ export class ReferralsService implements OnModuleInit {
     const leadIds = leads.map(l => l.id);
     const linkedProposals = await this.dataSource.query(
       `SELECT lp."leadId", lp.id as link_id, lp."proposalId", lp.visible, lp."createdAt" as linked_at,
-              p.number, p.title, p.status as proposal_status, p."totalValue", p."pdfPath", p."createdAt" as proposal_date,
-              COALESCE(c.name, p."clientName") as client_name
+              p."proposalNumber" as number, p.title, p.status as proposal_status, p.total as "totalValue",
+              p."createdAt" as proposal_date,
+              COALESCE(c.name, '') as client_name
        FROM referral_lead_proposals lp
        JOIN proposals p ON p.id = lp."proposalId"
        LEFT JOIN clients c ON c.id = p."clientId"
@@ -314,7 +315,7 @@ export class ReferralsService implements OnModuleInit {
         title: row.title,
         proposalStatus: row.proposal_status,
         totalValue: row.totalValue,
-        pdfPath: row.pdfPath || null,
+        pdfPath: null, // proposals não possui pdfPath nesta versão
         clientName: row.client_name,
         linkedAt: row.linked_at,
         proposalDate: row.proposal_date,
@@ -610,8 +611,9 @@ export class ReferralsService implements OnModuleInit {
 
     const rows = await this.dataSource.query(
       `SELECT lp.id as link_id, lp."proposalId", lp.visible, lp."createdAt" as linked_at,
-              p.number, p.title, p.status as proposal_status, p."totalValue", p."pdfPath", p."createdAt" as proposal_date,
-              COALESCE(c.name, p."clientName") as client_name
+              p."proposalNumber" as number, p.title, p.status as proposal_status, p.total as "totalValue",
+              p."createdAt" as proposal_date,
+              COALESCE(c.name, '') as client_name
        FROM referral_lead_proposals lp
        JOIN proposals p ON p.id = lp."proposalId"
        LEFT JOIN clients c ON c.id = p."clientId"
@@ -627,7 +629,7 @@ export class ReferralsService implements OnModuleInit {
       title: p.title,
       proposalStatus: p.proposal_status,
       totalValue: p.totalValue,
-      pdfPath: p.pdfPath || null,
+      pdfPath: null,
       clientName: p.client_name,
       linkedAt: p.linked_at,
       proposalDate: p.proposal_date,
@@ -638,8 +640,8 @@ export class ReferralsService implements OnModuleInit {
   async getLeadProposals(leadId: string) {
     return this.dataSource.query(
       `SELECT lp.id as link_id, lp."proposalId", lp.visible, lp."createdAt" as linked_at,
-              p.number, p.title, p.status as proposal_status, p."totalValue", p."pdfPath",
-              COALESCE(c.name, p."clientName") as client_name
+              p."proposalNumber" as number, p.title, p.status as proposal_status, p.total as "totalValue",
+              COALESCE(c.name, '') as client_name
        FROM referral_lead_proposals lp
        JOIN proposals p ON p.id = lp."proposalId"
        LEFT JOIN clients c ON c.id = p."clientId"
