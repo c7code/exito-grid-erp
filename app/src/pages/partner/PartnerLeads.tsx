@@ -3,9 +3,9 @@ import { usePartnerAuth } from '@/contexts/PartnerAuthContext';
 import { api } from '@/api';
 import { toast } from 'sonner';
 import {
-  Users, PlusCircle, Phone, MapPin, X, Search,
-  FolderOpen, FileUp, Download, Globe, Lock, Loader2,
-  FileText, Eye, MoreVertical, Paperclip, ExternalLink,
+  Users, PlusCircle, Phone, MapPin, Search,
+  FolderOpen, FileUp, Download, Globe, Lock,
+  FileText, Eye, MoreVertical, Paperclip, X, Loader2,
 } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -56,10 +56,8 @@ export default function PartnerLeads() {
   const [uploadDesc, setUploadDesc] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Proposta vinculada
+  // Proposta vinculada — upload complementar
   const [proposalLead, setProposalLead] = useState<any|null>(null);
-  const [proposal, setProposal] = useState<any[]>([]);
-  const [proposalLoading, setProposalLoading] = useState(false);
   const [proposalMenuOpen, setProposalMenuOpen] = useState<string|null>(null);
   const [attachingToProposal, setAttachingToProposal] = useState(false);
   const proposalFileRef = useRef<HTMLInputElement>(null);
@@ -94,26 +92,6 @@ export default function PartnerLeads() {
       setDocs(Array.isArray(d) ? d : []);
     } catch { toast.error('Erro ao enviar documento'); }
     finally { setUploading(false); }
-  };
-
-  const openProposal = async (lead: any) => {
-    setProposalLead(lead);
-    setProposal([]);
-    setProposalLoading(true);
-    setProposalMenuOpen(null);
-    try {
-      // Usa linkedProposals que já vem no response (apenas as visíveis)
-      const visible = (lead.linkedProposals || []).filter((p: any) => p.visible);
-      if (visible.length > 0) {
-        setProposal(visible);
-      } else {
-        // Fallback: busca do servidor
-        const p = await api.getPartnerLeadProposal(lead.id, partnerToken!);
-        setProposal(Array.isArray(p) ? p : [p]);
-      }
-    } catch {
-      setProposal([]);
-    } finally { setProposalLoading(false); }
   };
 
   const uploadProposalAttachment = async () => {
@@ -469,122 +447,6 @@ export default function PartnerLeads() {
                 style={{ background: 'linear-gradient(135deg, #059669, #0284c7)' }}>
                 {isSaving ? 'Salvando...' : 'Indicar Lead'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Modal: Proposta ─── */}
-      {proposalLead && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={e => { if (e.target === e.currentTarget) { setProposalLead(null); setProposal([]); } }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between"
-              style={{ background: 'linear-gradient(135deg, #064e3b, #065f46)' }}>
-              <div>
-                <h2 className="font-bold text-white flex items-center gap-2">
-                  <FileText className="w-4 h-4" /> Proposta Vinculada
-                </h2>
-                <p className="text-emerald-200 text-xs mt-0.5">Lead: {proposalLead.name || proposalLead.clientName}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => { setProposalLead(null); setProposal([]); }}
-                  className="text-white/70 hover:text-white"><X className="w-5 h-5" /></button>
-              </div>
-            </div>
-
-            <div className="p-4 max-h-[70vh] overflow-y-auto space-y-3">
-              {proposalLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-7 h-7 animate-spin text-emerald-500" />
-                </div>
-              ) : proposal.length > 0 ? (
-                <>
-                  {proposal.map((p: any) => (
-                    <div key={p.proposalId || p.linkId} className="bg-emerald-50 border border-emerald-200 rounded-xl overflow-hidden">
-                      {/* Card header */}
-                      <div className="flex items-center justify-between px-4 py-2.5 bg-emerald-100 border-b border-emerald-200">
-                        <span className="font-bold text-emerald-800 text-sm">{p.number}</span>
-                        {/* Menu 3 pontos por proposta */}
-                        <div className="relative">
-                          <button onClick={() => setProposalMenuOpen(v => v === p.proposalId ? null : p.proposalId)}
-                            className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-200 transition-colors">
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-                          {proposalMenuOpen === p.proposalId && (
-                            <div className="absolute right-0 top-7 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-20 min-w-[210px]">
-                              {p.pdfPath && (
-                                <>
-                                  <a href={resolveUrl(p.pdfPath)} target="_blank" rel="noopener noreferrer"
-                                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                                    <Eye className="w-4 h-4 text-blue-500" /> Visualizar PDF
-                                  </a>
-                                  <a href={resolveUrl(p.pdfPath)} download
-                                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                                    <Download className="w-4 h-4 text-emerald-500" /> Baixar PDF
-                                  </a>
-                                  <div className="border-t border-gray-100 my-1" />
-                                </>
-                              )}
-                              <label className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
-                                <Paperclip className="w-4 h-4 text-purple-500" />
-                                {attachingToProposal ? 'Enviando...' : 'Enviar Documento'}
-                                <input ref={proposalFileRef} type="file" className="hidden"
-                                  onChange={uploadProposalAttachment}
-                                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
-                              </label>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {/* Card body */}
-                      <div className="px-4 py-3 space-y-1.5">
-                        {p.title && (
-                          <p className="text-sm text-gray-800 font-medium">{p.title}</p>
-                        )}
-                        {p.clientName && (
-                          <p className="text-xs text-gray-500">Cliente: {p.clientName}</p>
-                        )}
-                        {p.totalValue && (
-                          <p className="text-sm font-bold text-emerald-700">
-                            {Number(p.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                          </p>
-                        )}
-                        {p.proposalDate && (
-                          <p className="text-xs text-gray-400">
-                            {new Date(p.proposalDate).toLocaleDateString('pt-BR')}
-                          </p>
-                        )}
-                        {/* Botões */}
-                        {p.pdfPath ? (
-                          <div className="flex gap-2 pt-1">
-                            <a href={resolveUrl(p.pdfPath)} target="_blank" rel="noopener noreferrer"
-                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors">
-                              <ExternalLink className="w-3.5 h-3.5" /> Visualizar
-                            </a>
-                            <a href={resolveUrl(p.pdfPath)} download
-                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors">
-                              <Download className="w-3.5 h-3.5" /> Baixar PDF
-                            </a>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-400 pt-1">PDF ainda não disponível</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  <p className="text-xs text-gray-400 text-center pt-1">
-                    Use o menu ⋮ em cada proposta para enviar documentos complementares
-                  </p>
-                </>
-              ) : (
-                <div className="text-center py-8 text-gray-400">
-                  <FileText className="w-10 h-10 mx-auto mb-2 text-gray-200" />
-                  <p className="text-sm">Nenhuma proposta liberada para visualização</p>
-                  <p className="text-xs mt-1 text-gray-300">Aguarde a equipe compartilhar uma proposta</p>
-                </div>
-              )}
             </div>
           </div>
         </div>
