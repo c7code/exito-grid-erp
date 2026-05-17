@@ -693,6 +693,57 @@ export class ReferralsService implements OnModuleInit {
     return proposals; // Retorna array de propostas
   }
 
+  /** Parceiro obtém dados COMPLETOS de uma proposta (se tiver acesso via referral_lead_proposals) */
+  async getPartnerProposal(proposalId: string, consultantId: string) {
+    // Verifica se o parceiro tem acesso a essa proposta via algum lead dele
+    const access = await this.dataSource.query(
+      `SELECT lp.visible, lp."allowDownload"
+       FROM referral_lead_proposals lp
+       JOIN referral_leads rl ON rl.id = lp."leadId"
+       WHERE lp."proposalId" = $1 AND rl."consultantId" = $2 AND lp.visible = true
+       LIMIT 1`,
+      [proposalId, consultantId],
+    );
+    if (!access.length) throw new NotFoundException('Proposta não encontrada ou sem permissão');
+
+    // Busca dados completos da proposta
+    const rows = await this.dataSource.query(
+      `SELECT p.*, c.name as client_name, c.document as client_document,
+              c.phone as client_phone, c.email as client_email,
+              c.address as client_address, c.city as client_city, c.state as client_state
+       FROM proposals p
+       LEFT JOIN clients c ON c.id = p."clientId"
+       WHERE p.id = $1 AND (p."deletedAt" IS NULL OR p."deletedAt" > NOW())`,
+      [proposalId],
+    );
+    if (!rows.length) throw new NotFoundException('Proposta não encontrada');
+
+    const p = rows[0];
+    return {
+      id: p.id,
+      proposalNumber: p.proposalNumber,
+      title: p.title,
+      status: p.status,
+      total: p.total,
+      activityType: p.activityType,
+      validUntil: p.validUntil,
+      notes: p.notes,
+      items: p.items,
+      paymentConditions: p.paymentConditions,
+      createdAt: p.createdAt,
+      allowDownload: access[0].allowDownload,
+      client: {
+        name: p.client_name,
+        document: p.client_document,
+        phone: p.client_phone,
+        email: p.client_email,
+        address: p.client_address,
+        city: p.client_city,
+        state: p.client_state,
+      },
+    };
+  }
+
   // ═══════════════════════════════════════════════
   // COMPROMISSOS
   // ═══════════════════════════════════════════════

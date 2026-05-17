@@ -3256,7 +3256,14 @@ class ApiService {
     })).data;
   }
 
-  /** Parceiro obtém dados da proposta vinculada ao seu lead (somente se admin habilitou) */
+  /** Parceiro obtém dados completos de uma proposta para visualização */
+  async getPartnerProposal(proposalId: string, partnerToken: string) {
+    return (await this.client.get(`/referrals/partner/proposals/${proposalId}`, {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  /** Parceiro obtém dados da proposta vinculada ao seu lead */
   async getPartnerLeadProposal(leadId: string, partnerToken: string) {
     return (await this.client.get(`/referrals/partner/leads/${leadId}/proposal`, {
       headers: { Authorization: `Bearer ${partnerToken}` },

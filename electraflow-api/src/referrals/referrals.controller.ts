@@ -208,6 +208,13 @@ export class ReferralsController {
     return this.service.getPartnerLeadProposals(id, req.user.consultantId);
   }
 
+  /** Parceiro obtém dados COMPLETOS de uma proposta vinculada (para visualização) */
+  @UseGuards(PartnerAuthGuard)
+  @Get('partner/proposals/:proposalId')
+  async getPartnerProposal(@Param('proposalId') proposalId: string, @Request() req: any) {
+    return this.service.getPartnerProposal(proposalId, req.user.consultantId);
+  }
+
   // ─── COMPROMISSOS ─────────────────────────────
   @UseGuards(JwtAuthGuard)
   @Get('commitments')

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePartnerAuth } from '@/contexts/PartnerAuthContext';
 import { api } from '@/api';
 import { toast } from 'sonner';
@@ -39,6 +40,7 @@ const resolveUrl = (url: string) =>
 
 export default function PartnerLeads() {
   const { partnerToken } = usePartnerAuth();
+  const navigate = useNavigate();
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -251,21 +253,18 @@ export default function PartnerLeads() {
                           </div>
                           {/* Botões + menu 3 pontos */}
                           <div className="flex items-center gap-1.5 ml-3 shrink-0">
-                            {p.pdfPath ? (
-                              <>
-                                <a href={resolveUrl(p.pdfPath)} target="_blank" rel="noopener noreferrer"
-                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors">
-                                  <Eye className="w-3.5 h-3.5" /> Ver
-                                </a>
-                                {p.allowDownload && (
-                                  <a href={resolveUrl(p.pdfPath)} download
-                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors">
-                                    <Download className="w-3.5 h-3.5" /> PDF
-                                  </a>
-                                )}
-                              </>
-                            ) : (
-                              <span className="text-xs text-gray-400 italic">PDF em breve</span>
+                            {/* Botão Ver — sempre disponível se proposta está visível */}
+                            <button
+                              onClick={() => navigate(`/partner/proposals/${p.proposalId}`)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors">
+                              <Eye className="w-3.5 h-3.5" /> Ver
+                            </button>
+                            {p.allowDownload && (
+                              <button
+                                onClick={() => navigate(`/partner/proposals/${p.proposalId}`)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors">
+                                <Download className="w-3.5 h-3.5" /> PDF
+                              </button>
                             )}
                             {/* Menu 3 pontos */}
                             <div className="relative">
@@ -276,21 +275,21 @@ export default function PartnerLeads() {
                               </button>
                               {proposalMenuOpen === (lead.id + p.proposalId) && (
                                 <div className="absolute right-0 top-8 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-30 min-w-[210px]">
-                                  {p.pdfPath && (
-                                    <>
-                                      <a href={resolveUrl(p.pdfPath)} target="_blank" rel="noopener noreferrer"
-                                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                                        <Eye className="w-4 h-4 text-blue-500" /> Visualizar PDF
-                                      </a>
+                                  <>
+                                      <button
+                                        onClick={() => { navigate(`/partner/proposals/${p.proposalId}`); setProposalMenuOpen(null); }}
+                                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 w-full text-left">
+                                        <Eye className="w-4 h-4 text-blue-500" /> Visualizar Proposta
+                                      </button>
                                       {p.allowDownload && (
-                                        <a href={resolveUrl(p.pdfPath)} download
-                                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                                          <Download className="w-4 h-4 text-emerald-500" /> Baixar PDF
-                                        </a>
+                                        <button
+                                          onClick={() => { navigate(`/partner/proposals/${p.proposalId}`); setProposalMenuOpen(null); }}
+                                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 w-full text-left">
+                                          <Download className="w-4 h-4 text-emerald-500" /> Salvar PDF
+                                        </button>
                                       )}
                                       <div className="border-t border-gray-100 my-1" />
-                                    </>
-                                  )}
+                                  </>
                                   <label className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
                                     onClick={() => { (proposalFileRef.current as any)._leadId = lead.id; }}>
                                     <Paperclip className="w-4 h-4 text-purple-500" />
