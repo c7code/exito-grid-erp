@@ -139,17 +139,60 @@ export class ReferralsController {
     return this.service.linkLeadToProposal(id, proposalId, proposalVisible);
   }
 
+  /** Admin: adicionar proposta ao lead (suporte a múltiplas) */
+  @UseGuards(JwtAuthGuard)
+  @Post('leads/:id/proposals')
+  addLeadProposal(
+    @Param('id') id: string,
+    @Body('proposalId') proposalId: string,
+    @Body('visible') visible: boolean,
+  ) {
+    return this.service.addLeadProposal(id, proposalId, visible ?? false);
+  }
+
+  /** Admin: listar propostas vinculadas a um lead */
+  @UseGuards(JwtAuthGuard)
+  @Get('leads/:id/proposals')
+  getLeadProposals(@Param('id') id: string) {
+    return this.service.getLeadProposals(id);
+  }
+
+  /** Admin: remover proposta vinculada */
+  @UseGuards(JwtAuthGuard)
+  @Delete('leads/:id/proposals/:proposalId')
+  removeLeadProposal(@Param('id') id: string, @Param('proposalId') proposalId: string) {
+    return this.service.removeLeadProposal(id, proposalId);
+  }
+
+  /** Admin: toggle visibilidade de uma proposta vinculada */
+  @UseGuards(JwtAuthGuard)
+  @Patch('leads/:id/proposals/:proposalId/visibility')
+  toggleLeadProposalVisibility(
+    @Param('id') id: string,
+    @Param('proposalId') proposalId: string,
+    @Body('visible') visible: boolean,
+  ) {
+    return this.service.toggleLeadProposalVisibility(id, proposalId, visible);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Patch('leads/:id/proposal-visibility')
   toggleProposalVisibility(@Param('id') id: string, @Body('visible') visible: boolean) {
     return this.service.toggleProposalVisibility(id, visible);
   }
 
-  /** Parceiro vê dados da proposta vinculada ao seu lead (se estiver visível) */
+  /** Parceiro vê propostas visíveis do seu lead */
   @UseGuards(PartnerAuthGuard)
   @Get('partner/leads/:id/proposal')
   async getPartnerLeadProposal(@Param('id') id: string, @Request() req: any) {
     return this.service.getPartnerLeadProposal(id, req.user.consultantId);
+  }
+
+  /** Parceiro vê propostas visíveis do seu lead (nova rota plural) */
+  @UseGuards(PartnerAuthGuard)
+  @Get('partner/leads/:id/proposals')
+  async getPartnerLeadProposals(@Param('id') id: string, @Request() req: any) {
+    return this.service.getPartnerLeadProposals(id, req.user.consultantId);
   }
 
   // ─── COMPROMISSOS ─────────────────────────────

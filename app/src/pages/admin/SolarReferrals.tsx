@@ -212,14 +212,7 @@ export default function SolarReferrals() {
     } catch { toast.error('Erro ao vincular proposta'); }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _toggleLeadProposalVisibility = async (lead: any, visible: boolean) => {
-    try {
-      await api.toggleLeadProposalVisibility(lead.id, visible);
-      toast.success(visible ? 'Proposta liberada para o parceiro!' : 'Proposta ocultada do parceiro');
-      load();
-    } catch { toast.error('Erro ao alterar visibilidade da proposta'); }
-  };
+
 
   // ─── Generate Access ─────────────────────────────────────────────────────
   const generateAccess = async (consultant: Consultant) => {
@@ -703,41 +696,43 @@ export default function SolarReferrals() {
 
       {/* Link Proposal Dialog */}
       <Dialog open={linkDialog} onOpenChange={setLinkDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Link2 className="w-4 h-4 text-emerald-500" /> Vincular Proposta</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><Link2 className="w-4 h-4 text-emerald-500" /> Propostas do Lead</DialogTitle>
             <DialogDescription>Lead: <strong>{linkLead?.name}</strong> — Parceiro: <strong>{linkLead?.consultant?.name}</strong></DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <Label>Proposta</Label>
+          <div className="space-y-4 py-2">
+            {/* Adicionar nova proposta */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Vincular Nova Proposta</p>
               <Select value={linkProposalId || '__none__'} onValueChange={v => setLinkProposalId(v === '__none__' ? '' : v)}>
                 <SelectTrigger><SelectValue placeholder="Selecione a proposta..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">Nenhuma / Remover vínculo</SelectItem>
+                  <SelectItem value="__none__">Selecionar...</SelectItem>
                   {proposals.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id}>{p.proposalNumber} — {p.title}</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>{p.proposalNumber || p.number} — {p.title || p.clientName}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            {linkProposalId && (
-              <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                <button type="button" onClick={() => setLinkVisiblePartner(p => !p)}
-                  className={['w-10 h-5 rounded-full transition-colors relative shrink-0', linkVisiblePartner ? 'bg-emerald-500' : 'bg-slate-300'].join(' ')}>
-                  <span className={['absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform', linkVisiblePartner ? 'translate-x-5' : 'translate-x-0.5'].join(' ')} />
-                </button>
-                <div>
-                  <p className="text-xs font-medium text-slate-700">{linkVisiblePartner ? '✓ Visível para o parceiro' : 'Oculto do parceiro'}</p>
-                  <p className="text-[10px] text-slate-400">O parceiro verá esta proposta no portal de leads</p>
+              {linkProposalId && (
+                <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2">
+                  <button type="button" onClick={() => setLinkVisiblePartner(p => !p)}
+                    className={['w-10 h-5 rounded-full transition-colors relative shrink-0', linkVisiblePartner ? 'bg-emerald-500' : 'bg-slate-300'].join(' ')}>
+                    <span className={['absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform', linkVisiblePartner ? 'translate-x-5' : 'translate-x-0.5'].join(' ')} />
+                  </button>
+                  <div>
+                    <p className="text-xs font-medium text-slate-700">{linkVisiblePartner ? '✓ Visível para o parceiro' : 'Oculto do parceiro'}</p>
+                    <p className="text-[10px] text-slate-400">O parceiro verá esta proposta no portal</p>
+                  </div>
                 </div>
-              </div>
-            )}
-            {linkProposalId && <p className="text-xs text-emerald-600">✓ A comissão será registrada automaticamente ao fechar a venda.</p>}
+              )}
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" onClick={() => setLinkDialog(false)}>Cancelar</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={saveLink}>Salvar Vínculo</Button>
+            <Button variant="outline" onClick={() => setLinkDialog(false)}>Fechar</Button>
+            {linkProposalId && (
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={saveLink}>Adicionar Proposta</Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

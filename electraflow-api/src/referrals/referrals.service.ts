@@ -82,12 +82,22 @@ export class ReferralsService implements OnModuleInit {
         "potentialKwp" NUMERIC(10,2),
         "potentialValue" NUMERIC(15,2),
         "proposalId" UUID,
+        "proposalVisible" BOOLEAN DEFAULT false,
         "clientId" UUID,
         "lostReason" VARCHAR,
         notes TEXT,
         "createdAt" TIMESTAMP DEFAULT NOW(),
         "updatedAt" TIMESTAMP DEFAULT NOW(),
         "deletedAt" TIMESTAMP
+      )`,
+      // Tabela para suporte a múltiplas propostas por lead
+      `CREATE TABLE IF NOT EXISTS referral_lead_proposals (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "leadId" UUID NOT NULL,
+        "proposalId" UUID NOT NULL,
+        visible BOOLEAN DEFAULT false,
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        UNIQUE("leadId", "proposalId")
       )`,
       `CREATE TABLE IF NOT EXISTS referral_commitments (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -272,10 +282,46 @@ export class ReferralsService implements OnModuleInit {
   }
 
   async getPartnerLeads(consultantId: string) {
-    return this.leadRepo.find({
+    const leads = await this.leadRepo.find({
       where: { consultantId, deletedAt: null as any },
       order: { createdAt: 'DESC' },
     });
+    if (!leads.length) return leads;
+
+    // Buscar propostas vinculadas para cada lead (tabela referral_lead_proposals)
+    const leadIds = leads.map(l => l.id);
+    const linkedProposals = await this.dataSource.query(
+      `SELECT lp."leadId", lp.id as link_id, lp."proposalId", lp.visible, lp."createdAt" as linked_at,
+              p.number, p.title, p.status as proposal_status, p."totalValue", p."pdfPath", p."createdAt" as proposal_date,
+              COALESCE(c.name, p."clientName") as client_name
+       FROM referral_lead_proposals lp
+       JOIN proposals p ON p.id = lp."proposalId"
+       LEFT JOIN clients c ON c.id = p."clientId"
+       WHERE lp."leadId" = ANY($1::uuid[])
+       ORDER BY lp."createdAt" DESC`,
+      [leadIds],
+    );
+
+    // Mapear por leadId
+    const byLead: Record<string, any[]> = {};
+    for (const row of linkedProposals) {
+      if (!byLead[row.leadId]) byLead[row.leadId] = [];
+      byLead[row.leadId].push({
+        linkId: row.link_id,
+        proposalId: row.proposalId,
+        visible: row.visible,
+        number: row.number,
+        title: row.title,
+        proposalStatus: row.proposal_status,
+        totalValue: row.totalValue,
+        pdfPath: row.pdfPath || null,
+        clientName: row.client_name,
+        linkedAt: row.linked_at,
+        proposalDate: row.proposal_date,
+      });
+    }
+
+    return leads.map(l => ({ ...l, linkedProposals: byLead[l.id] || [] }));
   }
 
   async getPartnerCommissions(consultantId: string) {
@@ -490,13 +536,59 @@ export class ReferralsService implements OnModuleInit {
   }
 
   async linkLeadToProposal(id: string, proposalId: string, proposalVisible = false) {
+    // Mantém compatibilidade: atualiza proposalId + proposalVisible no lead
     await this.leadRepo
       .createQueryBuilder()
       .update(ReferralLead)
       .set({ proposalId, proposalVisible, status: 'proposal_sent', updatedAt: new Date() } as any)
       .where('id = :id', { id })
       .execute();
+
+    // Insere na tabela de múltiplas propostas (upsert seguro)
+    await this.dataSource.query(
+      `INSERT INTO referral_lead_proposals ("leadId", "proposalId", visible)
+       VALUES ($1, $2, $3)
+       ON CONFLICT ("leadId", "proposalId") DO UPDATE SET visible = EXCLUDED.visible`,
+      [id, proposalId, proposalVisible],
+    );
     return this.getLead(id);
+  }
+
+  async addLeadProposal(leadId: string, proposalId: string, visible = false) {
+    await this.dataSource.query(
+      `INSERT INTO referral_lead_proposals ("leadId", "proposalId", visible)
+       VALUES ($1, $2, $3)
+       ON CONFLICT ("leadId", "proposalId") DO UPDATE SET visible = EXCLUDED.visible`,
+      [leadId, proposalId, visible],
+    );
+    // Atualiza também o campo legado proposalId (para compatibilidade)
+    await this.dataSource.query(
+      `UPDATE referral_leads SET "proposalId" = $1, "proposalVisible" = $2, status = 'proposal_sent', "updatedAt" = NOW() WHERE id = $3`,
+      [proposalId, visible, leadId],
+    );
+    return { success: true };
+  }
+
+  async removeLeadProposal(leadId: string, proposalId: string) {
+    await this.dataSource.query(
+      `DELETE FROM referral_lead_proposals WHERE "leadId" = $1 AND "proposalId" = $2`,
+      [leadId, proposalId],
+    );
+    return { success: true };
+  }
+
+  async toggleLeadProposalVisibility(leadId: string, proposalId: string, visible: boolean) {
+    await this.dataSource.query(
+      `UPDATE referral_lead_proposals SET visible = $1 WHERE "leadId" = $2 AND "proposalId" = $3`,
+      [visible, leadId, proposalId],
+    );
+    // Sync campo legado se for a proposta principal
+    await this.dataSource.query(
+      `UPDATE referral_leads SET "proposalVisible" = $1, "updatedAt" = NOW()
+       WHERE id = $2 AND "proposalId" = $3`,
+      [visible, leadId, proposalId],
+    );
+    return { success: true };
   }
 
   async toggleProposalVisibility(id: string, visible: boolean) {
@@ -509,38 +601,59 @@ export class ReferralsService implements OnModuleInit {
     return this.getLead(id);
   }
 
-  /** Parceiro obtém dados da proposta vinculada ao seu lead (somente se proposalVisible = true) */
-  async getPartnerLeadProposal(leadId: string, consultantId: string) {
+  /** Parceiro obtém propostas visíveis vinculadas ao seu lead */
+  async getPartnerLeadProposals(leadId: string, consultantId: string) {
     const lead = await this.leadRepo.findOne({
       where: { id: leadId, consultantId, deletedAt: null as any },
     });
     if (!lead) throw new NotFoundException('Lead não encontrado');
-    if (!lead.proposalId) throw new NotFoundException('Nenhuma proposta vinculada a este lead');
-    if (!(lead as any).proposalVisible) {
-      throw new NotFoundException('Proposta ainda não foi liberada para visualização');
-    }
-    // Buscar dados da proposta
+
     const rows = await this.dataSource.query(
-      `SELECT p.id, p.number, p.title, p.status, p."totalValue", p."createdAt",
-              p."pdfPath", p."clientName",
-              c.name as client_name
-       FROM proposals p
+      `SELECT lp.id as link_id, lp."proposalId", lp.visible, lp."createdAt" as linked_at,
+              p.number, p.title, p.status as proposal_status, p."totalValue", p."pdfPath", p."createdAt" as proposal_date,
+              COALESCE(c.name, p."clientName") as client_name
+       FROM referral_lead_proposals lp
+       JOIN proposals p ON p.id = lp."proposalId"
        LEFT JOIN clients c ON c.id = p."clientId"
-       WHERE p.id = $1`,
-      [lead.proposalId],
+       WHERE lp."leadId" = $1 AND lp.visible = true
+       ORDER BY lp."createdAt" DESC`,
+      [leadId],
     );
-    if (!rows.length) throw new NotFoundException('Proposta não encontrada no sistema');
-    const p = rows[0];
-    return {
-      id: p.id,
+
+    return rows.map((p: any) => ({
+      linkId: p.link_id,
+      proposalId: p.proposalId,
       number: p.number,
       title: p.title,
-      status: p.status,
+      proposalStatus: p.proposal_status,
       totalValue: p.totalValue,
-      clientName: p.client_name || p.clientName,
-      createdAt: p.createdAt,
       pdfPath: p.pdfPath || null,
-    };
+      clientName: p.client_name,
+      linkedAt: p.linked_at,
+      proposalDate: p.proposal_date,
+    }));
+  }
+
+  /** Retorna TODAS as propostas vinculadas (admin) */
+  async getLeadProposals(leadId: string) {
+    return this.dataSource.query(
+      `SELECT lp.id as link_id, lp."proposalId", lp.visible, lp."createdAt" as linked_at,
+              p.number, p.title, p.status as proposal_status, p."totalValue", p."pdfPath",
+              COALESCE(c.name, p."clientName") as client_name
+       FROM referral_lead_proposals lp
+       JOIN proposals p ON p.id = lp."proposalId"
+       LEFT JOIN clients c ON c.id = p."clientId"
+       WHERE lp."leadId" = $1
+       ORDER BY lp."createdAt" DESC`,
+      [leadId],
+    );
+  }
+
+  /** Parceiro obtém dados da proposta vinculada ao seu lead (somente se proposalVisible = true) — legado */
+  async getPartnerLeadProposal(leadId: string, consultantId: string) {
+    const proposals = await this.getPartnerLeadProposals(leadId, consultantId);
+    if (!proposals.length) throw new NotFoundException('Nenhuma proposta visível vinculada a este lead');
+    return proposals; // Retorna array de propostas
   }
 
   // ═══════════════════════════════════════════════
