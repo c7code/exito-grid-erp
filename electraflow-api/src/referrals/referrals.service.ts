@@ -191,6 +191,8 @@ export class ReferralsService implements OnModuleInit {
       `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS street VARCHAR`,
       `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "bankName" VARCHAR`,
       `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "pixKey" VARCHAR`,
+      `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "bankAgency" VARCHAR`,
+      `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "bankAccount" VARCHAR`,
       `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "accessChannel" VARCHAR DEFAULT 'all'`,
       `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "passwordHash" VARCHAR`,
       `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "isPortalActive" BOOLEAN DEFAULT false`,
@@ -201,6 +203,25 @@ export class ReferralsService implements OnModuleInit {
       `ALTER TABLE referral_leads ADD COLUMN IF NOT EXISTS "neighborhood" VARCHAR`,
       `ALTER TABLE referral_leads ADD COLUMN IF NOT EXISTS "proposalVisible" BOOLEAN DEFAULT false`,
       `ALTER TABLE referral_lead_proposals ADD COLUMN IF NOT EXISTS "allowDownload" BOOLEAN DEFAULT false`,
+      // Tabela de solicitações de saque
+      `CREATE TABLE IF NOT EXISTS partner_withdrawal_requests (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "consultantId" UUID NOT NULL,
+        "commissionId" UUID,
+        amount NUMERIC(15,2) NOT NULL,
+        status VARCHAR DEFAULT 'pending',
+        "bankName" VARCHAR,
+        "bankAgency" VARCHAR,
+        "bankAccount" VARCHAR,
+        "pixKey" VARCHAR,
+        notes TEXT,
+        "receiptUrl" VARCHAR,
+        "receiptFileName" VARCHAR,
+        "requestedAt" TIMESTAMP DEFAULT NOW(),
+        "processedAt" TIMESTAMP,
+        "processedBy" VARCHAR,
+        "adminNotes" TEXT
+      )`,
     ];
 
     for (const sql of alterations) {
@@ -1142,6 +1163,176 @@ export class ReferralsService implements OnModuleInit {
         exclusive: privateDocs.length,
       },
     };
+  }
+
+  // ═══════════════════════════════════════════════
+  // DADOS BANCÁRIOS DO PARCEIRO
+  // ═══════════════════════════════════════════════
+
+  async updatePartnerBankInfo(consultantId: string, data: {
+    bankName?: string;
+    bankAgency?: string;
+    bankAccount?: string;
+    pixKey?: string;
+  }) {
+    await this.dataSource.query(
+      `UPDATE referral_consultants
+       SET "bankName" = COALESCE($1, "bankName"),
+           "bankAgency" = COALESCE($2, "bankAgency"),
+           "bankAccount" = COALESCE($3, "bankAccount"),
+           "pixKey" = COALESCE($4, "pixKey"),
+           "updatedAt" = NOW()
+       WHERE id = $5`,
+      [data.bankName ?? null, data.bankAgency ?? null, data.bankAccount ?? null, data.pixKey ?? null, consultantId],
+    );
+    return this.getPartnerProfile(consultantId);
+  }
+
+  // ═══════════════════════════════════════════════
+  // SOLICITAÇÕES DE SAQUE
+  // ═══════════════════════════════════════════════
+
+  /** Parceiro solicita um saque */
+  async requestWithdrawal(consultantId: string, data: {
+    amount: number;
+    commissionId?: string;
+    bankName?: string;
+    bankAgency?: string;
+    bankAccount?: string;
+    pixKey?: string;
+    notes?: string;
+  }) {
+    // Salva dados bancários no perfil do consultor se fornecidos
+    if (data.bankName || data.pixKey || data.bankAgency || data.bankAccount) {
+      await this.dataSource.query(
+        `UPDATE referral_consultants
+         SET "bankName" = COALESCE($1, "bankName"),
+             "bankAgency" = COALESCE($2, "bankAgency"),
+             "bankAccount" = COALESCE($3, "bankAccount"),
+             "pixKey" = COALESCE($4, "pixKey"),
+             "updatedAt" = NOW()
+         WHERE id = $5`,
+        [data.bankName ?? null, data.bankAgency ?? null, data.bankAccount ?? null, data.pixKey ?? null, consultantId],
+      );
+    }
+
+    const result = await this.dataSource.query(
+      `INSERT INTO partner_withdrawal_requests
+         ("consultantId", "commissionId", amount, status, "bankName", "bankAgency", "bankAccount", "pixKey", notes)
+       VALUES ($1, $2, $3, 'pending', $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        consultantId,
+        data.commissionId ?? null,
+        data.amount,
+        data.bankName ?? null,
+        data.bankAgency ?? null,
+        data.bankAccount ?? null,
+        data.pixKey ?? null,
+        data.notes ?? null,
+      ],
+    );
+    return result[0];
+  }
+
+  /** Parceiro lista suas solicitações de saque */
+  async getWithdrawalRequestsByConsultant(consultantId: string) {
+    return this.dataSource.query(
+      `SELECT wr.*,
+              cm."commissionValue", cm."saleValue", cm."commissionPercent",
+              rl.name as lead_name
+       FROM partner_withdrawal_requests wr
+       LEFT JOIN referral_commissions cm ON cm.id = wr."commissionId"
+       LEFT JOIN referral_leads rl ON rl.id = cm."leadId"
+       WHERE wr."consultantId" = $1
+       ORDER BY wr."requestedAt" DESC`,
+      [consultantId],
+    );
+  }
+
+  /** Admin lista TODAS as solicitações de saque */
+  async getAllWithdrawalRequests(status?: string) {
+    const statusFilter = status ? `AND wr.status = '${status.replace(/'/g, '')}'` : '';
+    return this.dataSource.query(
+      `SELECT wr.*,
+              rc.name as consultant_name, rc.email as consultant_email,
+              cm."commissionValue", cm."saleValue", cm."commissionPercent",
+              rl.name as lead_name
+       FROM partner_withdrawal_requests wr
+       JOIN referral_consultants rc ON rc.id = wr."consultantId"
+       LEFT JOIN referral_commissions cm ON cm.id = wr."commissionId"
+       LEFT JOIN referral_leads rl ON rl.id = cm."leadId"
+       WHERE 1=1 ${statusFilter}
+       ORDER BY wr."requestedAt" DESC`,
+    );
+  }
+
+  /** Admin processa (aprova/rejeita) e registra comprovante */
+  async processWithdrawal(
+    withdrawalId: string,
+    data: {
+      status: 'approved' | 'rejected' | 'paid';
+      adminNotes?: string;
+      receiptUrl?: string;
+      receiptFileName?: string;
+      processedBy?: string;
+    },
+  ) {
+    await this.dataSource.query(
+      `UPDATE partner_withdrawal_requests
+       SET status = $1,
+           "adminNotes" = $2,
+           "receiptUrl" = COALESCE($3, "receiptUrl"),
+           "receiptFileName" = COALESCE($4, "receiptFileName"),
+           "processedAt" = NOW(),
+           "processedBy" = $5
+       WHERE id = $6`,
+      [
+        data.status,
+        data.adminNotes ?? null,
+        data.receiptUrl ?? null,
+        data.receiptFileName ?? null,
+        data.processedBy ?? 'Admin',
+        withdrawalId,
+      ],
+    );
+
+    // Se pago, atualiza comissão vinculada para 'paid' também
+    if (data.status === 'paid') {
+      await this.dataSource.query(
+        `UPDATE referral_commissions cm
+         SET status = 'paid', "paidAt" = NOW()
+         FROM partner_withdrawal_requests wr
+         WHERE wr.id = $1 AND cm.id = wr."commissionId"`,
+        [withdrawalId],
+      );
+    }
+
+    const rows = await this.dataSource.query(
+      `SELECT wr.*, rc.name as consultant_name, rc.email as consultant_email
+       FROM partner_withdrawal_requests wr
+       JOIN referral_consultants rc ON rc.id = wr."consultantId"
+       WHERE wr.id = $1`,
+      [withdrawalId],
+    );
+    return rows[0] || {};
+  }
+
+  /** Comissões detalhadas do parceiro (com info de lead e proposta) */
+  async getPartnerCommissionsDetailed(consultantId: string) {
+    return this.dataSource.query(
+      `SELECT cm.*,
+              rl.name as lead_name, rl.city as lead_city,
+              p."proposalNumber", p.title as proposal_title,
+              c.name as client_name
+       FROM referral_commissions cm
+       LEFT JOIN referral_leads rl ON rl.id = cm."leadId"
+       LEFT JOIN proposals p ON p.id = cm."proposalId"
+       LEFT JOIN clients c ON c.id = p."clientId"
+       WHERE cm."consultantId" = $1
+       ORDER BY cm."createdAt" DESC`,
+      [consultantId],
+    );
   }
 }
 

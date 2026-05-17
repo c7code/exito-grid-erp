@@ -436,4 +436,73 @@ export class ReferralsController {
     const profile = await this.service.getPartnerProfile(req.user.consultantId);
     return this.service.getBroadcastDocuments(profile.accessChannel || 'all');
   }
+
+  // ─── DADOS BANCÁRIOS DO PARCEIRO ─────────────────────────────────────
+  @UseGuards(PartnerAuthGuard)
+  @Put('partner/bank-info')
+  updatePartnerBankInfo(@Request() req: any, @Body() body: any) {
+    return this.service.updatePartnerBankInfo(req.user.consultantId, body);
+  }
+
+  // ─── COMISSÕES DETALHADAS (parceiro) ─────────────────────────────────
+  @UseGuards(PartnerAuthGuard)
+  @Get('partner/commissions-detailed')
+  getPartnerCommissionsDetailed(@Request() req: any) {
+    return this.service.getPartnerCommissionsDetailed(req.user.consultantId);
+  }
+
+  // ─── SOLICITAÇÕES DE SAQUE — PARCEIRO ────────────────────────────────
+
+  /** Parceiro solicita saque */
+  @UseGuards(PartnerAuthGuard)
+  @Post('partner/withdrawal-requests')
+  requestWithdrawal(@Request() req: any, @Body() body: any) {
+    return this.service.requestWithdrawal(req.user.consultantId, body);
+  }
+
+  /** Parceiro lista suas solicitações */
+  @UseGuards(PartnerAuthGuard)
+  @Get('partner/withdrawal-requests')
+  getMyWithdrawalRequests(@Request() req: any) {
+    return this.service.getWithdrawalRequestsByConsultant(req.user.consultantId);
+  }
+
+  // ─── SOLICITAÇÕES DE SAQUE — ADMIN ───────────────────────────────────
+
+  /** Admin lista todas as solicitações de saque */
+  @UseGuards(JwtAuthGuard)
+  @Get('withdrawal-requests')
+  getAllWithdrawalRequests(@Query('status') status?: string) {
+    return this.service.getAllWithdrawalRequests(status);
+  }
+
+  /** Admin processa solicitação (aprova/rejeita/paga) — com upload de comprovante opcional */
+  @UseGuards(JwtAuthGuard)
+  @Put('withdrawal-requests/:id')
+  @UseInterceptors(FileInterceptor('receipt', { storage: memoryStorage() }))
+  async processWithdrawal(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+    @Request() req: any,
+  ) {
+    let receiptUrl: string | undefined;
+    let receiptFileName: string | undefined;
+
+    // Upload do comprovante se enviado
+    if (file) {
+      const storagePath = `withdrawal-receipts/${id}/${Date.now()}-${file.originalname}`;
+      receiptUrl = await this.supabaseStorage.upload(storagePath, file.buffer, file.mimetype);
+      receiptFileName = file.originalname;
+    }
+
+    return this.service.processWithdrawal(id, {
+      status: body.status,
+      adminNotes: body.adminNotes || null,
+      receiptUrl,
+      receiptFileName,
+      processedBy: req.user?.name || req.user?.email || 'Admin',
+    });
+  }
 }
+

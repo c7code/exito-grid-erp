@@ -3231,6 +3231,54 @@ class ApiService {
     })).data;
   }
 
+  async getPartnerCommissionsDetailed(partnerToken: string) {
+    return (await this.client.get('/referrals/partner/commissions-detailed', {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  async updatePartnerBankInfo(partnerToken: string, data: {
+    bankName?: string; bankAgency?: string; bankAccount?: string; pixKey?: string;
+  }) {
+    return (await this.client.put('/referrals/partner/bank-info', data, {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  async requestPartnerWithdrawal(partnerToken: string, data: {
+    amount: number; commissionId?: string;
+    bankName?: string; bankAgency?: string; bankAccount?: string; pixKey?: string; notes?: string;
+  }) {
+    return (await this.client.post('/referrals/partner/withdrawal-requests', data, {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  async getPartnerWithdrawalRequests(partnerToken: string) {
+    return (await this.client.get('/referrals/partner/withdrawal-requests', {
+      headers: { Authorization: `Bearer ${partnerToken}` },
+    })).data;
+  }
+
+  // Admin: listar solicitações de saque
+  async getAllWithdrawalRequests(status?: string) {
+    const params = status ? { status } : {};
+    return (await this.client.get('/referrals/withdrawal-requests', { params })).data;
+  }
+
+  // Admin: processar saque (com comprovante opcional)
+  async processWithdrawal(id: string, data: {
+    status: 'approved' | 'rejected' | 'paid';
+    adminNotes?: string;
+    receipt?: File;
+  }) {
+    const form = new FormData();
+    form.append('status', data.status);
+    if (data.adminNotes) form.append('adminNotes', data.adminNotes);
+    if (data.receipt) form.append('receipt', data.receipt);
+    return (await this.client.put(`/referrals/withdrawal-requests/${id}`, form)).data;
+  }
+
   async generateConsultantAccess(consultantId: string) {
     return (await this.client.post(`/referrals/consultants/${consultantId}/generate-access`)).data;
   }

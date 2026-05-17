@@ -59,10 +59,11 @@ export default function PartnerLeads() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Proposta vinculada — upload complementar
-  const [proposalLead, setProposalLead] = useState<any|null>(null);
   const [proposalMenuOpen, setProposalMenuOpen] = useState<string|null>(null);
   const [attachingToProposal, setAttachingToProposal] = useState(false);
   const proposalFileRef = useRef<HTMLInputElement>(null);
+  // Ref para capturar o lead atual no momento do clique (evita race condition de estado)
+  const proposalLeadRef = useRef<any>(null);
 
 
   const fetchLeads = async () => {
@@ -96,13 +97,13 @@ export default function PartnerLeads() {
     finally { setUploading(false); }
   };
 
-  const uploadProposalAttachment = async () => {
-    if (!proposalFileRef.current?.files?.[0] || !proposalLead) return;
+  const uploadProposalAttachment = async (lead: any) => {
+    if (!proposalFileRef.current?.files?.[0] || !lead || !partnerToken) return;
     const file = proposalFileRef.current.files[0];
     setAttachingToProposal(true);
     try {
       await api.uploadPartnerLeadDocument(
-        proposalLead.id, file,
+        lead.id, file,
         { visibility: 'public', description: `Complemento de proposta — ${file.name}` },
         partnerToken!
       );
@@ -291,14 +292,12 @@ export default function PartnerLeads() {
                                       <div className="border-t border-gray-100 my-1" />
                                   </>
                                   <label className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
-                                    onClick={() => { (proposalFileRef.current as any)._leadId = lead.id; }}>
+                                    onClick={() => { proposalLeadRef.current = lead; }}>
                                     <Paperclip className="w-4 h-4 text-purple-500" />
                                     {attachingToProposal ? 'Enviando...' : 'Enviar Documento / Informação'}
                                     <input ref={proposalFileRef} type="file" className="hidden"
                                       onChange={() => {
-                                        // Associa ao lead correto antes de fazer upload
-                                        if (!proposalLead || proposalLead.id !== lead.id) setProposalLead(lead);
-                                        uploadProposalAttachment();
+                                        uploadProposalAttachment(proposalLeadRef.current || lead);
                                       }}
                                       accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
                                   </label>
