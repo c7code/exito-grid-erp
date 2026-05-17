@@ -96,6 +96,7 @@ export class ReferralsService implements OnModuleInit {
         "leadId" UUID NOT NULL,
         "proposalId" UUID NOT NULL,
         visible BOOLEAN DEFAULT false,
+        "allowDownload" BOOLEAN DEFAULT false,
         "createdAt" TIMESTAMP DEFAULT NOW(),
         UNIQUE("leadId", "proposalId")
       )`,
@@ -198,6 +199,8 @@ export class ReferralsService implements OnModuleInit {
       `ALTER TABLE referral_leads ADD COLUMN IF NOT EXISTS "services" JSONB DEFAULT '[]'`,
       `ALTER TABLE referral_leads ADD COLUMN IF NOT EXISTS "zipCode" VARCHAR`,
       `ALTER TABLE referral_leads ADD COLUMN IF NOT EXISTS "neighborhood" VARCHAR`,
+      `ALTER TABLE referral_leads ADD COLUMN IF NOT EXISTS "proposalVisible" BOOLEAN DEFAULT false`,
+      `ALTER TABLE referral_lead_proposals ADD COLUMN IF NOT EXISTS "allowDownload" BOOLEAN DEFAULT false`,
     ];
 
     for (const sql of alterations) {
@@ -292,7 +295,7 @@ export class ReferralsService implements OnModuleInit {
     const leadIds = leads.map(l => l.id);
     const linkedProposals = await this.dataSource.query(
       `-- Propostas da nova tabela (múltiplas por lead)
-       SELECT lp."leadId", lp.id as link_id, lp."proposalId", lp.visible, lp."createdAt" as linked_at,
+       SELECT lp."leadId", lp.id as link_id, lp."proposalId", lp.visible, lp."allowDownload", lp."createdAt" as linked_at,
               p."proposalNumber" as number, p.title, p.status as proposal_status, p.total as "totalValue",
               p."createdAt" as proposal_date,
               COALESCE(c.name, '') as client_name
@@ -305,6 +308,7 @@ export class ReferralsService implements OnModuleInit {
 
        -- Proposta legada via referral_leads.proposalId (sem entrada na nova tabela)
        SELECT rl.id as "leadId", gen_random_uuid() as link_id, rl."proposalId", true as visible,
+              false as "allowDownload",
               rl."updatedAt" as linked_at,
               p."proposalNumber" as number, p.title, p.status as proposal_status, p.total as "totalValue",
               p."createdAt" as proposal_date,
@@ -331,6 +335,7 @@ export class ReferralsService implements OnModuleInit {
         linkId: row.link_id,
         proposalId: row.proposalId,
         visible: row.visible,
+        allowDownload: row.allowDownload ?? false,
         number: row.number,
         title: row.title,
         proposalStatus: row.proposal_status,
@@ -556,7 +561,7 @@ export class ReferralsService implements OnModuleInit {
       .execute();
   }
 
-  async linkLeadToProposal(id: string, proposalId: string, proposalVisible = false) {
+  async linkLeadToProposal(id: string, proposalId: string, proposalVisible = false, allowDownload = false) {
     // Mantém compatibilidade: atualiza proposalId + proposalVisible no lead
     await this.leadRepo
       .createQueryBuilder()
@@ -567,25 +572,34 @@ export class ReferralsService implements OnModuleInit {
 
     // Insere na tabela de múltiplas propostas (upsert seguro)
     await this.dataSource.query(
-      `INSERT INTO referral_lead_proposals ("leadId", "proposalId", visible)
-       VALUES ($1, $2, $3)
-       ON CONFLICT ("leadId", "proposalId") DO UPDATE SET visible = EXCLUDED.visible`,
-      [id, proposalId, proposalVisible],
+      `INSERT INTO referral_lead_proposals ("leadId", "proposalId", visible, "allowDownload")
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT ("leadId", "proposalId") DO UPDATE SET visible = EXCLUDED.visible, "allowDownload" = EXCLUDED."allowDownload"`,
+      [id, proposalId, proposalVisible, allowDownload],
     );
     return this.getLead(id);
   }
 
-  async addLeadProposal(leadId: string, proposalId: string, visible = false) {
+  async addLeadProposal(leadId: string, proposalId: string, visible = false, allowDownload = false) {
     await this.dataSource.query(
-      `INSERT INTO referral_lead_proposals ("leadId", "proposalId", visible)
-       VALUES ($1, $2, $3)
-       ON CONFLICT ("leadId", "proposalId") DO UPDATE SET visible = EXCLUDED.visible`,
-      [leadId, proposalId, visible],
+      `INSERT INTO referral_lead_proposals ("leadId", "proposalId", visible, "allowDownload")
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT ("leadId", "proposalId") DO UPDATE SET visible = EXCLUDED.visible, "allowDownload" = EXCLUDED."allowDownload"`,
+      [leadId, proposalId, visible, allowDownload],
     );
     // Atualiza também o campo legado proposalId (para compatibilidade)
     await this.dataSource.query(
       `UPDATE referral_leads SET "proposalId" = $1, "proposalVisible" = $2, status = 'proposal_sent', "updatedAt" = NOW() WHERE id = $3`,
       [proposalId, visible, leadId],
+    );
+    return { success: true };
+  }
+
+  /** Admin: atualiza visível e permissão de download de uma proposta vinculada */
+  async updateLeadProposalAccess(leadId: string, proposalId: string, visible: boolean, allowDownload: boolean) {
+    await this.dataSource.query(
+      `UPDATE referral_lead_proposals SET visible = $1, "allowDownload" = $2 WHERE "leadId" = $3 AND "proposalId" = $4`,
+      [visible, allowDownload, leadId, proposalId],
     );
     return { success: true };
   }
@@ -630,7 +644,7 @@ export class ReferralsService implements OnModuleInit {
     if (!lead) throw new NotFoundException('Lead não encontrado');
 
     const rows = await this.dataSource.query(
-      `SELECT lp.id as link_id, lp."proposalId", lp.visible, lp."createdAt" as linked_at,
+      `SELECT lp.id as link_id, lp."proposalId", lp.visible, lp."allowDownload", lp."createdAt" as linked_at,
               p."proposalNumber" as number, p.title, p.status as proposal_status, p.total as "totalValue",
               p."createdAt" as proposal_date,
               COALESCE(c.name, '') as client_name
@@ -650,16 +664,17 @@ export class ReferralsService implements OnModuleInit {
       proposalStatus: p.proposal_status,
       totalValue: p.totalValue,
       pdfPath: null,
+      allowDownload: p.allowDownload ?? false,
       clientName: p.client_name,
       linkedAt: p.linked_at,
       proposalDate: p.proposal_date,
     }));
   }
 
-  /** Retorna TODAS as propostas vinculadas (admin) */
+  /** Retorna TODAS as propostas vinculadas com controles (admin) */
   async getLeadProposals(leadId: string) {
     return this.dataSource.query(
-      `SELECT lp.id as link_id, lp."proposalId", lp.visible, lp."createdAt" as linked_at,
+      `SELECT lp.id as link_id, lp."proposalId", lp.visible, lp."allowDownload", lp."createdAt" as linked_at,
               p."proposalNumber" as number, p.title, p.status as proposal_status, p.total as "totalValue",
               COALESCE(c.name, '') as client_name
        FROM referral_lead_proposals lp

@@ -279,13 +279,15 @@ export default function PartnerLeads() {
                                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors">
                                   <Eye className="w-3.5 h-3.5" /> Ver
                                 </a>
-                                <a href={resolveUrl(p.pdfPath)} download
-                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors">
-                                  <Download className="w-3.5 h-3.5" /> PDF
-                                </a>
+                                {p.allowDownload && (
+                                  <a href={resolveUrl(p.pdfPath)} download
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors">
+                                    <Download className="w-3.5 h-3.5" /> PDF
+                                  </a>
+                                )}
                               </>
                             ) : (
-                              <span className="text-xs text-gray-400">sem PDF</span>
+                              <span className="text-xs text-gray-400 italic">PDF em breve</span>
                             )}
                             {/* Menu 3 pontos */}
                             <div className="relative">
@@ -302,10 +304,12 @@ export default function PartnerLeads() {
                                         className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
                                         <Eye className="w-4 h-4 text-blue-500" /> Visualizar PDF
                                       </a>
-                                      <a href={resolveUrl(p.pdfPath)} download
-                                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                                        <Download className="w-4 h-4 text-emerald-500" /> Baixar PDF
-                                      </a>
+                                      {p.allowDownload && (
+                                        <a href={resolveUrl(p.pdfPath)} download
+                                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                                          <Download className="w-4 h-4 text-emerald-500" /> Baixar PDF
+                                        </a>
+                                      )}
                                       <div className="border-t border-gray-100 my-1" />
                                     </>
                                   )}

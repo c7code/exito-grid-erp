@@ -3173,6 +3173,16 @@ class ApiService {
     return (await this.client.post(`/referrals/leads/${id}/link-proposal`, { proposalId, proposalVisible })).data;
   }
 
+  /** Admin: adiciona proposta ao lead com controle de acesso */
+  async addLeadProposal(leadId: string, proposalId: string, visible = false, allowDownload = false) {
+    return (await this.client.post(`/referrals/leads/${leadId}/proposals`, { proposalId, visible, allowDownload })).data;
+  }
+
+  /** Admin: atualiza visível + permissão de download de uma proposta vinculada */
+  async updateLeadProposalAccess(leadId: string, proposalId: string, visible: boolean, allowDownload: boolean) {
+    return (await this.client.patch(`/referrals/leads/${leadId}/proposals/${proposalId}/access`, { visible, allowDownload })).data;
+  }
+
   // Compromissos
   async getReferralCommitments(consultantId?: string) {
     return (await this.client.get('/referrals/commitments', { params: consultantId ? { consultantId } : {} })).data;

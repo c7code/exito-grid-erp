@@ -108,6 +108,7 @@ export default function SolarReferrals() {
   const [linkLead, setLinkLead] = useState<Lead|null>(null);
   const [linkProposalId, setLinkProposalId] = useState('');
   const [linkVisiblePartner, setLinkVisiblePartner] = useState(true);
+  const [linkAllowDownload, setLinkAllowDownload] = useState(false);
   const [proposals, setProposals] = useState<any[]>([]);
 
   // Generate access dialog
@@ -204,10 +205,14 @@ export default function SolarReferrals() {
     }
   };
   const saveLink = async () => {
-    if (!linkLead) return;
+    if (!linkLead || !linkProposalId) return;
     try {
-      await api.linkReferralLeadToProposal(linkLead.id, linkProposalId, linkVisiblePartner);
-      toast.success(linkVisiblePartner ? 'Proposta vinculada e visível ao parceiro!' : 'Proposta vinculada!');
+      await api.addLeadProposal(linkLead.id, linkProposalId, linkVisiblePartner, linkAllowDownload);
+      const msg = !linkVisiblePartner ? 'Proposta vinculada (oculta ao parceiro)'
+        : linkAllowDownload ? 'Proposta vinculada — parceiro pode visualizar e baixar!'
+        : 'Proposta vinculada — parceiro pode visualizar (sem download)';
+      toast.success(msg);
+      setLinkProposalId(''); setLinkVisiblePartner(true); setLinkAllowDownload(false);
       setLinkDialog(false); load();
     } catch { toast.error('Erro ao vincular proposta'); }
   };
@@ -702,9 +707,9 @@ export default function SolarReferrals() {
             <DialogDescription>Lead: <strong>{linkLead?.name}</strong> — Parceiro: <strong>{linkLead?.consultant?.name}</strong></DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Adicionar nova proposta */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
-              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Vincular Nova Proposta</p>
+            {/* Selecionar proposta */}
+            <div>
+              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Selecionar Proposta</p>
               <Select value={linkProposalId || '__none__'} onValueChange={v => setLinkProposalId(v === '__none__' ? '' : v)}>
                 <SelectTrigger><SelectValue placeholder="Selecione a proposta..." /></SelectTrigger>
                 <SelectContent>
@@ -714,19 +719,40 @@ export default function SolarReferrals() {
                   ))}
                 </SelectContent>
               </Select>
-              {linkProposalId && (
-                <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2">
-                  <button type="button" onClick={() => setLinkVisiblePartner(p => !p)}
-                    className={['w-10 h-5 rounded-full transition-colors relative shrink-0', linkVisiblePartner ? 'bg-emerald-500' : 'bg-slate-300'].join(' ')}>
-                    <span className={['absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform', linkVisiblePartner ? 'translate-x-5' : 'translate-x-0.5'].join(' ')} />
-                  </button>
-                  <div>
-                    <p className="text-xs font-medium text-slate-700">{linkVisiblePartner ? '✓ Visível para o parceiro' : 'Oculto do parceiro'}</p>
-                    <p className="text-[10px] text-slate-400">O parceiro verá esta proposta no portal</p>
-                  </div>
-                </div>
-              )}
             </div>
+
+            {/* Controle de acesso — 3 estados */}
+            {linkProposalId && (
+              <div>
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Permissão do Parceiro</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {/* Oculto */}
+                  <button type="button"
+                    onClick={() => { setLinkVisiblePartner(false); setLinkAllowDownload(false); }}
+                    className={['rounded-xl border-2 p-3 text-left transition-all', !linkVisiblePartner ? 'border-slate-500 bg-slate-50' : 'border-slate-200 hover:border-slate-300'].join(' ')}>
+                    <div className="text-lg mb-1">🚫</div>
+                    <p className="text-xs font-bold text-slate-700">Oculto</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Parceiro não vê</p>
+                  </button>
+                  {/* Só Visualizar */}
+                  <button type="button"
+                    onClick={() => { setLinkVisiblePartner(true); setLinkAllowDownload(false); }}
+                    className={['rounded-xl border-2 p-3 text-left transition-all', (linkVisiblePartner && !linkAllowDownload) ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-300'].join(' ')}>
+                    <div className="text-lg mb-1">👁️</div>
+                    <p className="text-xs font-bold text-blue-700">Só Visualizar</p>
+                    <p className="text-[10px] text-blue-400 mt-0.5">Vê, não baixa</p>
+                  </button>
+                  {/* Visualizar + Download */}
+                  <button type="button"
+                    onClick={() => { setLinkVisiblePartner(true); setLinkAllowDownload(true); }}
+                    className={['rounded-xl border-2 p-3 text-left transition-all', (linkVisiblePartner && linkAllowDownload) ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300'].join(' ')}>
+                    <div className="text-lg mb-1">⬇️</div>
+                    <p className="text-xs font-bold text-emerald-700">Ver + Baixar</p>
+                    <p className="text-[10px] text-emerald-400 mt-0.5">Acesso completo</p>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setLinkDialog(false)}>Fechar</Button>
