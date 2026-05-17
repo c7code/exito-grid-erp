@@ -2,7 +2,7 @@ import axios, { type AxiosInstance, type AxiosError } from 'axios';
 import { toast } from 'sonner';
 
 // ─── Detecção automática de URL da API ─────────────────────────────────────
-// Prioridade: VITE_API_URL → detecção Railway → localhost
+// Prioridade: VITE_API_URL → fallback hardcoded Railway → localhost
 function detectApiUrl(): string {
   const configured = import.meta.env.VITE_API_URL;
   if (configured) {
@@ -11,15 +11,11 @@ function detectApiUrl(): string {
     if (raw.endsWith('/api')) return raw;
     return raw + '/api';
   }
-  // Auto-detect: se estiver no Railway (*.up.railway.app), tenta inferir a URL da API
-  // baseada na URL do frontend atual, substituindo partes conhecidas do nome do serviço
+  // Fallback para produção no Railway: URL fixa da API
+  // IMPORTANTE: frontend e API são serviços SEPARADOS no Railway, nunca usar o
+  // próprio hostname do frontend como base da URL da API.
   if (typeof window !== 'undefined' && window.location.hostname.includes('.up.railway.app')) {
-    // A URL da API é a variável de ambiente VITE_API_URL definida no Railway
-    // Se não estiver definida, usa a convenção de naming do projeto
-    const host = window.location.hostname;
-    // Tenta construir a URL da API: substitui o hostname do app pelo da api
-    // Ex: exito-grid-erp-production-7cd1.up.railway.app → mesmo host + /api
-    return `https://${host}/api`;
+    return 'https://exito-grid-erp-production.up.railway.app/api';
   }
   return 'http://localhost:3000/api';
 }
