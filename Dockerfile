@@ -1,14 +1,14 @@
 # ═══════════════════════════════════════════════════════════════════
 # STAGE 1: Build do Frontend React (Vite)
-# O Railway usa o repo inteiro como contexto (root-level Dockerfile)
 # ═══════════════════════════════════════════════════════════════════
 FROM node:20-alpine AS frontend-builder
 
 WORKDIR /frontend
 
-# VITE_API_URL relativo (/api) — funciona quando API e frontend
-# estao no mesmo dominio (Railway single service)
-ENV VITE_API_URL=/api
+# VITE_API_URL: Railway injeta via ARG/ENV no servico
+# Fallback: /api (relativo, para servico unificado)
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=$VITE_API_URL
 
 COPY app/package.json app/package-lock.json* ./
 RUN npm install --legacy-peer-deps
@@ -43,7 +43,6 @@ RUN npm ci --only=production
 COPY --from=api-builder /app/dist ./dist
 
 # Frontend buildado -> servido pela API como arquivos estaticos
-# main.ts serve /public/frontend como SPA fallback
 COPY --from=frontend-builder /frontend/dist ./public/frontend
 
 EXPOSE 3000

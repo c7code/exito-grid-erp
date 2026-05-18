@@ -167,15 +167,13 @@ async function bootstrap() {
   const frontendDist = join(__dirname, '..', 'public', 'frontend');
   if (fs.existsSync(frontendDist)) {
     app.useStaticAssets(frontendDist, { index: false });
-    // Catch-all: qualquer rota não-API retorna o index.html do React
+    // Catch-all: APENAS GET de rotas não-API retorna o index.html do React
+    // POST/PUT/PATCH/DELETE sempre passam para o NestJS
     app.use((req: any, res: any, next: any) => {
-      if (req.url.startsWith('/api') || req.url.startsWith('/uploads')) {
-        return next();
-      }
+      if (req.method !== 'GET') return next();
+      if (req.url.startsWith('/api') || req.url.startsWith('/uploads')) return next();
       const indexPath = join(frontendDist, 'index.html');
-      if (fs.existsSync(indexPath)) {
-        return res.sendFile(indexPath);
-      }
+      if (fs.existsSync(indexPath)) return res.sendFile(indexPath);
       next();
     });
     console.log(`🖥️  Frontend React servido em: ${frontendDist}`);
