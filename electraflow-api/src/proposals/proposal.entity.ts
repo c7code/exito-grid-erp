@@ -303,6 +303,14 @@ export class Proposal {
   @Column({ type: 'int', default: 1 })
   revisionNumber: number;
 
+  // Etiqueta/label customizado para filtros internos
+  @Column({ nullable: true })
+  customLabel: string;
+
+  // Parceiro/consultor indicador vinculado a esta proposta
+  @Column({ nullable: true })
+  referralConsultantId: string;
+
   // ── Audit Trail ──
   @Column({ nullable: true })
   createdById: string;
