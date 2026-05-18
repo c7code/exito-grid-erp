@@ -147,8 +147,9 @@ export class ReferralsController {
     @Body('proposalId') proposalId: string,
     @Body('visible') visible: boolean,
     @Body('allowDownload') allowDownload: boolean,
+    @Body('proposalTemplate') proposalTemplate: string,
   ) {
-    return this.service.addLeadProposal(id, proposalId, visible ?? false, allowDownload ?? false);
+    return this.service.addLeadProposal(id, proposalId, visible ?? false, allowDownload ?? false, proposalTemplate || 'commercial');
   }
 
   /** Admin: listar propostas vinculadas a um lead */
@@ -184,8 +185,9 @@ export class ReferralsController {
     @Param('proposalId') proposalId: string,
     @Body('visible') visible: boolean,
     @Body('allowDownload') allowDownload: boolean,
+    @Body('proposalTemplate') proposalTemplate: string,
   ) {
-    return this.service.updateLeadProposalAccess(id, proposalId, visible ?? false, allowDownload ?? false);
+    return this.service.updateLeadProposalAccess(id, proposalId, visible ?? false, allowDownload ?? false, proposalTemplate);
   }
 
   @UseGuards(JwtAuthGuard)

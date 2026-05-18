@@ -203,6 +203,7 @@ export class ReferralsService implements OnModuleInit {
       `ALTER TABLE referral_leads ADD COLUMN IF NOT EXISTS "neighborhood" VARCHAR`,
       `ALTER TABLE referral_leads ADD COLUMN IF NOT EXISTS "proposalVisible" BOOLEAN DEFAULT false`,
       `ALTER TABLE referral_lead_proposals ADD COLUMN IF NOT EXISTS "allowDownload" BOOLEAN DEFAULT false`,
+      `ALTER TABLE referral_lead_proposals ADD COLUMN IF NOT EXISTS "proposalTemplate" VARCHAR DEFAULT 'commercial'`,
       // Tabela de solicitações de saque
       `CREATE TABLE IF NOT EXISTS partner_withdrawal_requests (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -582,7 +583,7 @@ export class ReferralsService implements OnModuleInit {
       .execute();
   }
 
-  async linkLeadToProposal(id: string, proposalId: string, proposalVisible = false, allowDownload = false) {
+  async linkLeadToProposal(id: string, proposalId: string, proposalVisible = false, allowDownload = false, proposalTemplate = 'commercial') {
     // Mantém compatibilidade: atualiza proposalId + proposalVisible no lead
     await this.leadRepo
       .createQueryBuilder()
@@ -593,20 +594,20 @@ export class ReferralsService implements OnModuleInit {
 
     // Insere na tabela de múltiplas propostas (upsert seguro)
     await this.dataSource.query(
-      `INSERT INTO referral_lead_proposals ("leadId", "proposalId", visible, "allowDownload")
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT ("leadId", "proposalId") DO UPDATE SET visible = EXCLUDED.visible, "allowDownload" = EXCLUDED."allowDownload"`,
-      [id, proposalId, proposalVisible, allowDownload],
+      `INSERT INTO referral_lead_proposals ("leadId", "proposalId", visible, "allowDownload", "proposalTemplate")
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT ("leadId", "proposalId") DO UPDATE SET visible = EXCLUDED.visible, "allowDownload" = EXCLUDED."allowDownload", "proposalTemplate" = EXCLUDED."proposalTemplate"`,
+      [id, proposalId, proposalVisible, allowDownload, proposalTemplate],
     );
     return this.getLead(id);
   }
 
-  async addLeadProposal(leadId: string, proposalId: string, visible = false, allowDownload = false) {
+  async addLeadProposal(leadId: string, proposalId: string, visible = false, allowDownload = false, proposalTemplate = 'commercial') {
     await this.dataSource.query(
-      `INSERT INTO referral_lead_proposals ("leadId", "proposalId", visible, "allowDownload")
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT ("leadId", "proposalId") DO UPDATE SET visible = EXCLUDED.visible, "allowDownload" = EXCLUDED."allowDownload"`,
-      [leadId, proposalId, visible, allowDownload],
+      `INSERT INTO referral_lead_proposals ("leadId", "proposalId", visible, "allowDownload", "proposalTemplate")
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT ("leadId", "proposalId") DO UPDATE SET visible = EXCLUDED.visible, "allowDownload" = EXCLUDED."allowDownload", "proposalTemplate" = EXCLUDED."proposalTemplate"`,
+      [leadId, proposalId, visible, allowDownload, proposalTemplate],
     );
     // Atualiza também o campo legado proposalId (para compatibilidade)
     await this.dataSource.query(
@@ -616,11 +617,12 @@ export class ReferralsService implements OnModuleInit {
     return { success: true };
   }
 
-  /** Admin: atualiza visível e permissão de download de uma proposta vinculada */
-  async updateLeadProposalAccess(leadId: string, proposalId: string, visible: boolean, allowDownload: boolean) {
+  /** Admin: atualiza visível, download e template de uma proposta vinculada */
+  async updateLeadProposalAccess(leadId: string, proposalId: string, visible: boolean, allowDownload: boolean, proposalTemplate?: string) {
+    const template = proposalTemplate || 'commercial';
     await this.dataSource.query(
-      `UPDATE referral_lead_proposals SET visible = $1, "allowDownload" = $2 WHERE "leadId" = $3 AND "proposalId" = $4`,
-      [visible, allowDownload, leadId, proposalId],
+      `UPDATE referral_lead_proposals SET visible = $1, "allowDownload" = $2, "proposalTemplate" = $3 WHERE "leadId" = $4 AND "proposalId" = $5`,
+      [visible, allowDownload, template, leadId, proposalId],
     );
     return { success: true };
   }
@@ -665,9 +667,9 @@ export class ReferralsService implements OnModuleInit {
     if (!lead) throw new NotFoundException('Lead não encontrado');
 
     const rows = await this.dataSource.query(
-      `SELECT lp.id as link_id, lp."proposalId", lp.visible, lp."allowDownload", lp."createdAt" as linked_at,
+      `SELECT lp.id as link_id, lp."proposalId", lp.visible, lp."allowDownload", lp."proposalTemplate", lp."createdAt" as linked_at,
               p."proposalNumber" as number, p.title, p.status as proposal_status, p.total as "totalValue",
-              p."createdAt" as proposal_date,
+              p."activityType", p."createdAt" as proposal_date,
               COALESCE(c.name, '') as client_name
        FROM referral_lead_proposals lp
        JOIN proposals p ON p.id = lp."proposalId"
@@ -684,6 +686,8 @@ export class ReferralsService implements OnModuleInit {
       title: p.title,
       proposalStatus: p.proposal_status,
       totalValue: p.totalValue,
+      activityType: p.activityType,
+      proposalTemplate: p.proposalTemplate || 'commercial',
       pdfPath: null,
       allowDownload: p.allowDownload ?? false,
       clientName: p.client_name,
@@ -695,9 +699,10 @@ export class ReferralsService implements OnModuleInit {
   /** Retorna TODAS as propostas vinculadas com controles (admin) */
   async getLeadProposals(leadId: string) {
     return this.dataSource.query(
-      `SELECT lp.id as link_id, lp."proposalId", lp.visible, lp."allowDownload", lp."createdAt" as linked_at,
+      `SELECT lp.id as link_id, lp."proposalId", lp.visible, lp."allowDownload", lp."proposalTemplate",
+              lp."createdAt" as linked_at,
               p."proposalNumber" as number, p.title, p.status as proposal_status, p.total as "totalValue",
-              COALESCE(c.name, '') as client_name
+              p."activityType", COALESCE(c.name, '') as client_name
        FROM referral_lead_proposals lp
        JOIN proposals p ON p.id = lp."proposalId"
        LEFT JOIN clients c ON c.id = p."clientId"
@@ -718,7 +723,7 @@ export class ReferralsService implements OnModuleInit {
   async getPartnerProposal(proposalId: string, consultantId: string) {
     // Verifica se o parceiro tem acesso a essa proposta via algum lead dele
     const access = await this.dataSource.query(
-      `SELECT lp.visible, lp."allowDownload"
+      `SELECT lp.visible, lp."allowDownload", lp."proposalTemplate"
        FROM referral_lead_proposals lp
        JOIN referral_leads rl ON rl.id = lp."leadId"
        WHERE lp."proposalId" = $1 AND rl."consultantId" = $2 AND lp.visible = true
@@ -787,13 +792,22 @@ export class ReferralsService implements OnModuleInit {
       }
     } catch { /* sem empresa */ }
 
-    // templateType explícito para o frontend não precisar adivinhar
+    // ── templateType: autoridade é o proposalTemplate definido pelo admin ──
+    // 'commercial' = template visual/comercial (solar, oem, rental)
+    // 'administrative' = template padrão administrativo (ProposalPDFTemplate)
+    const adminTemplate = access[0].proposalTemplate || 'commercial';
     let templateType = 'default';
-    if (activityType === 'energia_solar' || activityType.includes('solar')) templateType = 'solar';
-    else if (activityType === 'plano_oem' || activityType.includes('oem')) templateType = 'oem';
-    else if (activityType === 'locacao_equipamento' || activityType.includes('locacao')) templateType = 'rental';
-    // Fallback extra: se tem projeto solar com dados, é solar independente do activityType
-    if (templateType === 'default' && solarProject?.systemPowerKwp) templateType = 'solar';
+
+    if (adminTemplate === 'administrative') {
+      templateType = 'default'; // força ProposalPDFTemplate
+    } else {
+      // Template comercial — detecta pelo tipo da proposta
+      if (activityType === 'energia_solar' || activityType.includes('solar')) templateType = 'solar';
+      else if (activityType === 'plano_oem' || activityType.includes('oem')) templateType = 'oem';
+      else if (activityType === 'locacao_equipamento' || activityType.includes('locacao')) templateType = 'rental';
+      // Fallback: tem dados solares mesmo sem activityType correto
+      if (templateType === 'default' && solarProject?.systemPowerKwp) templateType = 'solar';
+    }
 
     return {
       id: p.id,
@@ -804,7 +818,8 @@ export class ReferralsService implements OnModuleInit {
       subtotal: p.subtotal,
       discount: p.discount,
       activityType: p.activityType,
-      templateType,                    // ← campo explícito para o frontend
+      templateType,                    // ← frontend usa isso para escolher o template
+      allowDownload: access[0].allowDownload,
       validUntil: p.validUntil,
       notes: p.notes,
       scope: p.scope,
@@ -814,7 +829,6 @@ export class ReferralsService implements OnModuleInit {
       documents: p.documents,
       customSections: p.customSections,
       createdAt: p.createdAt,
-      allowDownload: access[0].allowDownload,
       client: {
         name: p.client_name,
         document: p.client_document,
@@ -828,6 +842,7 @@ export class ReferralsService implements OnModuleInit {
       company: company || null,
     };
   }
+
 
 
 

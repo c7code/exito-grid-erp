@@ -9,6 +9,36 @@ import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate'
 import { OeMProposalPDFTemplate } from '@/components/OeMProposalPDFTemplate';
 import { RentalProposalPDFTemplate } from '@/components/RentalProposalPDFTemplate';
 
+/**
+ * Resolve qual template usar — múltiplos critérios em cascata:
+ * 1. templateType explícito do backend (campo novo)
+ * 2. activityType (fallback para APIs antigas)
+ * 3. Presença de solarProject com dados reais
+ */
+function resolveTemplateType(proposal: any): string {
+  // 1. Backend já decidiu (campo explícito)
+  if (proposal?.templateType && proposal.templateType !== 'default') {
+    return proposal.templateType;
+  }
+
+  const at = ((proposal?.activityType) || '').toLowerCase().trim();
+
+  // 2. activityType determina
+  if (at === 'energia_solar' || at === 'solar' || at.includes('solar')) return 'solar';
+  if (at === 'plano_oem' || at.includes('oem') || at.includes('manutencao')) return 'oem';
+  if (at === 'locacao_equipamento' || at.includes('locacao') || at.includes('aluguel')) return 'rental';
+
+  // 3. Fallback: solarProject com dados reais = solar
+  const sp = proposal?.solarProject;
+  if (sp && typeof sp === 'object') {
+    if (sp.systemPowerKwp || sp.moduleCount || sp.monthlyGenerationKwh || sp.id) {
+      return 'solar';
+    }
+  }
+
+  return 'default';
+}
+
 export default function PartnerProposalView() {
   const { proposalId } = useParams<{ proposalId: string }>();
   const { partnerToken } = usePartnerAuth();
@@ -22,13 +52,15 @@ export default function PartnerProposalView() {
     (async () => {
       try {
         const data = await api.getPartnerProposal(proposalId, partnerToken);
-        console.debug('[PartnerProposalView]', {
+        console.debug('[PartnerProposalView] dados recebidos:', {
           proposalNumber: data?.proposalNumber,
           activityType: data?.activityType,
           templateType: data?.templateType,
+          resolvedTemplate: resolveTemplateType(data),
           hasSolarProject: !!(data?.solarProject?.systemPowerKwp),
-          hasCompany: !!(data?.company?.id),
+          solarKwp: data?.solarProject?.systemPowerKwp,
           total: data?.total,
+          hasCompany: !!(data?.company?.name),
         });
         setProposal(data);
       } catch (err: any) {
@@ -55,9 +87,7 @@ export default function PartnerProposalView() {
 
   const solarProject = proposal.solarProject || {};
   const company = proposal.company || null;
-
-  // templateType vem explícito do backend — sem ambiguidade
-  const templateType: string = proposal.templateType || 'default';
+  const templateType = resolveTemplateType(proposal);
 
   const renderTemplate = () => {
     if (templateType === 'solar') {
@@ -87,7 +117,6 @@ export default function PartnerProposalView() {
         />
       );
     }
-    // Padrão: elétrica, consultoria, etc.
     return (
       <ProposalPDFTemplate
         proposal={proposal}
@@ -130,7 +159,7 @@ export default function PartnerProposalView() {
       {proposal.allowDownload && (
         <div className="no-print sm:hidden flex items-center gap-2 px-4 py-2 mb-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700">
           <Printer className="w-3.5 h-3.5 shrink-0" />
-          <span>Para salvar o PDF, use o botão acima ou gire o celular.</span>
+          <span>Para salvar o PDF, use o botão acima.</span>
         </div>
       )}
 
