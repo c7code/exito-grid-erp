@@ -2,7 +2,7 @@ import axios, { type AxiosInstance, type AxiosError } from 'axios';
 import { toast } from 'sonner';
 
 // ─── Detecção automática de URL da API ─────────────────────────────────────
-// Prioridade: VITE_API_URL (build time) → Railway URL → mesmo domínio → localhost
+// Prioridade: VITE_API_URL (build) → localhost → Railway → domínio customizado
 function detectApiUrl(): string {
   // 1. Configurado explicitamente no build (VITE_API_URL env var)
   const configured = import.meta.env.VITE_API_URL;
@@ -16,14 +16,18 @@ function detectApiUrl(): string {
   if (typeof window !== 'undefined') {
     const { hostname, origin } = window.location;
 
-    // 2. Localhost para desenvolvimento local
+    // 2. Desenvolvimento local
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:3000/api';
     }
 
-    // 3. Domínio do Railway ou qualquer domínio de produção:
-    // usa o mesmo origin + /api (funciona com serviço unificado API+Frontend)
-    // Para Railway separado: o frontend sempre estará no domínio da API
+    // 3. Railway: usa sempre a URL fixa do serviço da API
+    // (frontend e API são serviços separados no Railway)
+    if (hostname.includes('.up.railway.app')) {
+      return 'https://exito-grid-erp-production.up.railway.app/api';
+    }
+
+    // 4. Domínio customizado: assume serviço unificado (API+Frontend no mesmo host)
     return `${origin}/api`;
   }
 
