@@ -37,6 +37,16 @@ function buildData(proposal: any, solarProject: any, company: any) {
   const validade = new Date(today); validade.setDate(validade.getDate() + 7);
   const fmtDate = (d: Date) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
   const N = (v: any) => Number(v || 0);
+  // ─── Helper: garante array mesmo quando o banco retorna JSONB como string ──
+  const toArray = (val: any): any[] => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') {
+      try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : []; }
+      catch { return []; }
+    }
+    return [];
+  };
 
   const monthlyGen = N(p.monthlyGenerationKwh);
   const annualGen = N(p.annualGenerationKwh) || monthlyGen * 12;
@@ -49,7 +59,7 @@ function buildData(proposal: any, solarProject: any, company: any) {
   const connLabel = p.connectionType === 'monophasic' ? 'Monofásico 127V' : p.connectionType === 'triphasic' ? 'Trifásico 380V' : 'Bifásico 220V';
   const installLabel = p.installationType === 'ground' ? 'Solo' : 'Telhado';
   const concessionaria = p.concessionaria || 'Neoenergia';
-  const monthlyData: any[] = p.monthlyConsumptions || [];
+  const monthlyData: any[] = toArray(p.monthlyConsumptions);
   const geracaoMeses = monthlyData.length === 12
     ? monthlyData.map(() => monthlyGen)
     : Array(12).fill(monthlyGen);
@@ -79,8 +89,10 @@ function buildData(proposal: any, solarProject: any, company: any) {
     return model || desc;
   };
 
+
+
   // Map kits from ERP format
-  const erpKits: any[] = p.commercialKits || [];
+  const erpKits: any[] = toArray(p.commercialKits);
   const kits = erpKits.map((kit: any) => {
     const modules = (kit.equipment || []).filter((e: any) => e.type === 'module');
     const inverters = (kit.equipment || []).filter((e: any) => e.type === 'inverter');
@@ -128,8 +140,8 @@ function buildData(proposal: any, solarProject: any, company: any) {
   const homologDays = concessionaria.toLowerCase().includes('neoenergia') ? '30–60 dias' : '30–90 dias';
 
   // Extract warranty from equipment
-  const moduleEq = (p.equipment || []).find((e: any) => e.type === 'module');
-  const inverterEq = (p.equipment || []).find((e: any) => e.type === 'inverter');
+  const moduleEq = toArray(p.equipment).find((e: any) => e.type === 'module');
+  const inverterEq = toArray(p.equipment).find((e: any) => e.type === 'inverter');
   const moduleWarranty = moduleEq?.warranty || '25 anos';
   const inverterWarranty = inverterEq?.warranty || '5–12 anos';
 
@@ -185,7 +197,7 @@ function buildData(proposal: any, solarProject: any, company: any) {
     geracaoMeses,
     consumoMeses,
     kits,
-    equipment: p.equipment || [],
+    equipment: toArray(p.equipment),
     // ─── IMPACTO AMBIENTAL (proporcional ao projeto) ────────────────
     ambiental: (() => {
       const kwp = N(p.systemPowerKwp);
