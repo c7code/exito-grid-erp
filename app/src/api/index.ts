@@ -3174,6 +3174,16 @@ class ApiService {
     return (await this.client.post(`/referrals/leads/${leadId}/proposals`, { proposalId, visible, allowDownload })).data;
   }
 
+  /** Admin: lista todas as propostas vinculadas a um lead */
+  async getLeadProposals(leadId: string) {
+    return (await this.client.get(`/referrals/leads/${leadId}/proposals`)).data;
+  }
+
+  /** Admin: remove proposta vinculada a um lead */
+  async removeLeadProposal(leadId: string, proposalId: string) {
+    return (await this.client.delete(`/referrals/leads/${leadId}/proposals/${proposalId}`)).data;
+  }
+
   /** Admin: atualiza visível + permissão de download de uma proposta vinculada */
   async updateLeadProposalAccess(leadId: string, proposalId: string, visible: boolean, allowDownload: boolean) {
     return (await this.client.patch(`/referrals/leads/${leadId}/proposals/${proposalId}/access`, { visible, allowDownload })).data;
