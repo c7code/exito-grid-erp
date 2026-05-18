@@ -204,6 +204,8 @@ export class ReferralsService implements OnModuleInit {
       `ALTER TABLE referral_leads ADD COLUMN IF NOT EXISTS "proposalVisible" BOOLEAN DEFAULT false`,
       `ALTER TABLE referral_lead_proposals ADD COLUMN IF NOT EXISTS "allowDownload" BOOLEAN DEFAULT false`,
       `ALTER TABLE referral_lead_proposals ADD COLUMN IF NOT EXISTS "proposalTemplate" VARCHAR DEFAULT 'commercial'`,
+      `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "commissionType" VARCHAR DEFAULT 'percentage'`,
+      `ALTER TABLE referral_consultants ADD COLUMN IF NOT EXISTS "commissionFixedValue" NUMERIC(15,2)`,
       // Tabela de solicitações de saque
       `CREATE TABLE IF NOT EXISTS partner_withdrawal_requests (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -551,7 +553,16 @@ export class ReferralsService implements OnModuleInit {
           );
           const proposalValue = proposalRows?.[0]?.totalValue ? Number(proposalRows[0].totalValue) : 0;
           const commissionPercent = Number(consultant.commissionPercent || 0);
-          const commissionValue = proposalValue > 0 ? (proposalValue * commissionPercent) / 100 : 0;
+          const commissionType = consultant.commissionType || 'percentage';
+
+          let commissionValue = 0;
+          if (commissionType === 'fixed') {
+            // Valor fixo garantido
+            commissionValue = Number(consultant.commissionFixedValue || 0);
+          } else {
+            // Percentual sobre o valor da proposta
+            commissionValue = proposalValue > 0 ? (proposalValue * commissionPercent) / 100 : 0;
+          }
           const existing = await this.commissionRepo.findOne({ where: { leadId: id } as any });
           if (!existing) {
             const commission = this.commissionRepo.create({

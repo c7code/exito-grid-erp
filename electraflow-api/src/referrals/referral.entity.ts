@@ -111,6 +111,13 @@ export class ReferralConsultant {
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true, default: 2.00 })
   commissionPercent: number;
 
+  // 'percentage' = % sobre valor da proposta | 'fixed' = valor fixo garantido
+  @Column({ nullable: true, default: 'percentage' })
+  commissionType: string;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  commissionFixedValue: number;
+
   @Column({ nullable: true, default: 'all' })
   accessChannel: AccessChannel;
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { api } from '@/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
-interface Consultant { id: string; name: string; email?: string; phone?: string; commissionPercent?: number; status?: string; }
+interface Consultant { id: string; name: string; email?: string; phone?: string; commissionPercent?: number; commissionType?: string; commissionFixedValue?: number; status?: string; }
 interface Lead {
   id: string; name: string; phone?: string; email?: string;
   status: string; notes?: string; consultantId: string; consultant?: Consultant;
@@ -62,7 +62,7 @@ export default function SolarReferrals() {
   // Consultant dialog
   const [consultantDialog, setConsultantDialog] = useState(false);
   const [editingConsultant, setEditingConsultant] = useState<any>(null);
-  const [cForm, setCForm] = useState({ name:'', email:'', phone:'', commissionPercent:'', status:'active' });
+  const [cForm, setCForm] = useState({ name:'', email:'', phone:'', commissionType:'percentage', commissionPercent:'', commissionFixedValue:'', status:'active' });
 
   // Lead dialog
   const [leadDialog, setLeadDialog] = useState(false);
@@ -145,18 +145,28 @@ export default function SolarReferrals() {
   // ─── Consultant CRUD ──────────────────────────────────────────────────────
   const openNewConsultant = () => {
     setEditingConsultant(null);
-    setCForm({ name:'', email:'', phone:'', commissionPercent:'', status:'active' });
+    setCForm({ name:'', email:'', phone:'', commissionType:'percentage', commissionPercent:'', commissionFixedValue:'', status:'active' });
     setConsultantDialog(true);
   };
   const openEditConsultant = (c: Consultant) => {
     setEditingConsultant(c);
-    setCForm({ name: c.name||'', email: c.email||'', phone: c.phone||'', commissionPercent: String(c.commissionPercent||''), status: c.status||'active' });
+    setCForm({
+      name: c.name||'', email: c.email||'', phone: c.phone||'',
+      commissionType: c.commissionType || 'percentage',
+      commissionPercent: String(c.commissionPercent||''),
+      commissionFixedValue: String(c.commissionFixedValue||''),
+      status: c.status||'active',
+    });
     setConsultantDialog(true);
   };
   const saveConsultant = async () => {
     if (!cForm.name.trim()) return toast.error('Nome obrigatório');
     try {
-      const data = { ...cForm, commissionPercent: cForm.commissionPercent ? Number(cForm.commissionPercent) : 0 };
+      const data = {
+        ...cForm,
+        commissionPercent: cForm.commissionPercent ? Number(cForm.commissionPercent) : 0,
+        commissionFixedValue: cForm.commissionFixedValue ? Number(cForm.commissionFixedValue) : null,
+      };
       if (editingConsultant) { await api.updateReferralConsultant(editingConsultant.id, data); toast.success('Consultor atualizado!'); }
       else { await api.createReferralConsultant(data); toast.success('Consultor criado!'); }
       setConsultantDialog(false); load();
@@ -521,7 +531,7 @@ export default function SolarReferrals() {
                       <td className="py-3 pr-4 font-medium text-slate-800">{c.name}</td>
                       <td className="py-3 pr-4 text-slate-500">{c.email || '—'}</td>
                       <td className="py-3 pr-4 text-slate-500">{c.phone || '—'}</td>
-                      <td className="py-3 pr-4">{c.commissionPercent ? `${c.commissionPercent}%` : '—'}</td>
+                      <td className="py-3 pr-4">{c.commissionType === 'fixed' ? `R$ ${Number(c.commissionFixedValue||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}` : c.commissionPercent ? `${c.commissionPercent}%` : '-'}</td>
                       <td className="py-3 pr-4">{leads.filter(l => l.consultantId === c.id).length}</td>
                       <td className="py-3 pr-4">
                         <Badge className={c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}>
@@ -664,7 +674,69 @@ export default function SolarReferrals() {
             <div><Label>Nome *</Label><Input value={cForm.name} onChange={e => setCForm({...cForm, name: e.target.value})} placeholder="Nome completo" /></div>
             <div><Label>Email</Label><Input value={cForm.email} onChange={e => setCForm({...cForm, email: e.target.value})} placeholder="email@exemplo.com" /></div>
             <div><Label>Telefone</Label><Input value={cForm.phone} onChange={e => setCForm({...cForm, phone: e.target.value})} placeholder="(00) 00000-0000" /></div>
-            <div><Label>Comissão (%)</Label><Input type="number" value={cForm.commissionPercent} onChange={e => setCForm({...cForm, commissionPercent: e.target.value})} placeholder="Ex: 5" /></div>
+            {/* Tipo de Comissão */}
+            <div>
+              <Label>Tipo de Comissão</Label>
+              <div className="flex gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setCForm({...cForm, commissionType: 'percentage'})}
+                  className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
+                    cForm.commissionType === 'percentage'
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-white text-gray-600 border-gray-300 hover:border-emerald-400'
+                  }`}
+                >
+                  📊 Percentual (%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCForm({...cForm, commissionType: 'fixed'})}
+                  className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
+                    cForm.commissionType === 'fixed'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                  }`}
+                >
+                  💰 Valor Fixo (R$)
+                </button>
+              </div>
+            </div>
+
+            {/* Campo condicional: percentual OU fixo */}
+            {cForm.commissionType === 'percentage' ? (
+              <div>
+                <Label>Comissão Percentual</Label>
+                <div className="relative mt-1">
+                  <Input
+                    type="number"
+                    value={cForm.commissionPercent}
+                    onChange={e => setCForm({...cForm, commissionPercent: e.target.value})}
+                    placeholder="Ex: 5"
+                    min="0" max="100" step="0.5"
+                    className="pr-8"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">%</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Percentual aplicado sobre o valor total da proposta</p>
+              </div>
+            ) : (
+              <div>
+                <Label>Valor Fixo Garantido</Label>
+                <div className="relative mt-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">R$</span>
+                  <Input
+                    type="number"
+                    value={cForm.commissionFixedValue}
+                    onChange={e => setCForm({...cForm, commissionFixedValue: e.target.value})}
+                    placeholder="Ex: 500,00"
+                    min="0" step="0.01"
+                    className="pl-9"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Valor garantido mesmo em caso de desconto na proposta</p>
+              </div>
+            )}
             <div>
               <Label>Status</Label>
               <Select value={cForm.status} onValueChange={v => setCForm({...cForm, status: v})}>
