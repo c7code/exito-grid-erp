@@ -12,20 +12,16 @@ RUN npm install --legacy-peer-deps
 COPY . .
 RUN npm run build
 
-# Production stage — nginx para SPA (com try_files correto)
-FROM nginx:alpine
+# Production stage
+FROM node:20-alpine
 
-# Remove config padrão do nginx
-RUN rm /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-# Copia config com try_files para React Router
-COPY nginx.conf /etc/nginx/templates/app.conf.template
+RUN npm install -g serve
 
-# Copia build do React
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/dist ./dist
 
+ENV PORT=3000
 EXPOSE 3000
 
-# nginx:alpine com template auto-substitui ${PORT} via envsubst
-ENV PORT=3000
-CMD ["/bin/sh", "-c", "envsubst '${PORT}' < /etc/nginx/templates/app.conf.template > /etc/nginx/conf.d/app.conf && nginx -g 'daemon off;'"]
+CMD ["sh", "-c", "serve dist -s -l $PORT"]
