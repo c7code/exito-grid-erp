@@ -727,11 +727,12 @@ export class ReferralsService implements OnModuleInit {
     );
     if (!access.length) throw new NotFoundException('Proposta não encontrada ou sem permissão');
 
-    // Busca dados completos da proposta
+    // Busca dados completos da proposta + cliente
     const rows = await this.dataSource.query(
       `SELECT p.*, c.name as client_name, c.document as client_document,
               c.phone as client_phone, c.email as client_email,
-              c.address as client_address, c.city as client_city, c.state as client_state
+              c.address as client_address, c.city as client_city, c.state as client_state,
+              c.id as client_id_raw
        FROM proposals p
        LEFT JOIN clients c ON c.id = p."clientId"
        WHERE p.id = $1 AND (p."deletedAt" IS NULL OR p."deletedAt" > NOW())`,
@@ -740,27 +741,43 @@ export class ReferralsService implements OnModuleInit {
     if (!rows.length) throw new NotFoundException('Proposta não encontrada');
 
     const p = rows[0];
+    const activityType: string = p.activityType || '';
 
-    // Busca projeto solar vinculado (se for energia_solar)
+    // ── Busca projeto solar (mesmo algoritmo do admin: proposalId → clientId fallback) ──
     let solarProject: any = null;
-    if (p.activityType === 'energia_solar') {
+    if (activityType === 'energia_solar' || activityType.includes('solar')) {
       try {
-        const solarRows = await this.dataSource.query(
-          `SELECT sp.* FROM solar_projects sp WHERE sp."proposalId" = $1 LIMIT 1`,
+        // 1ª tentativa: link direto por proposalId
+        const byProposal = await this.dataSource.query(
+          `SELECT sp.* FROM solar_projects sp
+           WHERE sp."proposalId" = $1 AND (sp."deletedAt" IS NULL OR sp."deletedAt" > NOW())
+           LIMIT 1`,
           [proposalId],
         );
-        if (solarRows.length) solarProject = solarRows[0];
+        if (byProposal.length) {
+          solarProject = byProposal[0];
+        } else if (p.client_id_raw) {
+          // 2ª tentativa: fallback por clientId (mesmo que solar.service.ts faz)
+          const byClient = await this.dataSource.query(
+            `SELECT sp.* FROM solar_projects sp
+             WHERE sp."clientId" = $1 AND (sp."deletedAt" IS NULL OR sp."deletedAt" > NOW())
+             ORDER BY sp."createdAt" DESC
+             LIMIT 1`,
+            [p.client_id_raw],
+          );
+          if (byClient.length) solarProject = byClient[0];
+        }
       } catch { /* sem projeto solar */ }
     }
 
-    // Busca dados da empresa (principal, ou específica do projeto solar)
+    // ── Busca empresa ──
     let company: any = null;
     try {
-      let coRows = await this.dataSource.query(
-        `SELECT * FROM companies WHERE "isPrimary" = true LIMIT 1`,
+      const coRows = await this.dataSource.query(
+        `SELECT * FROM companies WHERE "isPrimary" = true AND ("deletedAt" IS NULL) LIMIT 1`,
       );
       if (coRows.length) company = coRows[0];
-      // Se o projeto solar tem empresa específica, prioriza ela
+      // Empresa específica do projeto solar tem prioridade
       if (solarProject?.companyId) {
         const spCoRows = await this.dataSource.query(
           `SELECT * FROM companies WHERE id = $1 LIMIT 1`,
@@ -769,6 +786,14 @@ export class ReferralsService implements OnModuleInit {
         if (spCoRows.length) company = spCoRows[0];
       }
     } catch { /* sem empresa */ }
+
+    // templateType explícito para o frontend não precisar adivinhar
+    let templateType = 'default';
+    if (activityType === 'energia_solar' || activityType.includes('solar')) templateType = 'solar';
+    else if (activityType === 'plano_oem' || activityType.includes('oem')) templateType = 'oem';
+    else if (activityType === 'locacao_equipamento' || activityType.includes('locacao')) templateType = 'rental';
+    // Fallback extra: se tem projeto solar com dados, é solar independente do activityType
+    if (templateType === 'default' && solarProject?.systemPowerKwp) templateType = 'solar';
 
     return {
       id: p.id,
@@ -779,10 +804,10 @@ export class ReferralsService implements OnModuleInit {
       subtotal: p.subtotal,
       discount: p.discount,
       activityType: p.activityType,
+      templateType,                    // ← campo explícito para o frontend
       validUntil: p.validUntil,
       notes: p.notes,
       scope: p.scope,
-      // Todos os campos JSONB necessários para os templates PDF
       items: p.items,
       paymentConditions: p.paymentConditions,
       simulationData: p.simulationData,
@@ -790,7 +815,6 @@ export class ReferralsService implements OnModuleInit {
       customSections: p.customSections,
       createdAt: p.createdAt,
       allowDownload: access[0].allowDownload,
-      // Cliente completo
       client: {
         name: p.client_name,
         document: p.client_document,
@@ -800,12 +824,11 @@ export class ReferralsService implements OnModuleInit {
         city: p.client_city,
         state: p.client_state,
       },
-      // Projeto solar embutido (para SolarProposalPDFTemplate)
       solarProject: solarProject || null,
-      // Empresa embutida (para todos os templates)
       company: company || null,
     };
   }
+
 
 
   // ═══════════════════════════════════════════════

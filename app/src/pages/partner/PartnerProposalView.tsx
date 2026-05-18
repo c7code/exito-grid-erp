@@ -9,19 +9,6 @@ import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate'
 import { OeMProposalPDFTemplate } from '@/components/OeMProposalPDFTemplate';
 import { RentalProposalPDFTemplate } from '@/components/RentalProposalPDFTemplate';
 
-/** Determina se a proposta é solar por activityType OU pela presença de projeto solar */
-function isSolar(proposal: any): boolean {
-  if (!proposal) return false;
-  const type = (proposal.activityType || '').toLowerCase();
-  if (type === 'energia_solar' || type === 'solar' || type.includes('solar')) return true;
-  // Fallback: se tem solarProject com dados reais, assume solar
-  const sp = proposal.solarProject;
-  if (sp && typeof sp === 'object' && !Array.isArray(sp)) {
-    return !!(sp.id || sp.systemPowerKwp || sp.moduleCount || sp.monthlyGenerationKwh);
-  }
-  return false;
-}
-
 export default function PartnerProposalView() {
   const { proposalId } = useParams<{ proposalId: string }>();
   const { partnerToken } = usePartnerAuth();
@@ -35,15 +22,13 @@ export default function PartnerProposalView() {
     (async () => {
       try {
         const data = await api.getPartnerProposal(proposalId, partnerToken);
-        // Debug: log para diagnóstico (pode remover após validar)
-        console.debug('[PartnerProposalView] proposal data:', {
-          id: data?.id,
+        console.debug('[PartnerProposalView]', {
           proposalNumber: data?.proposalNumber,
           activityType: data?.activityType,
-          total: data?.total,
-          hasSolarProject: !!(data?.solarProject?.id),
+          templateType: data?.templateType,
+          hasSolarProject: !!(data?.solarProject?.systemPowerKwp),
           hasCompany: !!(data?.company?.id),
-          solarKwp: data?.solarProject?.systemPowerKwp,
+          total: data?.total,
         });
         setProposal(data);
       } catch (err: any) {
@@ -68,14 +53,14 @@ export default function PartnerProposalView() {
 
   if (!proposal) return null;
 
-  // solarProject e company vêm embutidos na resposta do backend
   const solarProject = proposal.solarProject || {};
   const company = proposal.company || null;
-  const type = (proposal.activityType || '').toLowerCase();
+
+  // templateType vem explícito do backend — sem ambiguidade
+  const templateType: string = proposal.templateType || 'default';
 
   const renderTemplate = () => {
-    // Solar: verificação dupla por activityType e por dados do projeto
-    if (isSolar(proposal)) {
+    if (templateType === 'solar') {
       return (
         <SolarProposalPDFTemplate
           proposal={proposal}
@@ -84,7 +69,7 @@ export default function PartnerProposalView() {
         />
       );
     }
-    if (type === 'plano_oem' || type.includes('oem') || type.includes('manutencao')) {
+    if (templateType === 'oem') {
       return (
         <OeMProposalPDFTemplate
           proposal={proposal}
@@ -93,7 +78,7 @@ export default function PartnerProposalView() {
         />
       );
     }
-    if (type === 'locacao_equipamento' || type.includes('locacao') || type.includes('aluguel')) {
+    if (templateType === 'rental') {
       return (
         <RentalProposalPDFTemplate
           proposal={proposal}
@@ -102,7 +87,7 @@ export default function PartnerProposalView() {
         />
       );
     }
-    // Padrão: proposta elétrica/consultoria/outros
+    // Padrão: elétrica, consultoria, etc.
     return (
       <ProposalPDFTemplate
         proposal={proposal}
@@ -117,7 +102,7 @@ export default function PartnerProposalView() {
   return (
     <div className="max-w-5xl mx-auto pb-16 print:max-w-none print:pb-0">
 
-      {/* Toolbar — oculto na impressão */}
+      {/* Toolbar */}
       <div className="no-print flex items-center justify-between mb-6 gap-3 flex-wrap">
         <button
           onClick={() => navigate('/partner/leads')}
@@ -149,7 +134,7 @@ export default function PartnerProposalView() {
         </div>
       )}
 
-      {/* Proposta renderizada com template completo */}
+      {/* Proposta */}
       <div className="overflow-x-auto pb-4">
         <div
           className="shadow-xl rounded-lg overflow-hidden"
@@ -159,7 +144,6 @@ export default function PartnerProposalView() {
         </div>
       </div>
 
-      {/* Estilos de impressão */}
       <style>{`
         @media print {
           .no-print { display: none !important; }
