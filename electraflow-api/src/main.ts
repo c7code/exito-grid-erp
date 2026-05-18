@@ -20,6 +20,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { join } from 'path';
+import * as fs from 'fs';
 import * as bodyParser from 'body-parser';
 import helmet from 'helmet';
 
@@ -160,6 +161,25 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
+
+  // ═══ SPA FALLBACK — serve React frontend para rotas que não são /api ═══
+  // Isso permite que a API e o frontend coexistam no mesmo serviço Railway
+  const frontendDist = join(__dirname, '..', 'public', 'frontend');
+  if (fs.existsSync(frontendDist)) {
+    app.useStaticAssets(frontendDist, { index: false });
+    // Catch-all: qualquer rota não-API retorna o index.html do React
+    app.use((req: any, res: any, next: any) => {
+      if (req.url.startsWith('/api') || req.url.startsWith('/uploads')) {
+        return next();
+      }
+      const indexPath = join(frontendDist, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        return res.sendFile(indexPath);
+      }
+      next();
+    });
+    console.log(`🖥️  Frontend React servido em: ${frontendDist}`);
+  }
 
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
