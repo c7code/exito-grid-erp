@@ -9,6 +9,19 @@ import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate'
 import { OeMProposalPDFTemplate } from '@/components/OeMProposalPDFTemplate';
 import { RentalProposalPDFTemplate } from '@/components/RentalProposalPDFTemplate';
 
+/** Determina se a proposta é solar por activityType OU pela presença de projeto solar */
+function isSolar(proposal: any): boolean {
+  if (!proposal) return false;
+  const type = (proposal.activityType || '').toLowerCase();
+  if (type === 'energia_solar' || type === 'solar' || type.includes('solar')) return true;
+  // Fallback: se tem solarProject com dados reais, assume solar
+  const sp = proposal.solarProject;
+  if (sp && typeof sp === 'object' && !Array.isArray(sp)) {
+    return !!(sp.id || sp.systemPowerKwp || sp.moduleCount || sp.monthlyGenerationKwh);
+  }
+  return false;
+}
+
 export default function PartnerProposalView() {
   const { proposalId } = useParams<{ proposalId: string }>();
   const { partnerToken } = usePartnerAuth();
@@ -21,8 +34,17 @@ export default function PartnerProposalView() {
     if (!proposalId || !partnerToken) return;
     (async () => {
       try {
-        // O backend agora retorna solarProject e company embutidos
         const data = await api.getPartnerProposal(proposalId, partnerToken);
+        // Debug: log para diagnóstico (pode remover após validar)
+        console.debug('[PartnerProposalView] proposal data:', {
+          id: data?.id,
+          proposalNumber: data?.proposalNumber,
+          activityType: data?.activityType,
+          total: data?.total,
+          hasSolarProject: !!(data?.solarProject?.id),
+          hasCompany: !!(data?.company?.id),
+          solarKwp: data?.solarProject?.systemPowerKwp,
+        });
         setProposal(data);
       } catch (err: any) {
         toast.error(err?.response?.data?.message || 'Proposta não encontrada ou sem permissão');
@@ -46,14 +68,14 @@ export default function PartnerProposalView() {
 
   if (!proposal) return null;
 
-  // solarProject e company já vêm embutidos na resposta do backend
+  // solarProject e company vêm embutidos na resposta do backend
   const solarProject = proposal.solarProject || {};
   const company = proposal.company || null;
+  const type = (proposal.activityType || '').toLowerCase();
 
   const renderTemplate = () => {
-    const type = proposal.activityType;
-
-    if (type === 'energia_solar') {
+    // Solar: verificação dupla por activityType e por dados do projeto
+    if (isSolar(proposal)) {
       return (
         <SolarProposalPDFTemplate
           proposal={proposal}
@@ -62,7 +84,7 @@ export default function PartnerProposalView() {
         />
       );
     }
-    if (type === 'plano_oem') {
+    if (type === 'plano_oem' || type.includes('oem') || type.includes('manutencao')) {
       return (
         <OeMProposalPDFTemplate
           proposal={proposal}
@@ -71,7 +93,7 @@ export default function PartnerProposalView() {
         />
       );
     }
-    if (type === 'locacao_equipamento') {
+    if (type === 'locacao_equipamento' || type.includes('locacao') || type.includes('aluguel')) {
       return (
         <RentalProposalPDFTemplate
           proposal={proposal}
@@ -80,7 +102,7 @@ export default function PartnerProposalView() {
         />
       );
     }
-    // Default: proposta padrão (elétrica, consultoria, etc.)
+    // Padrão: proposta elétrica/consultoria/outros
     return (
       <ProposalPDFTemplate
         proposal={proposal}
