@@ -15,35 +15,15 @@ export default function PartnerProposalView() {
   const navigate = useNavigate();
 
   const [proposal, setProposal] = useState<any>(null);
-  const [company, setCompany] = useState<any>(null);
-  const [solarProject, setSolarProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!proposalId || !partnerToken) return;
     (async () => {
       try {
-        // Busca dados completos da proposta via endpoint do parceiro
+        // O backend agora retorna solarProject e company embutidos
         const data = await api.getPartnerProposal(proposalId, partnerToken);
         setProposal(data);
-
-        // Busca dados da empresa (mesma lógica do admin)
-        try {
-          let coData = await api.getPrimaryCompany();
-          // Se solar, tenta buscar empresa vinculada ao projeto
-          if (data.activityType === 'energia_solar') {
-            try {
-              const solarData = await api.getSolarProjectByProposal(proposalId).catch(() => null);
-              if (solarData) {
-                setSolarProject(solarData);
-                if (solarData.companyId) {
-                  try { coData = await api.getCompany(solarData.companyId); } catch {}
-                }
-              }
-            } catch {}
-          }
-          setCompany(coData);
-        } catch {}
       } catch (err: any) {
         toast.error(err?.response?.data?.message || 'Proposta não encontrada ou sem permissão');
         navigate('/partner/leads');
@@ -66,13 +46,18 @@ export default function PartnerProposalView() {
 
   if (!proposal) return null;
 
+  // solarProject e company já vêm embutidos na resposta do backend
+  const solarProject = proposal.solarProject || {};
+  const company = proposal.company || null;
+
   const renderTemplate = () => {
     const type = proposal.activityType;
+
     if (type === 'energia_solar') {
       return (
         <SolarProposalPDFTemplate
           proposal={proposal}
-          solarProject={solarProject || {}}
+          solarProject={solarProject}
           company={company}
         />
       );
@@ -95,7 +80,7 @@ export default function PartnerProposalView() {
         />
       );
     }
-    // Default: proposta padrão
+    // Default: proposta padrão (elétrica, consultoria, etc.)
     return (
       <ProposalPDFTemplate
         proposal={proposal}
@@ -110,7 +95,7 @@ export default function PartnerProposalView() {
   return (
     <div className="max-w-5xl mx-auto pb-16 print:max-w-none print:pb-0">
 
-      {/* Toolbar — hidden on print */}
+      {/* Toolbar — oculto na impressão */}
       <div className="no-print flex items-center justify-between mb-6 gap-3 flex-wrap">
         <button
           onClick={() => navigate('/partner/leads')}
@@ -120,8 +105,7 @@ export default function PartnerProposalView() {
         </button>
 
         <div className="flex items-center gap-2">
-          {/* Informação do tipo */}
-          <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1.5 rounded-full">
+          <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1.5 rounded-full font-mono">
             {proposal.proposalNumber}
           </span>
           {proposal.allowDownload && (
@@ -135,7 +119,7 @@ export default function PartnerProposalView() {
         </div>
       </div>
 
-      {/* Mobile hint */}
+      {/* Dica mobile */}
       {proposal.allowDownload && (
         <div className="no-print sm:hidden flex items-center gap-2 px-4 py-2 mb-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700">
           <Printer className="w-3.5 h-3.5 shrink-0" />
@@ -143,7 +127,7 @@ export default function PartnerProposalView() {
         </div>
       )}
 
-      {/* Proposta renderizada com template original */}
+      {/* Proposta renderizada com template completo */}
       <div className="overflow-x-auto pb-4">
         <div
           className="shadow-xl rounded-lg overflow-hidden"
@@ -153,7 +137,7 @@ export default function PartnerProposalView() {
         </div>
       </div>
 
-      {/* Print styles */}
+      {/* Estilos de impressão */}
       <style>{`
         @media print {
           .no-print { display: none !important; }

@@ -740,19 +740,57 @@ export class ReferralsService implements OnModuleInit {
     if (!rows.length) throw new NotFoundException('Proposta não encontrada');
 
     const p = rows[0];
+
+    // Busca projeto solar vinculado (se for energia_solar)
+    let solarProject: any = null;
+    if (p.activityType === 'energia_solar') {
+      try {
+        const solarRows = await this.dataSource.query(
+          `SELECT sp.* FROM solar_projects sp WHERE sp."proposalId" = $1 LIMIT 1`,
+          [proposalId],
+        );
+        if (solarRows.length) solarProject = solarRows[0];
+      } catch { /* sem projeto solar */ }
+    }
+
+    // Busca dados da empresa (principal, ou específica do projeto solar)
+    let company: any = null;
+    try {
+      let coRows = await this.dataSource.query(
+        `SELECT * FROM companies WHERE "isPrimary" = true LIMIT 1`,
+      );
+      if (coRows.length) company = coRows[0];
+      // Se o projeto solar tem empresa específica, prioriza ela
+      if (solarProject?.companyId) {
+        const spCoRows = await this.dataSource.query(
+          `SELECT * FROM companies WHERE id = $1 LIMIT 1`,
+          [solarProject.companyId],
+        );
+        if (spCoRows.length) company = spCoRows[0];
+      }
+    } catch { /* sem empresa */ }
+
     return {
       id: p.id,
       proposalNumber: p.proposalNumber,
       title: p.title,
       status: p.status,
       total: p.total,
+      subtotal: p.subtotal,
+      discount: p.discount,
       activityType: p.activityType,
       validUntil: p.validUntil,
       notes: p.notes,
+      scope: p.scope,
+      // Todos os campos JSONB necessários para os templates PDF
       items: p.items,
       paymentConditions: p.paymentConditions,
+      simulationData: p.simulationData,
+      documents: p.documents,
+      customSections: p.customSections,
       createdAt: p.createdAt,
       allowDownload: access[0].allowDownload,
+      // Cliente completo
       client: {
         name: p.client_name,
         document: p.client_document,
@@ -762,8 +800,13 @@ export class ReferralsService implements OnModuleInit {
         city: p.client_city,
         state: p.client_state,
       },
+      // Projeto solar embutido (para SolarProposalPDFTemplate)
+      solarProject: solarProject || null,
+      // Empresa embutida (para todos os templates)
+      company: company || null,
     };
   }
+
 
   // ═══════════════════════════════════════════════
   // COMPROMISSOS
