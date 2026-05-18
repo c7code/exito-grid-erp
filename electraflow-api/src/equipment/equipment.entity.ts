@@ -417,6 +417,72 @@ export class EquipmentDailyLog {
 
   @DeleteDateColumn()
   deletedAt: Date;
+
+  @OneToMany(() => EquipmentDailyExpense, e => e.dailyLog)
+  expenses: EquipmentDailyExpense[];
+}
+
+// ══════════════════════════════════════════════════════════════════
+// EQUIPMENT DAILY EXPENSE — Despesas Operacionais por Diária
+// Registra custos como alimentação, combustível, pedágio, etc.
+// Pode ser vinculado a uma diária específica (dailyLogId) ou
+// lançado avulso na locação (dailyLogId = null, rentalId preenchido)
+// ══════════════════════════════════════════════════════════════════
+@Entity('equipment_daily_expenses')
+export class EquipmentDailyExpense {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  // Vínculo à diária (opcional — null = despesa avulsa da locação)
+  @Column({ nullable: true })
+  dailyLogId: string;
+
+  @ManyToOne(() => EquipmentDailyLog, d => d.expenses, { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'dailyLogId' })
+  dailyLog: EquipmentDailyLog;
+
+  // Vínculo à locação (sempre preenchido)
+  @Column()
+  rentalId: string;
+
+  @ManyToOne(() => EquipmentRental, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'rentalId' })
+  rental: EquipmentRental;
+
+  @Column()
+  equipmentId: string;
+
+  // Categoria da despesa
+  // 'alimentacao' | 'combustivel' | 'pedagio' | 'manutencao' | 'imprevisto' | 'hospedagem' | 'outro'
+  @Column({ type: 'varchar', default: 'outro' })
+  category: string;
+
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  amount: number;
+
+  // Quem pagou: 'empresa' = pagamento direto | 'operador' = operador pagou, empresa deve reembolsar
+  @Column({ type: 'varchar', default: 'empresa' })
+  paidBy: string;
+
+  // Se paidBy = 'operador', indica se o reembolso já foi feito
+  @Column({ default: false })
+  reimbursed: boolean;
+
+  // Data da despesa (data da diária ou data avulsa)
+  @Column({ type: 'date', nullable: true })
+  expenseDate: Date;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
 
 // ══════════════════════════════════════════════════════════════════

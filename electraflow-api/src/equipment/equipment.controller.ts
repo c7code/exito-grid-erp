@@ -111,6 +111,39 @@ export class EquipmentController {
   @ApiOperation({ summary: 'Faturar diárias de uma locação' })
   billDailyLogs(@Param('rentalId') rentalId: string) { return this.svc.billDailyLogs(rentalId); }
 
+  // ─── Fluxo de Caixa / Despesas Operacionais ───
+  @Get('rentals/:id/cash-flow')
+  @ApiOperation({ summary: 'Resumo financeiro (receita vs despesas) da locação' })
+  getCashFlow(@Param('id') id: string) { return this.svc.getCashFlowSummary(id); }
+
+  @Get('rentals/:id/expenses')
+  @ApiOperation({ summary: 'Listar despesas de uma locação' })
+  getExpenses(@Param('id') id: string, @Query('dailyLogId') dailyLogId?: string) {
+    return this.svc.getDailyExpenses(id, dailyLogId);
+  }
+
+  @Post('rentals/:id/expenses')
+  @ApiOperation({ summary: 'Registrar despesa operacional na locação' })
+  addExpense(@Param('id') id: string, @Body() data: any) {
+    return this.svc.addDailyExpense({ ...data, rentalId: id });
+  }
+
+  @Put('expenses/:id')
+  @ApiOperation({ summary: 'Atualizar despesa' })
+  updateExpense(@Param('id') id: string, @Body() data: any) {
+    return this.svc.updateDailyExpense(id, data);
+  }
+
+  @Patch('expenses/:id/reimbursed')
+  @ApiOperation({ summary: 'Marcar despesa do operador como reembolsada' })
+  markReimbursed(@Param('id') id: string) {
+    return this.svc.updateDailyExpense(id, { reimbursed: true } as any);
+  }
+
+  @Delete('expenses/:id')
+  @ApiOperation({ summary: 'Remover despesa' })
+  removeExpense(@Param('id') id: string) { return this.svc.removeDailyExpense(id); }
+
   @Get('rentals/:id/measurement-report')
   @ApiOperation({ summary: 'Boletim de medição da locação' })
   getMeasurementReport(

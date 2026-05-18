@@ -3155,6 +3155,17 @@ class ApiService {
   async updateEquipmentLiftingPlan(id: string, data: any) { return (await this.client.put(`/equipment/lifting-plans/${id}`, data)).data; }
   async deleteEquipmentLiftingPlan(id: string) { return (await this.client.delete(`/equipment/lifting-plans/${id}`)).data; }
 
+  // ─── Fluxo de Caixa / Despesas Operacionais ───
+  async getEquipmentCashFlow(rentalId: string) { return (await this.client.get(`/equipment/rentals/${rentalId}/cash-flow`)).data; }
+  async getEquipmentExpenses(rentalId: string, dailyLogId?: string) {
+    const params = dailyLogId ? `?dailyLogId=${dailyLogId}` : '';
+    return (await this.client.get(`/equipment/rentals/${rentalId}/expenses${params}`)).data;
+  }
+  async addEquipmentExpense(rentalId: string, data: any) { return (await this.client.post(`/equipment/rentals/${rentalId}/expenses`, data)).data; }
+  async updateEquipmentExpense(id: string, data: any) { return (await this.client.put(`/equipment/expenses/${id}`, data)).data; }
+  async markExpenseReimbursed(id: string) { return (await this.client.patch(`/equipment/expenses/${id}/reimbursed`, {})).data; }
+  async deleteEquipmentExpense(id: string) { return (await this.client.delete(`/equipment/expenses/${id}`)).data; }
+
   // ═══════════════════════════════════════════════════
   // Canal de Indicações Solar — Referrals
   // ═══════════════════════════════════════════════════

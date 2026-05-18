@@ -12,6 +12,7 @@ import { Plus, Clock, Pencil, Trash2, Moon, Sun, Calendar, MapPin, DollarSign, C
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { DAILY_STATUS, fmt, fD } from './EquipmentTypes';
+import ExpensePanel from './ExpensePanel';
 
 interface Props {
   dailyLogs: any[];
@@ -152,48 +153,58 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
           </div>
           <div className="divide-y">
             {logs.map((d: any) => (
-              <div key={d.id} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50/50 transition-colors group">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm">{fD(d.date)}</span>
-                    <Badge className={DAILY_STATUS[d.status]?.c || ''}>{DAILY_STATUS[d.status]?.l || d.status}</Badge>
-                    {d.startTime && d.endTime && (
-                      <span className="text-xs text-slate-500">{d.startTime} - {d.endTime}</span>
-                    )}
-                    {Number(d.overtimeHours || 0) > 0 && <Badge variant="outline" className="text-xs text-orange-600 border-orange-300"><Clock className="h-3 w-3 mr-0.5" />{d.overtimeHours}h extra</Badge>}
-                    {Number(d.nightHours || 0) > 0 && <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-300"><Moon className="h-3 w-3 mr-0.5" />{d.nightHours}h not.</Badge>}
-                    {d.isHoliday && <Badge variant="outline" className="text-xs text-red-600 border-red-300"><Calendar className="h-3 w-3 mr-0.5" />Feriado</Badge>}
-                    {d.isWeekend && !d.isHoliday && <Badge variant="outline" className="text-xs text-purple-600 border-purple-300"><Sun className="h-3 w-3 mr-0.5" />F.Semana</Badge>}
-                    {d.clientApproval === 'approved' && <Badge className="bg-green-100 text-green-700 text-xs"><CheckCircle2 className="h-3 w-3 mr-0.5" />Aprovado</Badge>}
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {d.operatorName || '—'} • {Number(d.normalHours || d.hoursWorked || 0)}h normal
-                    {d.workLocation && <><MapPin className="h-3 w-3 inline ml-2 mr-0.5" />{d.workLocation}</>}
-                  </p>
-                  {d.description && <p className="text-xs text-slate-400 truncate">{d.description}</p>}
-                </div>
-                <div className="text-right shrink-0 space-y-0.5">
-                  <p className="text-sm font-bold text-slate-800">{fmt(d.totalValue)}</p>
-                  {(Number(d.overtimeValue || 0) > 0 || Number(d.nightValue || 0) > 0 || Number(d.holidayValue || 0) > 0) && (
-                    <div className="text-[10px] text-slate-400 space-y-0">
-                      {Number(d.normalValue || 0) > 0 && <div>Normal: {fmt(d.normalValue)}</div>}
-                      {Number(d.overtimeValue || 0) > 0 && <div className="text-orange-500">Extra: {fmt(d.overtimeValue)}</div>}
-                      {Number(d.nightValue || 0) > 0 && <div className="text-indigo-500">Noturno: {fmt(d.nightValue)}</div>}
-                      {Number(d.holidayValue || 0) > 0 && <div className="text-red-500">Feriado: {fmt(d.holidayValue)}</div>}
-                      {Number(d.weekendValue || 0) > 0 && <div className="text-purple-500">F.Sem: {fmt(d.weekendValue)}</div>}
+              <div key={d.id} className="px-5 py-3 hover:bg-slate-50/50 transition-colors group">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{fD(d.date)}</span>
+                      <Badge className={DAILY_STATUS[d.status]?.c || ''}>{DAILY_STATUS[d.status]?.l || d.status}</Badge>
+                      {d.startTime && d.endTime && (
+                        <span className="text-xs text-slate-500">{d.startTime} - {d.endTime}</span>
+                      )}
+                      {Number(d.overtimeHours || 0) > 0 && <Badge variant="outline" className="text-xs text-orange-600 border-orange-300"><Clock className="h-3 w-3 mr-0.5" />{d.overtimeHours}h extra</Badge>}
+                      {Number(d.nightHours || 0) > 0 && <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-300"><Moon className="h-3 w-3 mr-0.5" />{d.nightHours}h not.</Badge>}
+                      {d.isHoliday && <Badge variant="outline" className="text-xs text-red-600 border-red-300"><Calendar className="h-3 w-3 mr-0.5" />Feriado</Badge>}
+                      {d.isWeekend && !d.isHoliday && <Badge variant="outline" className="text-xs text-purple-600 border-purple-300"><Sun className="h-3 w-3 mr-0.5" />F.Semana</Badge>}
+                      {d.clientApproval === 'approved' && <Badge className="bg-green-100 text-green-700 text-xs"><CheckCircle2 className="h-3 w-3 mr-0.5" />Aprovado</Badge>}
                     </div>
-                  )}
-                  <div className="flex gap-1 justify-end">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(d)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    {d.status === 'registered' && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => remove(d.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {d.operatorName || '—'} • {Number(d.normalHours || d.hoursWorked || 0)}h normal
+                      {d.workLocation && <><MapPin className="h-3 w-3 inline ml-2 mr-0.5" />{d.workLocation}</>}
+                    </p>
+                    {d.description && <p className="text-xs text-slate-400 truncate">{d.description}</p>}
+                  </div>
+                  <div className="text-right shrink-0 space-y-0.5">
+                    <p className="text-sm font-bold text-slate-800">{fmt(d.totalValue)}</p>
+                    {(Number(d.overtimeValue || 0) > 0 || Number(d.nightValue || 0) > 0 || Number(d.holidayValue || 0) > 0) && (
+                      <div className="text-[10px] text-slate-400 space-y-0">
+                        {Number(d.normalValue || 0) > 0 && <div>Normal: {fmt(d.normalValue)}</div>}
+                        {Number(d.overtimeValue || 0) > 0 && <div className="text-orange-500">Extra: {fmt(d.overtimeValue)}</div>}
+                        {Number(d.nightValue || 0) > 0 && <div className="text-indigo-500">Noturno: {fmt(d.nightValue)}</div>}
+                        {Number(d.holidayValue || 0) > 0 && <div className="text-red-500">Feriado: {fmt(d.holidayValue)}</div>}
+                        {Number(d.weekendValue || 0) > 0 && <div className="text-purple-500">F.Sem: {fmt(d.weekendValue)}</div>}
+                      </div>
                     )}
+                    <div className="flex gap-1 justify-end">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(d)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      {d.status === 'registered' && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => remove(d.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
+                {/* Painel de Fluxo de Caixa — expansível por diária */}
+                <ExpensePanel
+                  rentalId={d.rentalId}
+                  equipmentId={d.equipmentId}
+                  dailyLogId={d.id}
+                  dailyDate={String(d.date).substring(0, 10)}
+                  receita={Number(d.totalValue || 0)}
+                />
               </div>
             ))}
           </div>

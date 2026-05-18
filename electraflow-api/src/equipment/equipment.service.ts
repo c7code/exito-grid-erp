@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { Equipment, EquipmentRental, EquipmentMaintenance, EquipmentDailyLog, EquipmentService as EquipmentServiceEntity, EquipmentChecklist, EquipmentDocument, EquipmentLiftingPlan } from './equipment.entity';
+import { Equipment, EquipmentRental, EquipmentMaintenance, EquipmentDailyLog, EquipmentService as EquipmentServiceEntity, EquipmentChecklist, EquipmentDocument, EquipmentLiftingPlan, EquipmentDailyExpense } from './equipment.entity';
 
 @Injectable()
 export class EquipmentService implements OnModuleInit {
@@ -16,6 +16,7 @@ export class EquipmentService implements OnModuleInit {
     @InjectRepository(EquipmentChecklist) private checklistRepo: Repository<EquipmentChecklist>,
     @InjectRepository(EquipmentDocument) private docRepo: Repository<EquipmentDocument>,
     @InjectRepository(EquipmentLiftingPlan) private liftingRepo: Repository<EquipmentLiftingPlan>,
+    @InjectRepository(EquipmentDailyExpense) private expenseRepo: Repository<EquipmentDailyExpense>,
     private dataSource: DataSource,
   ) {}
 
@@ -132,6 +133,22 @@ export class EquipmentService implements OnModuleInit {
         "createdAt" TIMESTAMP DEFAULT NOW(),
         "updatedAt" TIMESTAMP DEFAULT NOW(),
         "deletedAt" TIMESTAMP
+      )`,
+      // Tabela de despesas operacionais
+      `CREATE TABLE IF NOT EXISTS equipment_daily_expenses (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "dailyLogId" UUID,
+        "rentalId" UUID NOT NULL,
+        "equipmentId" UUID NOT NULL,
+        category VARCHAR DEFAULT 'outro',
+        description TEXT,
+        amount NUMERIC(15,2) DEFAULT 0,
+        "paidBy" VARCHAR DEFAULT 'empresa',
+        reimbursed BOOLEAN DEFAULT false,
+        "expenseDate" DATE,
+        notes TEXT,
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        "updatedAt" TIMESTAMP DEFAULT NOW()
       )`,
     ];
 
@@ -568,6 +585,89 @@ export class EquipmentService implements OnModuleInit {
       period: { startDate, endDate },
       logs,
       summary,
+    };
+  }
+
+  // ═══ DAILY EXPENSES (Fluxo de Caixa Operacional) ═════════════
+
+  async getDailyExpenses(rentalId: string, dailyLogId?: string): Promise<EquipmentDailyExpense[]> {
+    const where: any = { rentalId };
+    if (dailyLogId) where.dailyLogId = dailyLogId;
+    return this.expenseRepo.find({ where, order: { expenseDate: 'ASC', createdAt: 'ASC' } });
+  }
+
+  async addDailyExpense(data: {
+    rentalId: string; equipmentId: string; dailyLogId?: string;
+    category: string; description?: string; amount: number;
+    paidBy: string; expenseDate?: string; notes?: string;
+  }): Promise<EquipmentDailyExpense> {
+    const expense = this.expenseRepo.create({
+      rentalId: data.rentalId,
+      equipmentId: data.equipmentId,
+      dailyLogId: data.dailyLogId || null,
+      category: data.category || 'outro',
+      description: data.description || null,
+      amount: Number(data.amount) || 0,
+      paidBy: data.paidBy || 'empresa',
+      reimbursed: false,
+      expenseDate: data.expenseDate ? new Date(data.expenseDate) : null,
+      notes: data.notes || null,
+    });
+    return this.expenseRepo.save(expense);
+  }
+
+  async updateDailyExpense(id: string, data: Partial<EquipmentDailyExpense>): Promise<EquipmentDailyExpense> {
+    const { id: _id, rental, dailyLog, ...clean } = data as any;
+    if (clean.amount !== undefined) clean.amount = Number(clean.amount) || 0;
+    await this.expenseRepo.update(id, clean);
+    return this.expenseRepo.findOneBy({ id });
+  }
+
+  async removeDailyExpense(id: string): Promise<void> {
+    await this.expenseRepo.delete(id);
+  }
+
+  // Resumo financeiro completo da locação: receita vs despesas por diária
+  async getCashFlowSummary(rentalId: string): Promise<any> {
+    const [logs, expenses] = await Promise.all([
+      this.dailyRepo.find({ where: { rentalId }, order: { date: 'ASC' } }),
+      this.expenseRepo.find({ where: { rentalId }, order: { expenseDate: 'ASC', createdAt: 'ASC' } }),
+    ]);
+
+    const totalReceita = logs.reduce((s, l) => s + Number(l.totalValue || 0), 0);
+    const totalDespesas = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+    const totalReembolso = expenses
+      .filter(e => e.paidBy === 'operador' && !e.reimbursed)
+      .reduce((s, e) => s + Number(e.amount || 0), 0);
+
+    // Breakdown por categoria
+    const byCategory: Record<string, number> = {};
+    for (const e of expenses) {
+      byCategory[e.category] = (byCategory[e.category] || 0) + Number(e.amount || 0);
+    }
+
+    // Detalhamento por diária
+    const byDay = logs.map(log => {
+      const dayExpenses = expenses.filter(e => e.dailyLogId === log.id);
+      const totalDespesaDia = dayExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+      return {
+        log, expenses: dayExpenses,
+        receita: Number(log.totalValue || 0),
+        despesas: totalDespesaDia,
+        resultado: Number(log.totalValue || 0) - totalDespesaDia,
+      };
+    });
+
+    // Despesas avulsas (sem vínculo a diária)
+    const avulsas = expenses.filter(e => !e.dailyLogId);
+    const totalAvulsas = avulsas.reduce((s, e) => s + Number(e.amount || 0), 0);
+
+    return {
+      totalReceita, totalDespesas,
+      resultadoLiquido: totalReceita - totalDespesas,
+      margemPercent: totalReceita > 0 ? +((((totalReceita - totalDespesas) / totalReceita) * 100).toFixed(1)) : 0,
+      totalReembolsoPendente: totalReembolso,
+      byCategory, byDay, avulsas, totalAvulsas,
     };
   }
 
