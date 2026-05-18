@@ -25,6 +25,24 @@ const PageLoader = () => (
 
 // ─── Chunk Error Boundary ─────────────────────────────────────────────────────
 // Detects when a lazy-loaded chunk fails (stale hash after deploy) and reloads
+
+// Global handler: dynamic import errors that aren't caught by Error Boundary
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    const msg = event?.reason?.message || '';
+    const isChunk =
+      msg.includes('Failed to fetch dynamically imported module') ||
+      msg.includes('Loading chunk') ||
+      msg.includes('Expected a JavaScript') ||
+      msg.includes('Failed to load module script') ||
+      event?.reason?.name === 'ChunkLoadError';
+    if (isChunk) {
+      event.preventDefault();
+      window.location.reload();
+    }
+  });
+}
+
 class ChunkErrorBoundary extends Component<
   { children: ReactNode },
   { hasError: boolean; reloading: boolean }
@@ -42,12 +60,13 @@ class ChunkErrorBoundary extends Component<
     const isChunkError =
       error.message?.includes('Failed to fetch dynamically imported module') ||
       error.message?.includes('Loading chunk') ||
+      error.message?.includes('Expected a JavaScript') ||
+      error.message?.includes('Failed to load module script') ||
       error.name === 'ChunkLoadError';
 
     if (isChunkError && !this.state.reloading) {
       this.setState({ reloading: true });
-      // Hard reload to pick up new chunk hashes after a deploy
-      setTimeout(() => window.location.reload(), 1000);
+      setTimeout(() => window.location.reload(), 800);
     }
   }
 
@@ -63,7 +82,7 @@ class ChunkErrorBoundary extends Component<
           ) : (
             <>
               <RefreshCw className="w-8 h-8 text-amber-500" />
-              <p className="text-sm">Erro ao carregar módulo.</p>
+              <p className="text-sm">Erro ao carregar página. Clique para recarregar.</p>
               <button
                 onClick={() => window.location.reload()}
                 className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600"
