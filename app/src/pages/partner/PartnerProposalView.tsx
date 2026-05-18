@@ -145,12 +145,31 @@ export default function PartnerProposalView() {
             {proposal.proposalNumber}
           </span>
           {proposal.allowDownload && (
-            <button
-              onClick={() => window.print()}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
-            >
-              <Printer className="w-4 h-4" /> Salvar / Imprimir PDF
-            </button>
+            <>
+              {/* Desktop: imprimir como PDF */}
+              <button
+                onClick={() => window.print()}
+                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
+              >
+                <Printer className="w-4 h-4" /> Salvar PDF
+              </button>
+              {/* Mobile: compartilhar link */}
+              <button
+                onClick={async () => {
+                  const url = window.location.href;
+                  if (navigator.share) {
+                    try { await navigator.share({ title: `Proposta ${proposal.proposalNumber}`, url }); }
+                    catch { /* cancelado */ }
+                  } else {
+                    await navigator.clipboard.writeText(url);
+                    alert('Link copiado! Cole no navegador para visualizar e salvar como PDF.');
+                  }
+                }}
+                className="flex sm:hidden items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
+              >
+                <Printer className="w-4 h-4" /> Compartilhar / PDF
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -159,12 +178,12 @@ export default function PartnerProposalView() {
       {proposal.allowDownload && (
         <div className="no-print sm:hidden flex items-center gap-2 px-4 py-2 mb-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700">
           <Printer className="w-3.5 h-3.5 shrink-0" />
-          <span>Para salvar o PDF, use o botão acima.</span>
+          <span>No celular: toque em <b>Compartilhar / PDF</b> e escolha "Imprimir" → salvar como PDF.</span>
         </div>
       )}
 
-      {/* Proposta */}
-      <div className="overflow-x-auto pb-4">
+      {/* Proposta — rola horizontalmente em mobile */}
+      <div className="overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
         <div
           className="shadow-xl rounded-lg overflow-hidden"
           style={{ minWidth: 794, maxWidth: 794, margin: '0 auto' }}

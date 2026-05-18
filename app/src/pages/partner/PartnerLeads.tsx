@@ -38,6 +38,19 @@ const emptyForm: NewLeadForm = { name:'', phone:'', email:'', city:'', state:'',
 const resolveUrl = (url: string) =>
   url?.startsWith('http') ? url : `${(import.meta.env.VITE_API_URL||'http://localhost:3001/api').replace(/\/api$/,'')}${url}`;
 
+// Download forçado — funciona em iOS/Android sem abrir nova aba
+const downloadFile = async (url: string, filename: string) => {
+  try {
+    const res = await fetch(resolveUrl(url));
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename || 'documento';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); document.body.removeChild(a); }, 1000);
+  } catch { window.open(resolveUrl(url), '_blank'); }
+};
+
 export default function PartnerLeads() {
   const { partnerToken } = usePartnerAuth();
   const navigate = useNavigate();
@@ -326,8 +339,8 @@ export default function PartnerLeads() {
 
       {/* ─── Modal: Canal de Documentos ─── */}
       {docLead && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) setDocLead(null); }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center" onClick={e => { if (e.target === e.currentTarget) setDocLead(null); }}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-xl overflow-hidden flex flex-col h-[92vh] sm:max-h-[90vh]">
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between"
               style={{ background: 'linear-gradient(135deg, #4c1d95, #1e3a5f)' }}>
@@ -344,8 +357,15 @@ export default function PartnerLeads() {
                 <p className="text-sm font-semibold text-purple-700 flex items-center gap-2">
                   <FileUp className="w-4 h-4" /> Enviar Documento
                 </p>
-                <input ref={fileRef} type="file" accept="image/*,application/pdf,.doc,.docx"
-                  className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200" />
+                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-purple-300 rounded-xl cursor-pointer bg-purple-50/50 hover:bg-purple-50 transition-colors">
+                  <span className="text-2xl mb-1">📎</span>
+                  <span className="text-xs text-purple-600 font-medium">Toque para selecionar arquivo</span>
+                  <span className="text-[10px] text-purple-400 mt-0.5">Foto, PDF, Word, Excel</span>
+                  <input ref={fileRef} type="file"
+                    accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                    capture="environment"
+                    className="hidden" />
+                </label>
                 <div className="grid grid-cols-1 gap-2">
                   <select value={uploadFileType} onChange={e => { setUploadFileType(e.target.value); if (e.target.value !== 'Outro (personalizado)') setCustomFileType(''); }}
                     className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
@@ -390,10 +410,17 @@ export default function PartnerLeads() {
                             {doc.visibility === 'public' ? <><Globe className="w-2.5 h-2.5" />Compartilhado</> : <><Lock className="w-2.5 h-2.5" />Interno</>}
                           </span>
                         </div>
-                        <a href={resolveUrl(doc.url)} target="_blank" rel="noreferrer"
-                          className="p-2 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors">
-                          <Download className="w-4 h-4" />
-                        </a>
+                        <div className="flex gap-1">
+                          <a href={resolveUrl(doc.url)} target="_blank" rel="noreferrer"
+                            className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors" title="Abrir">
+                            <Eye className="w-4 h-4" />
+                          </a>
+                          <button
+                            onClick={() => downloadFile(doc.url, doc.originalName)}
+                            className="p-2 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors" title="Baixar">
+                            <Download className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
