@@ -1,6 +1,7 @@
 import { Controller, Post, Body, Get, UseGuards, Request, UnauthorizedException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { IsEmail, IsString, IsOptional, MinLength } from 'class-validator';
+import { SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
@@ -34,6 +35,9 @@ class RegisterDto {
 export class AuthController {
   constructor(private authService: AuthService) { }
 
+  // Login: bcrypt já é lento por natureza — proteção natural contra brute-force.
+  // Throttle aqui causava 429 em mobile e ao tentar múltiplas vezes seguidas.
+  @SkipThrottle()
   @Post('login')
   @ApiOperation({ summary: 'Login do usuário' })
   async login(@Body() loginDto: LoginDto) {
@@ -65,6 +69,7 @@ export class AuthController {
 
   // ═══ CLIENT AUTH ══════════════════════════════════════════════════════════
 
+  @SkipThrottle()
   @Post('client-login')
   @ApiOperation({ summary: 'Login do cliente (Portal)' })
   async clientLogin(@Body() loginDto: LoginDto) {
@@ -85,6 +90,7 @@ export class AuthController {
 
   // ═══ UNIFIED LOGIN ═══════════════════════════════════════════════════════
 
+  @SkipThrottle()
   @Post('unified-login')
   @ApiOperation({ summary: 'Login unificado - retorna todos os portais disponíveis' })
   async unifiedLogin(@Body() loginDto: LoginDto) {
@@ -93,6 +99,7 @@ export class AuthController {
 
   // ═══ REFRESH TOKEN ════════════════════════════════════════════════════════
 
+  @SkipThrottle()
   @Post('refresh')
   @ApiOperation({ summary: 'Renovar access token usando refresh token' })
   async refresh(@Body() body: { refresh_token: string }) {
@@ -111,4 +118,3 @@ export class AuthController {
     return { message: 'Logout realizado com sucesso.' };
   }
 }
-
