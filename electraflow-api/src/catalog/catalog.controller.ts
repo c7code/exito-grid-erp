@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, Request, UseInterceptors, UploadedFile, Res } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
+import { SkipThrottle } from '@nestjs/throttler';
 import { CatalogService } from './catalog.service';
 import { CatalogImportService } from './catalog-import.service';
 import { CatalogCategory, CatalogItem, CatalogType } from './catalog.entity';
@@ -56,6 +57,8 @@ export class CatalogController {
         return this.catalogService.findOneItem(id);
     }
 
+    // Busca é chamada com frequência pelo dialog de proposta — sem throttle
+    @SkipThrottle()
     @Get('search')
     searchCatalog(@Query('q') query: string, @Query('type') type?: CatalogType) {
         return this.catalogService.searchCatalog(query, type);

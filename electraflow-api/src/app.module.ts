@@ -53,12 +53,12 @@ import { PartnerRequestsModule } from './partner-requests/partner-requests.modul
     }),
     ThrottlerModule.forRoot([{
       name: 'default',
-      ttl: 60000,   // 1 minuto
-      limit: 60,    // 60 requests por minuto por IP (para rotas normais)
+      ttl: 10000,    // janela de 10 segundos
+      limit: 100,   // 100 requests por 10s por IP (600/min) — suficiente para ERP interno
     }, {
       name: 'auth',
       ttl: 60000,   // 1 minuto
-      limit: 10,    // 10 tentativas de login por minuto
+      limit: 10,    // 10 tentativas de login por minuto (segurança)
     }]),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
