@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ReferralsService } from './referrals.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PartnerAuthGuard } from './partner-auth.guard';
@@ -17,6 +18,7 @@ export class ReferralsController {
   ) {}
 
   // ─── PORTAL DO PARCEIRO — ROTAS PÚBLICAS ─────
+  @SkipThrottle()
   @Post('partner/login')
   partnerLogin(@Body('email') email: string, @Body('password') password: string) {
     return this.service.partnerLogin(email, password);
