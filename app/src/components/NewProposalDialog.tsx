@@ -205,6 +205,8 @@ export default function NewProposalDialog({
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [searchResults, setSearchResults] = useState<Record<number, any[]>>({});
     const searchTimerRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+    // Cache: evita chamar a API repetidamente para a mesma query (válido por 30s)
+    const searchCache = useRef<Map<string, { data: any[]; ts: number }>>(new Map());
 
     const debouncedSearch = useCallback((index: number, query: string) => {
         // Clear previous timer for this index
@@ -217,16 +219,39 @@ export default function NewProposalDialog({
             return;
         }
 
+        // 600ms debounce — evita 429 no Railway por múltiplas calls simultâneas
         searchTimerRef.current[index] = setTimeout(async () => {
             try {
+                // Verificar cache (válido por 30 segundos)
+                const cacheKey = query.trim().toLowerCase();
+                const cached = searchCache.current.get(cacheKey);
+                if (cached && Date.now() - cached.ts < 30_000) {
+                    setSearchResults(prev => ({ ...prev, [index]: cached.data }));
+                    return;
+                }
+
                 const suggestions = await api.searchCatalogItems(query);
                 // Mostrar agrupamentos + itens normais, sem categorias
                 const filtered = suggestions.filter((s: any) => s.dataType !== 'category');
+
+                // Guardar no cache
+                searchCache.current.set(cacheKey, { data: filtered, ts: Date.now() });
+                // Limpar entradas antigas do cache (> 30s)
+                if (searchCache.current.size > 50) {
+                    const now = Date.now();
+                    for (const [k, v] of searchCache.current) {
+                        if (now - v.ts > 30_000) searchCache.current.delete(k);
+                    }
+                }
+
                 setSearchResults(prev => ({ ...prev, [index]: filtered }));
-            } catch (err) {
-                console.error('Erro ao buscar catalogo:', err);
+            } catch (err: any) {
+                // 429 = Railway rate limit — ignorar silenciosamente (não logar como erro)
+                if (err?.response?.status !== 429) {
+                    console.error('Erro ao buscar catalogo:', err);
+                }
             }
-        }, 300);
+        }, 600);
     }, []);
 
     const itemsRef = useRef<ActivityItem[]>([]);
