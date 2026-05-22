@@ -243,6 +243,7 @@ export class AuthService implements OnModuleInit {
         label: this.getRoleLabel(userResult.role),
         icon: this.getRoleIcon(userResult.role),
         token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
         user: tokenData.user,
       });
     }

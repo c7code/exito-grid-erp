@@ -68,11 +68,12 @@ class ApiService {
           }
         }
 
-        // Não injetar token admin em rotas do portal do parceiro
+        // Não injetar token admin em rotas do portal do parceiro ou rotas de autenticação
         const isPartnerRoute =
           url.includes('/referrals/partner/') ||
           url.includes('/partner-requests/partner');
-        if (!isPartnerRoute) {
+        const isAuthRoute = url.includes('/auth/');
+        if (!isPartnerRoute && !isAuthRoute) {
           const token = localStorage.getItem('electraflow_token');
           if (token) {
             config.headers.Authorization = `Bearer ${token}`;

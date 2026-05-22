@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '@/api';
 import { Input } from '@/components/ui/input';
@@ -104,6 +104,15 @@ export default function Login() {
   const [selectingPortal, setSelectingPortal] = useState(false);
   const [enteringPortal, setEnteringPortal] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  // ─── Limpar tokens stale ao montar a tela de login ─────────────────────────
+  // Previne race condition: heartbeat com token expirado dispara 401 → interceptor
+  // agenda redirect que destrói o login que acabou de ser realizado com sucesso.
+  useEffect(() => {
+    localStorage.removeItem('electraflow_token');
+    localStorage.removeItem('electraflow_refresh_token');
+    localStorage.removeItem('electraflow_user');
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
