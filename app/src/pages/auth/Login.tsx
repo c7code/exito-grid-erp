@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '@/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -104,6 +105,7 @@ export default function Login() {
   const [selectingPortal, setSelectingPortal] = useState(false);
   const [enteringPortal, setEnteringPortal] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { setUserDirect } = useAuth();
 
   // ─── Limpar tokens stale ao montar a tela de login ─────────────────────────
   // Previne race condition: heartbeat com token expirado dispara 401 → interceptor
@@ -137,6 +139,19 @@ export default function Login() {
   const enterPortal = async (portal: any) => {
     setEnteringPortal(portal.type);
     try {
+      // Constrói o objeto user para o AuthContext
+      const buildUser = (portalData: any) => ({
+        id: portalData.user.id,
+        name: portalData.user.name,
+        email: portalData.user.email,
+        role: portalData.user.role || portalData.type,
+        permissions: portalData.user.permissions || [],
+        department: portalData.user.department,
+        position: portalData.user.position,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      });
+
       if (portal.type === 'partner') {
         localStorage.setItem('partner_token', portal.token);
         localStorage.setItem('partner_user', JSON.stringify(portal.user));
@@ -144,12 +159,16 @@ export default function Login() {
       } else if (portal.type === 'client') {
         localStorage.setItem('electraflow_token', portal.token);
         if (portal.refresh_token) localStorage.setItem('electraflow_refresh_token', portal.refresh_token);
-        localStorage.setItem('electraflow_user', JSON.stringify(portal.user));
+        const userData = { ...buildUser(portal), role: 'client' as const };
+        localStorage.setItem('electraflow_user', JSON.stringify(userData));
+        setUserDirect(userData as any);
         navigate('/client/dashboard');
       } else {
         localStorage.setItem('electraflow_token', portal.token);
         if (portal.refresh_token) localStorage.setItem('electraflow_refresh_token', portal.refresh_token);
-        localStorage.setItem('electraflow_user', JSON.stringify(portal.user));
+        const userData = buildUser(portal);
+        localStorage.setItem('electraflow_user', JSON.stringify(userData));
+        setUserDirect(userData as any);
         navigate('/admin/dashboard');
       }
     } finally {

@@ -12,6 +12,7 @@ interface AuthContextType {
   logout: () => void;
   hasRole: (roles: UserRole[]) => boolean;
   hasPermission: (module: string) => boolean;
+  setUserDirect: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -128,6 +129,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return permissions.includes(module);
   }, [user]);
 
+  // Permite que o Login unificado atualize o user diretamente no state React
+  // (sem precisar de novo request) — resolve o bug onde localStorage era setado
+  // mas o state user permanecia null, causando redirect loop.
+  const setUserDirect = useCallback((u: User) => {
+    setUser(u);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -140,6 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         hasRole,
         hasPermission,
+        setUserDirect,
       }}
     >
       {children}
