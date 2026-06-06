@@ -152,10 +152,17 @@ export class DocumentsController {
       try { parsedTags = JSON.parse(body.tags); } catch { parsedTags = null; }
     }
 
-    // Gerar path no storage: {uuid}/{originalFilename}
+    // Gerar path no storage: {uuid}/{sanitizedFilename}
+    // Supabase Storage rejeita keys com caracteres especiais (colchetes, espaços, acentos)
     const fileId = uuid();
     const ext = path.extname(file.originalname);
-    const storagePath = `${fileId}/${file.originalname}`;
+    const baseName = path.basename(file.originalname, ext);
+    const safeName = baseName
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
+      .replace(/[^a-zA-Z0-9._-]/g, '_')                // substitui caracteres especiais
+      .replace(/_+/g, '_')                              // colapsa underscores duplos
+      .replace(/^_|_$/g, '');                            // remove underscores nas pontas
+    const storagePath = `${fileId}/${safeName}${ext}`;
 
     // Upload para o Supabase Storage
     const publicUrl = await this.supabaseStorage.upload(
