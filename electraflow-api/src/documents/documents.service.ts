@@ -19,7 +19,11 @@ export class DocumentsService implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      // Migração automática — colunas e tabelas novas (seguro com IF NOT EXISTS)
+      // ══════════════════════════════════════════════════════════════════════
+      // Migração automática — colunas e tabelas (seguro com IF NOT EXISTS)
+      // ══════════════════════════════════════════════════════════════════════
+
+      // 1. Tabela de categorias de pasta
       await this.dataSource.query(`
         CREATE TABLE IF NOT EXISTS document_folder_categories (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -31,6 +35,7 @@ export class DocumentsService implements OnModuleInit {
         );
       `);
 
+      // 2. Colunas extras em document_folders
       await this.dataSource.query(`
         DO $$ BEGIN
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='document_folders' AND column_name='clientId') THEN
@@ -42,18 +47,53 @@ export class DocumentsService implements OnModuleInit {
         END $$;
       `);
 
-      // FK para clientId em document_folders (se não existir)
+      // 3. Corrigir tipos de colunas em documents que estão como VARCHAR mas deveriam ser UUID
+      //    (clientId, proposalId, contractId — necessário para FK constraints)
       await this.dataSource.query(`
         DO $$ BEGIN
-          IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name='FK_folder_client') THEN
-            ALTER TABLE document_folders ADD CONSTRAINT "FK_folder_client" FOREIGN KEY ("clientId") REFERENCES clients(id) ON DELETE SET NULL;
+          -- clientId: varchar → uuid
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='documents' AND column_name='clientId' AND udt_name != 'uuid'
+          ) THEN
+            -- Dropar FK constraints que referenciam essa coluna (se existirem)
+            IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name='FK_document_client' AND table_name='documents') THEN
+              ALTER TABLE documents DROP CONSTRAINT "FK_document_client";
+            END IF;
+            -- Converter coluna (valores existentes que não sejam UUID válidos ficam NULL)
+            ALTER TABLE documents ALTER COLUMN "clientId" TYPE UUID USING "clientId"::uuid;
+            RAISE NOTICE 'documents.clientId convertido para UUID';
+          END IF;
+
+          -- proposalId: varchar → uuid (se necessário)
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='documents' AND column_name='proposalId' AND udt_name != 'uuid'
+          ) THEN
+            ALTER TABLE documents ALTER COLUMN "proposalId" TYPE UUID USING CASE WHEN "proposalId" ~ '^[0-9a-f]{8}-' THEN "proposalId"::uuid ELSE NULL END;
+            RAISE NOTICE 'documents.proposalId convertido para UUID';
+          END IF;
+
+          -- contractId: varchar → uuid (se necessário)
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='documents' AND column_name='contractId' AND udt_name != 'uuid'
+          ) THEN
+            ALTER TABLE documents ALTER COLUMN "contractId" TYPE UUID USING CASE WHEN "contractId" ~ '^[0-9a-f]{8}-' THEN "contractId"::uuid ELSE NULL END;
+            RAISE NOTICE 'documents.contractId convertido para UUID';
           END IF;
         END $$;
       `);
 
-      // FK para clientId em documents (coluna já existe, só a constraint pode estar faltando)
+      // 4. FK constraints (agora com tipos compatíveis)
       await this.dataSource.query(`
         DO $$ BEGIN
+          -- FK document_folders.clientId → clients
+          IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name='FK_folder_client') THEN
+            ALTER TABLE document_folders ADD CONSTRAINT "FK_folder_client" FOREIGN KEY ("clientId") REFERENCES clients(id) ON DELETE SET NULL;
+          END IF;
+
+          -- FK documents.clientId → clients
           IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name='FK_document_client') THEN
             ALTER TABLE documents ADD CONSTRAINT "FK_document_client" FOREIGN KEY ("clientId") REFERENCES clients(id) ON DELETE SET NULL;
           END IF;
