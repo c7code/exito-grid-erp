@@ -1,16 +1,70 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
-import { Document, DocumentFolder, DocumentType } from './document.entity';
+import { Repository, IsNull, DataSource } from 'typeorm';
+import { Document, DocumentFolder, DocumentType, FolderCategory } from './document.entity';
 
 @Injectable()
-export class DocumentsService {
+export class DocumentsService implements OnModuleInit {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(
     @InjectRepository(Document)
     private documentRepository: Repository<Document>,
     @InjectRepository(DocumentFolder)
     private folderRepository: Repository<DocumentFolder>,
+    @InjectRepository(FolderCategory)
+    private categoryRepository: Repository<FolderCategory>,
+    private dataSource: DataSource,
   ) { }
+
+  async onModuleInit() {
+    try {
+      // Migração automática — colunas e tabelas novas (seguro com IF NOT EXISTS)
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS document_folder_categories (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name VARCHAR UNIQUE NOT NULL,
+          color VARCHAR,
+          icon VARCHAR,
+          "sortOrder" INTEGER DEFAULT 0,
+          "createdAt" TIMESTAMP DEFAULT now()
+        );
+      `);
+
+      await this.dataSource.query(`
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='document_folders' AND column_name='clientId') THEN
+            ALTER TABLE document_folders ADD COLUMN "clientId" UUID;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='document_folders' AND column_name='category') THEN
+            ALTER TABLE document_folders ADD COLUMN category VARCHAR;
+          END IF;
+        END $$;
+      `);
+
+      // FK para clientId em document_folders (se não existir)
+      await this.dataSource.query(`
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name='FK_folder_client') THEN
+            ALTER TABLE document_folders ADD CONSTRAINT "FK_folder_client" FOREIGN KEY ("clientId") REFERENCES clients(id) ON DELETE SET NULL;
+          END IF;
+        END $$;
+      `);
+
+      // FK para clientId em documents (coluna já existe, só a constraint pode estar faltando)
+      await this.dataSource.query(`
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name='FK_document_client') THEN
+            ALTER TABLE documents ADD CONSTRAINT "FK_document_client" FOREIGN KEY ("clientId") REFERENCES clients(id) ON DELETE SET NULL;
+          END IF;
+        END $$;
+      `);
+
+      this.logger.log('✅ Migração de documentos concluída com sucesso');
+    } catch (error) {
+      this.logger.warn(`⚠️ Migração de documentos (não-crítico): ${error.message}`);
+    }
+  }
 
   // ========== DOCUMENTOS ==========
 
@@ -20,6 +74,7 @@ export class DocumentsService {
     folderId?: string;
     proposalId?: string;
     contractId?: string;
+    clientId?: string;
   }): Promise<Document[]> {
     const where: any = {};
     if (filters?.workId) where.workId = filters.workId;
@@ -27,6 +82,7 @@ export class DocumentsService {
     if (filters?.folderId) where.folderId = filters.folderId;
     if (filters?.proposalId) where.proposalId = filters.proposalId;
     if (filters?.contractId) where.contractId = filters.contractId;
+    if (filters?.clientId) where.clientId = filters.clientId;
     return this.documentRepository.find({
       where,
       relations: ['work', 'folder'],
@@ -73,22 +129,24 @@ export class DocumentsService {
 
   // ========== PASTAS ==========
 
-  async findFolders(workId?: string): Promise<DocumentFolder[]> {
+  async findFolders(workId?: string, clientId?: string): Promise<DocumentFolder[]> {
     const where: any = {};
     if (workId) where.workId = workId;
+    if (clientId) where.clientId = clientId;
     return this.folderRepository.find({
       where,
-      relations: ['children', 'documents'],
+      relations: ['children', 'documents', 'client'],
       order: { sortOrder: 'ASC', name: 'ASC' },
     });
   }
 
-  async findRootFolders(workId?: string): Promise<DocumentFolder[]> {
+  async findRootFolders(workId?: string, clientId?: string): Promise<DocumentFolder[]> {
     const where: any = { parentId: IsNull() };
     if (workId) where.workId = workId;
+    if (clientId) where.clientId = clientId;
     return this.folderRepository.find({
       where,
-      relations: ['children', 'children.children', 'documents'],
+      relations: ['children', 'children.children', 'documents', 'client'],
       order: { sortOrder: 'ASC', name: 'ASC' },
     });
   }
@@ -96,7 +154,7 @@ export class DocumentsService {
   async findFolder(id: string): Promise<DocumentFolder> {
     const folder = await this.folderRepository.findOne({
       where: { id },
-      relations: ['children', 'documents', 'parent'],
+      relations: ['children', 'documents', 'parent', 'client'],
     });
     if (!folder) {
       throw new NotFoundException('Pasta não encontrada');
@@ -120,5 +178,20 @@ export class DocumentsService {
   async removeFolder(id: string): Promise<void> {
     const folder = await this.findFolder(id);
     await this.folderRepository.softRemove(folder);
+  }
+
+  // ========== CATEGORIAS DE PASTA ==========
+
+  async findCategories(): Promise<FolderCategory[]> {
+    return this.categoryRepository.find({ order: { sortOrder: 'ASC', name: 'ASC' } });
+  }
+
+  async createCategory(data: Partial<FolderCategory>): Promise<FolderCategory> {
+    const cat = this.categoryRepository.create(data);
+    return this.categoryRepository.save(cat);
+  }
+
+  async deleteCategory(id: string): Promise<void> {
+    await this.categoryRepository.delete(id);
   }
 }

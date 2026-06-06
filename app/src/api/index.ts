@@ -514,7 +514,7 @@ class ApiService {
   }
 
   // Documents
-  async getDocuments(filters?: { workId?: string; type?: string; folderId?: string; proposalId?: string; contractId?: string }) {
+  async getDocuments(filters?: { workId?: string; type?: string; folderId?: string; proposalId?: string; contractId?: string; clientId?: string }) {
     const response = await this.client.get('/documents', { params: filters });
     return response.data;
   }
@@ -596,14 +596,18 @@ class ApiService {
   }
 
   // Document Folders
-  async getDocumentFolders(workId?: string) {
-    const params = workId ? { workId } : {};
+  async getDocumentFolders(workId?: string, clientId?: string) {
+    const params: any = {};
+    if (workId) params.workId = workId;
+    if (clientId) params.clientId = clientId;
     const response = await this.client.get('/documents/folders/list', { params });
     return response.data;
   }
 
-  async getRootFolders(workId?: string) {
-    const params = workId ? { workId } : {};
+  async getRootFolders(workId?: string, clientId?: string) {
+    const params: any = {};
+    if (workId) params.workId = workId;
+    if (clientId) params.clientId = clientId;
     const response = await this.client.get('/documents/folders/root', { params });
     return response.data;
   }
@@ -613,7 +617,7 @@ class ApiService {
     return response.data;
   }
 
-  async createDocumentFolder(data: { name: string; workId?: string; parentId?: string }) {
+  async createDocumentFolder(data: { name: string; workId?: string; parentId?: string; clientId?: string; category?: string }) {
     const response = await this.client.post('/documents/folders', data);
     return response.data;
   }
@@ -625,6 +629,22 @@ class ApiService {
 
   async deleteDocumentFolder(id: string) {
     const response = await this.client.delete(`/documents/folders/${id}`);
+    return response.data;
+  }
+
+  // Document Folder Categories
+  async getFolderCategories() {
+    const response = await this.client.get('/documents/categories');
+    return response.data;
+  }
+
+  async createFolderCategory(data: { name: string; color?: string; icon?: string }) {
+    const response = await this.client.post('/documents/categories', data);
+    return response.data;
+  }
+
+  async deleteFolderCategory(id: string) {
+    const response = await this.client.delete(`/documents/categories/${id}`);
     return response.data;
   }
 

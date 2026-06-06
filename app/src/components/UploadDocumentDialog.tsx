@@ -85,6 +85,7 @@ export default function UploadDocumentDialog({
     const [works, setWorks] = useState<WorkOption[]>([]);
     const [folders, setFolders] = useState<FolderOption[]>([]);
     const [loadingWorks, setLoadingWorks] = useState(false);
+    const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -93,6 +94,7 @@ export default function UploadDocumentDialog({
         type: 'other' as string,
         workId: preselectedWorkId || '',
         folderId: preselectedFolderId || '',
+        clientId: '',
         description: '',
         purpose: '' as string,
         tagsInput: '',
@@ -121,11 +123,16 @@ export default function UploadDocumentDialog({
     const loadWorks = async () => {
         setLoadingWorks(true);
         try {
-            const data = await api.getWorks();
-            const list = Array.isArray(data) ? data : (data?.data ?? []);
-            setWorks(list.map((w: any) => ({ id: w.id, title: w.title, code: w.code })));
+            const [worksData, clientsData] = await Promise.all([
+                api.getWorks(),
+                api.getClients(),
+            ]);
+            const workList = Array.isArray(worksData) ? worksData : (worksData?.data ?? []);
+            setWorks(workList.map((w: any) => ({ id: w.id, title: w.title, code: w.code })));
+            const clientList = Array.isArray(clientsData) ? clientsData : [];
+            setClients(clientList.map((c: any) => ({ id: c.id, name: c.name })));
         } catch (e) {
-            console.error('Erro ao carregar obras:', e);
+            console.error('Erro ao carregar dados:', e);
         } finally {
             setLoadingWorks(false);
         }
@@ -147,6 +154,7 @@ export default function UploadDocumentDialog({
             type: 'other',
             workId: preselectedWorkId || '',
             folderId: preselectedFolderId || '',
+            clientId: '',
             description: '',
             purpose: '',
             tagsInput: '',
@@ -189,6 +197,7 @@ export default function UploadDocumentDialog({
                 type: formData.type,
                 workId: formData.workId || undefined,
                 folderId: formData.folderId || undefined,
+                clientId: formData.clientId || undefined,
                 description: formData.description || undefined,
                 purpose: formData.purpose || undefined,
                 tags: tags.length > 0 ? tags : undefined,
@@ -308,6 +317,24 @@ export default function UploadDocumentDialog({
                                 </Select>
                             )}
                         </div>
+                    </div>
+
+                    <div>
+                        <Label>Cliente</Label>
+                        <Select
+                            value={formData.clientId}
+                            onValueChange={(v) => setFormData({ ...formData, clientId: v === 'none' ? '' : v })}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecione um cliente" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Nenhum</SelectItem>
+                                {clients.map((c) => (
+                                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     {folders.length > 0 && (

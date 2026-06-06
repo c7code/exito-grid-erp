@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { User } from '../users/user.entity';
 import { Work } from '../works/work.entity';
+import { Client } from '../clients/client.entity';
 
 export enum DocumentType {
   PROJECT = 'project',
@@ -36,6 +37,35 @@ export enum DocumentStatus {
   REJECTED = 'rejected',
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Categorias de pasta (tabela auxiliar)
+// ═══════════════════════════════════════════════════════════════
+
+@Entity('document_folder_categories')
+export class FolderCategory {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ unique: true })
+  name: string;
+
+  @Column({ nullable: true })
+  color: string;
+
+  @Column({ nullable: true })
+  icon: string;
+
+  @Column({ default: 0 })
+  sortOrder: number;
+
+  @CreateDateColumn()
+  createdAt: Date;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Pastas de documentos
+// ═══════════════════════════════════════════════════════════════
+
 @Entity('document_folders')
 export class DocumentFolder {
   @PrimaryGeneratedColumn('uuid')
@@ -64,6 +94,16 @@ export class DocumentFolder {
   @OneToMany(() => Document, doc => doc.folder)
   documents: Document[];
 
+  @Column({ nullable: true })
+  clientId: string;
+
+  @ManyToOne(() => Client, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'clientId' })
+  client: Client;
+
+  @Column({ nullable: true })
+  category: string;
+
   @Column({ default: 0 })
   sortOrder: number;
 
@@ -76,6 +116,10 @@ export class DocumentFolder {
   @DeleteDateColumn()
   deletedAt: Date;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Documentos
+// ═══════════════════════════════════════════════════════════════
 
 @Entity('documents')
 export class Document {
@@ -107,6 +151,10 @@ export class Document {
 
   @Column({ nullable: true })
   clientId: string;
+
+  @ManyToOne(() => Client, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'clientId' })
+  client: Client;
 
   @Column({ nullable: true })
   proposalId: string;
@@ -149,10 +197,10 @@ export class Document {
   paymentId: string;
 
   @Column({ nullable: true })
-  originalName: string; // compatibility with system/erp (mapped to fileName)
+  originalName: string; // compatibilidade com system/erp (mapped to fileName)
 
   @Column({ nullable: true })
-  filePath: string; // compatibility with system/erp (mapped to url)
+  filePath: string; // compatibilidade com system/erp (mapped to url)
 
   @Column({ type: 'text', nullable: true })
   description: string;

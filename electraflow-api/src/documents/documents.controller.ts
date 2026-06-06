@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Put, Patch, Delete, Body, Param, Query,
-  UseGuards, UseInterceptors, UploadedFile, Res, NotFoundException, ForbiddenException, Request,
+  UseGuards, UseInterceptors, UploadedFile, Res, NotFoundException, ForbiddenException, BadRequestException, Request,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -24,7 +24,7 @@ export class DocumentsController {
     private supabaseStorage: SupabaseStorageService,
   ) { }
 
-  // ========== DOCUMENTOS ==========
+  // ========== DOCUMENTOS (rotas sem parâmetro dinâmico primeiro) ==========
 
   @Get()
   @ApiOperation({ summary: 'Listar documentos' })
@@ -35,15 +35,16 @@ export class DocumentsController {
     @Query('folderId') folderId?: string,
     @Query('proposalId') proposalId?: string,
     @Query('contractId') contractId?: string,
+    @Query('clientId') clientId?: string,
     @Query('accessLevel') accessLevel?: string,
   ) {
-    const docs = await this.documentsService.findAll({ workId, type, folderId, proposalId, contractId });
-    // Filter by accessLevel if requested
+    const docs = await this.documentsService.findAll({ workId, type, folderId, proposalId, contractId, clientId });
+    // Filtra por accessLevel se solicitado
     let filtered = docs;
     if (accessLevel) {
       filtered = filtered.filter(d => (d.accessLevel || 'public') === accessLevel);
     }
-    // Hide 'hidden' docs from non-admin users
+    // Oculta documentos 'hidden' para usuários não-admin
     const userRole = req?.user?.role;
     const userPermissions: string[] = req?.user?.permissions || [];
     const canSeeRestricted = userRole === 'admin' || userPermissions.includes('documents-restricted');
@@ -59,10 +60,70 @@ export class DocumentsController {
     return this.documentsService.findByWork(workId);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Buscar documento por ID' })
-  async findOne(@Param('id') id: string) {
-    return this.documentsService.findOne(id);
+  // ========== PASTAS (antes de qualquer rota :id) ==========
+
+  @Get('folders/list')
+  @ApiOperation({ summary: 'Listar todas as pastas' })
+  async findFolders(
+    @Query('workId') workId?: string,
+    @Query('clientId') clientId?: string,
+  ) {
+    return this.documentsService.findFolders(workId, clientId);
+  }
+
+  @Get('folders/root')
+  @ApiOperation({ summary: 'Listar pastas raiz (com subpastas)' })
+  async findRootFolders(
+    @Query('workId') workId?: string,
+    @Query('clientId') clientId?: string,
+  ) {
+    return this.documentsService.findRootFolders(workId, clientId);
+  }
+
+  @Get('folders/:id')
+  @ApiOperation({ summary: 'Buscar pasta por ID' })
+  async findFolder(@Param('id') id: string) {
+    return this.documentsService.findFolder(id);
+  }
+
+  @Post('folders')
+  @ApiOperation({ summary: 'Criar pasta' })
+  async createFolder(@Body() data: Partial<DocumentFolder>) {
+    return this.documentsService.createFolder(data);
+  }
+
+  @Put('folders/:id')
+  @ApiOperation({ summary: 'Atualizar pasta' })
+  async updateFolder(@Param('id') id: string, @Body() data: Partial<DocumentFolder>) {
+    return this.documentsService.updateFolder(id, data);
+  }
+
+  @Delete('folders/:id')
+  @ApiOperation({ summary: 'Remover pasta' })
+  async removeFolder(@Param('id') id: string) {
+    await this.documentsService.removeFolder(id);
+    return { message: 'Pasta removida com sucesso' };
+  }
+
+  // ========== CATEGORIAS DE PASTA ==========
+
+  @Get('categories')
+  @ApiOperation({ summary: 'Listar categorias de pasta' })
+  async findCategories() {
+    return this.documentsService.findCategories();
+  }
+
+  @Post('categories')
+  @ApiOperation({ summary: 'Criar categoria de pasta' })
+  async createCategory(@Body() data: { name: string; color?: string; icon?: string }) {
+    return this.documentsService.createCategory(data);
+  }
+
+  @Delete('categories/:id')
+  @ApiOperation({ summary: 'Remover categoria de pasta' })
+  async deleteCategory(@Param('id') id: string) {
+    await this.documentsService.deleteCategory(id);
+    return { message: 'Categoria removida' };
   }
 
   // ========== UPLOAD ==========
@@ -80,7 +141,12 @@ export class DocumentsController {
     @Body() body: { name?: string; type?: string; workId?: string; folderId?: string; description?: string; purpose?: string; tags?: string; sourceOrganization?: string; contractId?: string; proposalId?: string; clientId?: string },
     @Request() req,
   ) {
-    // Parse tags from JSON string (sent via FormData)
+    // Verifica se o Supabase Storage está configurado
+    if (!this.supabaseStorage.isConfigured()) {
+      throw new BadRequestException('Supabase Storage não configurado. Configure SUPABASE_URL e SUPABASE_SERVICE_KEY.');
+    }
+
+    // Parse tags de string JSON (enviadas via FormData)
     let parsedTags: string[] | null = null;
     if (body.tags) {
       try { parsedTags = JSON.parse(body.tags); } catch { parsedTags = null; }
@@ -121,7 +187,13 @@ export class DocumentsController {
     return this.documentsService.create(docData);
   }
 
-  // ========== DOWNLOAD ==========
+  // ========== ROTAS COM :id (por último para evitar conflito) ==========
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Buscar documento por ID' })
+  async findOne(@Param('id') id: string) {
+    return this.documentsService.findOne(id);
+  }
 
   @Get(':fileNameOrId/file')
   @ApiOperation({ summary: 'Download de arquivo' })
@@ -131,14 +203,14 @@ export class DocumentsController {
     try {
       doc = await this.documentsService.findOne(fileNameOrId);
     } catch {
-      // Not found by ID
+      // Não encontrado por ID
     }
 
     if (!doc) {
       throw new NotFoundException('Arquivo não encontrado');
     }
 
-    // Block download for view_only or hidden docs (unless admin/authorized)
+    // Bloqueia download para documentos view_only ou hidden (exceto admin/autorizados)
     const docAccess = doc.accessLevel || 'public';
     if (docAccess !== 'public') {
       const userRole = req?.user?.role;
@@ -188,7 +260,7 @@ export class DocumentsController {
   async remove(@Param('id') id: string, @Request() req) {
     const doc = await this.documentsService.findOne(id);
 
-    // Block delete for restricted docs if not admin
+    // Bloqueia exclusão de documentos restritos se não for admin
     const docAccess = doc.accessLevel || 'public';
     if (docAccess !== 'public') {
       const userRole = req?.user?.role;
@@ -221,7 +293,7 @@ export class DocumentsController {
     @Body() body: { accessLevel: string },
     @Request() req,
   ) {
-    // Only admin or users with documents-restricted permission can change access levels
+    // Apenas admin ou usuários com permissão documents-restricted podem alterar nível de acesso
     const userRole = req?.user?.role;
     const userPermissions: string[] = req?.user?.permissions || [];
     const canManage = userRole === 'admin' || userPermissions.includes('documents-restricted');
@@ -238,44 +310,5 @@ export class DocumentsController {
       accessLevel: body.accessLevel,
       accessChangedById: req.user?.userId || req.user?.id,
     });
-  }
-
-  // ========== PASTAS ==========
-
-  @Get('folders/list')
-  @ApiOperation({ summary: 'Listar todas as pastas' })
-  async findFolders(@Query('workId') workId?: string) {
-    return this.documentsService.findFolders(workId);
-  }
-
-  @Get('folders/root')
-  @ApiOperation({ summary: 'Listar pastas raiz (com subpastas)' })
-  async findRootFolders(@Query('workId') workId?: string) {
-    return this.documentsService.findRootFolders(workId);
-  }
-
-  @Get('folders/:id')
-  @ApiOperation({ summary: 'Buscar pasta por ID' })
-  async findFolder(@Param('id') id: string) {
-    return this.documentsService.findFolder(id);
-  }
-
-  @Post('folders')
-  @ApiOperation({ summary: 'Criar pasta' })
-  async createFolder(@Body() data: Partial<DocumentFolder>) {
-    return this.documentsService.createFolder(data);
-  }
-
-  @Put('folders/:id')
-  @ApiOperation({ summary: 'Atualizar pasta' })
-  async updateFolder(@Param('id') id: string, @Body() data: Partial<DocumentFolder>) {
-    return this.documentsService.updateFolder(id, data);
-  }
-
-  @Delete('folders/:id')
-  @ApiOperation({ summary: 'Remover pasta' })
-  async removeFolder(@Param('id') id: string) {
-    await this.documentsService.removeFolder(id);
-    return { message: 'Pasta removida com sucesso' };
   }
 }

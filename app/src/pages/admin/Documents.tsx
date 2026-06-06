@@ -39,6 +39,7 @@ import {
   Lock,
   Unlock,
   ShieldAlert,
+  Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -78,6 +79,9 @@ interface FolderNode {
   parentId?: string;
   children?: FolderNode[];
   documents?: any[];
+  clientId?: string;
+  client?: { id: string; name: string };
+  category?: string;
 }
 
 export default function AdminDocuments() {
@@ -98,20 +102,31 @@ export default function AdminDocuments() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [draggingDocId, setDraggingDocId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [clients, setClients] = useState<any[]>([]);
+  const [clientFilter, setClientFilter] = useState<string>('all');
+  const [folderCategories, setFolderCategories] = useState<any[]>([]);
+  const [newFolderClientId, setNewFolderClientId] = useState<string>('');
+  const [newFolderCategory, setNewFolderCategory] = useState<string>('');
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [clientFilter]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [docsRes, foldersRes] = await Promise.all([
-        api.getDocuments(),
-        api.getRootFolders(),
+      const [docsRes, foldersRes, clientsRes, categoriesRes] = await Promise.all([
+        api.getDocuments(clientFilter !== 'all' ? { clientId: clientFilter } : undefined),
+        api.getRootFolders(undefined, clientFilter !== 'all' ? clientFilter : undefined),
+        api.getClients(),
+        api.getFolderCategories().catch(() => []),
       ]);
       setDocuments(Array.isArray(docsRes) ? docsRes : (docsRes?.data ?? []));
       setFolders(Array.isArray(foldersRes) ? foldersRes : (foldersRes?.data ?? []));
+      setClients(Array.isArray(clientsRes) ? clientsRes : []);
+      setFolderCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
     } catch (error) {
       console.error('Erro ao carregar documentos:', error);
       toast.error('Erro ao carregar documentos.');
@@ -161,14 +176,32 @@ export default function AdminDocuments() {
     try {
       const data: any = { name: newFolderName };
       if (newFolderParentId) data.parentId = newFolderParentId;
+      if (newFolderClientId) data.clientId = newFolderClientId;
+      if (newFolderCategory) data.category = newFolderCategory;
       await api.createDocumentFolder(data);
       toast.success('Pasta criada!');
       setNewFolderName('');
       setNewFolderParentId('');
+      setNewFolderClientId('');
+      setNewFolderCategory('');
       setShowNewFolder(false);
       loadData();
     } catch (error) {
       toast.error('Erro ao criar pasta.');
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    try {
+      await api.createFolderCategory({ name: newCategoryName });
+      toast.success('Categoria criada!');
+      setNewCategoryName('');
+      setShowNewCategory(false);
+      const cats = await api.getFolderCategories().catch(() => []);
+      setFolderCategories(Array.isArray(cats) ? cats : []);
+    } catch (error) {
+      toast.error('Erro ao criar categoria.');
     }
   };
 
@@ -321,6 +354,12 @@ export default function AdminDocuments() {
             </button>
             <FolderOpen className={`w-4 h-4 shrink-0 ${isDragOver ? 'text-amber-600' : 'text-amber-500'}`} />
             <span className="truncate flex-1">{folder.name}</span>
+            {folder.client && (
+              <span className="text-[10px] bg-blue-100 text-blue-600 px-1 rounded" title={folder.client.name}>👤</span>
+            )}
+            {(folder as any).category && (
+              <span className="text-[10px] bg-purple-100 text-purple-600 px-1 rounded">{(folder as any).category}</span>
+            )}
             <button
               className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-100 rounded text-red-400 hover:text-red-600"
               onClick={(e) => {
@@ -422,6 +461,18 @@ export default function AdminDocuments() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={clientFilter} onValueChange={setClientFilter}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <Users className="w-4 h-4 mr-2" />
+            <SelectValue placeholder="Cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os clientes</SelectItem>
+            {clients.map((c: any) => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Main Content: Sidebar + Timeline */}
@@ -511,6 +562,65 @@ export default function AdminDocuments() {
                           ))}
                         </SelectContent>
                       </Select>
+                    )}
+                    <Select
+                      value={newFolderClientId}
+                      onValueChange={(v) => setNewFolderClientId(v === 'none' ? '' : v)}
+                    >
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Cliente (opcional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {clients.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <div className="flex gap-1">
+                      <Select
+                        value={newFolderCategory}
+                        onValueChange={(v) => setNewFolderCategory(v === 'none' ? '' : v)}
+                      >
+                        <SelectTrigger className="h-8 text-sm flex-1">
+                          <SelectValue placeholder="Categoria (opcional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nenhuma</SelectItem>
+                          {folderCategories.map((cat: any) => (
+                            <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 text-xs px-2"
+                        onClick={() => setShowNewCategory(true)}
+                        title="Nova categoria"
+                      >
+                        +
+                      </Button>
+                    </div>
+
+                    {showNewCategory && (
+                      <div className="flex gap-1">
+                        <Input
+                          placeholder="Nome da categoria"
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                          className="h-8 text-sm flex-1"
+                          onKeyDown={(e) => e.key === 'Enter' && handleCreateCategory()}
+                        />
+                        <Button size="sm" className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-slate-900" onClick={handleCreateCategory}>
+                          OK
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShowNewCategory(false); setNewCategoryName(''); }}>
+                          ✕
+                        </Button>
+                      </div>
                     )}
                     <div className="flex gap-1">
                       <Button size="sm" className="h-7 text-xs flex-1 bg-amber-500 hover:bg-amber-600 text-slate-900" onClick={handleCreateFolder}>
