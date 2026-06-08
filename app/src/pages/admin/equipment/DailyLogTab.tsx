@@ -43,13 +43,9 @@ const defaultForm: Record<string, any> = {
   normalHours: '', overtimeHours: '0', nightHours: '0',
   isHoliday: false, isWeekend: false,
   dailyRate: '', description: '', workLocation: '',
-  overtimeValue: '', nightValue: '', holidayValue: '', weekendValue: '',
-  breakHours: '1', // Intervalo padrão 1h
-  hourlyRate: '', // Valor/hora calculado
-  overtimeRateMode: 'percent', // 'percent' ou 'fixed'
-  overtimeRateValue: '50', // 50% ou R$ fixo
-  nightRateMode: 'percent',
-  nightRateValue: '30',
+  breakHours: '1',
+  hourlyRate: '',      // auto: diária ÷ horas contratadas
+  adicionalHExtra: '0', // R$ a mais por hora extra
 };
 
 export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
@@ -61,9 +57,14 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
 
   function openNew() { setForm({ ...defaultForm }); setEditId(null); setDlgOpen(true); }
 
+  function getContractedH(rentalId: string) {
+    const r = rentals.find((rt: any) => rt.id === rentalId);
+    return Number(r?.contractedHoursPerDay || 8);
+  }
+
   function openEdit(log: any) {
     const r = rentals.find((rt: any) => rt.id === log.rentalId);
-    const contractedH = Number(r?.contractedHoursPerDay || 8);
+    const contractedH = getContractedH(log.rentalId);
     const rate = Number(log.dailyRate || r?.unitRate || 0);
     const hrRate = contractedH > 0 ? rate / contractedH : 0;
     setEditId(log.id);
@@ -78,16 +79,9 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
       isHoliday: log.isHoliday || false, isWeekend: log.isWeekend || false,
       dailyRate: String(rate), description: log.description || '',
       workLocation: log.workLocation || '',
-      overtimeValue: log.overtimeValue ? String(log.overtimeValue) : '',
-      nightValue: log.nightValue ? String(log.nightValue) : '',
-      holidayValue: log.holidayValue ? String(log.holidayValue) : '',
-      weekendValue: log.weekendValue ? String(log.weekendValue) : '',
       breakHours: '1',
       hourlyRate: String(hrRate.toFixed(2)),
-      overtimeRateMode: r?.overtimeMode || 'percent',
-      overtimeRateValue: String(r?.overtimeRate || '50'),
-      nightRateMode: r?.nightMode || 'percent',
-      nightRateValue: String(r?.nightRate || '30'),
+      adicionalHExtra: String(r?.overtimeRate || '0'),
     });
     setDlgOpen(true);
   }
@@ -99,18 +93,14 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
       const rate = Number(r.unitRate || 0);
       const hrRate = contractedH > 0 ? rate / contractedH : 0;
       setForm(prev => ({
-        ...prev,
-        rentalId,
+        ...prev, rentalId,
         equipmentId: r.equipmentId || prev.equipmentId,
         operatorId: r.operatorId || prev.operatorId,
         operatorName: r.operatorName || prev.operatorName,
         dailyRate: String(rate),
         normalHours: String(contractedH),
         hourlyRate: String(hrRate.toFixed(2)),
-        overtimeRateMode: r.overtimeMode || 'percent',
-        overtimeRateValue: String(r.overtimeRate || '50'),
-        nightRateMode: r.nightMode || 'percent',
-        nightRateValue: String(r.nightRate || '30'),
+        adicionalHExtra: String(r.overtimeRate || '0'),
       }));
     } else {
       F('rentalId', rentalId);
@@ -123,17 +113,16 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
     const [sh, sm] = startTime.split(':').map(Number);
     const [eh, em] = endTime.split(':').map(Number);
     let totalMin = (eh * 60 + em) - (sh * 60 + sm);
-    if (totalMin < 0) totalMin += 24 * 60; // crosses midnight
+    if (totalMin < 0) totalMin += 24 * 60;
     const totalHours = Math.max(0, totalMin / 60 - breakH);
     const normal = Math.min(totalHours, contractedH);
     const overtime = Math.max(0, totalHours - contractedH);
-    return { totalHours: +totalHours.toFixed(2), normal: +normal.toFixed(2), overtime: +overtime.toFixed(2) };
+    return { normal: +normal.toFixed(2), overtime: +overtime.toFixed(2) };
   }
 
   function onTimeChange(field: 'startTime' | 'endTime' | 'breakHours', val: string) {
     const newForm = { ...form, [field]: val };
-    const r = rentals.find((rt: any) => rt.id === newForm.rentalId);
-    const contractedH = Number(r?.contractedHoursPerDay || newForm.normalHours || 8);
+    const contractedH = getContractedH(newForm.rentalId);
     const result = calcHoursFromTime(
       newForm.startTime, newForm.endTime, Number(newForm.breakHours || 0), contractedH
     );
@@ -144,40 +133,13 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
     setForm(newForm);
   }
 
-  // Recalculate hourly rate when dailyRate changes
   function onDailyRateChange(val: string) {
-    const r = rentals.find((rt: any) => rt.id === form.rentalId);
-    const contractedH = Number(r?.contractedHoursPerDay || form.normalHours || 8);
+    const contractedH = getContractedH(form.rentalId);
     const rate = Number(val || 0);
     const hrRate = contractedH > 0 ? rate / contractedH : 0;
     setForm(prev => ({ ...prev, dailyRate: val, hourlyRate: String(hrRate.toFixed(2)) }));
   }
 
-  // Auto-calculate overtime/night values from rates
-  function autoCalcValues() {
-    const hrRate = Number(form.hourlyRate || 0);
-    const overtimeH = Number(form.overtimeHours || 0);
-    const nightH = Number(form.nightHours || 0);
-    let ovVal = 0;
-    let niVal = 0;
-    if (overtimeH > 0 && hrRate > 0) {
-      ovVal = form.overtimeRateMode === 'fixed'
-        ? overtimeH * Number(form.overtimeRateValue || 0)
-        : overtimeH * hrRate * (1 + Number(form.overtimeRateValue || 50) / 100);
-    }
-    if (nightH > 0 && hrRate > 0) {
-      niVal = form.nightRateMode === 'fixed'
-        ? nightH * Number(form.nightRateValue || 0)
-        : nightH * hrRate * (Number(form.nightRateValue || 30) / 100);
-    }
-    setForm(prev => ({
-      ...prev,
-      overtimeValue: ovVal > 0 ? String(ovVal.toFixed(2)) : '',
-      nightValue: niVal > 0 ? String(niVal.toFixed(2)) : '',
-    }));
-  }
-
-  // Auto-detect weekend from date
   function onDateChange(dateStr: string) {
     F('date', dateStr);
     if (dateStr) {
@@ -187,10 +149,41 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
     }
   }
 
+  // === Cálculo automático dos valores ===
+  // Chamado na renderização, não precisa de botão
+  function calcValues() {
+    const hrRate = Number(form.hourlyRate || 0);
+    const adicional = Number(form.adicionalHExtra || 0);
+    const normalH = Number(form.normalHours || 0);
+    const overtimeH = Number(form.overtimeHours || 0);
+    const nightH = Number(form.nightHours || 0);
+    const isWeekend = form.isWeekend;
+    const isHoliday = form.isHoliday;
+
+    // Normal: horas normais × valor/hora
+    const normalValue = normalH * hrRate;
+    // Hora extra: horas × (valor/hora + adicional)
+    const overtimeValue = overtimeH > 0 ? overtimeH * (hrRate + adicional) : 0;
+    // Noturno: horas × adicional (mesmo adicional da hora extra)
+    const nightValue = nightH > 0 ? nightH * adicional : 0;
+    // Fim de semana: TODAS as horas × (valor/hora + adicional) — substitui o valor normal
+    const weekendValue = isWeekend && !isHoliday ? (normalH + overtimeH) * (hrRate + adicional) : 0;
+    // Feriado: mesmo cálculo do fim de semana
+    const holidayValue = isHoliday ? (normalH + overtimeH) * (hrRate + adicional) : 0;
+
+    // Total: se é weekend/feriado, usa o valor de weekend/feriado em vez do normal+extra
+    const total = (isWeekend || isHoliday)
+      ? (isHoliday ? holidayValue : weekendValue) + nightValue
+      : normalValue + overtimeValue + nightValue;
+
+    return { normalValue, overtimeValue, nightValue, weekendValue, holidayValue, total };
+  }
+
+  const calc = calcValues();
+
   async function save() {
     if (!form.rentalId || !form.date) { toast.error('Selecione a locação e a data'); return; }
     try {
-      // Only send fields that exist in the database — exclude UI-only fields
       const data: any = {
         rentalId: form.rentalId,
         equipmentId: form.equipmentId,
@@ -208,12 +201,13 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
         overtimeHours: Number(form.overtimeHours || 0),
         nightHours: Number(form.nightHours || 0),
         dailyRate: Number(form.dailyRate || 0),
+        normalValue: calc.normalValue,
+        overtimeValue: calc.overtimeValue,
+        nightValue: calc.nightValue,
+        weekendValue: calc.weekendValue,
+        holidayValue: calc.holidayValue,
+        totalValue: calc.total,
       };
-      // Include manual value overrides only if user entered them
-      if (form.overtimeValue !== '' && form.overtimeValue !== undefined) data.overtimeValue = Number(form.overtimeValue);
-      if (form.nightValue !== '' && form.nightValue !== undefined) data.nightValue = Number(form.nightValue);
-      if (form.holidayValue !== '' && form.holidayValue !== undefined) data.holidayValue = Number(form.holidayValue);
-      if (form.weekendValue !== '' && form.weekendValue !== undefined) data.weekendValue = Number(form.weekendValue);
       if (editId) {
         await api.updateEquipmentDailyLog(editId, data);
         toast.success('Diária atualizada!');
@@ -424,10 +418,10 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
               </div>
             </div>
 
-            {/* Valor Diária + Valor/Hora */}
+            {/* Valores: Diária + Valor/Hora + Adicional */}
             <div className="col-span-2 grid grid-cols-3 gap-3">
               <div>
-                <Label>Valor Diária Base (R$)</Label>
+                <Label>Valor Diária (R$)</Label>
                 <Input type="number" step="0.01" value={form.dailyRate} onChange={e => onDailyRateChange(e.target.value)} />
               </div>
               <div>
@@ -436,65 +430,51 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
                 <p className="text-[10px] text-slate-400 mt-0.5">Diária ÷ horas contratadas</p>
               </div>
               <div>
-                <Label className="text-xs text-cyan-700">Recalcular Valores</Label>
-                <Button type="button" size="sm" variant="outline" className="w-full mt-0.5 text-cyan-700 border-cyan-300 hover:bg-cyan-50" onClick={autoCalcValues}>
-                  ⚡ Calcular Extras
-                </Button>
+                <Label className="text-xs text-orange-600">Adicional/Hora Extra (R$)</Label>
+                <Input type="number" step="0.01" value={form.adicionalHExtra} onChange={e => F('adicionalHExtra', e.target.value)} className="border-orange-300" />
+                <p className="text-[10px] text-slate-400 mt-0.5">Soma ao valor/hora nas extras</p>
               </div>
             </div>
 
-            {/* Taxas de Adicionais */}
-            <div className="col-span-2 bg-emerald-50/60 rounded-lg p-3">
-              <Label className="text-xs text-emerald-800 font-semibold mb-2 block">Taxas de Cálculo (configura como os valores são calculados)</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <Label className="text-xs text-orange-600">Hora Extra</Label>
-                    <Input type="number" step="0.01" value={form.overtimeRateValue} onChange={e => F('overtimeRateValue', e.target.value)} className="mt-1" />
+            {/* Resumo de Valores — calculado automaticamente */}
+            <div className="col-span-2 bg-slate-50 rounded-lg p-3 border">
+              <Label className="text-xs text-slate-600 font-semibold mb-2 block">💰 Resumo do Cálculo</Label>
+              <div className="space-y-1 text-sm">
+                {!(form.isWeekend || form.isHoliday) && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">{Number(form.normalHours||0)}h normais × R$ {Number(form.hourlyRate||0).toFixed(2)}</span>
+                      <span className="font-medium">{fmt(calc.normalValue)}</span>
+                    </div>
+                    {Number(form.overtimeHours||0) > 0 && (
+                      <div className="flex justify-between text-orange-600">
+                        <span>{Number(form.overtimeHours||0)}h extras × R$ {(Number(form.hourlyRate||0) + Number(form.adicionalHExtra||0)).toFixed(2)}</span>
+                        <span className="font-medium">{fmt(calc.overtimeValue)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                {form.isWeekend && !form.isHoliday && (
+                  <div className="flex justify-between text-purple-600">
+                    <span>🗓️ F.Semana: {Number(form.normalHours||0) + Number(form.overtimeHours||0)}h × R$ {(Number(form.hourlyRate||0) + Number(form.adicionalHExtra||0)).toFixed(2)}</span>
+                    <span className="font-medium">{fmt(calc.weekendValue)}</span>
                   </div>
-                  <Select value={form.overtimeRateMode} onValueChange={v => F('overtimeRateMode', v)}>
-                    <SelectTrigger className="w-20 h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="percent">%</SelectItem>
-                      <SelectItem value="fixed">R$</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <Label className="text-xs text-indigo-600">Noturno</Label>
-                    <Input type="number" step="0.01" value={form.nightRateValue} onChange={e => F('nightRateValue', e.target.value)} className="mt-1" />
+                )}
+                {form.isHoliday && (
+                  <div className="flex justify-between text-red-600">
+                    <span>🎉 Feriado: {Number(form.normalHours||0) + Number(form.overtimeHours||0)}h × R$ {(Number(form.hourlyRate||0) + Number(form.adicionalHExtra||0)).toFixed(2)}</span>
+                    <span className="font-medium">{fmt(calc.holidayValue)}</span>
                   </div>
-                  <Select value={form.nightRateMode} onValueChange={v => F('nightRateMode', v)}>
-                    <SelectTrigger className="w-20 h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="percent">%</SelectItem>
-                      <SelectItem value="fixed">R$</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            {/* Valores Adicionais - Editáveis */}
-            <div className="col-span-2 bg-amber-50/60 rounded-lg p-3">
-              <Label className="text-xs text-amber-800 font-semibold mb-2 block">Valores Finais (R$) — Calculados automaticamente ou digite para sobrescrever</Label>
-              <div className="grid grid-cols-4 gap-3">
-                <div>
-                  <Label className="text-xs text-orange-600">Valor H.Extra</Label>
-                  <Input type="number" step="0.01" value={form.overtimeValue} onChange={e => F('overtimeValue', e.target.value)} className="mt-1" placeholder="Auto" />
-                </div>
-                <div>
-                  <Label className="text-xs text-indigo-600">Valor Noturno</Label>
-                  <Input type="number" step="0.01" value={form.nightValue} onChange={e => F('nightValue', e.target.value)} className="mt-1" placeholder="Auto" />
-                </div>
-                <div>
-                  <Label className="text-xs text-red-600">Valor Feriado</Label>
-                  <Input type="number" step="0.01" value={form.holidayValue} onChange={e => F('holidayValue', e.target.value)} className="mt-1" placeholder="Auto" />
-                </div>
-                <div>
-                  <Label className="text-xs text-purple-600">Valor F.Semana</Label>
-                  <Input type="number" step="0.01" value={form.weekendValue} onChange={e => F('weekendValue', e.target.value)} className="mt-1" placeholder="Auto" />
+                )}
+                {Number(form.nightHours||0) > 0 && (
+                  <div className="flex justify-between text-indigo-600">
+                    <span>🌙 Noturno: {Number(form.nightHours||0)}h × R$ {Number(form.adicionalHExtra||0).toFixed(2)}</span>
+                    <span className="font-medium">{fmt(calc.nightValue)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t pt-1 mt-1 text-base font-bold text-blue-800">
+                  <span>TOTAL</span>
+                  <span>{fmt(calc.total)}</span>
                 </div>
               </div>
             </div>
