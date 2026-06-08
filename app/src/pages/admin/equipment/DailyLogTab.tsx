@@ -193,14 +193,11 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
     try {
       const data: any = {
         rentalId: form.rentalId,
-        equipmentId: form.equipmentId,
-        operatorId: form.operatorId,
-        operatorName: form.operatorName,
         date: form.date,
-        startTime: form.startTime,
-        endTime: form.endTime,
-        workLocation: form.workLocation,
-        description: form.description,
+        startTime: form.startTime || null,
+        endTime: form.endTime || null,
+        workLocation: form.workLocation || null,
+        description: form.description || null,
         isHoliday: form.isHoliday,
         isWeekend: form.isWeekend,
         hoursWorked: Number(form.normalHours || 0) + Number(form.overtimeHours || 0),
@@ -209,7 +206,6 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
         nightHours: Number(form.nightHours || 0),
         dailyRate: Number(form.dailyRate || 0),
         // Quando é fim de semana/feriado, o weekendValue/holidayValue já cobre tudo
-        // Zerar normalValue e overtimeValue para o backend não somar duplicado
         normalValue: (form.isWeekend || form.isHoliday) ? 0 : calc.normalValue,
         overtimeValue: (form.isWeekend || form.isHoliday) ? 0 : calc.overtimeValue,
         nightValue: calc.nightValue,
@@ -217,6 +213,10 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
         holidayValue: calc.holidayValue,
         totalValue: calc.total,
       };
+      // UUID fields: only include if not empty (PostgreSQL rejects empty string as UUID)
+      if (form.equipmentId) data.equipmentId = form.equipmentId;
+      if (form.operatorId) data.operatorId = form.operatorId;
+      if (form.operatorName) data.operatorName = form.operatorName;
       if (editId) {
         await api.updateEquipmentDailyLog(editId, data);
         toast.success('Diária atualizada!');
@@ -225,7 +225,10 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
         toast.success('Diária registrada!');
       }
       setDlgOpen(false); setEditId(null); reload();
-    } catch { toast.error('Erro ao salvar diária'); }
+    } catch (err: any) {
+      console.error('Erro ao salvar diária:', err?.response?.data || err);
+      toast.error('Erro ao salvar diária');
+    }
   }
 
   async function remove(id: string) {

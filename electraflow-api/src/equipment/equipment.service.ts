@@ -432,6 +432,11 @@ export class EquipmentService implements OnModuleInit {
       try {
         const rental = await this.rentalRepo.findOneBy({ id: data.rentalId });
         if (rental) {
+          // Auto-fill from rental if not provided
+          if (!data.equipmentId) data.equipmentId = rental.equipmentId;
+          if (!data.operatorId && rental.operatorId) data.operatorId = rental.operatorId;
+          if (!data.operatorName && rental.operatorName) data.operatorName = rental.operatorName;
+
           const baseRate = Number(data.dailyRate || rental.unitRate || 0);
           const contractedHours = Number(rental.contractedHoursPerDay || 8);
           const hourlyBase = baseRate / contractedHours;
