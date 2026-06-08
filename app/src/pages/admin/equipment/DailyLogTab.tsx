@@ -44,6 +44,12 @@ const defaultForm: Record<string, any> = {
   isHoliday: false, isWeekend: false,
   dailyRate: '', description: '', workLocation: '',
   overtimeValue: '', nightValue: '', holidayValue: '', weekendValue: '',
+  breakHours: '1', // Intervalo padrão 1h
+  hourlyRate: '', // Valor/hora calculado
+  overtimeRateMode: 'percent', // 'percent' ou 'fixed'
+  overtimeRateValue: '50', // 50% ou R$ fixo
+  nightRateMode: 'percent',
+  nightRateValue: '30',
 };
 
 export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
@@ -56,6 +62,10 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
   function openNew() { setForm({ ...defaultForm }); setEditId(null); setDlgOpen(true); }
 
   function openEdit(log: any) {
+    const r = rentals.find((rt: any) => rt.id === log.rentalId);
+    const contractedH = Number(r?.contractedHoursPerDay || 8);
+    const rate = Number(log.dailyRate || r?.unitRate || 0);
+    const hrRate = contractedH > 0 ? rate / contractedH : 0;
     setEditId(log.id);
     setForm({
       rentalId: log.rentalId || '', equipmentId: log.equipmentId || '',
@@ -66,30 +76,105 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
       overtimeHours: String(log.overtimeHours || '0'),
       nightHours: String(log.nightHours || '0'),
       isHoliday: log.isHoliday || false, isWeekend: log.isWeekend || false,
-      dailyRate: String(log.dailyRate || ''), description: log.description || '',
+      dailyRate: String(rate), description: log.description || '',
       workLocation: log.workLocation || '',
       overtimeValue: log.overtimeValue ? String(log.overtimeValue) : '',
       nightValue: log.nightValue ? String(log.nightValue) : '',
       holidayValue: log.holidayValue ? String(log.holidayValue) : '',
       weekendValue: log.weekendValue ? String(log.weekendValue) : '',
+      breakHours: '1',
+      hourlyRate: String(hrRate.toFixed(2)),
+      overtimeRateMode: r?.overtimeMode || 'percent',
+      overtimeRateValue: String(r?.overtimeRate || '50'),
+      nightRateMode: r?.nightMode || 'percent',
+      nightRateValue: String(r?.nightRate || '30'),
     });
     setDlgOpen(true);
   }
 
   function onRentalSelect(rentalId: string) {
     const r = rentals.find((rt: any) => rt.id === rentalId);
-    F('rentalId', rentalId);
     if (r) {
+      const contractedH = Number(r.contractedHoursPerDay || 8);
+      const rate = Number(r.unitRate || 0);
+      const hrRate = contractedH > 0 ? rate / contractedH : 0;
       setForm(prev => ({
         ...prev,
         rentalId,
         equipmentId: r.equipmentId || prev.equipmentId,
         operatorId: r.operatorId || prev.operatorId,
         operatorName: r.operatorName || prev.operatorName,
-        dailyRate: String(r.unitRate || prev.dailyRate),
-        normalHours: String(r.contractedHoursPerDay || '8'),
+        dailyRate: String(rate),
+        normalHours: String(contractedH),
+        hourlyRate: String(hrRate.toFixed(2)),
+        overtimeRateMode: r.overtimeMode || 'percent',
+        overtimeRateValue: String(r.overtimeRate || '50'),
+        nightRateMode: r.nightMode || 'percent',
+        nightRateValue: String(r.nightRate || '30'),
       }));
+    } else {
+      F('rentalId', rentalId);
     }
+  }
+
+  // Auto-calculate hours from start/end time
+  function calcHoursFromTime(startTime: string, endTime: string, breakH: number, contractedH: number) {
+    if (!startTime || !endTime) return null;
+    const [sh, sm] = startTime.split(':').map(Number);
+    const [eh, em] = endTime.split(':').map(Number);
+    let totalMin = (eh * 60 + em) - (sh * 60 + sm);
+    if (totalMin < 0) totalMin += 24 * 60; // crosses midnight
+    const totalHours = Math.max(0, totalMin / 60 - breakH);
+    const normal = Math.min(totalHours, contractedH);
+    const overtime = Math.max(0, totalHours - contractedH);
+    return { totalHours: +totalHours.toFixed(2), normal: +normal.toFixed(2), overtime: +overtime.toFixed(2) };
+  }
+
+  function onTimeChange(field: 'startTime' | 'endTime' | 'breakHours', val: string) {
+    const newForm = { ...form, [field]: val };
+    const r = rentals.find((rt: any) => rt.id === newForm.rentalId);
+    const contractedH = Number(r?.contractedHoursPerDay || newForm.normalHours || 8);
+    const result = calcHoursFromTime(
+      newForm.startTime, newForm.endTime, Number(newForm.breakHours || 0), contractedH
+    );
+    if (result) {
+      newForm.normalHours = String(result.normal);
+      newForm.overtimeHours = String(result.overtime);
+    }
+    setForm(newForm);
+  }
+
+  // Recalculate hourly rate when dailyRate changes
+  function onDailyRateChange(val: string) {
+    const r = rentals.find((rt: any) => rt.id === form.rentalId);
+    const contractedH = Number(r?.contractedHoursPerDay || form.normalHours || 8);
+    const rate = Number(val || 0);
+    const hrRate = contractedH > 0 ? rate / contractedH : 0;
+    setForm(prev => ({ ...prev, dailyRate: val, hourlyRate: String(hrRate.toFixed(2)) }));
+  }
+
+  // Auto-calculate overtime/night values from rates
+  function autoCalcValues() {
+    const hrRate = Number(form.hourlyRate || 0);
+    const overtimeH = Number(form.overtimeHours || 0);
+    const nightH = Number(form.nightHours || 0);
+    let ovVal = 0;
+    let niVal = 0;
+    if (overtimeH > 0 && hrRate > 0) {
+      ovVal = form.overtimeRateMode === 'fixed'
+        ? overtimeH * Number(form.overtimeRateValue || 0)
+        : overtimeH * hrRate * (1 + Number(form.overtimeRateValue || 50) / 100);
+    }
+    if (nightH > 0 && hrRate > 0) {
+      niVal = form.nightRateMode === 'fixed'
+        ? nightH * Number(form.nightRateValue || 0)
+        : nightH * hrRate * (Number(form.nightRateValue || 30) / 100);
+    }
+    setForm(prev => ({
+      ...prev,
+      overtimeValue: ovVal > 0 ? String(ovVal.toFixed(2)) : '',
+      nightValue: niVal > 0 ? String(niVal.toFixed(2)) : '',
+    }));
   }
 
   // Auto-detect weekend from date
@@ -281,23 +366,39 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
               <Label>Local de Trabalho</Label>
               <Input value={form.workLocation} onChange={e => F('workLocation', e.target.value)} placeholder="Ex: Obra XPTO, Galpão 2" />
             </div>
-            <div><Label>Horário Início</Label><Input type="time" value={form.startTime} onChange={e => F('startTime', e.target.value)} /></div>
-            <div><Label>Horário Fim</Label><Input type="time" value={form.endTime} onChange={e => F('endTime', e.target.value)} /></div>
+            <div><Label>Horário Início</Label><Input type="time" value={form.startTime} onChange={e => onTimeChange('startTime', e.target.value)} /></div>
+            <div><Label>Horário Fim</Label><Input type="time" value={form.endTime} onChange={e => onTimeChange('endTime', e.target.value)} /></div>
 
-            {/* Hours breakdown */}
-            <div className="col-span-2 bg-blue-50/60 rounded-lg p-3 grid grid-cols-3 gap-3">
-              <div>
-                <Label className="text-xs text-blue-700">Horas Normais</Label>
-                <Input type="number" value={form.normalHours} onChange={e => F('normalHours', e.target.value)} className="mt-1" placeholder="8" />
+            {/* Hours breakdown + Intervalo */}
+            <div className="col-span-2 bg-blue-50/60 rounded-lg p-3">
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <Label className="text-xs text-slate-600">Intervalo (h)</Label>
+                  <Input type="number" step="0.5" value={form.breakHours} onChange={e => onTimeChange('breakHours', e.target.value)} className="mt-1" placeholder="1" />
+                </div>
+                <div>
+                  <Label className="text-xs text-blue-700">Horas Normais</Label>
+                  <Input type="number" step="0.01" value={form.normalHours} onChange={e => F('normalHours', e.target.value)} className="mt-1" placeholder="8" />
+                </div>
+                <div>
+                  <Label className="text-xs text-orange-600">Horas Extras</Label>
+                  <Input type="number" step="0.01" value={form.overtimeHours} onChange={e => F('overtimeHours', e.target.value)} className="mt-1" placeholder="0" />
+                </div>
+                <div>
+                  <Label className="text-xs text-indigo-600">Horas Noturnas</Label>
+                  <Input type="number" step="0.01" value={form.nightHours} onChange={e => F('nightHours', e.target.value)} className="mt-1" placeholder="0" />
+                </div>
               </div>
-              <div>
-                <Label className="text-xs text-orange-600">Horas Extras</Label>
-                <Input type="number" value={form.overtimeHours} onChange={e => F('overtimeHours', e.target.value)} className="mt-1" placeholder="0" />
-              </div>
-              <div>
-                <Label className="text-xs text-indigo-600">Horas Noturnas</Label>
-                <Input type="number" value={form.nightHours} onChange={e => F('nightHours', e.target.value)} className="mt-1" placeholder="0" />
-              </div>
+              {form.startTime && form.endTime && (
+                <p className="text-[10px] text-slate-400 mt-1.5">
+                  ⏱️ {form.startTime} → {form.endTime} = {(() => {
+                    const [sh,sm] = form.startTime.split(':').map(Number);
+                    const [eh,em] = form.endTime.split(':').map(Number);
+                    let t = (eh*60+em)-(sh*60+sm); if (t<0) t+=1440;
+                    return (t/60).toFixed(1);
+                  })()}h total − {form.breakHours || 0}h intervalo = {(Number(form.normalHours||0) + Number(form.overtimeHours||0)).toFixed(1)}h trabalhadas
+                </p>
+              )}
             </div>
 
             {/* Flags */}
@@ -311,14 +412,62 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
                 <span className="text-xs">Fim de Semana</span>
               </div>
             </div>
-            <div>
-              <Label>Valor Diária Base (R$)</Label>
-              <Input type="number" value={form.dailyRate} onChange={e => F('dailyRate', e.target.value)} />
+
+            {/* Valor Diária + Valor/Hora */}
+            <div className="col-span-2 grid grid-cols-3 gap-3">
+              <div>
+                <Label>Valor Diária Base (R$)</Label>
+                <Input type="number" step="0.01" value={form.dailyRate} onChange={e => onDailyRateChange(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs text-emerald-700">Valor/Hora (R$)</Label>
+                <Input type="number" step="0.01" value={form.hourlyRate} onChange={e => F('hourlyRate', e.target.value)} className="border-emerald-300" />
+                <p className="text-[10px] text-slate-400 mt-0.5">Diária ÷ horas contratadas</p>
+              </div>
+              <div>
+                <Label className="text-xs text-cyan-700">Recalcular Valores</Label>
+                <Button type="button" size="sm" variant="outline" className="w-full mt-0.5 text-cyan-700 border-cyan-300 hover:bg-cyan-50" onClick={autoCalcValues}>
+                  ⚡ Calcular Extras
+                </Button>
+              </div>
+            </div>
+
+            {/* Taxas de Adicionais */}
+            <div className="col-span-2 bg-emerald-50/60 rounded-lg p-3">
+              <Label className="text-xs text-emerald-800 font-semibold mb-2 block">Taxas de Cálculo (configura como os valores são calculados)</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Label className="text-xs text-orange-600">Hora Extra</Label>
+                    <Input type="number" step="0.01" value={form.overtimeRateValue} onChange={e => F('overtimeRateValue', e.target.value)} className="mt-1" />
+                  </div>
+                  <Select value={form.overtimeRateMode} onValueChange={v => F('overtimeRateMode', v)}>
+                    <SelectTrigger className="w-20 h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="percent">%</SelectItem>
+                      <SelectItem value="fixed">R$</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Label className="text-xs text-indigo-600">Noturno</Label>
+                    <Input type="number" step="0.01" value={form.nightRateValue} onChange={e => F('nightRateValue', e.target.value)} className="mt-1" />
+                  </div>
+                  <Select value={form.nightRateMode} onValueChange={v => F('nightRateMode', v)}>
+                    <SelectTrigger className="w-20 h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="percent">%</SelectItem>
+                      <SelectItem value="fixed">R$</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
             {/* Valores Adicionais - Editáveis */}
             <div className="col-span-2 bg-amber-50/60 rounded-lg p-3">
-              <Label className="text-xs text-amber-800 font-semibold mb-2 block">Valores Adicionais (R$) — Preencha para sobrescrever o cálculo automático da proposta</Label>
+              <Label className="text-xs text-amber-800 font-semibold mb-2 block">Valores Finais (R$) — Calculados automaticamente ou digite para sobrescrever</Label>
               <div className="grid grid-cols-4 gap-3">
                 <div>
                   <Label className="text-xs text-orange-600">Valor H.Extra</Label>
