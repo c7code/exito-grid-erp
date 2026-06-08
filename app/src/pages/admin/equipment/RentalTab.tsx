@@ -252,8 +252,22 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
               <Label>Equipamento *</Label>
               <Select value={form.equipmentId} onValueChange={v => F('equipmentId', v)}>
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>{(editId ? equipment : equipment.filter(e => e.status === 'available')).map(e => <SelectItem key={e.id} value={e.id}>{e.code} - {e.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{equipment.map(e => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.code} - {e.name}
+                    {e.status === 'rented' ? ' ⚠️ Em locação' : e.status === 'maintenance' ? ' 🔧 Manutenção' : ''}
+                  </SelectItem>
+                ))}</SelectContent>
               </Select>
+              {form.equipmentId && (() => {
+                const eq = equipment.find((e: any) => e.id === form.equipmentId);
+                return eq?.status === 'rented' ? (
+                  <div className="flex items-center gap-1.5 mt-1.5 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    <span>Este equipamento já está em outra locação ativa. Você pode prosseguir (ex: serviço pontual em horário de intervalo).</span>
+                  </div>
+                ) : null;
+              })()}
             </div>
             <div>
               <Label>Cliente</Label>
