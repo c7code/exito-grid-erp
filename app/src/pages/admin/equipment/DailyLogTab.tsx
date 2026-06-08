@@ -201,8 +201,10 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
         overtimeHours: Number(form.overtimeHours || 0),
         nightHours: Number(form.nightHours || 0),
         dailyRate: Number(form.dailyRate || 0),
-        normalValue: calc.normalValue,
-        overtimeValue: calc.overtimeValue,
+        // Quando é fim de semana/feriado, o weekendValue/holidayValue já cobre tudo
+        // Zerar normalValue e overtimeValue para o backend não somar duplicado
+        normalValue: (form.isWeekend || form.isHoliday) ? 0 : calc.normalValue,
+        overtimeValue: (form.isWeekend || form.isHoliday) ? 0 : calc.overtimeValue,
         nightValue: calc.nightValue,
         weekendValue: calc.weekendValue,
         holidayValue: calc.holidayValue,
