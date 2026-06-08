@@ -98,6 +98,10 @@ export default function MeasurementTab({ rentals, reload }: Props) {
       isHoliday: log.isHoliday || false, isWeekend: log.isWeekend || false,
       dailyRate: String(log.dailyRate || ''), description: log.description || '',
       workLocation: log.workLocation || '',
+      overtimeValue: log.overtimeValue ? String(log.overtimeValue) : '',
+      nightValue: log.nightValue ? String(log.nightValue) : '',
+      holidayValue: log.holidayValue ? String(log.holidayValue) : '',
+      weekendValue: log.weekendValue ? String(log.weekendValue) : '',
     });
     setEditDlg(true);
   }
@@ -110,14 +114,20 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   async function saveEditLog() {
     if (!selectedLog) return;
     try {
-      await api.updateEquipmentDailyLog(selectedLog.id, {
+      const updateData: any = {
         ...editForm,
         hoursWorked: Number(editForm.normalHours || 0) + Number(editForm.overtimeHours || 0),
         normalHours: Number(editForm.normalHours || 0),
         overtimeHours: Number(editForm.overtimeHours || 0),
         nightHours: Number(editForm.nightHours || 0),
         dailyRate: Number(editForm.dailyRate || 0),
-      });
+      };
+      // Include manual value overrides only if user entered them
+      if (editForm.overtimeValue !== '' && editForm.overtimeValue !== undefined) updateData.overtimeValue = Number(editForm.overtimeValue);
+      if (editForm.nightValue !== '' && editForm.nightValue !== undefined) updateData.nightValue = Number(editForm.nightValue);
+      if (editForm.holidayValue !== '' && editForm.holidayValue !== undefined) updateData.holidayValue = Number(editForm.holidayValue);
+      if (editForm.weekendValue !== '' && editForm.weekendValue !== undefined) updateData.weekendValue = Number(editForm.weekendValue);
+      await api.updateEquipmentDailyLog(selectedLog.id, updateData);
       toast.success('Diária atualizada!');
       setEditDlg(false); setSelectedLog(null);
       loadReport();
@@ -542,6 +552,30 @@ export default function MeasurementTab({ rentals, reload }: Props) {
               <div className="flex items-center gap-2"><Switch checked={editForm.isHoliday} onCheckedChange={v => EF('isHoliday', v)} /><span className="text-xs">Feriado</span></div>
               <div className="flex items-center gap-2"><Switch checked={editForm.isWeekend} onCheckedChange={v => EF('isWeekend', v)} /><span className="text-xs">F.Semana</span></div>
             </div>
+
+            {/* Valores Adicionais - Editáveis */}
+            <div className="col-span-2 bg-amber-50/60 rounded-lg p-3">
+              <Label className="text-xs text-amber-800 font-semibold mb-2 block">Valores Adicionais (R$) — Sobrescrever cálculo da proposta</Label>
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <Label className="text-xs text-orange-600">Valor H.Extra</Label>
+                  <Input type="number" step="0.01" value={editForm.overtimeValue} onChange={e => EF('overtimeValue', e.target.value)} className="mt-1" placeholder="Auto" />
+                </div>
+                <div>
+                  <Label className="text-xs text-indigo-600">Valor Noturno</Label>
+                  <Input type="number" step="0.01" value={editForm.nightValue} onChange={e => EF('nightValue', e.target.value)} className="mt-1" placeholder="Auto" />
+                </div>
+                <div>
+                  <Label className="text-xs text-red-600">Valor Feriado</Label>
+                  <Input type="number" step="0.01" value={editForm.holidayValue} onChange={e => EF('holidayValue', e.target.value)} className="mt-1" placeholder="Auto" />
+                </div>
+                <div>
+                  <Label className="text-xs text-purple-600">Valor F.Semana</Label>
+                  <Input type="number" step="0.01" value={editForm.weekendValue} onChange={e => EF('weekendValue', e.target.value)} className="mt-1" placeholder="Auto" />
+                </div>
+              </div>
+            </div>
+
             <div className="col-span-2"><Label>Descrição</Label><Textarea value={editForm.description} onChange={e => EF('description', e.target.value)} rows={2} /></div>
           </div>
           <DialogFooter className="mt-3">

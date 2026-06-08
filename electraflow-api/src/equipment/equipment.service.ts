@@ -418,6 +418,15 @@ export class EquipmentService implements OnModuleInit {
   }
 
   async createDailyLog(data: Partial<EquipmentDailyLog>): Promise<EquipmentDailyLog> {
+    // Store manual overrides (if caller provides explicit values, don't auto-calculate)
+    const manualOverrides = {
+      normalValue: data.normalValue !== undefined && data.normalValue !== null ? Number(data.normalValue) : undefined,
+      overtimeValue: data.overtimeValue !== undefined && data.overtimeValue !== null ? Number(data.overtimeValue) : undefined,
+      nightValue: data.nightValue !== undefined && data.nightValue !== null ? Number(data.nightValue) : undefined,
+      holidayValue: data.holidayValue !== undefined && data.holidayValue !== null ? Number(data.holidayValue) : undefined,
+      weekendValue: data.weekendValue !== undefined && data.weekendValue !== null ? Number(data.weekendValue) : undefined,
+    };
+
     // Auto-calculate values based on rental rates
     if (data.rentalId) {
       try {
@@ -433,33 +442,43 @@ export class EquipmentService implements OnModuleInit {
           const isHoliday = data.isHoliday || false;
           const isWeekend = data.isWeekend || false;
 
-          // Normal value
-          data.normalValue = normalH * hourlyBase;
+          // Normal value (auto-calc unless manually provided)
+          data.normalValue = manualOverrides.normalValue !== undefined
+            ? manualOverrides.normalValue
+            : normalH * hourlyBase;
 
-          // Overtime
-          if (overtimeH > 0) {
+          // Overtime (auto-calc unless manually provided)
+          if (manualOverrides.overtimeValue !== undefined) {
+            data.overtimeValue = manualOverrides.overtimeValue;
+          } else if (overtimeH > 0) {
             data.overtimeValue = rental.overtimeMode === 'fixed'
               ? overtimeH * Number(rental.overtimeRate || 0)
               : overtimeH * hourlyBase * (1 + Number(rental.overtimeRate || 50) / 100);
           }
 
-          // Night
-          if (nightH > 0) {
+          // Night (auto-calc unless manually provided)
+          if (manualOverrides.nightValue !== undefined) {
+            data.nightValue = manualOverrides.nightValue;
+          } else if (nightH > 0) {
             data.nightValue = rental.nightMode === 'fixed'
               ? nightH * Number(rental.nightRate || 0)
               : nightH * hourlyBase * (Number(rental.nightRate || 30) / 100);
           }
 
-          // Holiday
-          if (isHoliday) {
+          // Holiday (auto-calc unless manually provided)
+          if (manualOverrides.holidayValue !== undefined) {
+            data.holidayValue = manualOverrides.holidayValue;
+          } else if (isHoliday) {
             const totalH = normalH + overtimeH;
             data.holidayValue = rental.holidayMode === 'fixed'
               ? Number(rental.holidayRate || 0)
               : totalH * hourlyBase * (Number(rental.holidayRate || 100) / 100);
           }
 
-          // Weekend
-          if (isWeekend && !isHoliday) {
+          // Weekend (auto-calc unless manually provided)
+          if (manualOverrides.weekendValue !== undefined) {
+            data.weekendValue = manualOverrides.weekendValue;
+          } else if (isWeekend && !isHoliday) {
             const totalH = normalH + overtimeH;
             data.weekendValue = rental.weekendMode === 'fixed'
               ? Number(rental.weekendRate || 0)
@@ -488,6 +507,19 @@ export class EquipmentService implements OnModuleInit {
   }
 
   async updateDailyLog(id: string, data: Partial<EquipmentDailyLog>): Promise<EquipmentDailyLog> {
+    // Recalculate totalValue if any value field is provided
+    if (data.normalValue !== undefined || data.overtimeValue !== undefined || 
+        data.nightValue !== undefined || data.holidayValue !== undefined || data.weekendValue !== undefined) {
+      const existing = await this.dailyRepo.findOneBy({ id });
+      if (existing) {
+        const nv = data.normalValue !== undefined ? Number(data.normalValue) : Number(existing.normalValue || 0);
+        const ov = data.overtimeValue !== undefined ? Number(data.overtimeValue) : Number(existing.overtimeValue || 0);
+        const niv = data.nightValue !== undefined ? Number(data.nightValue) : Number(existing.nightValue || 0);
+        const hv = data.holidayValue !== undefined ? Number(data.holidayValue) : Number(existing.holidayValue || 0);
+        const wv = data.weekendValue !== undefined ? Number(data.weekendValue) : Number(existing.weekendValue || 0);
+        data.totalValue = nv + ov + niv + hv + wv;
+      }
+    }
     await this.dailyRepo.update(id, data);
     return this.dailyRepo.findOne({ where: { id }, relations: ['rental', 'equipment'] });
   }

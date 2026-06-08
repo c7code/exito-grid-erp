@@ -43,6 +43,7 @@ const defaultForm: Record<string, any> = {
   normalHours: '', overtimeHours: '0', nightHours: '0',
   isHoliday: false, isWeekend: false,
   dailyRate: '', description: '', workLocation: '',
+  overtimeValue: '', nightValue: '', holidayValue: '', weekendValue: '',
 };
 
 export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
@@ -67,6 +68,10 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
       isHoliday: log.isHoliday || false, isWeekend: log.isWeekend || false,
       dailyRate: String(log.dailyRate || ''), description: log.description || '',
       workLocation: log.workLocation || '',
+      overtimeValue: log.overtimeValue ? String(log.overtimeValue) : '',
+      nightValue: log.nightValue ? String(log.nightValue) : '',
+      holidayValue: log.holidayValue ? String(log.holidayValue) : '',
+      weekendValue: log.weekendValue ? String(log.weekendValue) : '',
     });
     setDlgOpen(true);
   }
@@ -100,7 +105,7 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
   async function save() {
     if (!form.rentalId || !form.date) { toast.error('Selecione a locação e a data'); return; }
     try {
-      const data = {
+      const data: any = {
         ...form,
         hoursWorked: Number(form.normalHours || 0) + Number(form.overtimeHours || 0),
         normalHours: Number(form.normalHours || 0),
@@ -108,6 +113,11 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
         nightHours: Number(form.nightHours || 0),
         dailyRate: Number(form.dailyRate || 0),
       };
+      // Include manual value overrides only if user entered them
+      if (form.overtimeValue !== '' && form.overtimeValue !== undefined) data.overtimeValue = Number(form.overtimeValue);
+      if (form.nightValue !== '' && form.nightValue !== undefined) data.nightValue = Number(form.nightValue);
+      if (form.holidayValue !== '' && form.holidayValue !== undefined) data.holidayValue = Number(form.holidayValue);
+      if (form.weekendValue !== '' && form.weekendValue !== undefined) data.weekendValue = Number(form.weekendValue);
       if (editId) {
         await api.updateEquipmentDailyLog(editId, data);
         toast.success('Diária atualizada!');
@@ -304,6 +314,29 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
             <div>
               <Label>Valor Diária Base (R$)</Label>
               <Input type="number" value={form.dailyRate} onChange={e => F('dailyRate', e.target.value)} />
+            </div>
+
+            {/* Valores Adicionais - Editáveis */}
+            <div className="col-span-2 bg-amber-50/60 rounded-lg p-3">
+              <Label className="text-xs text-amber-800 font-semibold mb-2 block">Valores Adicionais (R$) — Preencha para sobrescrever o cálculo automático da proposta</Label>
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <Label className="text-xs text-orange-600">Valor H.Extra</Label>
+                  <Input type="number" step="0.01" value={form.overtimeValue} onChange={e => F('overtimeValue', e.target.value)} className="mt-1" placeholder="Auto" />
+                </div>
+                <div>
+                  <Label className="text-xs text-indigo-600">Valor Noturno</Label>
+                  <Input type="number" step="0.01" value={form.nightValue} onChange={e => F('nightValue', e.target.value)} className="mt-1" placeholder="Auto" />
+                </div>
+                <div>
+                  <Label className="text-xs text-red-600">Valor Feriado</Label>
+                  <Input type="number" step="0.01" value={form.holidayValue} onChange={e => F('holidayValue', e.target.value)} className="mt-1" placeholder="Auto" />
+                </div>
+                <div>
+                  <Label className="text-xs text-purple-600">Valor F.Semana</Label>
+                  <Input type="number" step="0.01" value={form.weekendValue} onChange={e => F('weekendValue', e.target.value)} className="mt-1" placeholder="Auto" />
+                </div>
+              </div>
             </div>
 
             <div className="col-span-2"><Label>Descrição / Atividades</Label><Textarea value={form.description} onChange={e => F('description', e.target.value)} rows={2} placeholder="Atividades realizadas no dia..." /></div>
