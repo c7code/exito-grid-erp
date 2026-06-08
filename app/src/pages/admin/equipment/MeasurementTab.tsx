@@ -137,11 +137,23 @@ export default function MeasurementTab({ rentals, reload }: Props) {
 
   const EF = (field: string, val: any) => setEditForm(prev => ({ ...prev, [field]: val }));
 
-  function printReport() {
+  async function printReport() {
     if (!report) return;
     const r = report.rental;
     const isAdapted = adaptedMode && adaptedStart && adaptedEnd;
     const adaptedDates = isAdapted ? generateAdaptedDates(report.logs || [], adaptedStart, adaptedEnd) : new Map();
+
+    // Converter logo para base64 para funcionar no window.open()
+    let logoBase64 = '';
+    try {
+      const resp = await fetch('/exito-grid-logo.png');
+      const blob = await resp.blob();
+      logoBase64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+    } catch { /* logo opcional */ }
     const s = report.summary;
     const logs = report.logs || [];
 
@@ -206,13 +218,18 @@ export default function MeasurementTab({ rentals, reload }: Props) {
 </style>
 </head><body>
   <div class="header">
-    <div>
-      <h1>BOLETIM DE MEDIÇÃO</h1>
-      <div class="code">${r.code}</div>
+    <div style="display:flex;align-items:center;gap:12px">
+      ${logoBase64 ? `<img src="${logoBase64}" style="height:48px;width:auto;object-fit:contain" alt="Logo" />` : ''}
+      <div>
+        <h1>BOLETIM DE MEDIÇÃO</h1>
+        <div class="code">${r.code}</div>
+      </div>
     </div>
     <div style="text-align:right">
-      <div style="font-size:12px;font-weight:700;color:#1e40af">Electraflow Engenharia</div>
-      <div style="font-size:9px;color:#64748b">Documento gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+      <div style="font-size:12px;font-weight:700;color:#1e40af">Exito Grid</div>
+      <div style="font-size:8px;color:#475569">Exito Grid Comercio Serviços Elétrico LTDA</div>
+      <div style="font-size:8px;color:#64748b">CNPJ: 55.303.935/0001-39</div>
+      <div style="font-size:9px;color:#64748b;margin-top:4px">Documento gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
     </div>
   </div>
 
@@ -269,7 +286,8 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   <div class="signatures">
     <div class="sig-block">
       <div class="sig-line">CONTRATADA</div>
-      <div class="sig-name">Electraflow Engenharia</div>
+      <div class="sig-name">Exito Grid Comercio Serviços Elétrico LTDA</div>
+      <div style="font-size:9px;color:#64748b">CNPJ: 55.303.935/0001-39</div>
     </div>
     <div class="sig-block">
       <div class="sig-line">CONTRATANTE</div>
@@ -278,7 +296,7 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   </div>
 
   <div class="footer">
-    Boletim de Medição gerado automaticamente pelo sistema Electraflow ERP • ${r.code}
+    Boletim de Medição gerado automaticamente pelo sistema Exito Grid ERP • ${r.code}
   </div>
 </body></html>`;
 
