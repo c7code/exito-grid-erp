@@ -14,6 +14,21 @@ import { api } from '@/api';
 import { DAILY_STATUS, fmt, fD } from './EquipmentTypes';
 import ExpensePanel from './ExpensePanel';
 
+// Extract YYYY-MM-DD safely from any date format (ISO string, Date object, etc.)
+function safeDate(d: any): string {
+  if (!d) return '';
+  const s = String(d);
+  // If already YYYY-MM-DD, return as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // If ISO timestamp like "2025-06-15T00:00:00.000Z", extract date portion
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  // Fallback: try parsing and formatting
+  const dt = new Date(s + (s.length === 10 ? 'T12:00:00' : ''));
+  if (isNaN(dt.getTime())) return '';
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+}
+
 interface Props {
   dailyLogs: any[];
   rentals: any[];
@@ -44,7 +59,7 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
     setForm({
       rentalId: log.rentalId || '', equipmentId: log.equipmentId || '',
       operatorId: log.operatorId || '', operatorName: log.operatorName || '',
-      date: log.date ? String(log.date).substring(0, 10) : '',
+      date: safeDate(log.date),
       startTime: log.startTime || '', endTime: log.endTime || '',
       normalHours: String(log.normalHours || log.hoursWorked || ''),
       overtimeHours: String(log.overtimeHours || '0'),

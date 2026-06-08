@@ -356,4 +356,10 @@ export const RATE_MODE_LABEL: Record<string, string> = {
 };
 
 export const fmt = (v: any) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-export const fD = (d: any) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+export const fD = (d: any) => {
+  if (!d) return '—';
+  const s = String(d);
+  // If it's a date-only string (YYYY-MM-DD), append T12:00:00 to avoid UTC midnight timezone shift
+  const safe = s.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s + 'T12:00:00' : s;
+  return new Date(safe).toLocaleDateString('pt-BR');
+};

@@ -8,10 +8,41 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, FileText, Printer, DollarSign, Clock, Moon, Calendar, TrendingUp, Pencil, Trash2, Eye } from 'lucide-react';
+import { Loader2, FileText, Printer, DollarSign, Clock, Moon, Calendar, TrendingUp, Pencil, Trash2, Eye, CalendarRange, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { DAILY_STATUS, fmt, fD } from './EquipmentTypes';
+
+// Extract YYYY-MM-DD safely from any date format
+function safeDate(d: any): string {
+  if (!d) return '';
+  const s = String(d);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  const dt = new Date(s + (s.length === 10 ? 'T12:00:00' : ''));
+  if (isNaN(dt.getTime())) return '';
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+}
+
+// Generate adapted dates within a measurement period, distributing logs evenly
+function generateAdaptedDates(logs: any[], periodStart: string, periodEnd: string): Map<string, string> {
+  const map = new Map<string, string>();
+  if (!periodStart || !periodEnd || logs.length === 0) return map;
+  const start = new Date(periodStart + 'T12:00:00');
+  const end = new Date(periodEnd + 'T12:00:00');
+  const totalDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const step = Math.max(1, Math.floor(totalDays / logs.length));
+  logs.forEach((log: any, idx: number) => {
+    const offset = Math.min(idx * step, totalDays - 1);
+    const adaptedDate = new Date(start.getTime() + offset * 24 * 60 * 60 * 1000);
+    const y = adaptedDate.getFullYear();
+    const m = String(adaptedDate.getMonth() + 1).padStart(2, '0');
+    const d = String(adaptedDate.getDate()).padStart(2, '0');
+    map.set(log.id, `${y}-${m}-${d}`);
+  });
+  return map;
+}
 
 interface Props {
   rentals: any[];
@@ -30,6 +61,11 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   const [viewDlg, setViewDlg] = useState(false);
   const [selectedLog, setSelectedLog] = useState<any>(null);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
+
+  // Boletim Adaptado (datas fictícias para faturamento)
+  const [adaptedMode, setAdaptedMode] = useState(false);
+  const [adaptedStart, setAdaptedStart] = useState('');
+  const [adaptedEnd, setAdaptedEnd] = useState('');
 
   async function loadReport() {
     if (!selectedRentalId) { toast.error('Selecione uma locação'); return; }
@@ -54,7 +90,7 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   function openEditLog(log: any) {
     setSelectedLog(log);
     setEditForm({
-      date: log.date ? String(log.date).substring(0, 10) : '',
+      date: safeDate(log.date),
       startTime: log.startTime || '', endTime: log.endTime || '',
       normalHours: String(log.normalHours || log.hoursWorked || ''),
       overtimeHours: String(log.overtimeHours || '0'),
@@ -104,12 +140,16 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   function printReport() {
     if (!report) return;
     const r = report.rental;
+    const isAdapted = adaptedMode && adaptedStart && adaptedEnd;
+    const adaptedDates = isAdapted ? generateAdaptedDates(report.logs || [], adaptedStart, adaptedEnd) : new Map();
     const s = report.summary;
     const logs = report.logs || [];
 
-    const logsHtml = logs.map((log: any) => `
+    const logsHtml = logs.map((log: any) => {
+      const displayDate = isAdapted && adaptedDates.has(log.id) ? fD(adaptedDates.get(log.id)!) : fD(log.date);
+      return `
       <tr>
-        <td>${fD(log.date)}</td>
+        <td>${displayDate}</td>
         <td>${log.startTime || '—'}</td>
         <td>${log.endTime || '—'}</td>
         <td class="right">${Number(log.normalHours || 0).toFixed(1)}</td>
@@ -119,7 +159,8 @@ export default function MeasurementTab({ rentals, reload }: Props) {
         <td class="right">${fmt(log.totalValue)}</td>
         <td>${log.workLocation || '—'}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
 
     // Clauses
     const clausesHtml = (r.proposalClauses || [])
@@ -179,7 +220,7 @@ export default function MeasurementTab({ rentals, reload }: Props) {
     <div class="item"><span class="label">Equipamento:</span><span class="value">${r.equipment?.name || '—'} (${r.equipment?.code || ''})</span></div>
     <div class="item"><span class="label">Cliente:</span><span class="value">${r.client?.name || '—'}</span></div>
     <div class="item"><span class="label">Operador:</span><span class="value">${r.operatorName || '—'}</span></div>
-    <div class="item"><span class="label">Período:</span><span class="value">${startDate ? fD(startDate) : fD(r.startDate)} a ${endDate ? fD(endDate) : fD(r.endDate)}</span></div>
+    <div class="item"><span class="label">Período:</span><span class="value">${isAdapted ? fD(adaptedStart) + ' a ' + fD(adaptedEnd) : (startDate ? fD(startDate) : fD(r.startDate)) + ' a ' + (endDate ? fD(endDate) : fD(r.endDate))}</span></div>
     <div class="item"><span class="label">Valor Diária:</span><span class="value">${fmt(r.unitRate)}</span></div>
     <div class="item"><span class="label">Horas/Dia:</span><span class="value">${r.contractedHoursPerDay || 8}h</span></div>
   </div>
@@ -286,12 +327,45 @@ export default function MeasurementTab({ rentals, reload }: Props) {
           {report && (
             <>
               <Button variant="outline" onClick={printReport}>
-                <Printer className="h-4 w-4 mr-1" />Imprimir / PDF
+                <Printer className="h-4 w-4 mr-1" />{adaptedMode ? 'Imprimir Adaptado' : 'Imprimir / PDF'}
               </Button>
               <Button variant="outline" className="text-emerald-600 border-emerald-300 hover:bg-emerald-50" onClick={billPeriod}>
                 <DollarSign className="h-4 w-4 mr-1" />Faturar Período
               </Button>
             </>
+          )}
+        </div>
+
+        {/* Boletim Adaptado para Faturamento */}
+        <div className="mt-3 border-t pt-3">
+          <div className="flex items-center gap-3">
+            <Switch checked={adaptedMode} onCheckedChange={setAdaptedMode} />
+            <div className="flex items-center gap-1.5">
+              <CalendarRange className="h-4 w-4 text-amber-600" />
+              <span className="text-sm font-medium text-slate-700">Boletim Adaptado (Faturamento)</span>
+            </div>
+          </div>
+          {adaptedMode && (
+            <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-start gap-2 mb-3">
+                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-700">
+                  <strong>Modo adaptado ativado.</strong> As datas reais serão mantidas no sistema. Ao imprimir, 
+                  as datas do boletim serão redistribuídas dentro do período de medição informado abaixo 
+                  para fins de faturamento junto à construtora.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-amber-800">Início do Período de Medição</Label>
+                  <Input type="date" value={adaptedStart} onChange={e => setAdaptedStart(e.target.value)} className="mt-1 border-amber-300" />
+                </div>
+                <div>
+                  <Label className="text-xs text-amber-800">Fim do Período de Medição</Label>
+                  <Input type="date" value={adaptedEnd} onChange={e => setAdaptedEnd(e.target.value)} className="mt-1 border-amber-300" />
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </Card>
@@ -329,7 +403,14 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                 <tbody>
                   {(report.logs || []).map((log: any) => (
                     <tr key={log.id} className="border-b hover:bg-slate-50/60 transition-colors">
-                      <td className="px-4 py-2 font-medium">{fD(log.date)}</td>
+                      <td className="px-4 py-2 font-medium">
+                        {fD(log.date)}
+                        {adaptedMode && adaptedStart && adaptedEnd && (() => {
+                          const adapted = generateAdaptedDates(report.logs || [], adaptedStart, adaptedEnd);
+                          const ad = adapted.get(log.id);
+                          return ad ? <span className="block text-[10px] text-amber-600">📋 {fD(ad)}</span> : null;
+                        })()}
+                      </td>
                       <td className="px-3 py-2 text-slate-500">{log.startTime || '—'} - {log.endTime || '—'}</td>
                       <td className="px-3 py-2 text-right">{Number(log.normalHours || 0).toFixed(1)}h</td>
                       <td className="px-3 py-2 text-right text-orange-600 font-medium">{Number(log.overtimeHours || 0) > 0 ? `${Number(log.overtimeHours).toFixed(1)}h` : '—'}</td>
