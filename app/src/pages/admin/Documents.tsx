@@ -40,10 +40,15 @@ import {
   Unlock,
   ShieldAlert,
   Users,
+  Pencil,
+  Eye,
+  UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import UploadDocumentDialog from '@/components/UploadDocumentDialog';
+import DocumentDetailDialog from '@/components/DocumentDetailDialog';
+import QuickClientDialog from '@/components/QuickClientDialog';
 
 const categoryLabels: Record<string, { label: string; color: string; icon: any }> = {
   project: { label: 'Projeto', color: 'bg-blue-100 text-blue-700', icon: FileText },
@@ -109,6 +114,9 @@ export default function AdminDocuments() {
   const [newFolderCategory, setNewFolderCategory] = useState<string>('');
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [showQuickClientDialog, setShowQuickClientDialog] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -563,20 +571,32 @@ export default function AdminDocuments() {
                         </SelectContent>
                       </Select>
                     )}
-                    <Select
-                      value={newFolderClientId}
-                      onValueChange={(v) => setNewFolderClientId(v === 'none' ? '' : v)}
-                    >
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue placeholder="Cliente (opcional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {clients.map((c: any) => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-1">
+                      <Select
+                        value={newFolderClientId}
+                        onValueChange={(v) => setNewFolderClientId(v === 'none' ? '' : v)}
+                      >
+                        <SelectTrigger className="h-8 text-sm flex-1">
+                          <SelectValue placeholder="Cliente (opcional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nenhum</SelectItem>
+                          {clients.map((c: any) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 px-0 shrink-0 text-emerald-600 border-emerald-300 hover:bg-emerald-50"
+                        onClick={() => setShowQuickClientDialog(true)}
+                        title="Cadastrar novo cliente"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
 
                     <div className="flex gap-1">
                       <Select
@@ -699,14 +719,22 @@ export default function AdminDocuments() {
                             <CardContent className="p-4">
                               <div className="flex items-start gap-3">
                                 <div className="flex flex-col items-center gap-1 shrink-0">
-                                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${cat.color}`}>
+                                  <div
+                                    className={`w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all ${cat.color}`}
+                                    onClick={() => { setSelectedDocument(doc); setShowDetailDialog(true); }}
+                                    title="Ver detalhes do documento"
+                                  >
                                     <CatIcon className="w-5 h-5" />
                                   </div>
                                   <GripVertical className="w-4 h-4 text-slate-300 cursor-grab" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1.5">
-                                    <p className="font-medium text-sm truncate" title={doc.name}>
+                                    <p
+                                      className="font-medium text-sm truncate cursor-pointer hover:text-amber-600 transition-colors"
+                                      title={doc.name}
+                                      onClick={() => { setSelectedDocument(doc); setShowDetailDialog(true); }}
+                                    >
                                       {doc.name}
                                     </p>
                                     {(doc.accessLevel === 'view_only') && (
@@ -728,9 +756,24 @@ export default function AdminDocuments() {
                                       {formatSize(doc.size)}
                                     </span>
                                   </div>
+                                  {doc.description && (
+                                    <p className="text-xs text-slate-500 mt-1 line-clamp-2" title={doc.description}>
+                                      📝 {doc.description}
+                                    </p>
+                                  )}
+                                  {(doc.client?.name || (doc.clientId && clients.find((c: any) => c.id === doc.clientId))) && (
+                                    <p className="text-xs text-blue-500 mt-0.5">
+                                      👤 {doc.client?.name || clients.find((c: any) => c.id === doc.clientId)?.name}
+                                    </p>
+                                  )}
                                   {doc.folder && (
-                                    <p className="text-xs text-amber-500 mt-1">
+                                    <p className="text-xs text-amber-500 mt-0.5">
                                       📁 {doc.folder.name}
+                                    </p>
+                                  )}
+                                  {doc.sourceOrganization && (
+                                    <p className="text-xs text-indigo-500 mt-0.5">
+                                      🏢 {doc.sourceOrganization}
                                     </p>
                                   )}
                                   {doc.purpose && doc.purpose !== 'other' && (
@@ -816,6 +859,24 @@ export default function AdminDocuments() {
                                     </DropdownMenuContent>
                                   </DropdownMenu>
                                 )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-blue-400 hover:text-blue-600"
+                                  title="Ver detalhes"
+                                  onClick={() => { setSelectedDocument(doc); setShowDetailDialog(true); }}
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-emerald-400 hover:text-emerald-600"
+                                  title="Editar documento"
+                                  onClick={() => { setSelectedDocument(doc); setShowDetailDialog(true); }}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button
@@ -877,6 +938,24 @@ export default function AdminDocuments() {
         onOpenChange={setShowUploadDialog}
         onDocumentCreated={loadData}
         preselectedFolderId={selectedFolderId || undefined}
+      />
+
+      <DocumentDetailDialog
+        open={showDetailDialog}
+        onOpenChange={setShowDetailDialog}
+        document={selectedDocument}
+        onDocumentUpdated={loadData}
+        clients={clients.map((c: any) => ({ id: c.id, name: c.name }))}
+        folders={folders.map((f: any) => ({ id: f.id, name: f.name }))}
+      />
+
+      <QuickClientDialog
+        open={showQuickClientDialog}
+        onOpenChange={setShowQuickClientDialog}
+        onClientCreated={(newClient) => {
+          setClients(prev => [...prev, newClient]);
+          setNewFolderClientId(newClient.id);
+        }}
       />
     </div>
   );

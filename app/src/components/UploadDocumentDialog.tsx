@@ -18,9 +18,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { FileText, Loader2, Upload, X, File as FileIcon } from 'lucide-react';
+import { FileText, Loader2, Upload, X, File as FileIcon, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
+import QuickClientDialog from '@/components/QuickClientDialog';
 
 interface UploadDocumentDialogProps {
     open: boolean;
@@ -88,6 +89,7 @@ export default function UploadDocumentDialog({
     const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [showQuickClient, setShowQuickClient] = useState(false);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -321,20 +323,32 @@ export default function UploadDocumentDialog({
 
                     <div>
                         <Label>Cliente</Label>
-                        <Select
-                            value={formData.clientId}
-                            onValueChange={(v) => setFormData({ ...formData, clientId: v === 'none' ? '' : v })}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecione um cliente" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Nenhum</SelectItem>
-                                {clients.map((c) => (
-                                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <div className="flex gap-1">
+                            <Select
+                                value={formData.clientId}
+                                onValueChange={(v) => setFormData({ ...formData, clientId: v === 'none' ? '' : v })}
+                            >
+                                <SelectTrigger className="flex-1">
+                                    <SelectValue placeholder="Selecione um cliente" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Nenhum</SelectItem>
+                                    {clients.map((c) => (
+                                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="shrink-0 text-emerald-600 border-emerald-300 hover:bg-emerald-50"
+                                onClick={() => setShowQuickClient(true)}
+                                title="Cadastrar novo cliente"
+                            >
+                                <UserPlus className="w-4 h-4" />
+                            </Button>
+                        </div>
                     </div>
 
                     {folders.length > 0 && (
@@ -423,6 +437,15 @@ export default function UploadDocumentDialog({
                         </Button>
                     </DialogFooter>
                 </form>
+
+                <QuickClientDialog
+                    open={showQuickClient}
+                    onOpenChange={setShowQuickClient}
+                    onClientCreated={(newClient) => {
+                        setClients(prev => [...prev, newClient]);
+                        setFormData(prev => ({ ...prev, clientId: newClient.id }));
+                    }}
+                />
             </DialogContent>
         </Dialog>
     );
