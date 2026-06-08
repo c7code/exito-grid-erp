@@ -175,6 +175,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 // Public Pages (lazy)
 const ProposalSignature = lazy(() => import('./pages/public/ProposalSignature'));
 const ContractSignature = lazy(() => import('./pages/public/ContractSignature'));
+const PublicLaudoForm = lazy(() => import('./pages/public/PublicLaudoForm'));
 
 // Smart Tasks page: employees see only their tasks; admins see all
 function SmartTasksPage() {
@@ -214,6 +215,7 @@ function App() {
           {/* Public Routes (sem autenticação) */}
           <Route path="/assinar/:token" element={<ProposalSignature />} />
           <Route path="/assinar-contrato/:token" element={<ContractSignature />} />
+          <Route path="/formulario/:token" element={<PublicLaudoForm />} />
 
           {/* Auth Routes */}
           <Route element={<AuthLayout />}>

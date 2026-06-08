@@ -11,6 +11,13 @@ import { LaudosService } from './laudos.service';
 export class LaudosController {
   constructor(private readonly svc: LaudosService) {}
 
+  @Post('generate-link')
+  @ApiOperation({ summary: 'Gerar link público para preenchimento pelo cliente' })
+  async generateLink(@Body('description') description: string, @Req() req: any) {
+    const result = await this.svc.generatePublicLink(req.user.id, description);
+    return { token: result.token, url: `/formulario/${result.token}`, id: result.id };
+  }
+
   @Get()
   @ApiOperation({ summary: 'Listar atendimentos (filtrado por acesso)' })
   findAll(@Req() req: any) {

@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { LaudoAtendimento } from './laudo.entity';
@@ -21,7 +21,7 @@ export class LaudosService implements OnModuleInit {
       await this.dataSource.query(`
         CREATE TABLE IF NOT EXISTS laudo_atendimentos (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          "clientId" UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+          "clientId" UUID REFERENCES clients(id) ON DELETE CASCADE,
           "vendedorId" UUID NOT NULL,
           dados TEXT,
           documentos TEXT,
@@ -37,6 +37,23 @@ export class LaudosService implements OnModuleInit {
     } catch (e) {
       this.logger.warn('⚠️ Erro ao criar tabela laudo_atendimentos: ' + e?.message);
     }
+
+    // 1.1 Adicionar coluna publicToken se não existir
+    try {
+      await this.dataSource.query(`
+        ALTER TABLE laudo_atendimentos ADD COLUMN IF NOT EXISTS "publicToken" VARCHAR UNIQUE
+      `);
+      this.logger.log('✅ Coluna publicToken verificada/criada');
+    } catch (e) {
+      this.logger.warn('⚠️ Erro ao adicionar coluna publicToken: ' + e?.message);
+    }
+
+    // 1.2 Tornar clientId nullable (para laudos criados via link público)
+    try {
+      await this.dataSource.query(`
+        ALTER TABLE laudo_atendimentos ALTER COLUMN "clientId" DROP NOT NULL
+      `);
+    } catch { /* coluna já pode ser nullable */ }
 
     // 2. Garantir índices
     const indexes = [
@@ -117,7 +134,7 @@ export class LaudosService implements OnModuleInit {
 
   async create(data: Partial<LaudoAtendimento>): Promise<LaudoAtendimento> {
     // Validar status
-    const validStatus = ['aberto', 'enviado_orcamento', 'perdido'];
+    const validStatus = ['aberto', 'pendente_cliente', 'enviado_orcamento', 'perdido'];
     if (data.status && !validStatus.includes(data.status)) {
       data.status = 'aberto';
     }
@@ -140,7 +157,7 @@ export class LaudosService implements OnModuleInit {
     await this.findOne(id, user);
 
     // Validar status
-    const validStatus = ['aberto', 'enviado_orcamento', 'perdido'];
+    const validStatus = ['aberto', 'pendente_cliente', 'enviado_orcamento', 'perdido'];
     if (data.status && !validStatus.includes(data.status)) {
       delete data.status;
     }
@@ -163,7 +180,7 @@ export class LaudosService implements OnModuleInit {
   }
 
   async updateStatus(id: string, status: string, user?: any): Promise<LaudoAtendimento> {
-    const validStatus = ['aberto', 'enviado_orcamento', 'perdido'];
+    const validStatus = ['aberto', 'pendente_cliente', 'enviado_orcamento', 'perdido'];
     if (!validStatus.includes(status)) {
       throw new NotFoundException('Status inválido. Use: ' + validStatus.join(', '));
     }
@@ -236,5 +253,73 @@ export class LaudosService implements OnModuleInit {
     const docs = laudo?.documentos ? JSON.parse(laudo.documentos) : [];
     const filtered = docs.filter((d: any) => d.filePath !== filePath);
     await this.laudoRepo.update(laudoId, { documentos: JSON.stringify(filtered) });
+  }
+
+  // ═══ PUBLIC LINK ════════════════════════════════════════════════
+  async generatePublicLink(vendedorId: string, description?: string): Promise<{ token: string; id: string }> {
+    const token = crypto.randomUUID();
+    const dados = JSON.stringify({
+      _linkDescription: description,
+      _linkCreatedAt: new Date().toISOString(),
+    });
+
+    const laudo = this.laudoRepo.create({
+      vendedorId,
+      publicToken: token,
+      status: 'pendente_cliente',
+      dados,
+    } as any);
+    const saved = await this.laudoRepo.save(laudo);
+
+    return { token, id: saved.id };
+  }
+
+  async findByToken(token: string): Promise<LaudoAtendimento> {
+    const laudo = await this.laudoRepo.findOne({
+      where: { publicToken: token, status: 'pendente_cliente' },
+    });
+    if (!laudo) throw new NotFoundException('Link não encontrado ou já utilizado');
+    return laudo;
+  }
+
+  async submitPublicForm(token: string, data: { client: any; dados: any }): Promise<LaudoAtendimento> {
+    const laudo = await this.laudoRepo.findOne({
+      where: { publicToken: token },
+    });
+    if (!laudo || laudo.status !== 'pendente_cliente') {
+      throw new BadRequestException('Link inválido ou já utilizado');
+    }
+
+    const existingClient = await this.dataSource.query(
+      'SELECT id FROM clients WHERE document = $1 LIMIT 1',
+      [data.client.document],
+    );
+
+    let clientId: string;
+    if (existingClient.length > 0) {
+      clientId = existingClient[0].id;
+    } else {
+      const result = await this.dataSource.query(
+        'INSERT INTO clients (name, document, email, phone, city, type, segment) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+        [
+          data.client.name,
+          data.client.document || null,
+          data.client.email || null,
+          data.client.phone || null,
+          data.client.city || null,
+          'company',
+          'commercial',
+        ],
+      );
+      clientId = result[0].id;
+    }
+
+    await this.laudoRepo.update(laudo.id, {
+      clientId,
+      dados: JSON.stringify(data.dados),
+      status: 'aberto',
+    });
+
+    return this.laudoRepo.findOne({ where: { id: laudo.id }, relations: ['client'] });
   }
 }

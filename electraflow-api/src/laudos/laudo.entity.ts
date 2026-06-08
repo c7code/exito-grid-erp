@@ -10,7 +10,7 @@ export class LaudoAtendimento {
   id: string;
 
   // ─── Referência ao Cliente (FK → clients.id) ───
-  @Column()
+  @Column({ nullable: true })
   clientId: string;
 
   @ManyToOne(() => Client, { onDelete: 'CASCADE' })
@@ -35,9 +35,13 @@ export class LaudoAtendimento {
   @Column({ type: 'text', nullable: true })
   documentos: string; // JSON stringified
 
+  // ─── Token para link público ───
+  @Column({ type: 'varchar', nullable: true, unique: true })
+  publicToken: string;
+
   // ─── Status do Atendimento ───
   @Column({ type: 'varchar', default: 'aberto' })
-  status: string; // 'aberto' | 'enviado_orcamento' | 'perdido'
+  status: string; // 'aberto' | 'pendente_cliente' | 'enviado_orcamento' | 'perdido'
 
   // ─── Referência à Proposta (nulável) ───
   // Preenchida somente quando o orçamento/proposta é gerado

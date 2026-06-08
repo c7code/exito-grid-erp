@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
-import { Zap, Plus, Search, FileText, Calendar, User, Building2, Filter, Eye } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
+import { Zap, Plus, Search, FileText, Calendar, User, Building2, Filter, Eye, Link2, Copy, Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import LaudoForm from './laudos/LaudoForm';
@@ -13,6 +16,7 @@ import LaudoViewer from './laudos/LaudoViewer';
 // ─── Constantes ───────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   aberto: { label: 'Aberto', className: 'bg-blue-50 text-blue-700 border-blue-200' },
+  pendente_cliente: { label: 'Aguardando Cliente', className: 'bg-purple-50 text-purple-700 border-purple-200' },
   enviado_orcamento: { label: 'Orçamento Enviado', className: 'bg-amber-50 text-amber-700 border-amber-200' },
   perdido: { label: 'Perdido', className: 'bg-red-50 text-red-700 border-red-200' },
 };
@@ -44,6 +48,11 @@ export default function LaudosEletricos() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [linkDesc, setLinkDesc] = useState('');
+  const [generatedLink, setGeneratedLink] = useState('');
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const isEngineerOrAdmin = ['admin', 'engineer', 'finance'].includes(user?.role || '');
 
@@ -88,6 +97,29 @@ export default function LaudosEletricos() {
 
   function backToList() { setView('list'); setEditId(null); setViewLaudo(null); loadLaudos(); }
 
+  // ─── Gerar Link Público ───
+  async function handleGenerateLink() {
+    setGeneratingLink(true);
+    try {
+      const result = await api.generateLaudoLink(linkDesc.trim() || undefined);
+      const baseUrl = window.location.origin;
+      setGeneratedLink(`${baseUrl}/formulario/${result.token}`);
+      setLinkDesc('');
+      loadLaudos();
+    } catch {
+      toast.error('Erro ao gerar link');
+    } finally {
+      setGeneratingLink(false);
+    }
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText(generatedLink);
+    setCopied(true);
+    toast.success('Link copiado!');
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   // ─── Form view ───
   if (view === 'new' || view === 'edit') {
     return <LaudoForm laudoId={editId} onSaved={backToList} onCancel={backToList} />;
@@ -122,11 +154,13 @@ export default function LaudosEletricos() {
   const counts = {
     total: laudos.length,
     aberto: laudos.filter(l => l.status === 'aberto').length,
+    pendente_cliente: laudos.filter(l => l.status === 'pendente_cliente').length,
     enviado_orcamento: laudos.filter(l => l.status === 'enviado_orcamento').length,
     perdido: laudos.filter(l => l.status === 'perdido').length,
   };
 
   return (
+    <>
     <div className="space-y-5">
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -139,19 +173,30 @@ export default function LaudosEletricos() {
             <p className="text-sm text-slate-500">{counts.total} atendimento{counts.total !== 1 ? 's' : ''}</p>
           </div>
         </div>
-        <Button
-          onClick={openNew}
-          className="bg-amber-500 hover:bg-amber-600 text-white font-semibold shadow-md shadow-amber-200/50 h-11 px-6"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Novo Atendimento
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => { setShowLinkDialog(true); setGeneratedLink(''); setCopied(false); }}
+            className="border-amber-300 text-amber-700 hover:bg-amber-50 h-11"
+          >
+            <Link2 className="h-4 w-4 mr-1.5" />
+            <span className="hidden sm:inline">Gerar Link</span>
+          </Button>
+          <Button
+            onClick={openNew}
+            className="bg-amber-500 hover:bg-amber-600 text-white font-semibold shadow-md shadow-amber-200/50 h-11 px-6"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Novo Atendimento
+          </Button>
+        </div>
       </div>
 
       {/* ── Cards de Status ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
           { key: 'all', label: 'Todos', count: counts.total, color: 'bg-slate-100 text-slate-700 border-slate-200' },
+          { key: 'pendente_cliente', label: 'Aguardando', count: counts.pendente_cliente, color: 'bg-purple-50 text-purple-700 border-purple-200' },
           { key: 'aberto', label: 'Abertos', count: counts.aberto, color: 'bg-blue-50 text-blue-700 border-blue-200' },
           { key: 'enviado_orcamento', label: 'Orç. Enviado', count: counts.enviado_orcamento, color: 'bg-amber-50 text-amber-700 border-amber-200' },
           { key: 'perdido', label: 'Perdidos', count: counts.perdido, color: 'bg-red-50 text-red-700 border-red-200' },
@@ -335,5 +380,78 @@ export default function LaudosEletricos() {
         </Card>
       )}
     </div>
+
+      {/* ── Dialog Gerar Link ── */}
+      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="w-5 h-5 text-amber-600" />
+              Gerar Link para Cliente
+            </DialogTitle>
+            <DialogDescription>
+              Crie um link único para enviar ao cliente. Ele preenche as informações e o atendimento entra automaticamente no sistema.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!generatedLink ? (
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Descrição (opcional)</label>
+                <Input
+                  placeholder="Ex: Laudo para galpão industrial do Sr. João"
+                  value={linkDesc}
+                  onChange={e => setLinkDesc(e.target.value)}
+                  className="h-10"
+                />
+                <p className="text-xs text-slate-400 mt-1">O cliente verá esta descrição no formulário.</p>
+              </div>
+              <Button
+                onClick={handleGenerateLink}
+                disabled={generatingLink}
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white h-11 font-semibold"
+              >
+                {generatingLink ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Link2 className="w-4 h-4 mr-1.5" />}
+                {generatingLink ? 'Gerando...' : 'Gerar Link'}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                <p className="text-xs font-medium text-emerald-700 mb-2">✅ Link gerado com sucesso!</p>
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    value={generatedLink}
+                    className="h-9 text-xs bg-white font-mono"
+                    onClick={e => (e.target as HTMLInputElement).select()}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={copyLink}
+                    className={`shrink-0 h-9 px-3 ${copied ? 'bg-emerald-500' : 'bg-amber-500 hover:bg-amber-600'} text-white`}
+                  >
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2 text-xs text-slate-500">
+                <p>📱 Envie este link por <strong>WhatsApp</strong>, <strong>e-mail</strong> ou <strong>SMS</strong>.</p>
+                <p>👤 O cliente preenche sem precisar de login.</p>
+                <p>⚡ Quando ele enviar, o atendimento aparece automaticamente na sua lista.</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => { setGeneratedLink(''); }}>
+                  Gerar Outro
+                </Button>
+                <Button className="flex-1 bg-amber-500 hover:bg-amber-600 text-white" onClick={() => setShowLinkDialog(false)}>
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
