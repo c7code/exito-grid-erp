@@ -18,6 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import CategorySelect from '@/components/ui/CategorySelect';
 import { FileText, Loader2, Upload, X, File as FileIcon, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -42,32 +43,7 @@ interface FolderOption {
     name: string;
 }
 
-const documentTypes: Record<string, string> = {
-    project: 'Projeto',
-    report: 'Relatório',
-    art: 'ART',
-    memorial: 'Memorial',
-    photo: 'Foto',
-    contract: 'Contrato',
-    invoice: 'Nota Fiscal',
-    certificate: 'Certificado',
-    norm: 'Norma Técnica',
-    pop: 'POP',
-    supplier_catalog: 'Cat. Fornecedor',
-    other: 'Outro',
-};
 
-const purposeTypes: Record<string, string> = {
-    norma_tecnica: 'Norma Técnica',
-    pop: 'POP',
-    catalogo_fornecedor: 'Catálogo Fornecedor',
-    manual: 'Manual',
-    projeto_tipo: 'Projeto Tipo',
-    tabela_preco: 'Tabela de Preços',
-    book_estruturas: 'Book de Estruturas',
-    documentacao_obra: 'Doc. Obra',
-    other: 'Outro',
-};
 
 function formatFileSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -93,7 +69,7 @@ export default function UploadDocumentDialog({
 
     const [formData, setFormData] = useState({
         name: '',
-        type: 'other' as string,
+        type: '' as string,
         workId: preselectedWorkId || '',
         folderId: preselectedFolderId || '',
         clientId: '',
@@ -153,7 +129,7 @@ export default function UploadDocumentDialog({
     const resetForm = () => {
         setFormData({
             name: '',
-            type: 'other',
+            type: '',
             workId: preselectedWorkId || '',
             folderId: preselectedFolderId || '',
             clientId: '',
@@ -278,19 +254,11 @@ export default function UploadDocumentDialog({
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <Label>Tipo</Label>
-                            <Select
+                            <CategorySelect
+                                group="document_type"
                                 value={formData.type}
-                                onValueChange={(v) => setFormData({ ...formData, type: v })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {Object.entries(documentTypes).map(([k, l]) => (
-                                        <SelectItem key={k} value={k}>{l}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                onChange={(v) => setFormData({ ...formData, type: v })}
+                            />
                         </div>
 
                         <div>
@@ -388,20 +356,12 @@ export default function UploadDocumentDialog({
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label>Finalidade</Label>
-                                <Select
+                                <CategorySelect
+                                    group="document_purpose"
                                     value={formData.purpose}
-                                    onValueChange={(v) => setFormData({ ...formData, purpose: v === 'none' ? '' : v })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">Nenhuma</SelectItem>
-                                        {Object.entries(purposeTypes).map(([k, l]) => (
-                                            <SelectItem key={k} value={k}>{l}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    onChange={(v) => setFormData({ ...formData, purpose: v })}
+                                    placeholder="Selecione..."
+                                />
                             </div>
                             <div>
                                 <Label>Origem</Label>

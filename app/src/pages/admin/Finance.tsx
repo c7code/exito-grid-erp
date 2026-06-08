@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import CategorySelect from '@/components/ui/CategorySelect';
 import { useSearchParams } from 'react-router-dom';
 import html2pdf from 'html2pdf.js';
 import { ReceiptPDFTemplate } from '@/components/ReceiptPDFTemplate';
@@ -789,20 +790,7 @@ export default function AdminFinance() {
                         </div>
                         <div className="space-y-2">
                           <Label>Categoria</Label>
-                          <Select value={formData.category} onValueChange={v => setFormData({ ...formData, category: v })}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="materials">Materiais</SelectItem>
-                              <SelectItem value="labor">Mão de Obra</SelectItem>
-                              <SelectItem value="equipment">Equipamentos</SelectItem>
-                              <SelectItem value="tax">Impostos</SelectItem>
-                              <SelectItem value="office">Escritório</SelectItem>
-                              <SelectItem value="project">Projeto</SelectItem>
-                              <SelectItem value="utilities">Utilidades</SelectItem>
-                              <SelectItem value="marketing">Marketing</SelectItem>
-                              <SelectItem value="other">Outros</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <CategorySelect group="financial_category" value={formData.category} onChange={v => setFormData({ ...formData, category: v })} placeholder="Selecione..." />
                         </div>
                         <div className="space-y-2">
                           <Label>Obra/Projeto</Label>
@@ -1307,13 +1295,8 @@ export default function AdminFinance() {
                               <SelectItem value="capital_proprio">Capital Próprio</SelectItem>
                               <SelectItem value="adiantamento_cliente">Adiantamento do Cliente</SelectItem>
                               <SelectItem value="medição">Liberação de Medição</SelectItem>
-                              <SelectItem value="outro">Outro</SelectItem>
                             </SelectContent>
                           </Select>
-                          {formData.financialOrigin === 'outro' && (
-                            <Input className="mt-2" placeholder="Descreva a origem..." value={formData.financialOriginCustom || ''}
-                              onChange={e => setFormData({ ...formData, financialOriginCustom: e.target.value })} />
-                          )}
                         </div>
                         <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 space-y-2">
                           <p className="text-sm font-semibold text-slate-600">Resumo do Lançamento</p>
@@ -2957,12 +2940,7 @@ export default function AdminFinance() {
             <div><Label>Nº Contrato</Label><Input value={debtForm.contractNumber} onChange={e => setDebtForm({...debtForm, contractNumber: e.target.value})} /></div>
             <div>
               <Label>Tipo</Label>
-              <Select value={debtForm.type} onValueChange={v => setDebtForm({...debtForm, type: v})}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[['loan','Empréstimo'], ['financing','Financiamento'], ['credit_card','Cartão Corporativo'], ['credit_card_third','Cartão de Terceiros'], ['tax_installment','Parc. Tributário'], ['leasing','Leasing'], ['personal_capital','Capital Pessoal'], ['third_party_capital','Capital de Terceiros'], ['corporate_capital','Capital Corporativo'], ['supplier_debt','Fornecedor'], ['judicial','Judicial'], ['other','Outro']].map(([v,l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <CategorySelect group="debt_type" value={debtForm.type} onChange={v => setDebtForm({...debtForm, type: v})} placeholder="Selecione..." />
             </div>
             <div>
               <Label>Natureza</Label>

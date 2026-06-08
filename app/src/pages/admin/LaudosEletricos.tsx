@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import CategorySelect from '@/components/ui/CategorySelect';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -416,21 +417,11 @@ export default function LaudosEletricos() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-slate-600 block mb-1">Tipo de imóvel</label>
-                  <select value={linkData.tipoImovel} onChange={e => setLinkData(p => ({ ...p, tipoImovel: e.target.value }))}
-                    className="w-full h-9 px-3 border border-slate-200 rounded-md text-sm bg-white">
-                    <option value="">Selecione...</option>
-                    {['Residencial','Comercial','Industrial','Misto','Condomínio','Prédio Público','Rural','Outro'].map(o =>
-                      <option key={o} value={o}>{o}</option>)}
-                  </select>
+                  <CategorySelect group="property_type" value={linkData.tipoImovel} onChange={v => setLinkData(p => ({ ...p, tipoImovel: v }))} useLabelAsValue placeholder="Selecione..." />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600 block mb-1">Tipo de serviço</label>
-                  <select value={linkData.finalidade} onChange={e => setLinkData(p => ({ ...p, finalidade: e.target.value }))}
-                    className="w-full h-9 px-3 border border-slate-200 rounded-md text-sm bg-white">
-                    <option value="">Selecione...</option>
-                    {['Laudo de conformidade (NR-10 / NBR 5410)','Laudo para seguro','Laudo para habite-se / AVCB','Laudo para aumento de carga','Reforma / modernização','Manutenção preventiva','Outro'].map(o =>
-                      <option key={o} value={o}>{o}</option>)}
-                  </select>
+                  <CategorySelect group="laudo_purpose" value={linkData.finalidade} onChange={v => setLinkData(p => ({ ...p, finalidade: v }))} useLabelAsValue placeholder="Selecione..." />
                 </div>
               </div>
 

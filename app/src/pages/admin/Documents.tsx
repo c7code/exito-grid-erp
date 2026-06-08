@@ -31,7 +31,6 @@ import {
   ChevronRight,
   ChevronDown,
   Loader2,
-  File,
   Menu,
   X,
   GripVertical,
@@ -63,7 +62,7 @@ const categoryLabels: Record<string, { label: string; color: string; icon: any }
   pop: { label: 'POP', color: 'bg-teal-100 text-teal-700', icon: FileText },
   supplier_catalog: { label: 'Cat. Fornecedor', color: 'bg-amber-100 text-amber-700', icon: FileSpreadsheet },
   protocol: { label: 'Protocolo', color: 'bg-pink-100 text-pink-700', icon: FileText },
-  other: { label: 'Outro', color: 'bg-slate-100 text-slate-700', icon: File },
+
 };
 
 const purposeLabels: Record<string, string> = {
@@ -75,7 +74,7 @@ const purposeLabels: Record<string, string> = {
   tabela_preco: 'Tabela de Preços',
   book_estruturas: 'Book de Estruturas',
   documentacao_obra: 'Doc. Obra',
-  other: 'Outro',
+
 };
 
 interface FolderNode {

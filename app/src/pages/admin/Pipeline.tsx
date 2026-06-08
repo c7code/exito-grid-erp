@@ -61,6 +61,7 @@ import type { Opportunity, OpportunityStage, Client } from '@/types';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import NewProposalDialog from '@/components/NewProposalDialog';
+import CategorySelect from '@/components/ui/CategorySelect';
 
 // ═══════════════════════════════════════════════
 // ALL AVAILABLE STAGES (matches backend enum)
@@ -122,7 +123,6 @@ const sourceLabels: Record<string, string> = {
   whatsapp: 'WhatsApp',
   referral: 'Indicação',
   social_media: 'Redes Sociais',
-  other: 'Outro',
 };
 
 const stageLabels: Record<string, string> = {
@@ -1235,21 +1235,12 @@ export default function AdminPipeline() {
               </div>
               <div>
                 <Label>Origem</Label>
-                <Select
+                <CategorySelect
+                  group="lead_source"
                   value={formData.source}
-                  onValueChange={(v) => setFormData({ ...formData, source: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="website">Website</SelectItem>
-                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                    <SelectItem value="referral">Indicação</SelectItem>
-                    <SelectItem value="social_media">Redes Sociais</SelectItem>
-                    <SelectItem value="other">Outro</SelectItem>
-                  </SelectContent>
-                </Select>
+                  onChange={(v) => setFormData({ ...formData, source: v })}
+                  placeholder="Selecione..."
+                />
               </div>
             </div>
 

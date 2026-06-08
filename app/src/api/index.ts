@@ -3580,6 +3580,14 @@ class ApiService {
   async generateLaudoLink(description?: string, preliminaryData?: any) {
     return (await this.client.post('/laudos/generate-link', { description, preliminaryData })).data;
   }
+  // ═══ CATEGORIES ═══
+  async getCategories(group: string) { return (await this.client.get(`/categories?group=${group}`)).data; }
+  async createCategory(data: { group: string; label: string; value?: string; config?: any }) {
+    return (await this.client.post('/categories', data)).data;
+  }
+  async updateCategory(id: string, data: any) { return (await this.client.put(`/categories/${id}`, data)).data; }
+  async toggleCategory(id: string) { return (await this.client.patch(`/categories/${id}/toggle`)).data; }
+  async getAllCategories() { return (await this.client.get('/categories/all')).data; }
 }
 
 export const api = new ApiService();

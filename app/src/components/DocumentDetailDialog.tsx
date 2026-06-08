@@ -18,6 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import CategorySelect from '@/components/ui/CategorySelect';
 import {
     FileText,
     Loader2,
@@ -49,33 +50,7 @@ interface DocumentDetailDialogProps {
     folders?: { id: string; name: string }[];
 }
 
-const documentTypes: Record<string, string> = {
-    project: 'Projeto',
-    report: 'Relatório',
-    art: 'ART',
-    memorial: 'Memorial',
-    photo: 'Foto',
-    contract: 'Contrato',
-    invoice: 'Nota Fiscal',
-    certificate: 'Certificado',
-    norm: 'Norma Técnica',
-    pop: 'POP',
-    supplier_catalog: 'Cat. Fornecedor',
-    protocol: 'Protocolo',
-    other: 'Outro',
-};
 
-const purposeTypes: Record<string, string> = {
-    norma_tecnica: 'Norma Técnica',
-    pop: 'POP',
-    catalogo_fornecedor: 'Catálogo Fornecedor',
-    manual: 'Manual',
-    projeto_tipo: 'Projeto Tipo',
-    tabela_preco: 'Tabela de Preços',
-    book_estruturas: 'Book de Estruturas',
-    documentacao_obra: 'Doc. Obra',
-    other: 'Outro',
-};
 
 const categoryStyles: Record<string, { color: string; icon: any }> = {
     project: { color: 'bg-blue-100 text-blue-700', icon: FileText },
@@ -112,7 +87,7 @@ export default function DocumentDetailDialog({
     const [saving, setSaving] = useState(false);
     const [editForm, setEditForm] = useState({
         name: '',
-        type: 'other',
+        type: '',
         description: '',
         clientId: '',
         folderId: '',
@@ -126,7 +101,7 @@ export default function DocumentDetailDialog({
             setEditing(false);
             setEditForm({
                 name: doc.name || '',
-                type: doc.type || 'other',
+                type: doc.type || '',
                 description: doc.description || '',
                 clientId: doc.clientId || '',
                 folderId: doc.folderId || '',
@@ -212,7 +187,7 @@ export default function DocumentDetailDialog({
                             <DialogTitle className="text-xl truncate">{doc.name}</DialogTitle>
                             <DialogDescription className="flex items-center gap-2">
                                 <Badge variant="outline" className="text-xs">
-                                    {documentTypes[doc.type] || 'Outro'}
+                                    {doc.type || 'Outro'}
                                 </Badge>
                                 <span className="text-xs text-slate-400">{formatSize(doc.size)}</span>
                                 {doc.fileName && (
@@ -241,7 +216,7 @@ export default function DocumentDetailDialog({
                                         setEditing(false);
                                         setEditForm({
                                             name: doc.name || '',
-                                            type: doc.type || 'other',
+                                            type: doc.type || '',
                                             description: doc.description || '',
                                             clientId: doc.clientId || '',
                                             folderId: doc.folderId || '',
@@ -283,19 +258,11 @@ export default function DocumentDetailDialog({
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label>Tipo</Label>
-                                <Select
+                                <CategorySelect
+                                    group="document_type"
                                     value={editForm.type}
-                                    onValueChange={(v) => setEditForm({ ...editForm, type: v })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(documentTypes).map(([k, l]) => (
-                                            <SelectItem key={k} value={k}>{l}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    onChange={(v) => setEditForm({ ...editForm, type: v })}
+                                />
                             </div>
                             <div>
                                 <Label>Cliente</Label>
@@ -351,20 +318,12 @@ export default function DocumentDetailDialog({
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label>Finalidade</Label>
-                                    <Select
-                                        value={editForm.purpose || 'none'}
-                                        onValueChange={(v) => setEditForm({ ...editForm, purpose: v === 'none' ? '' : v })}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Nenhuma" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Nenhuma</SelectItem>
-                                            {Object.entries(purposeTypes).map(([k, l]) => (
-                                                <SelectItem key={k} value={k}>{l}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <CategorySelect
+                                        group="document_purpose"
+                                        value={editForm.purpose}
+                                        onChange={(v) => setEditForm({ ...editForm, purpose: v })}
+                                        placeholder="Nenhuma"
+                                    />
                                 </div>
                                 <div>
                                     <Label>Origem</Label>
@@ -481,7 +440,7 @@ export default function DocumentDetailDialog({
                                     <Target className="w-4 h-4 text-rose-500 shrink-0" />
                                     <div>
                                         <p className="text-[11px] text-slate-400 font-medium">Finalidade</p>
-                                        <p className="text-sm text-slate-700">{purposeTypes[doc.purpose] || doc.purpose}</p>
+                                        <p className="text-sm text-slate-700">{doc.purpose}</p>
                                     </div>
                                 </div>
                             )}

@@ -6,6 +6,7 @@ import {
   ChevronDown, ChevronUp, Loader2, AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import CategorySelect from '@/components/ui/CategorySelect';
 
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -16,7 +17,6 @@ const CATEGORIES: Record<string, { label: string; emoji: string }> = {
   manutencao:   { label: 'Manutenção',  emoji: '🔧' },
   imprevisto:   { label: 'Imprevisto',  emoji: '⚠️' },
   hospedagem:   { label: 'Hospedagem',  emoji: '🏨' },
-  outro:        { label: 'Outro',       emoji: '📌' },
 };
 
 const PAID_BY: Record<string, { label: string; color: string }> = {
@@ -189,12 +189,13 @@ export default function ExpensePanel({ rentalId, equipmentId, dailyLogId, dailyD
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-[10px] text-slate-500 font-medium uppercase">Categoria</label>
-                    <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                      className="mt-1 w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
-                      {Object.entries(CATEGORIES).map(([k, v]) => (
-                        <option key={k} value={k}>{v.emoji} {v.label}</option>
-                      ))}
-                    </select>
+                    <CategorySelect
+                      group="expense_type"
+                      value={form.category}
+                      onChange={v => setForm(f => ({ ...f, category: v }))}
+                      placeholder="Selecione..."
+                      className="mt-1"
+                    />
                   </div>
                   <div>
                     <label className="text-[10px] text-slate-500 font-medium uppercase">Valor (R$)</label>

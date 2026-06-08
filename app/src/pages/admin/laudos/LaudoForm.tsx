@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import CategorySelect from '@/components/ui/CategorySelect';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,20 +19,7 @@ import { api } from '@/api';
 // ═══════════════════════════════════════════════════════════════
 // TIPOS E CONSTANTES
 // ═══════════════════════════════════════════════════════════════
-const TIPO_IMOVEL = ['Residencial', 'Comercial', 'Industrial', 'Misto', 'Condomínio', 'Prédio Público', 'Rural', 'Outro'];
-const FINALIDADE = [
-  'Laudo de conformidade (NR-10 / NBR 5410)',
-  'Laudo para seguro',
-  'Laudo para habite-se / AVCB',
-  'Laudo para aumento de carga',
-  'Laudo para financiamento',
-  'Reforma / modernização',
-  'Manutenção preventiva',
-  'Investigação de problema',
-  'Outro',
-];
-const TENSAO = ['127/220V (Monofásico)', '220/380V (Trifásico)', '13.8kV', '34.5kV', '69kV', '138kV', 'Outro'];
-const MODALIDADE_TARIFARIA = ['Convencional (B)', 'Horossazonal Verde (A)', 'Horossazonal Azul (A)', 'Outro'];
+// Categorias dinâmicas: carregadas via CategorySelect do backend
 const PROBLEMAS_12M = [
   'Quedas de energia frequentes', 'Disjuntores desarmando', 'Aquecimento em cabos/conexões',
   'Curto-circuito', 'Choque em equipamentos', 'Variação de tensão',
@@ -375,10 +363,9 @@ export default function LaudoForm({ laudoId, onSaved, onCancel }: Props) {
         <div className="pt-3 space-y-3">
           <div>
             <Label className="text-xs">Tipo de imóvel</Label>
-            <Select value={form.tipo_imovel || ''} onValueChange={v => F('tipo_imovel', v)}>
-              <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-              <SelectContent>{TIPO_IMOVEL.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-            </Select>
+            <div className="mt-1">
+              <CategorySelect group="property_type" value={form.tipo_imovel || ''} onChange={v => F('tipo_imovel', v)} useLabelAsValue placeholder="Selecione..." />
+            </div>
           </div>
           <div>
             <Label className="text-xs">Endereço completo *</Label>
@@ -406,10 +393,9 @@ export default function LaudoForm({ laudoId, onSaved, onCancel }: Props) {
         <div className="pt-3 space-y-3">
           <div>
             <Label className="text-xs">Finalidade</Label>
-            <Select value={form.finalidade || ''} onValueChange={v => F('finalidade', v)}>
-              <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-              <SelectContent>{FINALIDADE.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
-            </Select>
+            <div className="mt-1">
+              <CategorySelect group="laudo_purpose" value={form.finalidade || ''} onChange={v => F('finalidade', v)} useLabelAsValue placeholder="Selecione..." />
+            </div>
           </div>
           <div>
             <Label className="text-xs">Gatilho declarado (o que motivou o cliente)</Label>
@@ -434,10 +420,9 @@ export default function LaudoForm({ laudoId, onSaved, onCancel }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Tensão de fornecimento</Label>
-              <Select value={form.tensao || ''} onValueChange={v => F('tensao', v)}>
-                <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>{TENSAO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-              </Select>
+              <div className="mt-1">
+                <CategorySelect group="voltage_supply" value={form.tensao || ''} onChange={v => F('tensao', v)} useLabelAsValue placeholder="Selecione..." />
+              </div>
             </div>
             <div>
               <Label className="text-xs">Demanda contratada (kW)</Label>
@@ -447,10 +432,9 @@ export default function LaudoForm({ laudoId, onSaved, onCancel }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Modalidade tarifária</Label>
-              <Select value={form.modalidade_tarifaria || ''} onValueChange={v => F('modalidade_tarifaria', v)}>
-                <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>{MODALIDADE_TARIFARIA.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-              </Select>
+              <div className="mt-1">
+                <CategorySelect group="tariff_modality" value={form.modalidade_tarifaria || ''} onChange={v => F('modalidade_tarifaria', v)} useLabelAsValue placeholder="Selecione..." />
+              </div>
             </div>
             <div>
               <Label className="text-xs">Concessionária</Label>
@@ -611,15 +595,9 @@ export default function LaudoForm({ laudoId, onSaved, onCancel }: Props) {
             </div>
             <div>
               <Label className="text-xs">Precisa de aprovação?</Label>
-              <Select value={form.aprovacao || ''} onValueChange={v => F('aprovacao', v)}>
-                <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="nao">Não, decide na hora</SelectItem>
-                  <SelectItem value="diretoria">Sim, precisa de diretoria</SelectItem>
-                  <SelectItem value="licitacao">Licitação / processo formal</SelectItem>
-                  <SelectItem value="outro">Outro</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="mt-1">
+                <CategorySelect group="approval_type" value={form.aprovacao || ''} onChange={v => F('aprovacao', v)} placeholder="Selecione..." />
+              </div>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -30,6 +30,7 @@ import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
     DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import CategorySelect from '@/components/ui/CategorySelect';
 
 const statusLabels: Record<string, string> = {
     draft: 'Rascunho', active: 'Ativo', suspended: 'Suspenso',
@@ -42,7 +43,7 @@ const statusColors: Record<string, string> = {
 };
 const typeLabels: Record<string, string> = {
     service: 'Serviço', supply: 'Fornecimento', subcontract: 'Subcontratação',
-    maintenance: 'Manutenção', consulting: 'Consultoria', other: 'Outro',
+    maintenance: 'Manutenção', consulting: 'Consultoria',
 };
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -508,12 +509,12 @@ export default function Contracts() {
                             </div>
                             <div>
                                 <label className="text-xs font-medium text-slate-600">Tipo</label>
-                                <Select value={form.type} onValueChange={v => handleSelectChange('type', v)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(typeLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
+                                <CategorySelect
+                                    group="contract_type"
+                                    value={form.type}
+                                    onChange={v => handleSelectChange('type', v)}
+                                    placeholder="Selecione..."
+                                />
                             </div>
                             <div>
                                 <label className="text-xs font-medium text-slate-600">Status</label>

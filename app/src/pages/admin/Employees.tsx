@@ -60,7 +60,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   safety_nr: 'Segurança / NRs',
   epi_epc: 'EPI / EPC',
   qualification: 'Qualificação',
-  other: 'Outros',
 };
 
 export default function AdminEmployees() {
