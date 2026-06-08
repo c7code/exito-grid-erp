@@ -49,7 +49,7 @@ export default function LaudosEletricos() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
-  const [linkDesc, setLinkDesc] = useState('');
+  const [linkData, setLinkData] = useState({ clientName: '', clientPhone: '', clientEmail: '', tipoImovel: '', endereco: '', finalidade: '', notas: '' });
   const [generatedLink, setGeneratedLink] = useState('');
   const [generatingLink, setGeneratingLink] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -77,16 +77,13 @@ export default function LaudosEletricos() {
   async function openLaudo(id: string) {
     try {
       const laudo = await api.getLaudo(id);
-      // Engenheiro/admin vê em modo leitura para status enviado_orcamento
       if (isEngineerOrAdmin && laudo.status === 'enviado_orcamento') {
         setViewLaudo(laudo);
         setView('view');
       } else if (laudo.status === 'aberto') {
-        // Vendedor edita, ou engenheiro/admin pode editar abertos
         setEditId(id);
         setView('edit');
       } else {
-        // Qualquer outro caso — visualizar
         setViewLaudo(laudo);
         setView('view');
       }
@@ -97,14 +94,13 @@ export default function LaudosEletricos() {
 
   function backToList() { setView('list'); setEditId(null); setViewLaudo(null); loadLaudos(); }
 
-  // ─── Gerar Link Público ───
+  // ─── Gerar Link Público (com dados preliminares) ───
   async function handleGenerateLink() {
     setGeneratingLink(true);
     try {
-      const result = await api.generateLaudoLink(linkDesc.trim() || undefined);
+      const result = await api.generateLaudoLink(undefined, linkData);
       const baseUrl = window.location.origin;
       setGeneratedLink(`${baseUrl}/formulario/${result.token}`);
-      setLinkDesc('');
       loadLaudos();
     } catch {
       toast.error('Erro ao gerar link');
@@ -176,7 +172,7 @@ export default function LaudosEletricos() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => { setShowLinkDialog(true); setGeneratedLink(''); setCopied(false); }}
+            onClick={() => { setShowLinkDialog(true); setGeneratedLink(''); setCopied(false); setLinkData({ clientName: '', clientPhone: '', clientEmail: '', tipoImovel: '', endereco: '', finalidade: '', notas: '' }); }}
             className="border-amber-300 text-amber-700 hover:bg-amber-50 h-11"
           >
             <Link2 className="h-4 w-4 mr-1.5" />
@@ -383,65 +379,103 @@ export default function LaudosEletricos() {
 
       {/* ── Dialog Gerar Link ── */}
       <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Link2 className="w-5 h-5 text-amber-600" />
               Gerar Link para Cliente
             </DialogTitle>
             <DialogDescription>
-              Crie um link único para enviar ao cliente. Ele preenche as informações e o atendimento entra automaticamente no sistema.
+              Preencha as informações que já possui. O cliente completará o restante pelo link.
             </DialogDescription>
           </DialogHeader>
 
           {!generatedLink ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
+              <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wide">Informações preliminares</p>
+
               <div>
-                <label className="text-xs font-medium text-slate-600 block mb-1">Descrição (opcional)</label>
-                <Input
-                  placeholder="Ex: Laudo para galpão industrial do Sr. João"
-                  value={linkDesc}
-                  onChange={e => setLinkDesc(e.target.value)}
-                  className="h-10"
-                />
-                <p className="text-xs text-slate-400 mt-1">O cliente verá esta descrição no formulário.</p>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Nome do cliente</label>
+                <Input placeholder="Ex: João Silva / Empresa XYZ" value={linkData.clientName}
+                  onChange={e => setLinkData(p => ({ ...p, clientName: e.target.value }))} className="h-9" />
               </div>
-              <Button
-                onClick={handleGenerateLink}
-                disabled={generatingLink}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-white h-11 font-semibold"
-              >
-                {generatingLink ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Link2 className="w-4 h-4 mr-1.5" />}
-                {generatingLink ? 'Gerando...' : 'Gerar Link'}
-              </Button>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-slate-600 block mb-1">Telefone</label>
+                  <Input placeholder="(00) 00000-0000" value={linkData.clientPhone}
+                    onChange={e => setLinkData(p => ({ ...p, clientPhone: e.target.value }))} className="h-9" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600 block mb-1">E-mail</label>
+                  <Input placeholder="email@cliente.com" value={linkData.clientEmail}
+                    onChange={e => setLinkData(p => ({ ...p, clientEmail: e.target.value }))} className="h-9" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-slate-600 block mb-1">Tipo de imóvel</label>
+                  <select value={linkData.tipoImovel} onChange={e => setLinkData(p => ({ ...p, tipoImovel: e.target.value }))}
+                    className="w-full h-9 px-3 border border-slate-200 rounded-md text-sm bg-white">
+                    <option value="">Selecione...</option>
+                    {['Residencial','Comercial','Industrial','Misto','Condomínio','Prédio Público','Rural','Outro'].map(o =>
+                      <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600 block mb-1">Tipo de serviço</label>
+                  <select value={linkData.finalidade} onChange={e => setLinkData(p => ({ ...p, finalidade: e.target.value }))}
+                    className="w-full h-9 px-3 border border-slate-200 rounded-md text-sm bg-white">
+                    <option value="">Selecione...</option>
+                    {['Laudo de conformidade (NR-10 / NBR 5410)','Laudo para seguro','Laudo para habite-se / AVCB','Laudo para aumento de carga','Reforma / modernização','Manutenção preventiva','Outro'].map(o =>
+                      <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Endereço</label>
+                <Input placeholder="Rua, número, bairro, cidade" value={linkData.endereco}
+                  onChange={e => setLinkData(p => ({ ...p, endereco: e.target.value }))} className="h-9" />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Observações internas</label>
+                <Input placeholder="Notas para a equipe (o cliente não verá)" value={linkData.notas}
+                  onChange={e => setLinkData(p => ({ ...p, notas: e.target.value }))} className="h-9" />
+              </div>
+
+              <div className="pt-1">
+                <Button onClick={handleGenerateLink} disabled={generatingLink}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white h-11 font-semibold">
+                  {generatingLink ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Link2 className="w-4 h-4 mr-1.5" />}
+                  {generatingLink ? 'Gerando...' : 'Gerar Link'}
+                </Button>
+                <p className="text-[11px] text-slate-400 mt-1.5 text-center">Todos os campos são opcionais. O cliente completará o que faltar.</p>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
               <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
                 <p className="text-xs font-medium text-emerald-700 mb-2">✅ Link gerado com sucesso!</p>
                 <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={generatedLink}
-                    className="h-9 text-xs bg-white font-mono"
-                    onClick={e => (e.target as HTMLInputElement).select()}
-                  />
-                  <Button
-                    size="sm"
-                    onClick={copyLink}
-                    className={`shrink-0 h-9 px-3 ${copied ? 'bg-emerald-500' : 'bg-amber-500 hover:bg-amber-600'} text-white`}
-                  >
+                  <Input readOnly value={generatedLink} className="h-9 text-xs bg-white font-mono"
+                    onClick={e => (e.target as HTMLInputElement).select()} />
+                  <Button size="sm" onClick={copyLink}
+                    className={`shrink-0 h-9 px-3 ${copied ? 'bg-emerald-500' : 'bg-amber-500 hover:bg-amber-600'} text-white`}>
                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </Button>
                 </div>
               </div>
               <div className="space-y-2 text-xs text-slate-500">
                 <p>📱 Envie este link por <strong>WhatsApp</strong>, <strong>e-mail</strong> ou <strong>SMS</strong>.</p>
-                <p>👤 O cliente preenche sem precisar de login.</p>
+                <p>👤 O cliente vai ver as informações que você preencheu e completar o restante.</p>
                 <p>⚡ Quando ele enviar, o atendimento aparece automaticamente na sua lista.</p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => { setGeneratedLink(''); }}>
+                <Button variant="outline" className="flex-1"
+                  onClick={() => { setGeneratedLink(''); setLinkData({ clientName: '', clientPhone: '', clientEmail: '', tipoImovel: '', endereco: '', finalidade: '', notas: '' }); }}>
                   Gerar Outro
                 </Button>
                 <Button className="flex-1 bg-amber-500 hover:bg-amber-600 text-white" onClick={() => setShowLinkDialog(false)}>

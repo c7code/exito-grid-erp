@@ -256,11 +256,19 @@ export class LaudosService implements OnModuleInit {
   }
 
   // ═══ PUBLIC LINK ════════════════════════════════════════════════
-  async generatePublicLink(vendedorId: string, description?: string): Promise<{ token: string; id: string }> {
+  async generatePublicLink(vendedorId: string, description?: string, preliminaryData?: any): Promise<{ token: string; id: string }> {
     const token = crypto.randomUUID();
     const dados = JSON.stringify({
       _linkDescription: description,
       _linkCreatedAt: new Date().toISOString(),
+      // Dados preliminares preenchidos pelo vendedor
+      ...(preliminaryData?.clientName && { _prefillClientName: preliminaryData.clientName }),
+      ...(preliminaryData?.clientPhone && { _prefillClientPhone: preliminaryData.clientPhone }),
+      ...(preliminaryData?.clientEmail && { _prefillClientEmail: preliminaryData.clientEmail }),
+      ...(preliminaryData?.tipoImovel && { tipo_imovel: preliminaryData.tipoImovel }),
+      ...(preliminaryData?.endereco && { endereco: preliminaryData.endereco }),
+      ...(preliminaryData?.finalidade && { finalidade: preliminaryData.finalidade }),
+      ...(preliminaryData?.notas && { _notasInternas: preliminaryData.notas }),
     });
 
     const laudo = this.laudoRepo.create({

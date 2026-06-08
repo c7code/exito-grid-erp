@@ -102,7 +102,18 @@ export default function PublicLaudoForm() {
   useEffect(() => {
     if (!token) { setStatus('error'); setErrorMsg('Link inválido'); return; }
     fetchPublicLaudo(token)
-      .then(data => { setLinkInfo(data); setStatus('form'); })
+      .then(data => {
+        setLinkInfo(data);
+        // Pré-preencher com dados do vendedor
+        const d = typeof data.dados === 'string' ? JSON.parse(data.dados || '{}') : (data.dados || {});
+        if (d._prefillClientName) setName(d._prefillClientName);
+        if (d._prefillClientPhone) setPhone(d._prefillClientPhone);
+        if (d._prefillClientEmail) setEmail(d._prefillClientEmail);
+        if (d.tipo_imovel) setTipoImovel(d.tipo_imovel);
+        if (d.endereco) setEndereco(d.endereco);
+        if (d.finalidade) setFinalidade(d.finalidade);
+        setStatus('form');
+      })
       .catch(() => { setStatus('error'); setErrorMsg('Este link é inválido ou já foi utilizado.'); });
   }, [token]);
 

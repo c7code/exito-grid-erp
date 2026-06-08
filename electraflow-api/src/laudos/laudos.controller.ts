@@ -13,8 +13,8 @@ export class LaudosController {
 
   @Post('generate-link')
   @ApiOperation({ summary: 'Gerar link público para preenchimento pelo cliente' })
-  async generateLink(@Body('description') description: string, @Req() req: any) {
-    const result = await this.svc.generatePublicLink(req.user.id, description);
+  async generateLink(@Body() body: { description?: string; preliminaryData?: any }, @Req() req: any) {
+    const result = await this.svc.generatePublicLink(req.user.id, body.description, body.preliminaryData);
     return { token: result.token, url: `/formulario/${result.token}`, id: result.id };
   }
 

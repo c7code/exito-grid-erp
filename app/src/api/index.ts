@@ -3577,8 +3577,8 @@ class ApiService {
   async removeLaudoDocument(laudoId: string, filePath: string) {
     return (await this.client.delete(`/laudos/${laudoId}/document`, { data: { filePath } })).data;
   }
-  async generateLaudoLink(description?: string) {
-    return (await this.client.post('/laudos/generate-link', { description })).data;
+  async generateLaudoLink(description?: string, preliminaryData?: any) {
+    return (await this.client.post('/laudos/generate-link', { description, preliminaryData })).data;
   }
 }
 
