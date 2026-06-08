@@ -115,7 +115,13 @@ export default function MeasurementTab({ rentals, reload }: Props) {
     if (!selectedLog) return;
     try {
       const updateData: any = {
-        ...editForm,
+        date: editForm.date,
+        startTime: editForm.startTime,
+        endTime: editForm.endTime,
+        workLocation: editForm.workLocation,
+        description: editForm.description,
+        isHoliday: editForm.isHoliday,
+        isWeekend: editForm.isWeekend,
         hoursWorked: Number(editForm.normalHours || 0) + Number(editForm.overtimeHours || 0),
         normalHours: Number(editForm.normalHours || 0),
         overtimeHours: Number(editForm.overtimeHours || 0),

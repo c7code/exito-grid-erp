@@ -190,8 +190,19 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
   async function save() {
     if (!form.rentalId || !form.date) { toast.error('Selecione a locação e a data'); return; }
     try {
+      // Only send fields that exist in the database — exclude UI-only fields
       const data: any = {
-        ...form,
+        rentalId: form.rentalId,
+        equipmentId: form.equipmentId,
+        operatorId: form.operatorId,
+        operatorName: form.operatorName,
+        date: form.date,
+        startTime: form.startTime,
+        endTime: form.endTime,
+        workLocation: form.workLocation,
+        description: form.description,
+        isHoliday: form.isHoliday,
+        isWeekend: form.isWeekend,
         hoursWorked: Number(form.normalHours || 0) + Number(form.overtimeHours || 0),
         normalHours: Number(form.normalHours || 0),
         overtimeHours: Number(form.overtimeHours || 0),
