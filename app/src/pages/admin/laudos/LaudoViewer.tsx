@@ -10,7 +10,7 @@ import {
 import {
   ArrowLeft, FileText, Send, RotateCcw, User, Building2, Plug, Shield,
   Clock, HardHat, DollarSign, Paperclip, ExternalLink, CheckCircle2, XCircle,
-  Loader2, MapPin, Phone, Mail, Calendar, Zap, Download, AlertTriangle,
+  Loader2, MapPin, Phone, Mail, Calendar, Download, AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
