@@ -3559,6 +3559,24 @@ class ApiService {
   async deletePartnerRequest(id: string) {
     return (await this.client.delete(`/partner-requests/${id}`)).data;
   }
+
+  // ═══ LAUDOS ELÉTRICOS ═══════════════════════════════════════════════════════
+
+  async getLaudos() { return (await this.client.get('/laudos')).data; }
+  async getLaudo(id: string) { return (await this.client.get(`/laudos/${id}`)).data; }
+  async createLaudo(data: any) { return (await this.client.post('/laudos', data)).data; }
+  async updateLaudo(id: string, data: any) { return (await this.client.put(`/laudos/${id}`, data)).data; }
+  async deleteLaudo(id: string) { return (await this.client.delete(`/laudos/${id}`)).data; }
+  async updateLaudoStatus(id: string, status: string) { return (await this.client.patch(`/laudos/${id}/status`, { status })).data; }
+  async linkLaudoProposal(id: string, proposalId: string) { return (await this.client.patch(`/laudos/${id}/proposal`, { proposalId })).data; }
+  async uploadLaudoDocument(laudoId: string, file: File) {
+    const fd = new FormData();
+    fd.append('file', file);
+    return (await this.client.post(`/laudos/${laudoId}/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
+  }
+  async removeLaudoDocument(laudoId: string, filePath: string) {
+    return (await this.client.delete(`/laudos/${laudoId}/document`, { data: { filePath } })).data;
+  }
 }
 
 export const api = new ApiService();
