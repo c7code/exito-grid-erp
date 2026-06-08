@@ -1,12 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { ServiceOrder, ServiceOrderStatus } from './service-order.entity';
 import { WorkCost, WorkCostCategory, WorkCostStatus } from '../finance/work-cost.entity';
 import { Notification } from '../notifications/notification.entity';
 
 @Injectable()
-export class ServiceOrdersService {
+export class ServiceOrdersService implements OnModuleInit {
+    private readonly logger = new Logger(ServiceOrdersService.name);
+
     constructor(
         @InjectRepository(ServiceOrder)
         private soRepo: Repository<ServiceOrder>,
@@ -14,7 +16,68 @@ export class ServiceOrdersService {
         private workCostRepo: Repository<WorkCost>,
         @InjectRepository(Notification)
         private notificationRepo: Repository<Notification>,
+        private dataSource: DataSource,
     ) { }
+
+    async onModuleInit() {
+        try {
+            // Create enum types if they don't exist
+            await this.dataSource.query(`
+                DO $$ BEGIN
+                    CREATE TYPE service_order_status AS ENUM ('open', 'in_progress', 'completed', 'cancelled', 'on_hold');
+                EXCEPTION WHEN duplicate_object THEN NULL;
+                END $$;
+            `);
+            await this.dataSource.query(`
+                DO $$ BEGIN
+                    CREATE TYPE service_order_priority AS ENUM ('low', 'medium', 'high', 'urgent');
+                EXCEPTION WHEN duplicate_object THEN NULL;
+                END $$;
+            `);
+
+            // Create table if not exists
+            await this.dataSource.query(`
+                CREATE TABLE IF NOT EXISTS service_orders (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    code VARCHAR UNIQUE,
+                    title VARCHAR NOT NULL,
+                    description TEXT,
+                    status service_order_status DEFAULT 'open',
+                    priority service_order_priority DEFAULT 'medium',
+                    category VARCHAR,
+                    "workId" UUID REFERENCES works(id),
+                    "clientId" UUID REFERENCES clients(id),
+                    "assignedToId" UUID REFERENCES users(id),
+                    address VARCHAR,
+                    city VARCHAR,
+                    state VARCHAR,
+                    "scheduledDate" TIMESTAMP,
+                    "startTime" VARCHAR,
+                    "endTime" VARCHAR,
+                    "hoursWorked" DECIMAL(5,2),
+                    checklist TEXT,
+                    "materialsUsed" TEXT,
+                    photos TEXT,
+                    "clientSignature" TEXT,
+                    "clientSignedName" VARCHAR,
+                    "clientSignedAt" TIMESTAMP,
+                    "technicianNotes" TEXT,
+                    "clientNotes" TEXT,
+                    "laborCost" DECIMAL(15,2) DEFAULT 0,
+                    "materialCost" DECIMAL(15,2) DEFAULT 0,
+                    "totalCost" DECIMAL(15,2) DEFAULT 0,
+                    "createdById" UUID REFERENCES users(id),
+                    "completedAt" TIMESTAMP,
+                    "createdAt" TIMESTAMP DEFAULT NOW(),
+                    "updatedAt" TIMESTAMP DEFAULT NOW(),
+                    "deletedAt" TIMESTAMP
+                )
+            `);
+            this.logger.log('✅ Tabela service_orders verificada/criada');
+        } catch (e) {
+            this.logger.warn('⚠️ Erro ao verificar/criar tabela service_orders: ' + e?.message);
+        }
+    }
 
     async findAll(filters?: { status?: string; workId?: string; assignedToId?: string }) {
         const query = this.soRepo
