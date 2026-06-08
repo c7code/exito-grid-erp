@@ -1,12 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/contexts/AuthContext';
 import { Zap, Plus, Search, FileText, Calendar, User, Building2, Filter, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import LaudoForm from './laudos/LaudoForm';
+import LaudoViewer from './laudos/LaudoViewer';
 
 // ─── Constantes ───────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -30,16 +32,20 @@ function parseJSON(str: string | null | undefined): any {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// VIEWS: 'list' | 'new' | 'edit'
+// VIEWS: 'list' | 'new' | 'edit' | 'view'
 // ═══════════════════════════════════════════════════════════════
 export default function LaudosEletricos() {
-  const [view, setView] = useState<'list' | 'new' | 'edit'>('list');
+  const { user } = useAuth();
+  const [view, setView] = useState<'list' | 'new' | 'edit' | 'view'>('list');
   const [editId, setEditId] = useState<string | null>(null);
+  const [viewLaudo, setViewLaudo] = useState<any>(null);
   const [laudos, setLaudos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+
+  const isEngineerOrAdmin = ['admin', 'engineer', 'finance'].includes(user?.role || '');
 
   async function loadLaudos() {
     setLoading(true);
@@ -57,18 +63,39 @@ export default function LaudosEletricos() {
   useEffect(() => { loadLaudos(); }, []);
 
   function openNew() { setView('new'); setEditId(null); }
-  function openEdit(id: string) { setView('edit'); setEditId(id); }
-  function backToList() { setView('list'); setEditId(null); loadLaudos(); }
 
-  // ─── Se não for lista, mostra o form ───
+  // Decidir se abre form (edição) ou viewer (leitura)
+  async function openLaudo(id: string) {
+    try {
+      const laudo = await api.getLaudo(id);
+      // Engenheiro/admin vê em modo leitura para status enviado_orcamento
+      if (isEngineerOrAdmin && laudo.status === 'enviado_orcamento') {
+        setViewLaudo(laudo);
+        setView('view');
+      } else if (laudo.status === 'aberto') {
+        // Vendedor edita, ou engenheiro/admin pode editar abertos
+        setEditId(id);
+        setView('edit');
+      } else {
+        // Qualquer outro caso — visualizar
+        setViewLaudo(laudo);
+        setView('view');
+      }
+    } catch {
+      toast.error('Erro ao abrir atendimento');
+    }
+  }
+
+  function backToList() { setView('list'); setEditId(null); setViewLaudo(null); loadLaudos(); }
+
+  // ─── Form view ───
   if (view === 'new' || view === 'edit') {
-    return (
-      <LaudoForm
-        laudoId={editId}
-        onSaved={backToList}
-        onCancel={backToList}
-      />
-    );
+    return <LaudoForm laudoId={editId} onSaved={backToList} onCancel={backToList} />;
+  }
+
+  // ─── Viewer (modo leitura + ações do engenheiro) ───
+  if (view === 'view' && viewLaudo) {
+    return <LaudoViewer laudo={viewLaudo} onBack={backToList} onUpdated={backToList} />;
   }
 
   // ─── Filtros ───
@@ -234,7 +261,7 @@ export default function LaudosEletricos() {
                   const tipoImovel = dados?.tipo_imovel || dados?.tipoImovel || '—';
                   const sc = STATUS_CONFIG[laudo.status] || STATUS_CONFIG.aberto;
                   return (
-                    <tr key={laudo.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => openEdit(laudo.id)}>
+                    <tr key={laudo.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => openLaudo(laudo.id)}>
                       <td className="px-5 py-3.5">
                         <p className="text-sm font-medium text-slate-800">{laudo.client?.name || 'Cliente não identificado'}</p>
                         {laudo.client?.tradeName && <p className="text-xs text-slate-400">{laudo.client.tradeName}</p>}
@@ -243,7 +270,7 @@ export default function LaudosEletricos() {
                       <td className="px-5 py-3.5"><span className="text-sm text-slate-600">{formatDate(laudo.createdAt)}</span></td>
                       <td className="px-5 py-3.5"><Badge variant="outline" className={sc.className + ' text-xs'}>{sc.label}</Badge></td>
                       <td className="px-5 py-3.5 text-right">
-                        <Button variant="ghost" size="sm" className="text-slate-500 hover:text-amber-600 text-xs" onClick={e => { e.stopPropagation(); openEdit(laudo.id); }}>
+                        <Button variant="ghost" size="sm" className="text-slate-500 hover:text-amber-600 text-xs" onClick={e => { e.stopPropagation(); openLaudo(laudo.id); }}>
                           <Eye className="w-3.5 h-3.5 mr-1" /> Ver
                         </Button>
                       </td>
@@ -261,7 +288,7 @@ export default function LaudosEletricos() {
               const tipoImovel = dados?.tipo_imovel || dados?.tipoImovel || '';
               const sc = STATUS_CONFIG[laudo.status] || STATUS_CONFIG.aberto;
               return (
-                <button key={laudo.id} className="w-full text-left p-4 hover:bg-slate-50 transition-colors" onClick={() => openEdit(laudo.id)}>
+                <button key={laudo.id} className="w-full text-left p-4 hover:bg-slate-50 transition-colors" onClick={() => openLaudo(laudo.id)}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-slate-800 truncate">{laudo.client?.name || 'Cliente não identificado'}</p>
