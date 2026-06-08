@@ -14,7 +14,8 @@ export class LaudosController {
   @Post('generate-link')
   @ApiOperation({ summary: 'Gerar link público para preenchimento pelo cliente' })
   async generateLink(@Body() body: { description?: string; preliminaryData?: any }, @Req() req: any) {
-    const result = await this.svc.generatePublicLink(req.user.id, body.description, body.preliminaryData);
+    const userId = req.user?.userId || req.user?.id || req.user?.sub;
+    const result = await this.svc.generatePublicLink(userId, body.description, body.preliminaryData);
     return { token: result.token, url: `/formulario/${result.token}`, id: result.id };
   }
 
@@ -34,7 +35,7 @@ export class LaudosController {
   @ApiOperation({ summary: 'Criar novo atendimento' })
   create(@Body() data: any, @Req() req: any) {
     // Se vendedorId não informado, usar o usuário logado
-    if (!data.vendedorId) data.vendedorId = req.user?.id;
+    if (!data.vendedorId) data.vendedorId = req.user?.userId || req.user?.id || req.user?.sub;
     return this.svc.create(data);
   }
 
