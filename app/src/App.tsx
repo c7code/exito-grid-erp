@@ -145,6 +145,7 @@ const AdminFinanceConfig = lazy(() => import('./pages/admin/FinanceConfig'));
 const AdminEquipment = lazy(() => import('./pages/admin/Equipment'));
 const AdminSolarReferrals = lazy(() => import('./pages/admin/SolarReferrals'));
 const AdminPartnerRequests = lazy(() => import('./pages/admin/AdminPartnerRequests'));
+const AdminLaudosEletricos = lazy(() => import('./pages/admin/LaudosEletricos'));
 
 // Partner Portal Pages (lazy)
 const PartnerLogin = lazy(() => import('./pages/partner/PartnerLogin'));
@@ -257,6 +258,7 @@ function App() {
               <Route path="/admin/equipment" element={<AdminEquipment />} />
               <Route path="/admin/solar-referrals" element={<AdminSolarReferrals />} />
               <Route path="/admin/partner-requests" element={<AdminPartnerRequests />} />
+              <Route path="/admin/laudos" element={<AdminLaudosEletricos />} />
 
               <Route path="/admin/employees" element={<AdminEmployees />} />
               <Route path="/admin/employees/:id/compliance" element={<AdminEmployeeCompliance />} />

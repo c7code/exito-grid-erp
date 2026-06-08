@@ -71,6 +71,7 @@ const navSections: NavSection[] = [
       { path: '/admin/solar-referrals', label: 'Canal de Indicações', icon: UserPlus, module: 'solar-referrals', roles: ['admin', 'commercial', 'employee'] },
       { path: '/admin/partner-requests', label: 'Requisições Parceiros', icon: Headphones, module: 'partner-requests', roles: ['admin', 'employee'] },
       { path: '/admin/client-requests', label: 'Solicitações', icon: MessageSquare, module: 'client-requests', roles: ['admin', 'commercial', 'employee'] },
+      { path: '/admin/laudos', label: 'Laudos Elétricos', icon: Zap, module: 'laudos', roles: ['admin', 'commercial', 'engineer'] },
       { path: '/admin/simulator', label: 'Simulador', icon: Calculator, module: 'finance-simulator', roles: ['admin', 'commercial', 'finance', 'employee'] },
     ],
   },
