@@ -44,6 +44,7 @@ import { PortalModule } from './portal/portal.module';
 import { EquipmentModule } from './equipment/equipment.module';
 import { ReferralsModule } from './referrals/referrals.module';
 import { PartnerRequestsModule } from './partner-requests/partner-requests.module';
+import { LaudosModule } from './laudos/laudos.module';
 
 @Module({
   imports: [
@@ -113,6 +114,7 @@ import { PartnerRequestsModule } from './partner-requests/partner-requests.modul
     EquipmentModule,
     ReferralsModule,
     PartnerRequestsModule,
+    LaudosModule,
   ],
   providers: [
     {
