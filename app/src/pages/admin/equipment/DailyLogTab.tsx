@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { api } from '@/api';
 import { DAILY_STATUS, fmt, fD } from './EquipmentTypes';
 import ExpensePanel from './ExpensePanel';
+import { isNationalHoliday } from './holidays';
 
 // Extract YYYY-MM-DD safely from any date format (ISO string, Date object, etc.)
 function safeDate(d: any): string {
@@ -145,7 +146,13 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
     if (dateStr) {
       const d = new Date(dateStr + 'T12:00:00');
       const day = d.getDay();
-      F('isWeekend', day === 0 || day === 6);
+      const holiday = isNationalHoliday(dateStr);
+      setForm(prev => ({
+        ...prev, date: dateStr,
+        isWeekend: day === 0 || day === 6,
+        isHoliday: !!holiday,
+      }));
+      if (holiday) toast.info(`🎉 ${holiday.name}`);
     }
   }
 

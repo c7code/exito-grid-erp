@@ -12,6 +12,7 @@ import { Loader2, FileText, Printer, DollarSign, Clock, Moon, Calendar, Trending
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { DAILY_STATUS, fmt, fD } from './EquipmentTypes';
+import { isNationalHoliday } from './holidays';
 
 // Extract YYYY-MM-DD safely from any date format
 function safeDate(d: any): string {
@@ -25,24 +26,7 @@ function safeDate(d: any): string {
   return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
 }
 
-// Generate adapted dates within a measurement period, distributing logs evenly
-function generateAdaptedDates(logs: any[], periodStart: string, periodEnd: string): Map<string, string> {
-  const map = new Map<string, string>();
-  if (!periodStart || !periodEnd || logs.length === 0) return map;
-  const start = new Date(periodStart + 'T12:00:00');
-  const end = new Date(periodEnd + 'T12:00:00');
-  const totalDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-  const step = Math.max(1, Math.floor(totalDays / logs.length));
-  logs.forEach((log: any, idx: number) => {
-    const offset = Math.min(idx * step, totalDays - 1);
-    const adaptedDate = new Date(start.getTime() + offset * 24 * 60 * 60 * 1000);
-    const y = adaptedDate.getFullYear();
-    const m = String(adaptedDate.getMonth() + 1).padStart(2, '0');
-    const d = String(adaptedDate.getDate()).padStart(2, '0');
-    map.set(log.id, `${y}-${m}-${d}`);
-  });
-  return map;
-}
+// Not used anymore — replaced by manual per-log date editing
 
 interface Props {
   rentals: any[];
@@ -66,6 +50,7 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   const [adaptedMode, setAdaptedMode] = useState(false);
   const [adaptedStart, setAdaptedStart] = useState('');
   const [adaptedEnd, setAdaptedEnd] = useState('');
+  const [adaptedDates, setAdaptedDates] = useState<Record<string, string>>({});
 
   async function loadReport() {
     if (!selectedRentalId) { toast.error('Selecione uma locação'); return; }
@@ -157,7 +142,12 @@ export default function MeasurementTab({ rentals, reload }: Props) {
     if (!report) return;
     const r = report.rental;
     const isAdapted = adaptedMode && adaptedStart && adaptedEnd;
-    const adaptedDates = isAdapted ? generateAdaptedDates(report.logs || [], adaptedStart, adaptedEnd) : new Map();
+    const adaptedDatesMap = new Map<string, string>();
+    if (isAdapted) {
+      Object.entries(adaptedDates).forEach(([logId, date]) => {
+        if (date) adaptedDatesMap.set(logId, date);
+      });
+    }
 
     // Converter logo para base64 para funcionar no window.open()
     let logoBase64 = '';
@@ -174,7 +164,7 @@ export default function MeasurementTab({ rentals, reload }: Props) {
     const logs = report.logs || [];
 
     const logsHtml = logs.map((log: any) => {
-      const displayDate = isAdapted && adaptedDates.has(log.id) ? fD(adaptedDates.get(log.id)!) : fD(log.date);
+      const displayDate = isAdapted && adaptedDatesMap.has(log.id) ? fD(adaptedDatesMap.get(log.id)!) : fD(log.date);
       return `
       <tr>
         <td>${displayDate}</td>
@@ -439,11 +429,20 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                     <tr key={log.id} className="border-b hover:bg-slate-50/60 transition-colors">
                       <td className="px-4 py-2 font-medium">
                         {fD(log.date)}
-                        {adaptedMode && adaptedStart && adaptedEnd && (() => {
-                          const adapted = generateAdaptedDates(report.logs || [], adaptedStart, adaptedEnd);
-                          const ad = adapted.get(log.id);
-                          return ad ? <span className="block text-[10px] text-amber-600">📋 {fD(ad)}</span> : null;
-                        })()}
+                        {isNationalHoliday(safeDate(log.date)) && (
+                          <span className="block text-[10px] text-red-500">🎉 {isNationalHoliday(safeDate(log.date))!.name}</span>
+                        )}
+                        {adaptedMode && (
+                          <div className="mt-1">
+                            <Input
+                              type="date"
+                              className="h-7 text-xs border-amber-300 bg-amber-50"
+                              value={adaptedDates[log.id] || ''}
+                              onChange={e => setAdaptedDates(prev => ({ ...prev, [log.id]: e.target.value }))}
+                              placeholder="Data adaptada"
+                            />
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-slate-500">{log.startTime || '—'} - {log.endTime || '—'}</td>
                       <td className="px-3 py-2 text-right">{Number(log.normalHours || 0).toFixed(1)}h</td>
