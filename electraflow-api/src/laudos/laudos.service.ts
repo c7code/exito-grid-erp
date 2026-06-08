@@ -276,10 +276,10 @@ export class LaudosService implements OnModuleInit {
       publicToken: token,
       status: 'pendente_cliente',
       dados,
-    } as any);
+    });
     const saved = await this.laudoRepo.save(laudo);
 
-    return { token, id: saved.id };
+    return { token, id: (saved as LaudoAtendimento).id };
   }
 
   async findByToken(token: string): Promise<LaudoAtendimento> {
