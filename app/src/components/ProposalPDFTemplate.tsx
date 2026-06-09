@@ -11,6 +11,20 @@ interface ProposalPDFTemplateProps {
 
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// Parse preço em formato BR ("487,054" ou "1.500,00") para número
+const parseBR = (v: any): number => {
+    if (typeof v === 'number') return isNaN(v) ? 0 : v;
+    const s = String(v || '0').trim();
+    if (!s) return 0;
+    // Se tem vírgula, é formato BR: pontos são milhares, vírgula é decimal
+    if (s.includes(',')) {
+        const n = parseFloat(s.replace(/\./g, '').replace(',', '.'));
+        return isNaN(n) ? 0 : n;
+    }
+    const n = Number(s);
+    return isNaN(n) ? 0 : n;
+};
+
 // ═══ PARSER DE TEXTO ESTRUTURADO JURÍDICO ═══
 function detectLineLevel(line: string): { level: number; isBold: boolean } {
     const trimmed = line.trim();
@@ -123,7 +137,7 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
     }
     const hasFatItems = Array.isArray(directBillingItems) && directBillingItems.length > 0;
     const directBillingTotal = hasFatItems ? directBillingItems.reduce((s: number, fi: any) => {
-        return s + Number(fi.quantity || 0) * Number(fi.unitPrice || 0);
+        return s + parseBR(fi.quantity) * parseBR(fi.unitPrice);
     }, 0) : 0;
 
     const visibleCosts = (showLogistics ? logisticsCost : 0) + (showAdmin ? adminCost : 0) + (showBrokerage ? brokerageCost : 0) + (showInsurance ? insuranceCost : 0);
@@ -1010,8 +1024,8 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                     if (!Array.isArray(fatItems) || fatItems.length === 0) return null;
                     const fatClauseNum = (materialItems.length > 0 ? 1 : 0) + (serviceItems.length > 0 ? 1 : 0) + 4;
                     const fatTotal = fatItems.reduce((s: number, fi: any) => {
-                        const q = Number(fi.quantity || 0);
-                        const p = Number(fi.unitPrice || 0);
+                        const q = parseBR(fi.quantity);
+                        const p = parseBR(fi.unitPrice);
                         return s + q * p;
                     }, 0);
                     return (
@@ -1035,8 +1049,8 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                                 </thead>
                                 <tbody>
                                     {fatItems.map((fi: any, idx: number) => {
-                                        const q = Number(fi.quantity || 0);
-                                        const p = Number(fi.unitPrice || 0);
+                                        const q = parseBR(fi.quantity);
+                                        const p = parseBR(fi.unitPrice);
                                         const t = q * p;
                                         return (
                                             <tr key={idx}>
