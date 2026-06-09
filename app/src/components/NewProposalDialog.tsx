@@ -1950,11 +1950,19 @@ export default function NewProposalDialog({
                             {/* Totais */}
                             <div className="flex flex-col items-end gap-1 text-sm">
                                 <div className="flex gap-4">
-                                    <span className="text-slate-500">Subtotal:</span>
+                                    <span className="text-slate-500">Subtotal (Serviços + Materiais):</span>
                                     <span className="font-medium w-28 text-right">
                                         R$ {fmtBRL(subtotal)}
                                     </span>
                                 </div>
+                                {fatDiretoTotal > 0 && (
+                                    <div className="flex gap-4">
+                                        <span className="text-blue-500">Faturamento Direto:</span>
+                                        <span className="font-medium text-blue-600 w-28 text-right">
+                                            R$ {fmtBRL(fatDiretoTotal)}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="flex gap-4 items-center">
                                     <span className="text-slate-500">Desconto:</span>
                                     <Input

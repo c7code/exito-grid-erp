@@ -292,6 +292,27 @@ export class ProposalsService implements OnModuleInit {
     return `${prefix}${String(nextNumber).padStart(3, '0')}`;
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // Helper: calcula o total de materialFaturamento (faturamento direto)
+  // O campo é um JSON string com array de itens: [{quantity, unitPrice, ...}]
+  // ═══════════════════════════════════════════════════════════════
+  private parseFaturamentoDiretoTotal(materialFaturamento: string | null | undefined): number {
+    if (!materialFaturamento) return 0;
+    try {
+      const items = JSON.parse(materialFaturamento);
+      if (!Array.isArray(items)) return 0;
+      return items.reduce((sum: number, item: any) => {
+        const qty = parseFloat(item.quantity) || 0;
+        // Suportar formato BR (pontos como milhares, vírgula como decimal)
+        const priceStr = String(item.unitPrice || '0');
+        const price = parseFloat(priceStr.replace(/\./g, '').replace(',', '.')) || 0;
+        return sum + qty * price;
+      }, 0);
+    } catch {
+      return 0;
+    }
+  }
+
   async create(proposalData: Partial<Proposal>, items: Partial<ProposalItem>[]): Promise<Proposal> {
     // Step 1: Strip only known safe fields to avoid unknown column errors
     const safeFields: Record<string, any> = {};
@@ -326,14 +347,15 @@ export class ProposalsService implements OnModuleInit {
     proposal.proposalNumber = await this.generateProposalNumber();
     proposal.revisionNumber = 1;
 
-    // Calculate totals from items
+    // Calculate totals from items + faturamento direto
     if (items && items.length > 0) {
       const subtotal = items.reduce((sum, item) => {
         const itemTotal = Number(item.unitPrice || 0) * Number(item.quantity || 1);
         return sum + itemTotal;
       }, 0);
+      const fatDiretoTotal = this.parseFaturamentoDiretoTotal(safeFields.materialFaturamento);
       proposal.subtotal = subtotal;
-      proposal.total = subtotal - Number(proposal.discount || 0);
+      proposal.total = subtotal + fatDiretoTotal - Number(proposal.discount || 0);
     }
 
     this.logger.log(`CREATE PROPOSAL — Step 2: Saving proposal (number: ${proposal.proposalNumber})`);
@@ -501,10 +523,12 @@ export class ProposalsService implements OnModuleInit {
     await this.saveProposalItems(id, items);
 
     // ── Recalcular totais usando APENAS itens top-level (sem parentId), evitando duplicação ──
+    // IMPORTANTE: incluir materialFaturamento (faturamento direto) no total para não zerar
     const freshProposal = await this.findOne(id);
     const topLevelItems = (freshProposal.items || []).filter(item => !item.parentId);
     const subtotal = topLevelItems.reduce((sum, item) => sum + Number(item.total), 0);
-    const total = subtotal - Number(freshProposal.discount || 0);
+    const fatDiretoTotal = this.parseFaturamentoDiretoTotal((freshProposal as any).materialFaturamento);
+    const total = subtotal + fatDiretoTotal - Number(freshProposal.discount || 0);
 
     await this.proposalRepository
       .createQueryBuilder()
@@ -579,9 +603,11 @@ export class ProposalsService implements OnModuleInit {
     // Apenas itens top-level (sem parentId) — totais dos pais já incluem filhos
     const topLevelItems = (proposal.items || []).filter(item => !item.parentId);
     const subtotal = topLevelItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
-    const total = subtotal - Number(proposal.discount || 0);
+    // Incluir materialFaturamento (faturamento direto) no total
+    const fatDiretoTotal = this.parseFaturamentoDiretoTotal((proposal as any).materialFaturamento);
+    const total = subtotal + fatDiretoTotal - Number(proposal.discount || 0);
 
-    this.logger.log(`🔄 [Recalculate] Proposta ${proposal.proposalNumber}: subtotal=${subtotal}, total=${total} (itens top-level: ${topLevelItems.length}/${proposal.items?.length || 0})`);
+    this.logger.log(`🔄 [Recalculate] Proposta ${proposal.proposalNumber}: subtotal=${subtotal}, fatDireto=${fatDiretoTotal}, total=${total} (itens top-level: ${topLevelItems.length}/${proposal.items?.length || 0})`);
 
     await this.proposalRepository
       .createQueryBuilder()
