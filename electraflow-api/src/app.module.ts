@@ -71,6 +71,8 @@ import { CategoriesModule } from './categories/categories.module';
         synchronize: true, // TEMPORÁRIO: criando schema inicial no banco novo
         logging: configService.get('NODE_ENV') === 'development' ? ['error', 'warn', 'schema'] : false,
         ssl: { rejectUnauthorized: false },
+        retryAttempts: 5,
+        retryDelay: 3000,
         extra: {
           family: 4, // Forçar IPv4 — Railway não alcança Supabase via IPv6
         },
