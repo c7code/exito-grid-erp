@@ -68,7 +68,7 @@ import { CategoriesModule } from './categories/categories.module';
         type: 'postgres',
         url: configService.get('DATABASE_URL'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false, // Schema gerenciado manualmente
+        synchronize: true, // TEMPORÁRIO: criando schema inicial no banco novo
         logging: configService.get('NODE_ENV') === 'development' ? ['error', 'warn', 'schema'] : false,
         ssl: { rejectUnauthorized: false },
         extra: {
