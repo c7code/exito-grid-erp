@@ -71,6 +71,9 @@ import { CategoriesModule } from './categories/categories.module';
         synchronize: false, // Schema gerenciado manualmente
         logging: configService.get('NODE_ENV') === 'development' ? ['error', 'warn', 'schema'] : false,
         ssl: { rejectUnauthorized: false },
+        extra: {
+          family: 4, // Forçar IPv4 — Railway não alcança Supabase via IPv6
+        },
       }),
       inject: [ConfigService],
     }),
