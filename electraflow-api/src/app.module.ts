@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import * as Joi from 'joi';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ClientsModule } from './clients/clients.module';
@@ -52,6 +53,46 @@ import { CategoriesModule } from './categories/categories.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      validationSchema: Joi.object({
+        // === Obrigatórias ===
+        DATABASE_URL: Joi.string().uri().required()
+          .description('URL de conexão PostgreSQL/Supabase'),
+        JWT_SECRET: Joi.string().min(10).required()
+          .description('Chave secreta para tokens JWT (mín. 10 caracteres)'),
+
+        // === Opcionais com defaults ===
+        PORT: Joi.number().default(3001),
+        NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
+        FRONTEND_URL: Joi.string().default('http://localhost:5173'),
+        JWT_EXPIRATION: Joi.string().default('24h'),
+
+        // === Upload ===
+        UPLOAD_DEST: Joi.string().default('./uploads'),
+        MAX_FILE_SIZE: Joi.number().default(10485760),
+
+        // === Email (opcionais) ===
+        SMTP_HOST: Joi.string().allow('').optional(),
+        SMTP_PORT: Joi.number().default(587),
+        SMTP_USER: Joi.string().allow('').optional(),
+        SMTP_PASS: Joi.string().allow('').optional(),
+
+        // === Integrações (opcionais) ===
+        WHATSAPP_API_URL: Joi.string().allow('').optional(),
+        WHATSAPP_API_KEY: Joi.string().allow('').optional(),
+        NEOENERGIA_API_URL: Joi.string().allow('').optional(),
+        NEOENERGIA_API_KEY: Joi.string().allow('').optional(),
+
+        // === Supabase Storage (opcionais) ===
+        SUPABASE_URL: Joi.string().allow('').optional(),
+        SUPABASE_SERVICE_KEY: Joi.string().allow('').optional(),
+
+        // === Sentry (opcional) ===
+        SENTRY_DSN: Joi.string().allow('').optional(),
+      }),
+      validationOptions: {
+        abortEarly: false,    // Mostrar TODOS os erros, não apenas o primeiro
+        allowUnknown: true,   // Permitir env vars extras (Railway injeta várias)
+      },
     }),
     ThrottlerModule.forRoot([{
       name: 'default',
