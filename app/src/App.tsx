@@ -146,6 +146,9 @@ const AdminEquipment = lazy(() => import('./pages/admin/Equipment'));
 const AdminSolarReferrals = lazy(() => import('./pages/admin/SolarReferrals'));
 const AdminPartnerRequests = lazy(() => import('./pages/admin/AdminPartnerRequests'));
 const AdminLaudosEletricos = lazy(() => import('./pages/admin/LaudosEletricos'));
+const AdminLeads = lazy(() => import('./pages/admin/Leads'));
+const AdminPackages = lazy(() => import('./pages/admin/Packages'));
+const AdminRules = lazy(() => import('./pages/admin/Rules'));
 
 const NotFound = lazy(() => import('./pages/NotFound'));
 
@@ -263,6 +266,9 @@ function App() {
               <Route path="/admin/solar-referrals" element={<AdminSolarReferrals />} />
               <Route path="/admin/partner-requests" element={<AdminPartnerRequests />} />
               <Route path="/admin/laudos" element={<AdminLaudosEletricos />} />
+              <Route path="/admin/leads" element={<AdminLeads />} />
+              <Route path="/admin/packages" element={<AdminPackages />} />
+              <Route path="/admin/rules" element={<AdminRules />} />
 
               <Route path="/admin/employees" element={<AdminEmployees />} />
               <Route path="/admin/employees/:id/compliance" element={<AdminEmployeeCompliance />} />

@@ -2392,6 +2392,32 @@ class ApiService {
     return response.data;
   }
 
+  // Packages (Pacotes de Serviço)
+  async getPackages() {
+    const response = await this.client.get('/packages');
+    return response.data;
+  }
+
+  async getPackage(id: string) {
+    const response = await this.client.get(`/packages/${id}`);
+    return response.data;
+  }
+
+  async createPackage(packageData: any) {
+    const response = await this.client.post('/packages', packageData);
+    return response.data;
+  }
+
+  async updatePackage(id: string, packageData: any) {
+    const response = await this.client.put(`/packages/${id}`, packageData);
+    return response.data;
+  }
+
+  async deletePackage(id: string) {
+    const response = await this.client.delete(`/packages/${id}`);
+    return response.data;
+  }
+
   // Contracts (Contratos)
   async getContracts(filters?: { status?: string; workId?: string; clientId?: string }) {
     const response = await this.client.get('/contracts', { params: filters });
@@ -3588,6 +3614,24 @@ class ApiService {
   async updateCategory(id: string, data: any) { return (await this.client.put(`/categories/${id}`, data)).data; }
   async toggleCategory(id: string) { return (await this.client.patch(`/categories/${id}/toggle`)).data; }
   async getAllCategories() { return (await this.client.get('/categories/all')).data; }
+
+  // ═══ REGRAS DE NEGÓCIO ═══════════════════════════════════════════════════
+  async getRules() { return (await this.client.get('/rules')).data; }
+  async getRule(id: string) { return (await this.client.get(`/rules/${id}`)).data; }
+  async createRule(ruleData: any) { return (await this.client.post('/rules', ruleData)).data; }
+  async updateRule(id: string, ruleData: any) { return (await this.client.put(`/rules/${id}`, ruleData)).data; }
+  async deleteRule(id: string) { return (await this.client.delete(`/rules/${id}`)).data; }
+  async evaluateRule(context: any) { return (await this.client.post('/rules/evaluate', context)).data; }
+
+  // ═══ LEADS (CRM) ════════════════════════════════════════════════════════════
+  async getLeads(params?: { status?: string; search?: string }) {
+    return (await this.client.get('/leads', { params })).data;
+  }
+  async getLead(id: string) { return (await this.client.get(`/leads/${id}`)).data; }
+  async createLead(data: any) { return (await this.client.post('/leads', data)).data; }
+  async updateLead(id: string, data: any) { return (await this.client.put(`/leads/${id}`, data)).data; }
+  async deleteLead(id: string) { return (await this.client.delete(`/leads/${id}`)).data; }
+  async convertLead(id: string) { return (await this.client.post(`/leads/${id}/convert`)).data; }
 }
 
 export const api = new ApiService();
