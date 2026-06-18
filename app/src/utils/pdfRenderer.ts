@@ -1,6 +1,9 @@
 /**
  * Utilitário para renderizar páginas de um PDF como imagens base64.
  * Usa pdf.js para converter cada página em canvas → data URL.
+ * 
+ * Busca o PDF via fetch() primeiro para evitar problemas de CORS
+ * com Supabase Storage.
  */
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -23,12 +26,19 @@ export interface RenderedAttachment {
 
 /**
  * Renderiza todas as páginas de um PDF como imagens PNG base64.
- * @param url URL pública do PDF (Supabase storage)
- * @param scale Escala de renderização (2 = boa qualidade, 3 = alta)
+ * Busca o PDF via fetch() e passa como ArrayBuffer para evitar CORS.
  */
 export async function renderPdfToImages(url: string, scale: number = 2): Promise<RenderedPage[]> {
+  // Buscar o PDF como ArrayBuffer via fetch (resolve CORS)
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Falha ao buscar PDF: ${response.status} ${response.statusText}`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  const data = new Uint8Array(arrayBuffer);
+
   const loadingTask = pdfjsLib.getDocument({
-    url,
+    data,
     cMapUrl: `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/cmaps/`,
     cMapPacked: true,
   });
@@ -76,11 +86,15 @@ export async function renderAttachmentPdfs(
     (d: any) => d.mimeType?.includes('pdf') || /\.pdf$/i.test(d.fileName || d.name || '')
   );
 
+  if (pdfDocs.length === 0) return [];
+
   const results: RenderedAttachment[] = [];
 
   for (const doc of pdfDocs) {
     try {
+      console.log(`[pdfRenderer] Renderizando "${doc.name || doc.fileName}" de ${doc.url}`);
       const pages = await renderPdfToImages(doc.url, scale);
+      console.log(`[pdfRenderer] "${doc.name || doc.fileName}": ${pages.length} páginas renderizadas`);
       results.push({
         docId: doc.id,
         docName: doc.name || doc.fileName || 'Anexo',
@@ -88,7 +102,7 @@ export async function renderAttachmentPdfs(
         pages,
       });
     } catch (err) {
-      console.warn(`Falha ao renderizar PDF "${doc.name || doc.fileName}":`, err);
+      console.error(`[pdfRenderer] Falha ao renderizar PDF "${doc.name || doc.fileName}":`, err);
     }
   }
 
