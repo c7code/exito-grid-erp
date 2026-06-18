@@ -112,6 +112,7 @@ import { HealthModule } from './health/health.module';
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
         migrationsRun: true, // Auto-run pending migrations on startup
+        migrationsTransactionMode: 'none', // DDL com IF NOT EXISTS precisa rodar sem transação no PostgreSQL
         synchronize: false, // Banco antigo já possui schema completo
         logging: configService.get('NODE_ENV') === 'development' ? ['error', 'warn', 'schema'] : false,
         ssl: { rejectUnauthorized: false },

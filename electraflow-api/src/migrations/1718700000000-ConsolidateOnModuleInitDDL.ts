@@ -27,12 +27,6 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  */
 export class ConsolidateOnModuleInitDDL1718700000000 implements MigrationInterface {
 
-  // CRITICAL: Disable transaction wrapping. PostgreSQL aborts ALL subsequent
-  // statements in a transaction if ANY statement fails. Since this migration
-  // uses IF NOT EXISTS and try/catch for idempotency, each statement must
-  // run independently outside a transaction.
-  public transaction = false as const;
-
   public async up(queryRunner: QueryRunner): Promise<void> {
 
     // ═══════════════════════════════════════════════════════════════
