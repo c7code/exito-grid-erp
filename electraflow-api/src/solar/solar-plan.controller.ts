@@ -1,5 +1,10 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
 import { SolarPlanService } from './solar-plan.service';
+import {
+  CreateSolarPlanDto, UpdateSolarPlanDto,
+  CreateSolarPlanSubscriptionDto, UpdateSolarPlanSubscriptionDto,
+  SimulateSolarPlanDto, PayInstallmentDto, UpdateInstallmentDto,
+} from './dto';
 
 @Controller('solar-plans')
 export class SolarPlanController {
@@ -14,16 +19,16 @@ export class SolarPlanController {
   getDashboard() { return this.service.getDashboard(); }
 
   @Post('simulate')
-  simulate(@Body() body: any) { return this.service.simulate(body); }
+  simulate(@Body() body: SimulateSolarPlanDto) { return this.service.simulate(body as any); }
 
   @Get(':id')
   findOnePlan(@Param('id') id: string) { return this.service.findOnePlan(id); }
 
   @Post()
-  createPlan(@Body() body: any) { return this.service.createPlan(body); }
+  createPlan(@Body() body: CreateSolarPlanDto) { return this.service.createPlan(body as any); }
 
   @Put(':id')
-  updatePlan(@Param('id') id: string, @Body() body: any) { return this.service.updatePlan(id, body); }
+  updatePlan(@Param('id') id: string, @Body() body: UpdateSolarPlanDto) { return this.service.updatePlan(id, body as any); }
 
   @Delete(':id')
   removePlan(@Param('id') id: string) { return this.service.removePlan(id); }
@@ -36,10 +41,10 @@ export class SolarPlanController {
   findOneSubscription(@Param('id') id: string) { return this.service.findOneSubscription(id); }
 
   @Post('subscriptions')
-  createSubscription(@Body() body: any) { return this.service.createSubscription(body); }
+  createSubscription(@Body() body: CreateSolarPlanSubscriptionDto) { return this.service.createSubscription(body as any); }
 
   @Put('subscriptions/:id')
-  updateSubscription(@Param('id') id: string, @Body() body: any) { return this.service.updateSubscription(id, body); }
+  updateSubscription(@Param('id') id: string, @Body() body: UpdateSolarPlanSubscriptionDto) { return this.service.updateSubscription(id, body as any); }
 
   @Post('subscriptions/:id/cancel')
   cancelSubscription(@Param('id') id: string, @Body() body: { reason: string }) {
@@ -57,10 +62,10 @@ export class SolarPlanController {
   getInstallments(@Param('id') id: string) { return this.service.getInstallments(id); }
 
   @Post('installments/:id/pay')
-  payInstallment(@Param('id') id: string, @Body() body: any) { return this.service.payInstallment(id, body); }
+  payInstallment(@Param('id') id: string, @Body() body: PayInstallmentDto) { return this.service.payInstallment(id, body as any); }
 
   @Put('installments/:id')
-  updateInstallment(@Param('id') id: string, @Body() body: any) { return this.service.updateInstallment(id, body); }
+  updateInstallment(@Param('id') id: string, @Body() body: UpdateInstallmentDto) { return this.service.updateInstallment(id, body as any); }
 
   // ═══ CLIENT PORTAL ═══
   @Get('client/:clientId')

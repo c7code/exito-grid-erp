@@ -6,6 +6,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ServiceRule } from './service-rule.entity';
 import { CompanyFinancials } from './company-financials.entity';
+import {
+    CreateBudgetDto,
+    UpdateBudgetDto,
+    AddBudgetItemDto,
+    UpdateBudgetItemDto,
+    CreateServiceRuleDto,
+    UpdateServiceRuleDto,
+    TestServiceRuleDto,
+    UpdateCompanyFinancialsDto,
+} from './dto';
 
 @Controller('budgets')
 @UseGuards(JwtAuthGuard)
@@ -32,7 +42,7 @@ export class BudgetsController {
     }
 
     @Post('config/rules')
-    async createRule(@Body() data: any) {
+    async createRule(@Body() data: CreateServiceRuleDto) {
         const rule = this.ruleRepo.create(data);
         const saved = await this.ruleRepo.save(rule);
         this.engine.invalidateCache();
@@ -40,12 +50,12 @@ export class BudgetsController {
     }
 
     @Post('config/rules/test')
-    async testRule(@Body() body: { description: string; state?: string }) {
+    async testRule(@Body() body: TestServiceRuleDto) {
         return this.engine.analyze(body.description, body.state || 'PE');
     }
 
     @Put('config/rules/:id')
-    async updateRule(@Param('id') id: string, @Body() data: any) {
+    async updateRule(@Param('id') id: string, @Body() data: UpdateServiceRuleDto) {
         await this.ruleRepo.update(id, data);
         this.engine.invalidateCache();
         return this.ruleRepo.findOne({ where: { id } });
@@ -71,7 +81,7 @@ export class BudgetsController {
     }
 
     @Put('config/financials/:id')
-    async updateFinancials(@Param('id') id: string, @Body() data: any) {
+    async updateFinancials(@Param('id') id: string, @Body() data: UpdateCompanyFinancialsDto) {
         const bdi = (Number(data.adminCentralPercent) || 0) +
                      (Number(data.seguroPercent) || 0) +
                      (Number(data.riscoPercent) || 0) +
@@ -88,7 +98,7 @@ export class BudgetsController {
     // ═══ STATIC ITEM ROUTES ═══
 
     @Put('items/:itemId')
-    updateItem(@Param('itemId') itemId: string, @Body() data: any) {
+    updateItem(@Param('itemId') itemId: string, @Body() data: UpdateBudgetItemDto) {
         return this.service.updateItem(itemId, data);
     }
 
@@ -113,7 +123,7 @@ export class BudgetsController {
     }
 
     @Post()
-    create(@Body() data: any, @Req() req: any) {
+    create(@Body() data: CreateBudgetDto, @Req() req: any) {
         return this.service.create({ ...data, userId: req.user?.id, companyId: req.user?.companyId });
     }
 
@@ -123,7 +133,7 @@ export class BudgetsController {
     }
 
     @Put(':id')
-    update(@Param('id') id: string, @Body() data: any) {
+    update(@Param('id') id: string, @Body() data: UpdateBudgetDto) {
         return this.service.update(id, data);
     }
 
@@ -135,7 +145,7 @@ export class BudgetsController {
     // ═══ ITEMS & SINAPI — Under :id ═══
 
     @Post(':id/items')
-    addItem(@Param('id') budgetId: string, @Body() data: any) {
+    addItem(@Param('id') budgetId: string, @Body() data: AddBudgetItemDto) {
         return this.service.addItem(budgetId, data);
     }
 

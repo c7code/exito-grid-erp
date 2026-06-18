@@ -3,8 +3,11 @@ import {
   UploadedFile, UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { SignaturesService } from './signatures.service';
+import { CreateSignatureSlotDto, UpdateSignatureSlotDto, BindDocumentSignatureDto } from './dto';
 
+@ApiTags('Assinaturas')
 @Controller('signatures')
 export class SignaturesController {
   constructor(private readonly service: SignaturesService) {}
@@ -12,6 +15,7 @@ export class SignaturesController {
   // ═══ SPECIFIC ROUTES FIRST (before :id catch-all) ══════════════════════════
 
   @Get('resolve/:type/:docId')
+  @ApiOperation({ summary: 'Resolver assinaturas de um documento' })
   resolveSignatures(
     @Param('type') type: string,
     @Param('docId') docId: string,
@@ -22,23 +26,19 @@ export class SignaturesController {
   }
 
   @Get('document/:type/:docId')
+  @ApiOperation({ summary: 'Listar assinaturas vinculadas ao documento' })
   getDocumentSignatures(@Param('type') type: string, @Param('docId') docId: string) {
     return this.service.getDocumentSignatures(type, docId);
   }
 
   @Post('document/bind')
-  setDocumentSignature(@Body() data: {
-    documentType: string;
-    documentId: string;
-    slotPosition: string;
-    signatureSlotId: string;
-    overrideSignerName?: string;
-    overrideSignerRole?: string;
-  }) {
+  @ApiOperation({ summary: 'Vincular assinatura a um documento' })
+  setDocumentSignature(@Body() data: BindDocumentSignatureDto) {
     return this.service.setDocumentSignature(data);
   }
 
   @Delete('document/:docId')
+  @ApiOperation({ summary: 'Remover assinatura de documento' })
   removeDocumentSignature(@Param('docId') docId: string) {
     return this.service.removeDocumentSignature(docId);
   }
@@ -46,13 +46,15 @@ export class SignaturesController {
   // ═══ SIGNATURE SLOTS (generic :id routes LAST) ═════════════════════════════
 
   @Get()
+  @ApiOperation({ summary: 'Listar assinaturas cadastradas' })
   findAll(@Query('scope') scope?: string) {
     if (scope) return this.service.findSlotsByScope(scope);
     return this.service.findAllSlots();
   }
 
   @Post()
-  create(@Body() data: any) {
+  @ApiOperation({ summary: 'Cadastrar nova assinatura' })
+  create(@Body() data: CreateSignatureSlotDto) {
     return this.service.createSlot(data);
   }
 
@@ -61,6 +63,8 @@ export class SignaturesController {
    * This avoids filesystem dependency (Railway ephemeral containers).
    */
   @Post(':id/upload')
+  @ApiOperation({ summary: 'Upload de imagem de assinatura' })
+  @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async uploadImage(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
     if (!file || !file.buffer) {
@@ -75,16 +79,19 @@ export class SignaturesController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Buscar assinatura por ID' })
   findOne(@Param('id') id: string) {
     return this.service.findSlotById(id);
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() data: any) {
+  @ApiOperation({ summary: 'Atualizar assinatura' })
+  update(@Param('id') id: string, @Body() data: UpdateSignatureSlotDto) {
     return this.service.updateSlot(id, data);
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Remover assinatura' })
   remove(@Param('id') id: string) {
     return this.service.deleteSlot(id);
   }

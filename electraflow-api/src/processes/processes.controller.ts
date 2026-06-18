@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, Request, UseGua
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ProcessesService } from './processes.service';
-import { Process } from './process.entity';
+import { CreateProcessDto, UpdateProcessDto, CreateProcessStageDto, UpdateProcessStageDto, CreateChecklistItemDto, ToggleChecklistDto } from './dto';
 
 @ApiTags('Processos')
 @Controller('processes')
@@ -36,14 +36,14 @@ export class ProcessesController {
 
   @Post()
   @ApiOperation({ summary: 'Criar processo' })
-  async create(@Body() processData: Partial<Process>) {
-    return this.processesService.create(processData);
+  async create(@Body() processData: CreateProcessDto) {
+    return this.processesService.create(processData as any);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar processo' })
-  async update(@Param('id') id: string, @Body() data: Partial<Process>) {
-    return this.processesService.update(id, data);
+  async update(@Param('id') id: string, @Body() data: UpdateProcessDto) {
+    return this.processesService.update(id, data as any);
   }
 
   @Delete(':id')
@@ -54,8 +54,8 @@ export class ProcessesController {
 
   @Post(':id/stages')
   @ApiOperation({ summary: 'Criar etapa do processo' })
-  async createStage(@Param('id') processId: string, @Body() stageData: any) {
-    return this.processesService.createStage(processId, stageData);
+  async createStage(@Param('id') processId: string, @Body() stageData: CreateProcessStageDto) {
+    return this.processesService.createStage(processId, stageData as any);
   }
 
   @Delete('stages/:stageId')
@@ -66,14 +66,14 @@ export class ProcessesController {
 
   @Put('stages/:stageId')
   @ApiOperation({ summary: 'Atualizar etapa' })
-  async updateStage(@Param('stageId') stageId: string, @Body() stageData: any) {
-    return this.processesService.updateStage(stageId, stageData);
+  async updateStage(@Param('stageId') stageId: string, @Body() stageData: UpdateProcessStageDto) {
+    return this.processesService.updateStage(stageId, stageData as any);
   }
 
   @Post('stages/:stageId/checklist')
   @ApiOperation({ summary: 'Adicionar item ao checklist' })
-  async createChecklistItem(@Param('stageId') stageId: string, @Body() itemData: any) {
-    return this.processesService.createChecklistItem(stageId, itemData);
+  async createChecklistItem(@Param('stageId') stageId: string, @Body() itemData: CreateChecklistItemDto) {
+    return this.processesService.createChecklistItem(stageId, itemData as any);
   }
 
   @Delete('stages/:stageId/checklist/:itemIndex')
@@ -84,7 +84,7 @@ export class ProcessesController {
 
   @Post('checklist/:itemId/toggle')
   @ApiOperation({ summary: 'Marcar/desmarcar item do checklist' })
-  async toggleChecklist(@Param('itemId') itemId: string, @Body('completed') completed: boolean, @Request() req) {
-    return this.processesService.toggleChecklistItem(itemId, completed, req.user.userId);
+  async toggleChecklist(@Param('itemId') itemId: string, @Body() data: ToggleChecklistDto, @Request() req) {
+    return this.processesService.toggleChecklistItem(itemId, data.completed, req.user.userId);
   }
 }

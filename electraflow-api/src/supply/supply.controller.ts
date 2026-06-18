@@ -11,6 +11,18 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SupplyService } from './supply.service';
+import {
+    CreateSupplierDto,
+    UpdateSupplierDto,
+    CreateSupplierContactDto,
+    UpdateSupplierContactDto,
+    CreateQuotationDto,
+    UpdateQuotationDto,
+    CreateQuotationResponseDto,
+    CreatePriceHistoryDto,
+    CalculateMarkupDto,
+    PriceComparisonDto,
+} from './dto';
 
 @Controller('supply')
 @UseGuards(JwtAuthGuard)
@@ -33,12 +45,12 @@ export class SupplyController {
     }
 
     @Post('suppliers')
-    createSupplier(@Body() data: any) {
+    createSupplier(@Body() data: CreateSupplierDto) {
         return this.supplyService.createSupplier(data);
     }
 
     @Put('suppliers/:id')
-    updateSupplier(@Param('id') id: string, @Body() data: any) {
+    updateSupplier(@Param('id') id: string, @Body() data: UpdateSupplierDto) {
         return this.supplyService.updateSupplier(id, data);
     }
 
@@ -50,12 +62,12 @@ export class SupplyController {
     // ==================== CONTACTS ====================
 
     @Post('suppliers/:id/contacts')
-    addContact(@Param('id') supplierId: string, @Body() data: any) {
+    addContact(@Param('id') supplierId: string, @Body() data: CreateSupplierContactDto) {
         return this.supplyService.addContact(supplierId, data);
     }
 
     @Put('contacts/:id')
-    updateContact(@Param('id') id: string, @Body() data: any) {
+    updateContact(@Param('id') id: string, @Body() data: UpdateSupplierContactDto) {
         return this.supplyService.updateContact(id, data);
     }
 
@@ -77,20 +89,20 @@ export class SupplyController {
     }
 
     @Post('quotations')
-    createQuotation(@Body() data: any) {
-        return this.supplyService.createQuotation(data);
+    createQuotation(@Body() data: CreateQuotationDto) {
+        return this.supplyService.createQuotation(data as any);
     }
 
     @Put('quotations/:id')
-    updateQuotation(@Param('id') id: string, @Body() data: any) {
-        return this.supplyService.updateQuotation(id, data);
+    updateQuotation(@Param('id') id: string, @Body() data: UpdateQuotationDto) {
+        return this.supplyService.updateQuotation(id, data as any);
     }
 
     // ==================== RESPONSES ====================
 
     @Post('quotations/:id/responses')
-    addQuotationResponse(@Param('id') id: string, @Body() data: any) {
-        return this.supplyService.addQuotationResponse(id, data);
+    addQuotationResponse(@Param('id') id: string, @Body() data: CreateQuotationResponseDto) {
+        return this.supplyService.addQuotationResponse(id, data as any);
     }
 
     @Post('responses/:id/select')
@@ -118,8 +130,8 @@ export class SupplyController {
     }
 
     @Post('price-history')
-    addPriceManual(@Body() data: any) {
-        return this.supplyService.addPriceManual(data);
+    addPriceManual(@Body() data: CreatePriceHistoryDto) {
+        return this.supplyService.addPriceManual(data as any);
     }
 
     @Get('best-price/:catalogItemId')
@@ -130,12 +142,12 @@ export class SupplyController {
     // ==================== MARKUP & COMPARISON ====================
 
     @Post('markup-calculator')
-    calculateMarkup(@Body() data: { catalogItemId: string; markupPercent: number; supplierId?: string }) {
+    calculateMarkup(@Body() data: CalculateMarkupDto) {
         return this.supplyService.calculateMarkup(data);
     }
 
     @Post('price-comparison')
-    priceComparison(@Body() data: { catalogItemIds: string[] }) {
+    priceComparison(@Body() data: PriceComparisonDto) {
         return this.supplyService.priceComparison(data.catalogItemIds);
     }
 }

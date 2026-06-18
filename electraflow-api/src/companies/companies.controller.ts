@@ -6,6 +6,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CompaniesService } from './companies.service';
 import { Company } from './company.entity';
 import { CompanyDocument } from './company-document.entity';
+import { CreateCompanyDto, UpdateCompanyDto, CreateCompanyDocumentDto, UpdateCompanyDocumentDto } from './dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -31,13 +32,13 @@ export class CompaniesController {
     }
 
     @Post()
-    create(@Body() data: Partial<Company>, @Req() req): Promise<Company> {
+    create(@Body() data: CreateCompanyDto, @Req() req): Promise<Company> {
         if (!['admin', 'engineer', 'commercial'].includes(req.user?.role)) throw new ForbiddenException('Acesso negado');
         return this.companiesService.create(data);
     }
 
     @Patch(':id')
-    update(@Param('id') id: string, @Body() data: Partial<Company>, @Req() req): Promise<Company> {
+    update(@Param('id') id: string, @Body() data: UpdateCompanyDto, @Req() req): Promise<Company> {
         if (!['admin', 'engineer', 'commercial'].includes(req.user?.role)) throw new ForbiddenException('Acesso negado');
         return this.companiesService.update(id, data);
     }
@@ -110,7 +111,7 @@ export class CompaniesController {
     @Post(':companyId/documents')
     createDocument(
         @Param('companyId') companyId: string,
-        @Body() data: Partial<CompanyDocument>,
+        @Body() data: CreateCompanyDocumentDto,
     ): Promise<CompanyDocument> {
         return this.companiesService.createDocument({ ...data, companyId });
     }
@@ -118,7 +119,7 @@ export class CompaniesController {
     @Patch('documents/:docId')
     updateDocument(
         @Param('docId') docId: string,
-        @Body() data: Partial<CompanyDocument>,
+        @Body() data: UpdateCompanyDocumentDto,
     ): Promise<CompanyDocument> {
         return this.companiesService.updateDocument(docId, data);
     }

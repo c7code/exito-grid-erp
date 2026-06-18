@@ -6,6 +6,7 @@ import { ClientsService } from './clients.service';
 import { Client } from './client.entity';
 import { ClientDocument } from './client-document.entity';
 import { ClientRequest, RequestStatus } from './client-request.entity';
+import { CreateClientDto, UpdateClientDto, RespondToRequestDto, CreateClientDocumentDto, CreateClientRequestDto } from './dto';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { v4 as uuid } from 'uuid';
@@ -51,13 +52,13 @@ export class ClientsController {
 
   @Post()
   @ApiOperation({ summary: 'Criar cliente (gera acesso ao portal automaticamente)' })
-  async create(@Body() clientData: Partial<Client>, @Request() req) {
+  async create(@Body() clientData: CreateClientDto, @Request() req) {
     return this.clientsService.create({ ...clientData, createdById: req.user?.userId || req.user?.id });
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar cliente' })
-  async update(@Param('id') id: string, @Body() clientData: Partial<Client>) {
+  async update(@Param('id') id: string, @Body() clientData: UpdateClientDto) {
     return this.clientsService.update(id, clientData);
   }
 
@@ -98,7 +99,7 @@ export class ClientsController {
   async respondToRequest(
     @Param('id') id: string,
     @Request() req,
-    @Body() body: { adminResponse: string; status: RequestStatus },
+    @Body() body: RespondToRequestDto,
   ) {
     return this.clientsService.respondToRequest(id, {
       adminResponse: body.adminResponse,
@@ -111,7 +112,7 @@ export class ClientsController {
 
   @Post(':id/documents')
   @ApiOperation({ summary: 'Adicionar documento ao cliente' })
-  async addDocument(@Param('id') id: string, @Body() data: Partial<ClientDocument>) {
+  async addDocument(@Param('id') id: string, @Body() data: CreateClientDocumentDto) {
     return this.clientsService.addDocument(id, data);
   }
 
@@ -122,7 +123,7 @@ export class ClientsController {
   async uploadDocument(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
-    @Body() body: { type?: string; issueDate?: string; expiryDate?: string },
+    @Body() body: CreateClientDocumentDto,
   ) {
     const fileUrl = `/uploads/client-documents/${file.filename}`;
     return this.clientsService.addDocument(id, {
@@ -186,7 +187,7 @@ export class ClientPortalController {
   @UseInterceptors(FilesInterceptor('files', 10, { storage: requestUploadStorage }))
   async createRequest(
     @Request() req,
-    @Body() data: Partial<ClientRequest>,
+    @Body() data: CreateClientRequestDto,
     @UploadedFiles() files?: Express.Multer.File[],
   ) {
     return this.clientsService.createClientRequest(req.user.userId, data, files);

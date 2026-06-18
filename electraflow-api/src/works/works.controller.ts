@@ -3,7 +3,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { WorksService } from './works.service';
-import { Work, WorkStatus } from './work.entity';
+import { WorkStatus } from './work.entity';
+import { CreateWorkDto, UpdateWorkDto, CreateWorkTypeDto, UpdateWorkTypeDto, UpdateWorkProgressDto, CreateWorkUpdateDto, UpdateWorkUpdateDto, CreateWorkPhaseDto, UpdateWorkPhaseDto } from './dto';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { v4 as uuid } from 'uuid';
@@ -49,13 +50,13 @@ export class WorksController {
 
   @Post('types')
   @ApiOperation({ summary: 'Cadastrar novo tipo de obra' })
-  async createWorkType(@Body() data: { label: string; key?: string }) {
+  async createWorkType(@Body() data: CreateWorkTypeDto) {
     return this.worksService.createWorkType(data);
   }
 
   @Put('types/:id')
   @ApiOperation({ summary: 'Atualizar tipo de obra' })
-  async updateWorkType(@Param('id') id: string, @Body() data: any) {
+  async updateWorkType(@Param('id') id: string, @Body() data: UpdateWorkTypeDto) {
     return this.worksService.updateWorkType(id, data);
   }
 
@@ -76,20 +77,20 @@ export class WorksController {
 
   @Post()
   @ApiOperation({ summary: 'Criar obra' })
-  async create(@Body() workData: Partial<Work>, @Request() req) {
-    return this.worksService.create({ ...workData, createdById: req.user?.userId || req.user?.id });
+  async create(@Body() workData: CreateWorkDto, @Request() req) {
+    return this.worksService.create({ ...workData, createdById: req.user?.userId || req.user?.id } as any);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar obra' })
-  async update(@Param('id') id: string, @Body() workData: Partial<Work>, @Request() req) {
-    return this.worksService.update(id, { ...workData, updatedById: req.user?.userId || req.user?.id });
+  async update(@Param('id') id: string, @Body() workData: UpdateWorkDto, @Request() req) {
+    return this.worksService.update(id, { ...workData, updatedById: req.user?.userId || req.user?.id } as any);
   }
 
   @Post(':id/progress')
   @ApiOperation({ summary: 'Atualizar progresso da obra' })
-  async updateProgress(@Param('id') id: string, @Body('progress') progress: number) {
-    return this.worksService.updateProgress(id, progress);
+  async updateProgress(@Param('id') id: string, @Body() body: UpdateWorkProgressDto) {
+    return this.worksService.updateProgress(id, body.progress);
   }
 
   @Delete(':id')
@@ -113,7 +114,7 @@ export class WorksController {
   @UseInterceptors(FileInterceptor('image', { storage: uploadStorage }))
   async createUpdate(
     @Param('id') id: string,
-    @Body() body: { description: string; progress: string },
+    @Body() body: CreateWorkUpdateDto,
     @UploadedFile() file?: any,
   ) {
     const imageUrl = file ? `/uploads/works/${file.filename}` : undefined;
@@ -128,7 +129,7 @@ export class WorksController {
   @ApiOperation({ summary: 'Editar atualização de progresso' })
   async updateWorkUpdate(
     @Param('updateId') updateId: string,
-    @Body() body: { description?: string; progress?: number },
+    @Body() body: UpdateWorkUpdateDto,
   ) {
     return this.worksService.updateWorkUpdate(updateId, body);
   }
@@ -150,13 +151,13 @@ export class WorksController {
 
   @Post(':id/phases')
   @ApiOperation({ summary: 'Criar etapa na obra' })
-  async createPhase(@Param('id') id: string, @Body() body: any) {
+  async createPhase(@Param('id') id: string, @Body() body: CreateWorkPhaseDto) {
     return this.worksService.createPhase(id, body);
   }
 
   @Put('phases/:phaseId')
   @ApiOperation({ summary: 'Editar etapa' })
-  async updatePhase(@Param('phaseId') phaseId: string, @Body() body: any) {
+  async updatePhase(@Param('phaseId') phaseId: string, @Body() body: UpdateWorkPhaseDto) {
     return this.worksService.updatePhase(phaseId, body);
   }
 

@@ -5,7 +5,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MarkupService } from './markup.service';
-import { MarkupConfig } from './markup.entity';
+import { CreateMarkupConfigDto, UpdateMarkupConfigDto } from './dto';
 
 @ApiTags('Markup')
 @Controller('markup')
@@ -39,13 +39,13 @@ export class MarkupController {
 
     @Post()
     @ApiOperation({ summary: 'Criar configuração de markup' })
-    create(@Body() data: Partial<MarkupConfig>) {
+    create(@Body() data: CreateMarkupConfigDto) {
         return this.service.create(data);
     }
 
     @Put(':id')
     @ApiOperation({ summary: 'Atualizar configuração de markup' })
-    update(@Param('id') id: string, @Body() data: Partial<MarkupConfig>) {
+    update(@Param('id') id: string, @Body() data: UpdateMarkupConfigDto) {
         return this.service.update(id, data);
     }
 

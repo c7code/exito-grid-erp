@@ -9,6 +9,22 @@ import { ReferralsService } from './referrals.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PartnerAuthGuard } from './partner-auth.guard';
 import { SupabaseStorageService } from '../documents/supabase-storage.service';
+import {
+  PartnerLoginDto,
+  CreateConsultantDto, UpdateConsultantDto,
+  CreateReferralLeadDto, UpdateReferralLeadDto,
+  CreatePartnerLeadDto,
+  LinkLeadProposalDto, AddLeadProposalDto,
+  ToggleProposalVisibilityDto, UpdateLeadProposalAccessDto,
+  TogglePortalDto,
+  CreateCommitmentDto, UpdateCommitmentDto,
+  CreateFollowupDto, UpdateFollowupDto,
+  CreateCommissionDto, UpdateCommissionDto,
+  UpdateDocVisibilityDto, UpdateLeadDocDescriptionDto,
+  UpdateBroadcastDocDto,
+  UpdatePartnerBankInfoDto,
+  RequestWithdrawalDto, ProcessWithdrawalDto,
+} from './dto';
 
 @Controller('referrals')
 export class ReferralsController {
@@ -20,8 +36,8 @@ export class ReferralsController {
   // ─── PORTAL DO PARCEIRO — ROTAS PÚBLICAS ─────
   @SkipThrottle()
   @Post('partner/login')
-  partnerLogin(@Body('email') email: string, @Body('password') password: string) {
-    return this.service.partnerLogin(email, password);
+  partnerLogin(@Body() dto: PartnerLoginDto) {
+    return this.service.partnerLogin(dto.email, dto.password);
   }
 
   // ─── PORTAL DO PARCEIRO — ROTAS PROTEGIDAS ───
@@ -39,7 +55,7 @@ export class ReferralsController {
 
   @UseGuards(PartnerAuthGuard)
   @Post('partner/leads')
-  createPartnerLead(@Request() req: any, @Body() body: any) {
+  createPartnerLead(@Request() req: any, @Body() body: CreatePartnerLeadDto) {
     return this.service.createLeadByPartner(req.user.consultantId, body);
   }
 
@@ -65,8 +81,8 @@ export class ReferralsController {
 
   @UseGuards(JwtAuthGuard)
   @Put('consultants/:id/toggle-portal')
-  togglePortal(@Param('id') id: string, @Body('isPortalActive') isPortalActive: boolean) {
-    return this.service.togglePortalAccess(id, isPortalActive);
+  togglePortal(@Param('id') id: string, @Body() dto: TogglePortalDto) {
+    return this.service.togglePortalAccess(id, dto.isPortalActive);
   }
 
   // ─── CONSULTORES ─────────────────────────────
@@ -84,14 +100,14 @@ export class ReferralsController {
 
   @UseGuards(JwtAuthGuard)
   @Post('consultants')
-  createConsultant(@Body() body: any) {
-    return this.service.createConsultant(body);
+  createConsultant(@Body() body: CreateConsultantDto) {
+    return this.service.createConsultant(body as any);
   }
 
   @UseGuards(JwtAuthGuard)
   @Put('consultants/:id')
-  updateConsultant(@Param('id') id: string, @Body() body: any) {
-    return this.service.updateConsultant(id, body);
+  updateConsultant(@Param('id') id: string, @Body() body: UpdateConsultantDto) {
+    return this.service.updateConsultant(id, body as any);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -115,14 +131,14 @@ export class ReferralsController {
 
   @UseGuards(JwtAuthGuard)
   @Post('leads')
-  createLead(@Body() body: any) {
-    return this.service.createLead(body);
+  createLead(@Body() body: CreateReferralLeadDto) {
+    return this.service.createLead(body as any);
   }
 
   @UseGuards(JwtAuthGuard)
   @Put('leads/:id')
-  updateLead(@Param('id') id: string, @Body() body: any) {
-    return this.service.updateLead(id, body);
+  updateLead(@Param('id') id: string, @Body() body: UpdateReferralLeadDto) {
+    return this.service.updateLead(id, body as any);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -135,10 +151,9 @@ export class ReferralsController {
   @Post('leads/:id/link-proposal')
   linkLeadToProposal(
     @Param('id') id: string,
-    @Body('proposalId') proposalId: string,
-    @Body('proposalVisible') proposalVisible: boolean,
+    @Body() dto: LinkLeadProposalDto,
   ) {
-    return this.service.linkLeadToProposal(id, proposalId, proposalVisible);
+    return this.service.linkLeadToProposal(id, dto.proposalId, dto.proposalVisible);
   }
 
   /** Admin: adicionar proposta ao lead (suporte a múltiplas) */
@@ -146,12 +161,9 @@ export class ReferralsController {
   @Post('leads/:id/proposals')
   addLeadProposal(
     @Param('id') id: string,
-    @Body('proposalId') proposalId: string,
-    @Body('visible') visible: boolean,
-    @Body('allowDownload') allowDownload: boolean,
-    @Body('proposalTemplate') proposalTemplate: string,
+    @Body() dto: AddLeadProposalDto,
   ) {
-    return this.service.addLeadProposal(id, proposalId, visible ?? false, allowDownload ?? false, proposalTemplate || 'commercial');
+    return this.service.addLeadProposal(id, dto.proposalId, dto.visible ?? false, dto.allowDownload ?? false, dto.proposalTemplate || 'commercial');
   }
 
   /** Admin: listar propostas vinculadas a um lead */
@@ -174,9 +186,9 @@ export class ReferralsController {
   toggleLeadProposalVisibility(
     @Param('id') id: string,
     @Param('proposalId') proposalId: string,
-    @Body('visible') visible: boolean,
+    @Body() dto: ToggleProposalVisibilityDto,
   ) {
-    return this.service.toggleLeadProposalVisibility(id, proposalId, visible);
+    return this.service.toggleLeadProposalVisibility(id, proposalId, dto.visible);
   }
 
   /** Admin: atualiza visível + permissão de download de uma proposta */
@@ -185,17 +197,15 @@ export class ReferralsController {
   updateLeadProposalAccess(
     @Param('id') id: string,
     @Param('proposalId') proposalId: string,
-    @Body('visible') visible: boolean,
-    @Body('allowDownload') allowDownload: boolean,
-    @Body('proposalTemplate') proposalTemplate: string,
+    @Body() dto: UpdateLeadProposalAccessDto,
   ) {
-    return this.service.updateLeadProposalAccess(id, proposalId, visible ?? false, allowDownload ?? false, proposalTemplate);
+    return this.service.updateLeadProposalAccess(id, proposalId, dto.visible ?? false, dto.allowDownload ?? false, dto.proposalTemplate);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch('leads/:id/proposal-visibility')
-  toggleProposalVisibility(@Param('id') id: string, @Body('visible') visible: boolean) {
-    return this.service.toggleProposalVisibility(id, visible);
+  toggleProposalVisibility(@Param('id') id: string, @Body() dto: ToggleProposalVisibilityDto) {
+    return this.service.toggleProposalVisibility(id, dto.visible);
   }
 
   /** Parceiro vê propostas visíveis do seu lead */
@@ -228,14 +238,14 @@ export class ReferralsController {
 
   @UseGuards(JwtAuthGuard)
   @Post('commitments')
-  createCommitment(@Body() body: any) {
-    return this.service.createCommitment(body);
+  createCommitment(@Body() body: CreateCommitmentDto) {
+    return this.service.createCommitment(body as any);
   }
 
   @UseGuards(JwtAuthGuard)
   @Put('commitments/:id')
-  updateCommitment(@Param('id') id: string, @Body() body: any) {
-    return this.service.updateCommitment(id, body);
+  updateCommitment(@Param('id') id: string, @Body() body: UpdateCommitmentDto) {
+    return this.service.updateCommitment(id, body as any);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -253,14 +263,14 @@ export class ReferralsController {
 
   @UseGuards(JwtAuthGuard)
   @Post('followups')
-  createFollowup(@Body() body: any, @Request() req: any) {
-    return this.service.createFollowup({ ...body, createdById: req.user?.id });
+  createFollowup(@Body() body: CreateFollowupDto, @Request() req: any) {
+    return this.service.createFollowup({ ...body, createdById: req.user?.id } as any);
   }
 
   @UseGuards(JwtAuthGuard)
   @Put('followups/:id')
-  updateFollowup(@Param('id') id: string, @Body() body: any) {
-    return this.service.updateFollowup(id, body);
+  updateFollowup(@Param('id') id: string, @Body() body: UpdateFollowupDto) {
+    return this.service.updateFollowup(id, body as any);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -278,14 +288,14 @@ export class ReferralsController {
 
   @UseGuards(JwtAuthGuard)
   @Post('commissions')
-  createCommission(@Body() body: any) {
-    return this.service.createCommission(body);
+  createCommission(@Body() body: CreateCommissionDto) {
+    return this.service.createCommission(body as any);
   }
 
   @UseGuards(JwtAuthGuard)
   @Put('commissions/:id')
-  updateCommission(@Param('id') id: string, @Body() body: any) {
-    return this.service.updateCommission(id, body);
+  updateCommission(@Param('id') id: string, @Body() body: UpdateCommissionDto) {
+    return this.service.updateCommission(id, body as any);
   }
 
   // ─── CANAL DE DOCUMENTOS DO LEAD ─────────────────────────────────────
@@ -358,10 +368,9 @@ export class ReferralsController {
   @Put('leads/documents/:docId/visibility')
   updateDocVisibility(
     @Param('docId') docId: string,
-    @Body('visibility') visibility: 'public' | 'private',
-    @Body('targetConsultantId') targetConsultantId?: string,
+    @Body() dto: UpdateDocVisibilityDto,
   ) {
-    return this.service.updateLeadDocumentVisibility(docId, visibility, targetConsultantId);
+    return this.service.updateLeadDocumentVisibility(docId, dto.visibility as any, dto.targetConsultantId);
   }
 
   // Editar descrição de documento do lead
@@ -369,9 +378,9 @@ export class ReferralsController {
   @Patch('leads/documents/:docId')
   updateLeadDocumentDescription(
     @Param('docId') docId: string,
-    @Body('description') description: string,
+    @Body() dto: UpdateLeadDocDescriptionDto,
   ) {
-    return this.service.updateLeadDocumentDescription(docId, description);
+    return this.service.updateLeadDocumentDescription(docId, dto.description);
   }
 
   // Deletar documento (soft delete)
@@ -414,7 +423,7 @@ export class ReferralsController {
   @Patch('broadcast-docs/:docId')
   updateBroadcastDocument(
     @Param('docId') docId: string,
-    @Body() body: { description?: string; targetChannel?: string },
+    @Body() body: UpdateBroadcastDocDto,
   ) {
     return this.service.updateBroadcastDocument(docId, body);
   }
@@ -444,7 +453,7 @@ export class ReferralsController {
   // ─── DADOS BANCÁRIOS DO PARCEIRO ─────────────────────────────────────
   @UseGuards(PartnerAuthGuard)
   @Put('partner/bank-info')
-  updatePartnerBankInfo(@Request() req: any, @Body() body: any) {
+  updatePartnerBankInfo(@Request() req: any, @Body() body: UpdatePartnerBankInfoDto) {
     return this.service.updatePartnerBankInfo(req.user.consultantId, body);
   }
 
@@ -460,7 +469,7 @@ export class ReferralsController {
   /** Parceiro solicita saque */
   @UseGuards(PartnerAuthGuard)
   @Post('partner/withdrawal-requests')
-  requestWithdrawal(@Request() req: any, @Body() body: any) {
+  requestWithdrawal(@Request() req: any, @Body() body: RequestWithdrawalDto) {
     return this.service.requestWithdrawal(req.user.consultantId, body);
   }
 

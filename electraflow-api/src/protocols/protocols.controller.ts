@@ -2,8 +2,8 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req 
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ProtocolsService } from './protocols.service';
-import { Protocol, ProtocolStatus } from './protocol.entity';
-import { ProtocolEvent } from './protocol-event.entity';
+import { ProtocolStatus } from './protocol.entity';
+import { CreateProtocolDto, UpdateProtocolDto, CreateProtocolEventDto, UpdateProtocolEventDto } from './dto';
 
 @ApiTags('Protocolos')
 @Controller('protocols')
@@ -38,19 +38,19 @@ export class ProtocolsController {
 
   @Put('events/:eventId')
   @ApiOperation({ summary: 'Atualizar evento do protocolo' })
-  async updateEvent(@Param('eventId') eventId: string, @Body() eventData: Partial<ProtocolEvent>, @Req() req: any) {
+  async updateEvent(@Param('eventId') eventId: string, @Body() eventData: UpdateProtocolEventDto, @Req() req: any) {
     return this.protocolsService.updateEvent(eventId, { ...eventData, userId: req.user?.id });
   }
 
   @Post()
   @ApiOperation({ summary: 'Criar protocolo' })
-  async create(@Body() protocolData: Partial<Protocol>, @Req() req: any) {
+  async create(@Body() protocolData: CreateProtocolDto, @Req() req: any) {
     return this.protocolsService.create(protocolData, req.user?.id);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar protocolo' })
-  async update(@Param('id') id: string, @Body() protocolData: Partial<Protocol>, @Req() req: any) {
+  async update(@Param('id') id: string, @Body() protocolData: UpdateProtocolDto, @Req() req: any) {
     return this.protocolsService.update(id, protocolData, req.user?.id);
   }
 
@@ -63,7 +63,7 @@ export class ProtocolsController {
 
   @Post(':id/events')
   @ApiOperation({ summary: 'Adicionar evento ao protocolo' })
-  async addEvent(@Param('id') id: string, @Body() eventData: Partial<ProtocolEvent>, @Req() req: any) {
+  async addEvent(@Param('id') id: string, @Body() eventData: CreateProtocolEventDto, @Req() req: any) {
     return this.protocolsService.addEvent(id, { ...eventData, userId: req.user?.id });
   }
 }

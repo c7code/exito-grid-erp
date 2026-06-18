@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { AuthGuard } from '@nestjs/passport';
+import { CreateInventoryItemDto, UpdateInventoryItemDto, CreateStockMovementDto } from './dto';
 
 @Controller('inventory')
 @UseGuards(AuthGuard('jwt'))
@@ -24,12 +25,12 @@ export class InventoryController {
     }
 
     @Post('items')
-    createItem(@Body() data: any) {
+    createItem(@Body() data: CreateInventoryItemDto) {
         return this.service.createItem(data);
     }
 
     @Put('items/:id')
-    updateItem(@Param('id') id: string, @Body() data: any) {
+    updateItem(@Param('id') id: string, @Body() data: UpdateInventoryItemDto) {
         return this.service.updateItem(id, data);
     }
 
@@ -49,7 +50,7 @@ export class InventoryController {
     }
 
     @Post('movements')
-    createMovement(@Body() data: any, @Req() req: any) {
+    createMovement(@Body() data: CreateStockMovementDto, @Req() req: any) {
         return this.service.createMovement({
             ...data,
             performedById: req.user?.id || req.user?.sub,

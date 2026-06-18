@@ -9,6 +9,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DocumentsService } from './documents.service';
 import { SupabaseStorageService } from './supabase-storage.service';
 import { Document, DocumentFolder, DocumentType } from './document.entity';
+import {
+  CreateDocumentFolderDto, UpdateDocumentFolderDto, CreateFolderCategoryDto,
+  UploadDocumentDto, CreateDocumentDto, UpdateDocumentDto, ChangeDocumentAccessLevelDto,
+} from './dto';
 import { Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -88,13 +92,13 @@ export class DocumentsController {
 
   @Post('folders')
   @ApiOperation({ summary: 'Criar pasta' })
-  async createFolder(@Body() data: Partial<DocumentFolder>) {
+  async createFolder(@Body() data: CreateDocumentFolderDto) {
     return this.documentsService.createFolder(data);
   }
 
   @Put('folders/:id')
   @ApiOperation({ summary: 'Atualizar pasta' })
-  async updateFolder(@Param('id') id: string, @Body() data: Partial<DocumentFolder>) {
+  async updateFolder(@Param('id') id: string, @Body() data: UpdateDocumentFolderDto) {
     return this.documentsService.updateFolder(id, data);
   }
 
@@ -116,7 +120,7 @@ export class DocumentsController {
 
   @Post('categories')
   @ApiOperation({ summary: 'Criar categoria de pasta' })
-  async createCategory(@Body() data: { name: string; color?: string; icon?: string }) {
+  async createCategory(@Body() data: CreateFolderCategoryDto) {
     return this.documentsService.createCategory(data);
   }
 
@@ -140,7 +144,7 @@ export class DocumentsController {
   )
   async upload(
     @UploadedFile() file: Express.Multer.File,
-    @Body() body: { name?: string; type?: string; workId?: string; folderId?: string; description?: string; purpose?: string; tags?: string; sourceOrganization?: string; contractId?: string; proposalId?: string; clientId?: string },
+    @Body() body: UploadDocumentDto,
     @Request() req,
   ) {
     // Verifica se o Supabase Storage está configurado
@@ -254,13 +258,13 @@ export class DocumentsController {
 
   @Post()
   @ApiOperation({ summary: 'Criar documento (registro manual via URL)' })
-  async create(@Body() docData: Partial<Document>) {
+  async create(@Body() docData: CreateDocumentDto) {
     return this.documentsService.create(docData);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar documento' })
-  async update(@Param('id') id: string, @Body() docData: Partial<Document>) {
+  async update(@Param('id') id: string, @Body() docData: UpdateDocumentDto) {
     return this.documentsService.update(id, docData);
   }
 
@@ -300,7 +304,7 @@ export class DocumentsController {
   @ApiOperation({ summary: 'Alterar nível de acesso do documento' })
   async changeAccessLevel(
     @Param('id') id: string,
-    @Body() body: { accessLevel: string },
+    @Body() body: ChangeDocumentAccessLevelDto,
     @Request() req,
   ) {
     // Apenas admin ou usuários com permissão documents-restricted podem alterar nível de acesso

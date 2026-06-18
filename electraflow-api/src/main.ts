@@ -148,8 +148,8 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({
     transform: true,
-    whitelist: false,            // disabled: most controllers use plain objects, not decorated DTOs
-    forbidNonWhitelisted: false,
+    whitelist: true,             // Strip properties not in DTOs
+    forbidNonWhitelisted: false, // Don't reject unknown props (strip silently for backwards compatibility)
     transformOptions: { enableImplicitConversion: true },
   }));
 

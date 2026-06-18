@@ -4,6 +4,17 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ProposalsService } from './proposals.service';
 import { Proposal, ProposalStatus } from './proposal.entity';
 import { Request } from 'express';
+import {
+  CreateProposalDto,
+  UpdateProposalDto,
+  UpdateProposalItemsDto,
+  RejectProposalDto,
+  DuplicateProposalDto,
+  UpdateProposalLabelDto,
+  RestoreRevisionDto,
+  DeleteRevisionDto,
+  ConfirmProposalSignatureDto,
+} from './dto';
 
 @ApiTags('Propostas')
 @Controller('proposals')
@@ -48,26 +59,26 @@ export class ProposalsController {
 
   @Post(':id/restore-revision')
   @ApiOperation({ summary: 'Restaurar proposta para uma revisão anterior' })
-  async restoreRevision(@Param('id') id: string, @Body() data: { revisionId: string }) {
+  async restoreRevision(@Param('id') id: string, @Body() data: RestoreRevisionDto) {
     return this.proposalsService.restoreRevision(id, data.revisionId);
   }
 
   @Delete(':id/revisions')
   @ApiOperation({ summary: 'Excluir revisão (soft delete)' })
-  async softDeleteRevision(@Param('id') id: string, @Body() data: { revisionId: string }) {
+  async softDeleteRevision(@Param('id') id: string, @Body() data: DeleteRevisionDto) {
     await this.proposalsService.softDeleteRevision(id, data.revisionId);
     return { message: 'Revisão excluída com sucesso' };
   }
 
   @Post()
   @ApiOperation({ summary: 'Criar proposta' })
-  async create(@Body() data: { proposal: Partial<Proposal>; items: any[] }, @Req() req: any) {
+  async create(@Body() data: CreateProposalDto, @Req() req: any) {
     try {
       // Safely set createdById — skip if user info not available
       const proposalData = { ...data.proposal };
       const userId = req.user?.userId || req.user?.id || req.user?.sub;
       if (userId) {
-        proposalData.createdById = userId;
+        (proposalData as any).createdById = userId;
       }
       return await this.proposalsService.create(proposalData, data.items || []);
     } catch (err: any) {
@@ -83,21 +94,21 @@ export class ProposalsController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar proposta' })
-  async update(@Param('id') id: string, @Body() data: { proposal?: Partial<Proposal>; items?: any[] } & Partial<Proposal>) {
+  async update(@Param('id') id: string, @Body() data: UpdateProposalDto) {
     // Aceita tanto { proposal, items } quanto Partial<Proposal> diretamente
     const proposalData = data.proposal || data;
-    const result = await this.proposalsService.update(id, proposalData);
+    const result = await this.proposalsService.update(id, proposalData as any);
     // Se vieram itens, atualizar também
     if (data.items && Array.isArray(data.items) && data.items.length > 0) {
-      return this.proposalsService.updateItems(id, data.items);
+      return this.proposalsService.updateItems(id, data.items as any);
     }
     return result;
   }
 
   @Put(':id/items')
   @ApiOperation({ summary: 'Atualizar itens da proposta' })
-  async updateItems(@Param('id') id: string, @Body() data: { items: any[] }) {
-    return this.proposalsService.updateItems(id, data.items);
+  async updateItems(@Param('id') id: string, @Body() data: UpdateProposalItemsDto) {
+    return this.proposalsService.updateItems(id, data.items as any);
   }
 
   @Post(':id/recalculate')
@@ -126,7 +137,7 @@ export class ProposalsController {
 
   @Post(':id/reject')
   @ApiOperation({ summary: 'Rejeitar proposta' })
-  async reject(@Param('id') id: string, @Body() data: { reason?: string }) {
+  async reject(@Param('id') id: string, @Body() data: RejectProposalDto) {
     return this.proposalsService.reject(id, data?.reason);
   }
 
@@ -163,7 +174,7 @@ export class ProposalsController {
   @ApiOperation({ summary: 'Duplicar proposta com novo número' })
   async duplicate(
     @Param('id') id: string,
-    @Body() overrides?: { clientId?: string; customLabel?: string },
+    @Body() overrides?: DuplicateProposalDto,
   ) {
     return this.proposalsService.duplicate(id, overrides as any);
   }
@@ -172,7 +183,7 @@ export class ProposalsController {
   @ApiOperation({ summary: 'Atualizar rótulo personalizado da proposta' })
   async updateLabel(
     @Param('id') id: string,
-    @Body() body: { customLabel: string },
+    @Body() body: UpdateProposalLabelDto,
   ) {
     await this.proposalsService['proposalRepository']
       .createQueryBuilder()
@@ -203,7 +214,7 @@ export class ProposalPublicController {
   @ApiOperation({ summary: 'Confirmar assinatura da proposta (público)' })
   async confirmSignature(
     @Param('token') token: string,
-    @Body() data: { name: string; document: string; signatureImage?: string },
+    @Body() data: ConfirmProposalSignatureDto,
     @Req() req: Request,
   ) {
     const ip = req.headers['x-forwarded-for'] as string || req.socket?.remoteAddress || 'unknown';

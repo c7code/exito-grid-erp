@@ -1,6 +1,13 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { OemService } from './oem.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import {
+    CreateOemUsinaDto, UpdateOemUsinaDto,
+    CreateOemServicoDto, UpdateOemServicoDto, ConcluirServicoDto,
+    CreateOemPlanoDto, UpdateOemPlanoDto,
+    CreateOemContratoDto, UpdateOemContratoDto,
+    CalculateOemPriceDto,
+} from './dto';
 
 @Controller('oem')
 @UseGuards(JwtAuthGuard)
@@ -21,7 +28,7 @@ export class OemController {
     findOneUsina(@Param('id') id: string) { return this.oemService.findOneUsina(id); }
 
     @Post('usinas')
-    createUsina(@Body() data: any) { return this.oemService.createUsina(data); }
+    createUsina(@Body() data: CreateOemUsinaDto) { return this.oemService.createUsina(data); }
 
     @Post('usinas/import-from-solar/:projectId')
     importFromSolar(@Param('projectId') projectId: string) {
@@ -29,7 +36,7 @@ export class OemController {
     }
 
     @Put('usinas/:id')
-    updateUsina(@Param('id') id: string, @Body() data: any) {
+    updateUsina(@Param('id') id: string, @Body() data: UpdateOemUsinaDto) {
         return this.oemService.updateUsina(id, data);
     }
 
@@ -56,15 +63,15 @@ export class OemController {
     findOneServico(@Param('id') id: string) { return this.oemService.findOneServico(id); }
 
     @Post('servicos')
-    createServico(@Body() data: any) { return this.oemService.createServico(data); }
+    createServico(@Body() data: CreateOemServicoDto) { return this.oemService.createServico(data); }
 
     @Put('servicos/:id')
-    updateServico(@Param('id') id: string, @Body() data: any) {
+    updateServico(@Param('id') id: string, @Body() data: UpdateOemServicoDto) {
         return this.oemService.updateServico(id, data);
     }
 
     @Post('servicos/:id/concluir')
-    concluirServico(@Param('id') id: string, @Body() data: any) {
+    concluirServico(@Param('id') id: string, @Body() data: ConcluirServicoDto) {
         return this.oemService.concluirServico(id, data);
     }
 
@@ -90,10 +97,10 @@ export class OemController {
     findOnePlano(@Param('id') id: string) { return this.oemService.findOnePlano(id); }
 
     @Post('planos')
-    createPlano(@Body() data: any) { return this.oemService.createPlano(data); }
+    createPlano(@Body() data: CreateOemPlanoDto) { return this.oemService.createPlano(data); }
 
     @Put('planos/:id')
-    updatePlano(@Param('id') id: string, @Body() data: any) {
+    updatePlano(@Param('id') id: string, @Body() data: UpdateOemPlanoDto) {
         return this.oemService.updatePlano(id, data);
     }
 
@@ -110,10 +117,10 @@ export class OemController {
     findOneContrato(@Param('id') id: string) { return this.oemService.findOneContrato(id); }
 
     @Post('contratos')
-    createContrato(@Body() data: any) { return this.oemService.createContrato(data); }
+    createContrato(@Body() data: CreateOemContratoDto) { return this.oemService.createContrato(data); }
 
     @Post('contratos/calculate-price')
-    calculatePrice(@Body() body: { usinaId: string; planoId: string }) {
+    calculatePrice(@Body() body: CalculateOemPriceDto) {
         return this.oemService.calculatePrice(body.usinaId, body.planoId);
     }
 
@@ -123,7 +130,7 @@ export class OemController {
     }
 
     @Put('contratos/:id')
-    updateContrato(@Param('id') id: string, @Body() data: any) {
+    updateContrato(@Param('id') id: string, @Body() data: UpdateOemContratoDto) {
         return this.oemService.updateContrato(id, data);
     }
 

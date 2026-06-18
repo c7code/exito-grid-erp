@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, Request, UseGua
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TasksService } from './tasks.service';
-import { Task } from './task.entity';
+import { CreateTaskDto, UpdateTaskDto, CompleteTaskDto, RejectTaskDto, UpdateTaskResolversDto } from './dto';
 
 @ApiTags('Tarefas')
 @Controller('tasks')
@@ -44,32 +44,30 @@ export class TasksController {
 
   @Post()
   @ApiOperation({ summary: 'Criar tarefa' })
-  async create(@Body() taskData: Partial<Task> & { resolverIds?: string[] }) {
-    return this.tasksService.create(taskData);
+  async create(@Body() taskData: CreateTaskDto) {
+    return this.tasksService.create(taskData as any);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar tarefa' })
-  async update(@Param('id') id: string, @Body() taskData: Partial<Task> & { resolverIds?: string[] }) {
-    return this.tasksService.update(id, taskData);
+  async update(@Param('id') id: string, @Body() taskData: UpdateTaskDto) {
+    return this.tasksService.update(id, taskData as any);
   }
 
   @Post(':id/complete')
   @ApiOperation({ summary: 'Completar tarefa' })
   async complete(
     @Param('id') id: string,
-    @Body('result') result: string,
-    @Body('resolutionType') resolutionType: string,
-    @Body('resolutionNotes') resolutionNotes: string,
+    @Body() body: CompleteTaskDto,
     @Request() req,
   ) {
     return this.tasksService.complete(
       id,
       req.user.userId,
-      result,
-      req.user.email, // resolvedByEmail from JWT
-      resolutionType || 'total',
-      resolutionNotes,
+      body.result,
+      req.user.email,
+      body.resolutionType || 'total',
+      body.resolutionNotes,
     );
   }
 
@@ -87,8 +85,8 @@ export class TasksController {
 
   @Post(':id/reject')
   @ApiOperation({ summary: 'Rejeitar tarefa' })
-  async reject(@Param('id') id: string, @Body('reason') reason: string) {
-    return this.tasksService.reject(id, reason);
+  async reject(@Param('id') id: string, @Body() body: RejectTaskDto) {
+    return this.tasksService.reject(id, body.reason);
   }
 
   @Post(':id/submit-review')
@@ -99,8 +97,8 @@ export class TasksController {
 
   @Put(':id/resolvers')
   @ApiOperation({ summary: 'Atualizar resolvedores da tarefa' })
-  async updateResolvers(@Param('id') id: string, @Body('resolverIds') resolverIds: string[]) {
-    await this.tasksService.syncResolvers(id, resolverIds || []);
+  async updateResolvers(@Param('id') id: string, @Body() body: UpdateTaskResolversDto) {
+    await this.tasksService.syncResolvers(id, body.resolverIds || []);
     return this.tasksService.findOne(id);
   }
 

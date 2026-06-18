@@ -10,9 +10,18 @@ import { extname, join } from 'path';
 import { existsSync } from 'fs';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FinanceService } from './finance.service';
-import { Payment, PaymentStatus } from './payment.entity';
-import { WorkCost } from './work-cost.entity';
-import { PaymentSchedule } from './payment-schedule.entity';
+import { PaymentStatus } from './payment.entity';
+import {
+  CreatePaymentDto, UpdatePaymentDto, RegisterPaymentDto, ConsolidateDASDto,
+  CreateWorkCostDto, UpdateWorkCostDto,
+  CreatePaymentScheduleDto, UpdatePaymentScheduleDto,
+  CreateReceiptDto, UpdateReceiptDto,
+  CreatePurchaseOrderDto, UpdatePurchaseOrderDto,
+  GenerateInstallmentsDto, PayInstallmentDto,
+  CreateDebtDto, UpdateDebtDto, AddDebtPaymentDto,
+  CreateBankStatementDto, ManualMatchEntryDto,
+  CreatePaymentFromProposalDto, CreatePaymentFromWorkDto,
+} from './dto';
 
 const invoiceStorage = diskStorage({
   destination: './uploads/invoices',
@@ -51,7 +60,7 @@ export class FinanceController {
 
   @Post('payments')
   @ApiOperation({ summary: 'Criar pagamento' })
-  async create(@Body() paymentData: Partial<Payment>) {
+  async create(@Body() paymentData: CreatePaymentDto) {
     return this.financeService.create(paymentData);
   }
 
@@ -59,13 +68,13 @@ export class FinanceController {
 
   @Post('payments/from-proposal')
   @ApiOperation({ summary: 'Criar lançamento financeiro a partir de uma proposta' })
-  async createFromProposal(@Body() data: any) {
+  async createFromProposal(@Body() data: CreatePaymentFromProposalDto) {
     return this.financeService.createPaymentFromProposal(data);
   }
 
   @Post('payments/from-work')
   @ApiOperation({ summary: 'Criar lançamento financeiro a partir de uma obra' })
-  async createFromWork(@Body() data: any) {
+  async createFromWork(@Body() data: CreatePaymentFromWorkDto) {
     return this.financeService.createPaymentFromWork(data);
   }
 
@@ -77,7 +86,7 @@ export class FinanceController {
 
   @Put('payments/:id')
   @ApiOperation({ summary: 'Atualizar pagamento' })
-  async update(@Param('id') id: string, @Body() paymentData: Partial<Payment>) {
+  async update(@Param('id') id: string, @Body() paymentData: UpdatePaymentDto) {
     return this.financeService.update(id, paymentData);
   }
 
@@ -91,7 +100,7 @@ export class FinanceController {
   @ApiOperation({ summary: 'Registrar pagamento (baixa)' })
   async registerPayment(
     @Param('id') id: string,
-    @Body() data: { amount: number; method: string; transactionId?: string },
+    @Body() data: RegisterPaymentDto,
   ) {
     return this.financeService.registerPayment(id, data.amount, data.method, data.transactionId);
   }
@@ -125,7 +134,7 @@ export class FinanceController {
 
   @Post('consolidate-das')
   @ApiOperation({ summary: 'Consolidar guia DAS para múltiplos pagamentos' })
-  async consolidateDAS(@Body() data: { paymentIds: string[]; dasAmount: number; competence: string; status?: string }) {
+  async consolidateDAS(@Body() data: ConsolidateDASDto) {
     return this.financeService.consolidateDAS(data.paymentIds, data.dasAmount, data.competence, data.status || 'realized');
   }
 
@@ -175,13 +184,13 @@ export class FinanceController {
 
   @Post('work-costs')
   @ApiOperation({ summary: 'Registrar custo na obra' })
-  async createWorkCost(@Body() data: Partial<WorkCost>) {
+  async createWorkCost(@Body() data: CreateWorkCostDto) {
     return this.financeService.createWorkCost(data);
   }
 
   @Put('work-costs/:id')
   @ApiOperation({ summary: 'Atualizar custo' })
-  async updateWorkCost(@Param('id') id: string, @Body() data: Partial<WorkCost>) {
+  async updateWorkCost(@Param('id') id: string, @Body() data: UpdateWorkCostDto) {
     return this.financeService.updateWorkCost(id, data);
   }
 
@@ -207,13 +216,13 @@ export class FinanceController {
 
   @Post('payment-schedules')
   @ApiOperation({ summary: 'Criar programação de pagamento' })
-  async createPaymentSchedule(@Body() data: Partial<PaymentSchedule>) {
+  async createPaymentSchedule(@Body() data: CreatePaymentScheduleDto) {
     return this.financeService.createPaymentSchedule(data);
   }
 
   @Put('payment-schedules/:id')
   @ApiOperation({ summary: 'Atualizar programação' })
-  async updatePaymentSchedule(@Param('id') id: string, @Body() data: Partial<PaymentSchedule>) {
+  async updatePaymentSchedule(@Param('id') id: string, @Body() data: UpdatePaymentScheduleDto) {
     return this.financeService.updatePaymentSchedule(id, data);
   }
 
@@ -239,13 +248,13 @@ export class FinanceController {
 
   @Post('receipts')
   @ApiOperation({ summary: 'Criar recibo de pagamento' })
-  async createReceipt(@Body() data: any) {
+  async createReceipt(@Body() data: CreateReceiptDto) {
     return this.financeService.createReceipt(data);
   }
 
   @Put('receipts/:id')
   @ApiOperation({ summary: 'Atualizar recibo' })
-  async updateReceipt(@Param('id') id: string, @Body() data: any) {
+  async updateReceipt(@Param('id') id: string, @Body() data: UpdateReceiptDto) {
     return this.financeService.updateReceipt(id, data);
   }
 
@@ -271,13 +280,13 @@ export class FinanceController {
 
   @Post('purchase-orders')
   @ApiOperation({ summary: 'Criar pedido de compra' })
-  async createPurchaseOrder(@Body() data: any) {
+  async createPurchaseOrder(@Body() data: CreatePurchaseOrderDto) {
     return this.financeService.createPurchaseOrder(data);
   }
 
   @Put('purchase-orders/:id')
   @ApiOperation({ summary: 'Atualizar pedido de compra' })
-  async updatePurchaseOrder(@Param('id') id: string, @Body() data: any) {
+  async updatePurchaseOrder(@Param('id') id: string, @Body() data: UpdatePurchaseOrderDto) {
     return this.financeService.updatePurchaseOrder(id, data);
   }
 
@@ -299,7 +308,7 @@ export class FinanceController {
   @ApiOperation({ summary: 'Gerar parcelas para um pagamento' })
   async generateInstallments(
     @Param('id') paymentId: string,
-    @Body() data: { installments: Array<{ percentage: number; dueDate: string; description?: string }> },
+    @Body() data: GenerateInstallmentsDto,
   ) {
     return this.financeService.generateInstallments(paymentId, data.installments);
   }
@@ -308,7 +317,7 @@ export class FinanceController {
   @ApiOperation({ summary: 'Dar baixa em uma parcela' })
   async payInstallment(
     @Param('id') installmentId: string,
-    @Body() data: { amount: number; method: string; transactionId?: string },
+    @Body() data: PayInstallmentDto,
   ) {
     return this.financeService.payInstallment(installmentId, data.amount, data.method, data.transactionId);
   }
@@ -351,11 +360,11 @@ export class FinanceController {
 
   @Post('debts')
   @ApiOperation({ summary: 'Criar dívida' })
-  async createDebt(@Body() data: any) { return this.financeService.createDebt(data); }
+  async createDebt(@Body() data: CreateDebtDto) { return this.financeService.createDebt(data); }
 
   @Put('debts/:id')
   @ApiOperation({ summary: 'Atualizar dívida' })
-  async updateDebt(@Param('id') id: string, @Body() data: any) { return this.financeService.updateDebt(id, data); }
+  async updateDebt(@Param('id') id: string, @Body() data: UpdateDebtDto) { return this.financeService.updateDebt(id, data); }
 
   @Delete('debts/:id')
   @ApiOperation({ summary: 'Excluir dívida' })
@@ -367,7 +376,7 @@ export class FinanceController {
 
   @Post('debts/:id/payments')
   @ApiOperation({ summary: 'Registrar pagamento de dívida' })
-  async addDebtPayment(@Param('id') id: string, @Body() data: any) { return this.financeService.addDebtPayment(id, data); }
+  async addDebtPayment(@Param('id') id: string, @Body() data: AddDebtPaymentDto) { return this.financeService.addDebtPayment(id, data); }
 
   @Get('debts/:id/payments')
   @ApiOperation({ summary: 'Listar pagamentos de uma dívida' })
@@ -383,7 +392,7 @@ export class FinanceController {
 
   @Post('bank-statements')
   @ApiOperation({ summary: 'Importar extrato bancário' })
-  async createStatement(@Body() data: any) { return this.financeService.createStatement(data); }
+  async createStatement(@Body() data: CreateBankStatementDto) { return this.financeService.createStatement(data as any); }
 
   @Get('bank-statements/:id/entries')
   @ApiOperation({ summary: 'Listar lançamentos do extrato' })
@@ -395,7 +404,7 @@ export class FinanceController {
 
   @Post('bank-statements/entries/:id/match')
   @ApiOperation({ summary: 'Match manual de lançamento' })
-  async manualMatchEntry(@Param('id') id: string, @Body() data: { paymentId: string }) { return this.financeService.manualMatchEntry(id, data.paymentId); }
+  async manualMatchEntry(@Param('id') id: string, @Body() data: ManualMatchEntryDto) { return this.financeService.manualMatchEntry(id, data.paymentId); }
 
   @Post('bank-statements/entries/:id/unmatch')
   @ApiOperation({ summary: 'Desfazer match' })

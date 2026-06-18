@@ -2,6 +2,14 @@ import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Req 
 import { ContractsService } from './contracts.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Request } from 'express';
+import {
+    CreateContractDto,
+    UpdateContractDto,
+    CreateContractTemplateDto,
+    UpdateContractTemplateDto,
+    CreateContractAddendumDto,
+    ConfirmContractSignatureDto,
+} from './dto';
 
 @Controller('contracts')
 @UseGuards(JwtAuthGuard)
@@ -29,12 +37,12 @@ export class ContractsController {
     }
 
     @Post('templates')
-    createTemplate(@Body() data: any) {
+    createTemplate(@Body() data: CreateContractTemplateDto) {
         return this.contractsService.createTemplate(data);
     }
 
     @Put('templates/:id')
-    updateTemplate(@Param('id') id: string, @Body() data: any) {
+    updateTemplate(@Param('id') id: string, @Body() data: UpdateContractTemplateDto) {
         return this.contractsService.updateTemplate(id, data);
     }
 
@@ -49,12 +57,12 @@ export class ContractsController {
     }
 
     @Post()
-    create(@Body() data: any, @Req() req: any) {
+    create(@Body() data: CreateContractDto, @Req() req: any) {
         return this.contractsService.create({ ...data, createdById: req.user?.userId || req.user?.id });
     }
 
     @Put(':id')
-    update(@Param('id') id: string, @Body() data: any, @Req() req: any) {
+    update(@Param('id') id: string, @Body() data: UpdateContractDto, @Req() req: any) {
         return this.contractsService.update(id, { ...data, updatedById: req.user?.userId || req.user?.id });
     }
 
@@ -65,7 +73,7 @@ export class ContractsController {
 
     // ── Addendums ──
     @Post(':id/addendums')
-    createAddendum(@Param('id') id: string, @Body() data: any) {
+    createAddendum(@Param('id') id: string, @Body() data: CreateContractAddendumDto) {
         return this.contractsService.createAddendum(id, data);
     }
 
@@ -108,7 +116,7 @@ export class ContractPublicController {
     @Post(':token/confirm')
     confirmSignature(
         @Param('token') token: string,
-        @Body() data: { name: string; document: string; signatureImage?: string },
+        @Body() data: ConfirmContractSignatureDto,
         @Req() req: Request,
     ) {
         const ip = req.headers['x-forwarded-for'] as string || req.socket?.remoteAddress || 'unknown';

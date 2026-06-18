@@ -3,7 +3,8 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/roles.guard';
 import { UsersService } from './users.service';
-import { User, UserRole, AVAILABLE_MODULES } from './user.entity';
+import { UserRole, AVAILABLE_MODULES } from './user.entity';
+import { CreateUserDto, InviteUserDto, UpdateUserDto, UpdateUserPermissionsDto, UpdateUserSupervisorDto } from './dto';
 
 @ApiTags('Usuários')
 @Controller('users')
@@ -65,25 +66,18 @@ export class UsersController {
   @ApiOperation({ summary: 'Criar novo usuário' })
   @UseGuards(RolesGuard)
   @Roles('admin')
-  async create(@Body() userData: Partial<User>) {
-    return this.usersService.create(userData);
+  async create(@Body() userData: CreateUserDto) {
+    return this.usersService.create(userData as any);
   }
 
   @Post('invite')
   @ApiOperation({ summary: 'Convidar colaborador (gera senha e envia por e-mail)' })
   @UseGuards(RolesGuard)
   @Roles('admin')
-  async inviteUser(@Body() inviteData: {
-    name: string;
-    email: string;
-    role: UserRole;
-    permissions: string[];
-    supervisorId?: string;
-    department?: string;
-    position?: string;
-  }, @Request() req) {
+  async inviteUser(@Body() inviteData: InviteUserDto, @Request() req) {
     return this.usersService.inviteUser({
       ...inviteData,
+      permissions: inviteData.permissions || [],
       invitedBy: req.user.userId,
     });
   }
@@ -92,8 +86,8 @@ export class UsersController {
   @ApiOperation({ summary: 'Atualizar usuário' })
   @UseGuards(RolesGuard)
   @Roles('admin')
-  async update(@Param('id') id: string, @Body() userData: Partial<User>) {
-    return this.usersService.update(id, userData);
+  async update(@Param('id') id: string, @Body() userData: UpdateUserDto) {
+    return this.usersService.update(id, userData as any);
   }
 
   @Put(':id/permissions')
@@ -102,7 +96,7 @@ export class UsersController {
   @Roles('admin')
   async updatePermissions(
     @Param('id') id: string,
-    @Body() body: { permissions: string[] },
+    @Body() body: UpdateUserPermissionsDto,
   ) {
     return this.usersService.updatePermissions(id, body.permissions);
   }
@@ -113,7 +107,7 @@ export class UsersController {
   @Roles('admin')
   async updateSupervisor(
     @Param('id') id: string,
-    @Body() body: { supervisorId: string },
+    @Body() body: UpdateUserSupervisorDto,
   ) {
     return this.usersService.updateSupervisor(id, body.supervisorId);
   }

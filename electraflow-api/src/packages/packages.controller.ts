@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } fro
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PackagesService } from './packages.service';
-import { Package } from './package.entity';
+import { CreatePackageDto, UpdatePackageDto } from './dto';
 
 @ApiTags('Pacotes')
 @Controller('packages')
@@ -31,13 +31,13 @@ export class PackagesController {
 
   @Post()
   @ApiOperation({ summary: 'Criar pacote' })
-  async create(@Body() pkgData: Partial<Package>) {
+  async create(@Body() pkgData: CreatePackageDto) {
     return this.packagesService.create(pkgData);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar pacote' })
-  async update(@Param('id') id: string, @Body() pkgData: Partial<Package>) {
+  async update(@Param('id') id: string, @Body() pkgData: UpdatePackageDto) {
     return this.packagesService.update(id, pkgData);
   }
 

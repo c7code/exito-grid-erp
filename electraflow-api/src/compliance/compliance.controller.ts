@@ -6,15 +6,21 @@ import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ComplianceService } from './compliance.service';
-import { DocumentType } from './document-type.entity';
-import { DocumentTypeRule } from './document-type-rule.entity';
 import { Applicability } from './employee-doc-requirement.entity';
-import { RetentionPolicy } from './retention-policy.entity';
 import { diskStorage } from 'multer';
 import { Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
 import { v4 as uuid } from 'uuid';
+import {
+    CreateComplianceCategoryDto, CreateDocumentTypeDto, UpdateDocumentTypeDto,
+    CreateDocumentTypeRuleDto, AddManualRequirementDto, SetApplicabilityDto,
+    UpdateDocTypeNameDto, CreateComplianceDocumentDto, UpdateComplianceDocumentDto,
+    ApproveDocumentDto, RejectDocumentDto, CreateRetentionPolicyDto, DownloadZipDto,
+    CreateSafetyProgramDto, UpdateSafetyProgramDto, CreateRiskGroupDto, UpdateRiskGroupDto,
+    AddExamToRiskGroupDto, UpdateRiskGroupExamDto, CreateOccExamDto, UpdateOccExamDto,
+    CreateExamReferralDto, UpdateExamReferralDto, UpdateExamReferralItemsDto,
+} from './dto';
 
 // ═══ Upload config ═══
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'compliance');
@@ -63,7 +69,7 @@ export class ComplianceController {
 
     @Post('document-categories')
     @ApiOperation({ summary: 'Criar nova categoria de documento' })
-    async createCategory(@Body() data: { slug?: string; label: string }) {
+    async createCategory(@Body() data: CreateComplianceCategoryDto) {
         return this.complianceService.createCategory(data);
     }
 
@@ -85,13 +91,13 @@ export class ComplianceController {
 
     @Post('document-types')
     @ApiOperation({ summary: 'Criar tipo de documento' })
-    async createDocumentType(@Body() data: Partial<DocumentType>) {
+    async createDocumentType(@Body() data: CreateDocumentTypeDto) {
         return this.complianceService.createDocumentType(data);
     }
 
     @Put('document-types/:id')
     @ApiOperation({ summary: 'Atualizar tipo de documento' })
-    async updateDocumentType(@Param('id') id: string, @Body() data: Partial<DocumentType>) {
+    async updateDocumentType(@Param('id') id: string, @Body() data: UpdateDocumentTypeDto) {
         return this.complianceService.updateDocumentType(id, data);
     }
 
@@ -113,7 +119,7 @@ export class ComplianceController {
 
     @Post('document-types/:id/rules')
     @ApiOperation({ summary: 'Criar regra para tipo de documento' })
-    async createRule(@Param('id') id: string, @Body() data: Partial<DocumentTypeRule>) {
+    async createRule(@Param('id') id: string, @Body() data: CreateDocumentTypeRuleDto) {
         return this.complianceService.createRule(id, data);
     }
 
@@ -143,14 +149,7 @@ export class ComplianceController {
     @ApiOperation({ summary: 'Adicionar documento extra ao checklist (manual)' })
     async addManualRequirement(
         @Param('id') id: string,
-        @Body() body: {
-            documentTypeId?: string;
-            customName?: string;
-            customCategory?: string;
-            customNrs?: string[];
-            customValidityMonths?: number | null;
-            customRequiresApproval?: boolean;
-        },
+        @Body() body: AddManualRequirementDto,
         @Request() req: any,
     ) {
         return this.complianceService.addManualRequirement(
@@ -162,7 +161,7 @@ export class ComplianceController {
     @ApiOperation({ summary: 'Alterar aplicabilidade (aplica / não aplica)' })
     async setApplicability(
         @Param('id') id: string,
-        @Body() body: { applicability: Applicability; justification?: string },
+        @Body() body: SetApplicabilityDto,
         @Request() req: any,
     ) {
         return this.complianceService.setApplicability(
@@ -185,7 +184,7 @@ export class ComplianceController {
     @ApiOperation({ summary: 'Atualizar nome do tipo de documento' })
     async updateDocTypeName(
         @Param('id') id: string,
-        @Body() body: { name: string },
+        @Body() body: UpdateDocTypeNameDto,
     ) {
         return this.complianceService.updateDocumentTypeName(id, body.name);
     }
@@ -202,15 +201,7 @@ export class ComplianceController {
 
     @Post('documents')
     @ApiOperation({ summary: 'Criar documento de conformidade' })
-    async createDocument(@Body() data: {
-        requirementId?: string;
-        documentTypeId: string;
-        ownerType: string;
-        ownerId: string;
-        issueDate?: Date;
-        expiryDate?: Date;
-        observations?: string;
-    }) {
+    async createDocument(@Body() data: CreateComplianceDocumentDto) {
         return this.complianceService.createComplianceDocument(data);
     }
 
@@ -218,7 +209,7 @@ export class ComplianceController {
     @ApiOperation({ summary: 'Atualizar documento de conformidade (datas, observações)' })
     async updateDocument(
         @Param('id') id: string,
-        @Body() data: { issueDate?: string; expiryDate?: string; observations?: string },
+        @Body() data: UpdateComplianceDocumentDto,
     ) {
         return this.complianceService.updateComplianceDocument(id, {
             issueDate: data.issueDate ? new Date(data.issueDate) : undefined,
@@ -408,7 +399,7 @@ export class ComplianceController {
     @ApiOperation({ summary: 'Aprovar documento' })
     async approve(
         @Param('id') id: string,
-        @Body() body: { comments?: string },
+        @Body() body: ApproveDocumentDto,
         @Request() req: any,
     ) {
         return this.complianceService.approveDocument(id, req.user.userId, req.user.email, body.comments);
@@ -418,7 +409,7 @@ export class ComplianceController {
     @ApiOperation({ summary: 'Reprovar documento' })
     async reject(
         @Param('id') id: string,
-        @Body() body: { reason: string },
+        @Body() body: RejectDocumentDto,
         @Request() req: any,
     ) {
         return this.complianceService.rejectDocument(id, req.user.userId, body.reason, req.user.email);
@@ -470,7 +461,7 @@ export class ComplianceController {
 
     @Post('retention-policies')
     @ApiOperation({ summary: 'Criar política de retenção' })
-    async createRetentionPolicy(@Body() data: Partial<RetentionPolicy>) {
+    async createRetentionPolicy(@Body() data: CreateRetentionPolicyDto) {
         return this.complianceService.createRetentionPolicy(data);
     }
 
@@ -481,7 +472,7 @@ export class ComplianceController {
     @Post('download-zip')
     @ApiOperation({ summary: 'Download ZIP de documentos de funcionários' })
     async downloadZip(
-        @Body() body: { employeeIds: string[]; categories?: string[]; documentTypeIds?: string[] },
+        @Body() body: DownloadZipDto,
         @Res() res: Response,
     ) {
         const archiver = require('archiver');
@@ -566,13 +557,13 @@ export class ComplianceController {
 
     @Post('safety-programs')
     @ApiOperation({ summary: 'Criar programa de segurança' })
-    async createProgram(@Body() data: any) {
+    async createProgram(@Body() data: CreateSafetyProgramDto) {
         return this.complianceService.createProgram(data);
     }
 
     @Put('safety-programs/:id')
     @ApiOperation({ summary: 'Atualizar programa de segurança' })
-    async updateProgram(@Param('id') id: string, @Body() data: any) {
+    async updateProgram(@Param('id') id: string, @Body() data: UpdateSafetyProgramDto) {
         return this.complianceService.updateProgram(id, data);
     }
 
@@ -625,13 +616,13 @@ export class ComplianceController {
 
     @Post('risk-groups')
     @ApiOperation({ summary: 'Criar GHE' })
-    async createRiskGroup(@Body() data: any) {
+    async createRiskGroup(@Body() data: CreateRiskGroupDto) {
         return this.complianceService.createRiskGroup(data);
     }
 
     @Put('risk-groups/:id')
     @ApiOperation({ summary: 'Atualizar GHE' })
-    async updateRiskGroup(@Param('id') id: string, @Body() data: any) {
+    async updateRiskGroup(@Param('id') id: string, @Body() data: UpdateRiskGroupDto) {
         return this.complianceService.updateRiskGroup(id, data);
     }
 
@@ -643,13 +634,13 @@ export class ComplianceController {
 
     @Post('risk-groups/:riskGroupId/exams')
     @ApiOperation({ summary: 'Vincular exame a GHE' })
-    async addExamToRiskGroup(@Param('riskGroupId') riskGroupId: string, @Body() data: any) {
+    async addExamToRiskGroup(@Param('riskGroupId') riskGroupId: string, @Body() data: AddExamToRiskGroupDto) {
         return this.complianceService.addExamToRiskGroup({ ...data, riskGroupId });
     }
 
     @Put('risk-group-exams/:id')
     @ApiOperation({ summary: 'Atualizar vínculo exame-GHE' })
-    async updateRiskGroupExam(@Param('id') id: string, @Body() data: any) {
+    async updateRiskGroupExam(@Param('id') id: string, @Body() data: UpdateRiskGroupExamDto) {
         return this.complianceService.updateRiskGroupExam(id, data);
     }
 
@@ -671,13 +662,13 @@ export class ComplianceController {
 
     @Post('occupational-exams')
     @ApiOperation({ summary: 'Criar exame ocupacional' })
-    async createOccExam(@Body() data: any) {
+    async createOccExam(@Body() data: CreateOccExamDto) {
         return this.complianceService.createOccExam(data);
     }
 
     @Put('occupational-exams/:id')
     @ApiOperation({ summary: 'Atualizar exame ocupacional' })
-    async updateOccExam(@Param('id') id: string, @Body() data: any) {
+    async updateOccExam(@Param('id') id: string, @Body() data: UpdateOccExamDto) {
         return this.complianceService.updateOccExam(id, data);
     }
 
@@ -711,19 +702,19 @@ export class ComplianceController {
 
     @Post('exam-referrals')
     @ApiOperation({ summary: 'Criar guia de encaminhamento' })
-    async createReferral(@Body() data: any) {
-        return this.complianceService.createReferral(data);
+    async createReferral(@Body() data: CreateExamReferralDto) {
+        return this.complianceService.createReferral(data as any);
     }
 
     @Put('exam-referrals/:id')
     @ApiOperation({ summary: 'Atualizar guia (status, orçamento, etc.)' })
-    async updateReferral(@Param('id') id: string, @Body() data: any) {
+    async updateReferral(@Param('id') id: string, @Body() data: UpdateExamReferralDto) {
         return this.complianceService.updateReferral(id, data);
     }
 
     @Put('exam-referrals/:id/items')
     @ApiOperation({ summary: 'Atualizar itens da guia' })
-    async updateReferralItems(@Param('id') id: string, @Body() data: { items: any[] }) {
+    async updateReferralItems(@Param('id') id: string, @Body() data: UpdateExamReferralItemsDto) {
         return this.complianceService.updateReferralItems(id, data.items);
     }
 

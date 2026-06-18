@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nes
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RulesService } from './rules.service';
-import { Rule } from './rule.entity';
+import { CreateRuleDto, UpdateRuleDto, EvaluateRuleContextDto } from './dto';
 
 @ApiTags('Regras')
 @Controller('rules')
@@ -25,19 +25,19 @@ export class RulesController {
 
   @Post('evaluate')
   @ApiOperation({ summary: 'Avaliar regras para contexto' })
-  async evaluate(@Body() context: any) {
-    return this.rulesService.evaluate(context);
+  async evaluate(@Body() data: EvaluateRuleContextDto) {
+    return this.rulesService.evaluate(data.context);
   }
 
   @Post()
   @ApiOperation({ summary: 'Criar regra' })
-  async create(@Body() ruleData: Partial<Rule>) {
+  async create(@Body() ruleData: CreateRuleDto) {
     return this.rulesService.create(ruleData);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar regra' })
-  async update(@Param('id') id: string, @Body() ruleData: Partial<Rule>) {
+  async update(@Param('id') id: string, @Body() ruleData: UpdateRuleDto) {
     return this.rulesService.update(id, ruleData);
   }
 

@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Requ
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OpportunitiesService } from './opportunities.service';
-import { Opportunity } from './opportunity.entity';
+import { CreateOpportunityDto, UpdateOpportunityDto, MoveOpportunityStageDto } from './dto';
 
 @ApiTags('Oportunidades')
 @Controller('opportunities')
@@ -25,20 +25,20 @@ export class OpportunitiesController {
 
   @Post()
   @ApiOperation({ summary: 'Criar oportunidade' })
-  async create(@Body() oppData: Partial<Opportunity>, @Request() req) {
+  async create(@Body() oppData: CreateOpportunityDto, @Request() req) {
     return this.opportunitiesService.create({ ...oppData, createdById: req.user?.userId || req.user?.id });
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar oportunidade' })
-  async update(@Param('id') id: string, @Body() oppData: Partial<Opportunity>) {
+  async update(@Param('id') id: string, @Body() oppData: UpdateOpportunityDto) {
     return this.opportunitiesService.update(id, oppData);
   }
 
   @Post(':id/move')
   @ApiOperation({ summary: 'Mover oportunidade de estágio' })
-  async moveStage(@Param('id') id: string, @Body('stage') stage: string) {
-    return this.opportunitiesService.moveStage(id, stage);
+  async moveStage(@Param('id') id: string, @Body() data: MoveOpportunityStageDto) {
+    return this.opportunitiesService.moveStage(id, data.stage);
   }
 
   @Delete(':id')
