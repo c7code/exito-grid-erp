@@ -47,6 +47,7 @@ import { ReferralsModule } from './referrals/referrals.module';
 import { PartnerRequestsModule } from './partner-requests/partner-requests.module';
 import { LaudosModule } from './laudos/laudos.module';
 import { CategoriesModule } from './categories/categories.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -163,6 +164,7 @@ import { CategoriesModule } from './categories/categories.module';
     PartnerRequestsModule,
     LaudosModule,
     CategoriesModule,
+    HealthModule,
   ],
   providers: [
     {

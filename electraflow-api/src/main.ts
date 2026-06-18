@@ -130,11 +130,9 @@ async function bootstrap() {
     next();
   });
 
-  // Version/health endpoint (no auth required)
-  const DEPLOY_TS = new Date().toISOString();
-  app.use('/api/health', (req: any, res: any) => {
-    res.json({ status: 'ok', deployedAt: DEPLOY_TS, version: '2026-03-25-cors-fix' });
-  });
+  // Health check agora é feito pelo HealthModule (@nestjs/terminus)
+  // Endpoint: GET /api/health (com verificação de DB, memória e disco)
+  // Endpoint: GET /api/health/simple (sem dependências, apenas status)
 
   // Global exception filter — catches ALL errors and returns JSON
   app.useGlobalFilters(new AllExceptionsFilter());
