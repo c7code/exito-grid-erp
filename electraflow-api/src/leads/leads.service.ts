@@ -46,6 +46,7 @@ export class LeadsService {
     const lead = await this.findOne(id);
     lead.status = LeadStatus.CONVERTED;
     lead.convertedAt = new Date();
+    lead.opportunityId = opportunityId;
     return this.leadRepository.save(lead);
   }
 

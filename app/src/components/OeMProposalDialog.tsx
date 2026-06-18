@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { OeMProposalPDFTemplate } from './OeMProposalPDFTemplate';
-import html2pdf from 'html2pdf.js';
+
 import { FileText, Settings, Wrench, Package, ClipboardList,
     Plus, Trash2, Download, Eye, Loader2, ChevronRight,
     Sun, Zap, BarChart3, Shield, CreditCard, Scale, BookOpen,
@@ -438,6 +438,7 @@ export default function OeMProposalDialog({ open, onOpenChange, servico, onSaved
         const element = document.getElementById('oem-proposal-pdf-content');
         if (!element) { toast.error('Erro ao localizar o conteúdo do PDF.'); return; }
 
+        const html2pdf = (await import('html2pdf.js')).default;
         toast.info('Gerando PDF...');
         const opt = {
             margin: [0, 0, 38, 0] as [number, number, number, number],

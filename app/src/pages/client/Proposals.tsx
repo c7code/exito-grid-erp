@@ -25,7 +25,7 @@ import { api } from '@/api';
 import { toast } from 'sonner';
 import { ProposalPDFTemplate } from '@/components/ProposalPDFTemplate';
 import { OeMProposalPDFTemplate } from '@/components/OeMProposalPDFTemplate';
-import html2pdf from 'html2pdf.js';
+
 
 const statusLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline'; icon: any; color: string }> = {
   draft: { label: 'Rascunho', variant: 'outline', icon: FileText, color: 'text-slate-600 bg-slate-50 border-slate-200' },
@@ -107,14 +107,14 @@ export default function ClientProposals() {
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['tr', '.sig-block', '.pdf-keep-together', '.pdf-section-title', '.avoid-page-break'] },
       };
 
-      html2pdf().from(element).set(opt).save().then(() => {
+      import('html2pdf.js').then(mod => mod.default().from(element).set(opt).save().then(() => {
         setIsGeneratingPDF(false);
         toast.success('PDF gerado com sucesso!');
       }).catch((err: any) => {
         console.error('PDF Error:', err);
         toast.error('Erro ao gerar PDF.');
         setIsGeneratingPDF(false);
-      });
+      }));
     }, 600);
   };
 

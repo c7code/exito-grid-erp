@@ -57,21 +57,26 @@ export class MarkupService {
             .andWhere('m.deletedAt IS NULL');
 
         const conditions: string[] = ["m.scope = 'global'"];
+        const parameters: Record<string, string> = {};
 
         if (criteria.categoryId) {
-            conditions.push(`(m.scope = 'category' AND m.scopeValue = '${criteria.categoryId}')`);
+            conditions.push(`(m.scope = 'category' AND m.scopeValue = :categoryId)`);
+            parameters.categoryId = criteria.categoryId;
         }
         if (criteria.activityType) {
-            conditions.push(`(m.scope = 'activity_type' AND m.scopeValue = '${criteria.activityType}')`);
+            conditions.push(`(m.scope = 'activity_type' AND m.scopeValue = :activityType)`);
+            parameters.activityType = criteria.activityType;
         }
         if (criteria.supplierType) {
-            conditions.push(`(m.scope = 'supplier_type' AND m.scopeValue = '${criteria.supplierType}')`);
+            conditions.push(`(m.scope = 'supplier_type' AND m.scopeValue = :supplierType)`);
+            parameters.supplierType = criteria.supplierType;
         }
         if (criteria.clientType) {
-            conditions.push(`(m.scope = 'client_type' AND m.scopeValue = '${criteria.clientType}')`);
+            conditions.push(`(m.scope = 'client_type' AND m.scopeValue = :clientType)`);
+            parameters.clientType = criteria.clientType;
         }
 
-        qb.andWhere(`(${conditions.join(' OR ')})`);
+        qb.andWhere(`(${conditions.join(' OR ')})`, parameters);
         qb.orderBy('m.priority', 'DESC');
         qb.addOrderBy('m.createdAt', 'DESC');
 

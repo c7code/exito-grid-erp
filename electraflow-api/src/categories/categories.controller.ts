@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Body, Param, Query, Req, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CategoriesService } from './categories.service';
@@ -25,18 +25,21 @@ export class CategoriesController {
   @Post()
   @ApiOperation({ summary: 'Criar nova categoria' })
   create(@Body() data: { group: string; value?: string; label: string; config?: string }, @Req() req: any) {
+    if (!['admin', 'engineer', 'commercial'].includes(req.user?.role)) throw new ForbiddenException('Acesso negado');
     return this.svc.create({ ...data, createdBy: req.user?.id });
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar categoria' })
-  update(@Param('id') id: string, @Body() data: { label?: string; config?: string; order?: number }) {
+  update(@Param('id') id: string, @Body() data: { label?: string; config?: string; order?: number }, @Req() req: any) {
+    if (!['admin', 'engineer', 'commercial'].includes(req.user?.role)) throw new ForbiddenException('Acesso negado');
     return this.svc.update(id, data);
   }
 
   @Patch(':id/toggle')
   @ApiOperation({ summary: 'Ativar/desativar categoria' })
-  toggleActive(@Param('id') id: string) {
+  toggleActive(@Param('id') id: string, @Req() req: any) {
+    if (req.user?.role !== 'admin') throw new ForbiddenException('Apenas administradores podem excluir');
     return this.svc.toggleActive(id);
   }
 }

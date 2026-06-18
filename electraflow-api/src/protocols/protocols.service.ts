@@ -1,10 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Protocol, ProtocolStatus } from './protocol.entity';
 import { ProtocolEvent, ProtocolEventType } from './protocol-event.entity';
 import { ProtocolAttachment } from './protocol-attachment.entity';
 import { WorksService } from '../works/works.service';
+
+const VALID_PROTOCOL_TRANSITIONS: Record<string, string[]> = {
+  'open': ['in_analysis', 'pending', 'cancelled'],
+  'in_analysis': ['pending', 'requirement', 'approved', 'rejected', 'cancelled'],
+  'pending': ['in_analysis', 'requirement', 'cancelled'],
+  'requirement': ['in_analysis', 'pending', 'cancelled'],
+  'approved': ['closed'],
+  'rejected': ['open', 'closed'],
+  'closed': [],
+  'cancelled': ['open'],
+};
 
 @Injectable()
 export class ProtocolsService {
@@ -54,6 +65,14 @@ export class ProtocolsService {
     const protocol = this.protocolRepository.create(protocolData);
     protocol.openedAt = protocol.openedAt || new Date();
     protocol.submissionDate = protocol.submissionDate || protocol.openedAt;
+
+    // Calculate remainingDays from SLA
+    if (protocol.slaDays && protocol.slaDays > 0) {
+      const openedAt = protocol.openedAt || new Date();
+      const daysOpen = (Date.now() - openedAt.getTime()) / (1000 * 60 * 60 * 24);
+      protocol.remainingDays = Math.max(0, Math.ceil(protocol.slaDays - daysOpen));
+    }
+
     const savedProtocol = await this.protocolRepository.save(protocol);
 
     // Auto-create initial event
@@ -70,7 +89,22 @@ export class ProtocolsService {
     const protocol = await this.findOne(id);
     const oldStatus = protocol.status;
 
+    // Validate status transition
+    if (protocolData.status && protocolData.status !== oldStatus) {
+      const allowed = VALID_PROTOCOL_TRANSITIONS[oldStatus] || [];
+      if (!allowed.includes(protocolData.status)) {
+        throw new BadRequestException(`Transição de status inválida: ${oldStatus} → ${protocolData.status}`);
+      }
+    }
+
     Object.assign(protocol, protocolData);
+
+    // Recalculate remainingDays from SLA
+    if (protocol.slaDays && protocol.slaDays > 0 && protocol.openedAt) {
+      const daysOpen = (Date.now() - protocol.openedAt.getTime()) / (1000 * 60 * 60 * 24);
+      protocol.remainingDays = Math.max(0, Math.ceil(protocol.slaDays - daysOpen));
+    }
+
     const savedProtocol = await this.protocolRepository.save(protocol);
 
     if (protocolData.status && protocolData.status !== oldStatus) {
@@ -134,8 +168,14 @@ export class ProtocolsService {
   }
 
   async getSLAStats(): Promise<any> {
+    // Check all active statuses, not just IN_ANALYSIS
     const protocols = await this.protocolRepository.find({
-      where: { status: ProtocolStatus.IN_ANALYSIS },
+      where: [
+        { status: ProtocolStatus.OPEN },
+        { status: ProtocolStatus.IN_ANALYSIS },
+        { status: ProtocolStatus.PENDING },
+        { status: ProtocolStatus.REQUIREMENT },
+      ],
     });
 
     const stats = {
@@ -143,9 +183,16 @@ export class ProtocolsService {
       critical: 0,
       warning: 0,
       normal: 0,
+      noSla: 0,
     };
 
     for (const p of protocols) {
+      // Guard against missing/zero slaDays
+      if (!p.slaDays || p.slaDays === 0) {
+        stats.noSla++;
+        continue;
+      }
+
       const daysOpen = (Date.now() - p.openedAt.getTime()) / (1000 * 60 * 60 * 24);
       const slaPercent = daysOpen / p.slaDays;
 

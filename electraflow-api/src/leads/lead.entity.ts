@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, OneToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Client } from '../clients/client.entity';
 import { Opportunity } from '../opportunities/opportunity.entity';
 
@@ -82,6 +82,10 @@ export class Lead {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @OneToOne(() => Opportunity, opportunity => opportunity.lead)
+  @Column({ nullable: true })
+  opportunityId: string;
+
+  @ManyToOne(() => Opportunity, { nullable: true })
+  @JoinColumn({ name: 'opportunityId' })
   opportunity: Opportunity;
 }

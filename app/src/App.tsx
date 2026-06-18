@@ -147,6 +147,8 @@ const AdminSolarReferrals = lazy(() => import('./pages/admin/SolarReferrals'));
 const AdminPartnerRequests = lazy(() => import('./pages/admin/AdminPartnerRequests'));
 const AdminLaudosEletricos = lazy(() => import('./pages/admin/LaudosEletricos'));
 
+const NotFound = lazy(() => import('./pages/NotFound'));
+
 // Partner Portal Pages (lazy)
 const PartnerLogin = lazy(() => import('./pages/partner/PartnerLogin'));
 const PartnerDashboard = lazy(() => import('./pages/partner/PartnerDashboard'));
@@ -320,7 +322,7 @@ function App() {
 
           {/* Default Redirect */}
           <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
         </Suspense>
         </ChunkErrorBoundary>

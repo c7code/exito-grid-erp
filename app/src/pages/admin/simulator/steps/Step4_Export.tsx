@@ -7,7 +7,7 @@ import { getRiskLabel } from '../engine/riskEngine';
 import { api } from '@/api';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import html2pdf from 'html2pdf.js';
+
 
 interface Props {
   result: SimulatorResult;
@@ -502,6 +502,7 @@ export default function Step4Export({ result, selectedId, clientName, serviceDes
         return;
       }
 
+      const html2pdf = (await import('html2pdf.js')).default;
       const opt = {
         margin: 0,
         filename: `proposta_simulacao_${clientName ? clientName.replace(/\s/g, '_') : 'cliente'}_${new Date().toISOString().slice(0, 10)}.pdf`,

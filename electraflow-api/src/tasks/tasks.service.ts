@@ -1,13 +1,25 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Task, TaskStatus } from './task.entity';
 import { TaskResolver } from './task-resolver.entity';
 import { Work } from '../works/work.entity';
+import { WorksService } from '../works/works.service';
 import { Employee } from '../employees/employee.entity';
 import { User } from '../users/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { DataSource } from 'typeorm';
+
+const VALID_TASK_TRANSITIONS: Record<string, string[]> = {
+  'pending': ['in_progress', 'cancelled'],
+  'in_progress': ['under_review', 'completed', 'cancelled', 'pending'],
+  'under_review': ['approved', 'client_review', 'in_progress'],
+  'approved': ['client_review', 'completed'],
+  'client_review': ['client_approved', 'in_progress'],
+  'client_approved': ['completed'],
+  'completed': [],
+  'cancelled': ['pending'],
+};
 
 @Injectable()
 export class TasksService {
@@ -25,6 +37,8 @@ export class TasksService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private notificationsService: NotificationsService,
+    @Inject(forwardRef(() => WorksService))
+    private worksService: WorksService,
     private dataSource: DataSource,
   ) {
     this.ensureColumns().catch(err => this.logger.warn('Auto-migration skipped:', err.message));
@@ -175,6 +189,14 @@ export class TasksService {
     const previousWorkId = task.workId;
     const { resolverIds, ...data } = taskData;
 
+    // Validate status transition
+    if (data.status && data.status !== task.status) {
+      const allowed = VALID_TASK_TRANSITIONS[task.status] || [];
+      if (!allowed.includes(data.status)) {
+        throw new BadRequestException(`Transição de status inválida: ${task.status} → ${data.status}`);
+      }
+    }
+
     Object.assign(task, data);
     const saved = await this.taskRepository.save(task);
 
@@ -219,9 +241,18 @@ export class TasksService {
       // Partial resolution: keep in_progress but track who worked on it
       task.status = TaskStatus.IN_PROGRESS;
     } else {
-      // Total resolution: mark as completed
-      task.status = TaskStatus.COMPLETED;
-      task.completedAt = new Date();
+      // Total resolution: enforce approval workflow
+      if (task.requiresApproval && task.status === TaskStatus.IN_PROGRESS) {
+        // Needs internal approval first → route to under_review
+        task.status = TaskStatus.UNDER_REVIEW;
+      } else if (task.requiresClientApproval && task.status === TaskStatus.APPROVED) {
+        // Internal approved, needs client approval → route to client_review
+        task.status = TaskStatus.CLIENT_REVIEW;
+      } else {
+        // No approval needed or all approvals done → mark completed
+        task.status = TaskStatus.COMPLETED;
+        task.completedAt = new Date();
+      }
     }
 
     task.completedById = userId;
@@ -239,12 +270,121 @@ export class TasksService {
 
     const fullTask = await this.findOne(saved.id);
 
-    // Notify admins about task completion (only for total)
-    if (resolutionType !== 'partial') {
+    // Notify admins about task completion (only for total, actually completed)
+    if (resolutionType !== 'partial' && saved.status === TaskStatus.COMPLETED) {
       this.notificationsService.onTaskCompleted(fullTask).catch(() => { });
     }
 
     return fullTask;
+  }
+
+  /**
+   * Internal approval: validates under_review → approved (or client_review if client approval needed).
+   */
+  async approve(id: string): Promise<Task> {
+    const task = await this.findOne(id);
+
+    if (task.status !== TaskStatus.UNDER_REVIEW) {
+      throw new BadRequestException(
+        `Tarefa precisa estar em revisão para ser aprovada. Status atual: ${task.status}`,
+      );
+    }
+
+    if (task.requiresClientApproval) {
+      // Still needs client approval
+      task.status = TaskStatus.CLIENT_REVIEW;
+    } else {
+      // No client approval needed → complete
+      task.status = TaskStatus.COMPLETED;
+      task.completedAt = new Date();
+    }
+
+    const saved = await this.taskRepository.save(task);
+
+    if (saved.workId) {
+      await this.recalculateWorkProgress(saved.workId);
+    }
+
+    const fullTask = await this.findOne(saved.id);
+
+    if (saved.status === TaskStatus.COMPLETED) {
+      this.notificationsService.onTaskCompleted(fullTask).catch(() => { });
+    }
+
+    return fullTask;
+  }
+
+  /**
+   * Client approval: validates client_review → completed.
+   */
+  async clientApprove(id: string): Promise<Task> {
+    const task = await this.findOne(id);
+
+    if (task.status !== TaskStatus.CLIENT_REVIEW) {
+      throw new BadRequestException(
+        `Tarefa precisa estar em revisão do cliente para ser aprovada. Status atual: ${task.status}`,
+      );
+    }
+
+    task.status = TaskStatus.COMPLETED;
+    task.completedAt = new Date();
+
+    const saved = await this.taskRepository.save(task);
+
+    if (saved.workId) {
+      await this.recalculateWorkProgress(saved.workId);
+    }
+
+    const fullTask = await this.findOne(saved.id);
+    this.notificationsService.onTaskCompleted(fullTask).catch(() => { });
+
+    return fullTask;
+  }
+
+  /**
+   * Reject a task: returns it to in_progress with a rejection reason.
+   */
+  async reject(id: string, reason: string): Promise<Task> {
+    const task = await this.findOne(id);
+
+    if (task.status !== TaskStatus.UNDER_REVIEW && task.status !== TaskStatus.CLIENT_REVIEW) {
+      throw new BadRequestException(
+        `Tarefa precisa estar em revisão para ser rejeitada. Status atual: ${task.status}`,
+      );
+    }
+
+    task.status = TaskStatus.IN_PROGRESS;
+    task.rejectionReason = reason || null;
+
+    const saved = await this.taskRepository.save(task);
+
+    if (saved.workId) {
+      await this.recalculateWorkProgress(saved.workId);
+    }
+
+    return this.findOne(saved.id);
+  }
+
+  /**
+   * Manually submit a task for review (in_progress → under_review).
+   */
+  async submitForReview(id: string): Promise<Task> {
+    const task = await this.findOne(id);
+
+    if (task.status !== TaskStatus.IN_PROGRESS) {
+      throw new BadRequestException(
+        `Tarefa precisa estar em andamento para ser enviada para revisão. Status atual: ${task.status}`,
+      );
+    }
+
+    task.status = TaskStatus.UNDER_REVIEW;
+    const saved = await this.taskRepository.save(task);
+
+    if (saved.workId) {
+      await this.recalculateWorkProgress(saved.workId);
+    }
+
+    return this.findOne(saved.id);
   }
 
   async remove(id: string): Promise<void> {
@@ -275,24 +415,10 @@ export class TasksService {
   }
 
   /**
-   * Recalculates the work's progress based on the weighted percentage of completed tasks.
-   * Each task has a weightPercentage (0-100) representing its contribution to the work.
-   * Progress = sum of weightPercentage of all completed tasks (capped at 100).
+   * Recalculates the work's progress by delegating to WorksService.recalculateProgress().
+   * This ensures a single source of truth: the WorkPhase weighted average system.
    */
   async recalculateWorkProgress(workId: string): Promise<void> {
-    const tasks = await this.taskRepository.find({ where: { workId } });
-
-    if (tasks.length === 0) {
-      await this.workRepository.update(workId, { progress: 0 });
-      return;
-    }
-
-    const completedWeight = tasks
-      .filter(t => t.status === TaskStatus.COMPLETED)
-      .reduce((sum, t) => sum + Number(t.weightPercentage || 0), 0);
-
-    const progress = Math.min(Math.round(completedWeight), 100);
-
-    await this.workRepository.update(workId, { progress });
+    await this.worksService.recalculateProgress(workId);
   }
 }

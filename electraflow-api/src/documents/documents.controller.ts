@@ -100,7 +100,8 @@ export class DocumentsController {
 
   @Delete('folders/:id')
   @ApiOperation({ summary: 'Remover pasta' })
-  async removeFolder(@Param('id') id: string) {
+  async removeFolder(@Param('id') id: string, @Request() req) {
+    if (req.user?.role !== 'admin') throw new ForbiddenException('Apenas administradores podem excluir');
     await this.documentsService.removeFolder(id);
     return { message: 'Pasta removida com sucesso' };
   }
@@ -121,7 +122,8 @@ export class DocumentsController {
 
   @Delete('categories/:id')
   @ApiOperation({ summary: 'Remover categoria de pasta' })
-  async deleteCategory(@Param('id') id: string) {
+  async deleteCategory(@Param('id') id: string, @Request() req) {
+    if (req.user?.role !== 'admin') throw new ForbiddenException('Apenas administradores podem excluir');
     await this.documentsService.deleteCategory(id);
     return { message: 'Categoria removida' };
   }
@@ -265,6 +267,7 @@ export class DocumentsController {
   @Delete(':id')
   @ApiOperation({ summary: 'Remover documento' })
   async remove(@Param('id') id: string, @Request() req) {
+    if (req.user?.role !== 'admin') throw new ForbiddenException('Apenas administradores podem excluir');
     const doc = await this.documentsService.findOne(id);
 
     // Bloqueia exclusão de documentos restritos se não for admin

@@ -171,9 +171,29 @@ export default function AdminUsers() {
     };
 
     useEffect(() => {
-        loadAvailability();
-        const interval = setInterval(loadAvailability, 60 * 1000); // Atualiza a cada 1 min
-        return () => clearInterval(interval);
+        let interval: ReturnType<typeof setInterval> | null = null;
+
+        const startPolling = () => {
+            loadAvailability();
+            interval = setInterval(loadAvailability, 60 * 1000);
+        };
+
+        const stopPolling = () => {
+            if (interval) { clearInterval(interval); interval = null; }
+        };
+
+        const handleVisibility = () => {
+            if (document.hidden) stopPolling();
+            else startPolling();
+        };
+
+        startPolling();
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        return () => {
+            stopPolling();
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
     }, [availDate]);
 
     const handleDelete = async (id: string) => {

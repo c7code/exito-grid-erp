@@ -89,5 +89,6 @@ export class RulesService {
     const rule = await this.findOne(id);
     rule.isActive = false;
     await this.ruleRepository.save(rule);
+    await this.ruleRepository.softRemove(rule);
   }
 }

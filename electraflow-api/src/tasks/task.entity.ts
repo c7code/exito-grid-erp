@@ -145,6 +145,9 @@ export class Task {
   @Column({ nullable: true })
   startDate: Date;
 
+  @Column({ type: 'text', nullable: true })
+  rejectionReason: string;
+
   @OneToMany(() => TaskResolver, resolver => resolver.task, { cascade: true })
   resolvers: TaskResolver[];
 

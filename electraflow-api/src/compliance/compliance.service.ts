@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, OnModuleInit, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, LessThanOrEqual, MoreThanOrEqual, IsNull, DataSource } from 'typeorm';
 import { DocumentType, DocumentCategory, DEFAULT_CATEGORY_LABELS } from './document-type.entity';
@@ -16,6 +16,8 @@ import { RiskGroupExam } from './risk-group-exam.entity';
 import { ExamReferral, ExamReferralItem } from './exam-referral.entity';
 import { Employee } from '../employees/employee.entity';
 import { Supplier } from '../supply/supply.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/notification.entity';
 
 @Injectable()
 export class ComplianceService implements OnModuleInit {
@@ -54,6 +56,8 @@ export class ComplianceService implements OnModuleInit {
         @InjectRepository(Supplier)
         private supplierRepo: Repository<Supplier>,
         private dataSource: DataSource,
+        @Inject(forwardRef(() => NotificationsService))
+        private notificationsService: NotificationsService,
     ) { }
 
     async onModuleInit() {
@@ -239,6 +243,20 @@ export class ComplianceService implements OnModuleInit {
         } catch (err) {
             this.logger.error('Safety/Exam migration error: ' + err?.message);
         }
+
+        // ═══ Schedule: check for expiring documents every 6 hours ═══
+        setInterval(() => {
+            this.checkExpiringDocumentsAndNotify().catch(err =>
+                this.logger.error('Erro ao verificar documentos expirando', err),
+            );
+        }, 6 * 60 * 60 * 1000);
+
+        // Run once on startup after 60s delay
+        setTimeout(() => {
+            this.checkExpiringDocumentsAndNotify().catch(err =>
+                this.logger.error('Erro ao verificar documentos expirando', err),
+            );
+        }, 60_000);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -755,6 +773,66 @@ export class ComplianceService implements OnModuleInit {
         }
 
         return results.sort((a, b) => a.daysLeft - b.daysLeft);
+    }
+
+    /**
+     * Automated check: creates notifications for documents expiring in 7/15/30 days.
+     * Only creates one notification per document per 24 hours to avoid spam.
+     */
+    async checkExpiringDocumentsAndNotify(): Promise<void> {
+        const thresholds = [30, 15, 7];
+
+        for (const days of thresholds) {
+            try {
+                const expiringDocs = await this.getExpiringDocuments(days);
+
+                for (const doc of expiringDocs) {
+                    const oneDayAgo = new Date();
+                    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+
+                    const existing = await this.dataSource.query(
+                        `SELECT COUNT(*) as count FROM notifications 
+                         WHERE message LIKE $1 
+                         AND type = $2 
+                         AND "createdAt" >= $3`,
+                        [`%${doc.id}%`, NotificationType.DOCUMENT_EXPIRING, oneDayAgo],
+                    );
+
+                    if (parseInt(existing?.[0]?.count, 10) > 0) continue;
+
+                    let urgency = '📋';
+                    if (doc.daysLeft <= 0) urgency = '🚨 VENCIDO';
+                    else if (doc.daysLeft <= 7) urgency = '⚠️ URGENTE';
+                    else if (doc.daysLeft <= 15) urgency = '⏰ ATENÇÃO';
+
+                    const title = doc.isExpired
+                        ? `Documento vencido: ${doc.documentType}`
+                        : `Documento expirando em ${doc.daysLeft} dias: ${doc.documentType}`;
+
+                    const message = `${urgency} O documento "${doc.documentType}" de ${doc.ownerName} ` +
+                        `${doc.isExpired ? 'está vencido' : `expira em ${doc.daysLeft} dias`} ` +
+                        `(${new Date(doc.expiryDate).toLocaleDateString('pt-BR')}). [docId:${doc.id}]`;
+
+                    const admins = await this.dataSource.query(
+                        `SELECT id FROM users WHERE role = 'admin'`,
+                    );
+
+                    for (const admin of admins) {
+                        await this.notificationsService.create({
+                            userId: admin.id,
+                            type: NotificationType.DOCUMENT_EXPIRING,
+                            title,
+                            message,
+                            link: `/compliance`,
+                        });
+                    }
+                }
+            } catch (err) {
+                this.logger.error(`Erro ao verificar documentos expirando (${days} dias): ${err?.message}`);
+            }
+        }
+
+        this.logger.log('Verificação de documentos expirando concluída');
     }
 
     // ═══════════════════════════════════════════════════════════════

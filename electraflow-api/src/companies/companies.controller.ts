@@ -1,6 +1,6 @@
 import {
     Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Query,
-    UseInterceptors, UploadedFile,
+    UseInterceptors, UploadedFile, Req, ForbiddenException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CompaniesService } from './companies.service';
@@ -31,17 +31,20 @@ export class CompaniesController {
     }
 
     @Post()
-    create(@Body() data: Partial<Company>): Promise<Company> {
+    create(@Body() data: Partial<Company>, @Req() req): Promise<Company> {
+        if (!['admin', 'engineer', 'commercial'].includes(req.user?.role)) throw new ForbiddenException('Acesso negado');
         return this.companiesService.create(data);
     }
 
     @Patch(':id')
-    update(@Param('id') id: string, @Body() data: Partial<Company>): Promise<Company> {
+    update(@Param('id') id: string, @Body() data: Partial<Company>, @Req() req): Promise<Company> {
+        if (!['admin', 'engineer', 'commercial'].includes(req.user?.role)) throw new ForbiddenException('Acesso negado');
         return this.companiesService.update(id, data);
     }
 
     @Delete(':id')
-    remove(@Param('id') id: string): Promise<void> {
+    remove(@Param('id') id: string, @Req() req): Promise<void> {
+        if (req.user?.role !== 'admin') throw new ForbiddenException('Apenas administradores podem excluir');
         return this.companiesService.remove(id);
     }
 
@@ -121,7 +124,8 @@ export class CompaniesController {
     }
 
     @Delete('documents/:docId')
-    removeDocument(@Param('docId') docId: string): Promise<void> {
+    removeDocument(@Param('docId') docId: string, @Req() req): Promise<void> {
+        if (req.user?.role !== 'admin') throw new ForbiddenException('Apenas administradores podem excluir');
         return this.companiesService.removeDocument(docId);
     }
 }

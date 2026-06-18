@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
+import { Exclude } from 'class-transformer';
 import { User } from '../users/user.entity';
 import { Lead } from '../leads/lead.entity';
 import { Work } from '../works/work.entity';
@@ -57,7 +58,8 @@ export class Client {
   })
   type: ClientType;
 
-  @Column({ nullable: true })
+  @Exclude()
+  @Column({ nullable: true, select: false })
   password: string;
 
   @Column({ type: 'enum', enum: ClientClassification, default: ClientClassification.C })

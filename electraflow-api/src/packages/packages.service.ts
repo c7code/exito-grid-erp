@@ -51,5 +51,6 @@ export class PackagesService {
     const pkg = await this.findOne(id);
     pkg.isActive = false;
     await this.packageRepository.save(pkg);
+    await this.packageRepository.softRemove(pkg);
   }
 }

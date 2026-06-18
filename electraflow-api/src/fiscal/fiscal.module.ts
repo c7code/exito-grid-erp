@@ -8,10 +8,11 @@ import { NuvemFiscalService } from './nuvem-fiscal.service';
 import { FiscalConfig, FiscalInvoice } from './fiscal.entity';
 import { InvoiceValueEdit } from './invoice-value-edit.entity';
 import { Proposal } from '../proposals/proposal.entity';
+import { Payment } from '../finance/payment.entity';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([FiscalConfig, FiscalInvoice, InvoiceValueEdit, Proposal]),
+        TypeOrmModule.forFeature([FiscalConfig, FiscalInvoice, InvoiceValueEdit, Proposal, Payment]),
         MulterModule.register({
             storage: diskStorage({
                 destination: './uploads/certificates',

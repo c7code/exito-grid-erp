@@ -167,7 +167,7 @@ export class NotificationsService implements OnModuleInit {
 
     // ── Helpers ────────────────────────────────────────────
 
-    private async create(data: Partial<Notification>): Promise<Notification> {
+    async create(data: Partial<Notification>): Promise<Notification> {
         const notification = this.notificationRepository.create(data);
         return this.notificationRepository.save(notification);
     }

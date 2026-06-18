@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Work, WorkStatus } from './work.entity';
@@ -9,6 +9,15 @@ import { Client } from '../clients/client.entity';
 import { Employee } from '../employees/employee.entity';
 import { Task } from '../tasks/task.entity';
 import { TaskResolver } from '../tasks/task-resolver.entity';
+
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  'draft': ['planning', 'in_progress', 'cancelled'],
+  'planning': ['in_progress', 'cancelled', 'draft'],
+  'in_progress': ['paused', 'completed', 'cancelled'],
+  'paused': ['in_progress', 'cancelled'],
+  'completed': [],  // terminal state
+  'cancelled': ['draft'],  // can reopen
+};
 
 @Injectable()
 export class WorksService {
@@ -139,7 +148,15 @@ export class WorksService {
 
   async update(id: string, workData: Partial<Work>): Promise<Work> {
     // Ensure work exists
-    await this.findOne(id);
+    const work = await this.findOne(id);
+
+    // Validate status transition
+    if (workData.status && workData.status !== work.status) {
+      const allowed = VALID_TRANSITIONS[work.status] || [];
+      if (!allowed.includes(workData.status)) {
+        throw new BadRequestException(`Transição de status inválida: ${work.status} → ${workData.status}`);
+      }
+    }
 
     // Remove relation objects and id from update data to avoid TypeORM conflicts
     const { client, opportunity, process, documents, updates, tasks, createdByUser, id: _id, ...cleanData } = workData as any;
@@ -193,10 +210,8 @@ export class WorksService {
     });
     const savedUpdate = await this.workUpdateRepository.save(update);
 
-    // Accumulate progress on the work (sum all updates, cap at 100)
-    const currentProgress = Number(work.progress) || 0;
-    const newProgress = Math.min(100, Math.max(0, currentProgress + Number(data.progress)));
-    await this.workRepository.update(workId, { progress: newProgress });
+    // Recalculate progress using WorkPhase weighted average (single source of truth)
+    await this.recalculateProgress(workId);
 
     return savedUpdate;
   }
@@ -220,15 +235,11 @@ export class WorksService {
     const update = await this.workUpdateRepository.findOneBy({ id: updateId });
     if (!update) throw new NotFoundException('Atualização não encontrada');
 
-    // Subtract this update's progress from the work total before deleting
-    const work = await this.workRepository.findOneBy({ id: update.workId });
-    if (work) {
-      const currentProgress = Number(work.progress) || 0;
-      const restoredProgress = Math.min(100, Math.max(0, currentProgress - Number(update.progress)));
-      await this.workRepository.update(update.workId, { progress: restoredProgress });
-    }
-
+    const workId = update.workId;
     await this.workUpdateRepository.softRemove(update);
+
+    // Recalculate progress using WorkPhase weighted average (single source of truth)
+    await this.recalculateProgress(workId);
   }
 
   // ═══════ WORK TYPE CONFIGS (dynamic types) ═══════

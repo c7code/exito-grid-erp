@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, UseInterceptors, UploadedFile, BadRequestException, ForbiddenException, Req } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -284,7 +284,10 @@ export class SinapiController {
 
     @Delete('purge')
     @ApiOperation({ summary: 'Limpar TODA a base SINAPI (insumos, composições, preços, referências, logs)' })
-    async purgeAll() {
+    async purgeAll(@Req() req) {
+        if (req.user?.role !== 'admin') {
+            throw new ForbiddenException('Apenas administradores podem purgar a base SINAPI');
+        }
         // Delete in dependency order
         const counts: Record<string, number> = {};
         const tables = [

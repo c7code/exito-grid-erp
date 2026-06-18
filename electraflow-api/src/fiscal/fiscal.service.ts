@@ -7,7 +7,17 @@ import axios from 'axios';
 import { FiscalConfig, FiscalInvoice, InvoiceType, InvoiceStatus, ClientData, InvoiceItemData } from './fiscal.entity';
 import { InvoiceValueEdit } from './invoice-value-edit.entity';
 import { Proposal } from '../proposals/proposal.entity';
+import { Payment, PaymentType, PaymentStatus } from '../finance/payment.entity';
 import { NuvemFiscalService, NuvemFiscalConfig } from './nuvem-fiscal.service';
+
+// UF code mapping (IBGE) for deriving cUF from state abbreviation
+const UF_CODES: Record<string, number> = {
+  'AC': 12, 'AL': 27, 'AP': 16, 'AM': 13, 'BA': 29, 'CE': 23,
+  'DF': 53, 'ES': 32, 'GO': 52, 'MA': 21, 'MT': 51, 'MS': 50,
+  'MG': 31, 'PA': 15, 'PB': 25, 'PR': 41, 'PE': 26, 'PI': 22,
+  'RJ': 33, 'RN': 24, 'RS': 43, 'RO': 11, 'RR': 14, 'SC': 42,
+  'SP': 35, 'SE': 28, 'TO': 17,
+};
 
 @Injectable()
 export class FiscalService {
@@ -22,6 +32,8 @@ export class FiscalService {
         private valueEditRepo: Repository<InvoiceValueEdit>,
         @InjectRepository(Proposal)
         private proposalRepo: Repository<Proposal>,
+        @InjectRepository(Payment)
+        private paymentRepo: Repository<Payment>,
         private nuvemFiscal: NuvemFiscalService,
     ) { }
 
@@ -767,7 +779,7 @@ export class FiscalService {
             infNFe: {
                 versao: '4.00',
                 ide: {
-                    cUF: 26, // TODO: derivar da UF do config
+                    cUF: UF_CODES[config.companyState?.toUpperCase()] || 26,
                     natOp: naturezaOperacao || 'Venda de mercadoria',
                     mod: 55,
                     serie: 1,
@@ -788,7 +800,7 @@ export class FiscalService {
                     xNome: config.companyName || '',
                     enderEmit: {
                         xLgr: config.companyAddress || '',
-                        xBairro: 'Centro',
+                        xBairro: config.companyBairro || 'Centro',
                         cMun: config.codigoMunicipio || '2611606',
                         xMun: config.nomeMunicipio || config.companyCity || 'Recife',
                         UF: config.companyState || 'PE',
@@ -825,12 +837,12 @@ export class FiscalService {
                     },
                 },
                 transp: { modFrete: 9 },
-                pag: { detPag: [{ tPag: '01', vPag: total }] },
+                pag: { detPag: [{ tPag: config.defaultPaymentType || '01', vPag: total }] },
                 infRespTec: {
                     CNPJ: cnpj,
-                    xContato: 'Suporte ERP',
-                    email: 'suporte@erp.com.br',
-                    fone: '81999999999',
+                    xContato: config.companyName || 'Suporte ERP',
+                    email: config.companyEmail || 'suporte@erp.com.br',
+                    fone: (config.companyPhone || '81999999999').replace(/\D/g, ''),
                 },
             },
         };
@@ -1047,6 +1059,9 @@ export class FiscalService {
                 invoice.status = InvoiceStatus.AUTHORIZED;
                 if (result.chave_acesso) invoice.accessKey = result.chave_acesso;
                 if (result.numero) invoice.invoiceNumber = String(result.numero);
+
+                // Create a receivable payment entry when NF is authorized
+                await this.createReceivableFromInvoice(invoice);
             } else if (result.status === 'rejeitado' || result.status === 'erro') {
                 invoice.status = InvoiceStatus.ERROR;
                 invoice.errorMessage = result.motivo || result.mensagem_sefaz || 'Rejeitada pela SEFAZ/Prefeitura';
@@ -1309,5 +1324,57 @@ export class FiscalService {
             where: { invoiceId: id },
             order: { createdAt: 'DESC' },
         });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GERAR RECEBÍVEL A PARTIR DE NF AUTORIZADA
+    // ═══════════════════════════════════════════════════════════════
+
+    private async createReceivableFromInvoice(invoice: FiscalInvoice): Promise<void> {
+        try {
+            // Check if a receivable already exists for this invoice
+            const existing = await this.paymentRepo.findOneBy({
+                invoiceNumber: invoice.invoiceNumber || invoice.id,
+                type: PaymentType.INCOME,
+            });
+            if (existing) {
+                this.logger.log(`Recebível já existe para NF ${invoice.invoiceNumber || invoice.id}`);
+                return;
+            }
+
+            // Resolve client from proposal if available
+            let clientId: string | null = null;
+            let workId: string | null = null;
+            if (invoice.proposalId) {
+                const proposal = await this.proposalRepo.findOne({
+                    where: { id: invoice.proposalId },
+                    relations: ['client'],
+                });
+                if (proposal) {
+                    clientId = proposal.client?.id || null;
+                    workId = (proposal as any).workId || null;
+                }
+            }
+
+            const dueDate = new Date();
+            dueDate.setDate(dueDate.getDate() + 30);
+
+            const payment = this.paymentRepo.create({
+                type: PaymentType.INCOME,
+                description: `Recebível NF ${invoice.invoiceNumber || ''} — ${invoice.recipientName || 'Cliente'}`,
+                amount: Number(invoice.totalValue),
+                status: PaymentStatus.PENDING,
+                dueDate,
+                invoiceNumber: invoice.invoiceNumber || invoice.id,
+                clientId,
+                workId,
+                financialOrigin: 'fiscal',
+            });
+
+            await this.paymentRepo.save(payment);
+            this.logger.log(`Recebível criado para NF ${invoice.invoiceNumber || invoice.id}: R$ ${Number(invoice.totalValue).toFixed(2)}`);
+        } catch (error) {
+            this.logger.error('Erro ao criar recebível a partir da NF:', error.message);
+        }
     }
 }

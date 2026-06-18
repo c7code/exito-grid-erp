@@ -31,15 +31,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  // Heartbeat — registra presença a cada 2 min enquanto logado
+  // Heartbeat — registra presença a cada 2 min enquanto logado (pausa com tab oculta)
   useEffect(() => {
     if (!user) return;
+    let interval: ReturnType<typeof setInterval> | null = null;
     const sendHeartbeat = () => {
       api.heartbeat().catch(() => { /* silencioso */ });
     };
-    sendHeartbeat(); // envia imediatamente no login
-    const interval = setInterval(sendHeartbeat, 2 * 60 * 1000);
-    return () => clearInterval(interval);
+
+    const startHeartbeat = () => {
+      sendHeartbeat();
+      interval = setInterval(sendHeartbeat, 2 * 60 * 1000);
+    };
+
+    const stopHeartbeat = () => {
+      if (interval) { clearInterval(interval); interval = null; }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) stopHeartbeat();
+      else startHeartbeat();
+    };
+
+    startHeartbeat();
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      stopHeartbeat();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [user]);
 
   const login = useCallback(async (email: string, password: string) => {

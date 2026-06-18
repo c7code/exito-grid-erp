@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import CategorySelect from '@/components/ui/CategorySelect';
 import { useSearchParams } from 'react-router-dom';
-import html2pdf from 'html2pdf.js';
+
 import { ReceiptPDFTemplate } from '@/components/ReceiptPDFTemplate';
 import { PurchaseOrderPDFTemplate } from '@/components/PurchaseOrderPDFTemplate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -403,9 +403,9 @@ export default function AdminFinance() {
     setTimeout(() => {
       const el = document.getElementById('receipt-pdf-content');
       if (!el) { toast.error('Erro ao gerar PDF'); setReceiptToPrint(null); return; }
-      html2pdf().from(el).set(pdfOpts(`recibo_${receipt.receiptNumber || 'novo'}.pdf`)).save()
+      import('html2pdf.js').then(mod => mod.default().from(el).set(pdfOpts(`recibo_${receipt.receiptNumber || 'novo'}.pdf`)).save()
         .then(() => { setReceiptToPrint(null); toast.success('PDF do recibo gerado!'); })
-        .catch(() => { toast.error('Erro ao gerar PDF'); setReceiptToPrint(null); });
+        .catch(() => { toast.error('Erro ao gerar PDF'); setReceiptToPrint(null); }));
     }, 600);
   };
 
@@ -415,9 +415,9 @@ export default function AdminFinance() {
     setTimeout(() => {
       const el = document.getElementById('po-pdf-content');
       if (!el) { toast.error('Erro ao gerar PDF'); setPOToPrint(null); return; }
-      html2pdf().from(el).set(pdfOpts(`pedido_compra_${po.orderNumber || 'novo'}.pdf`)).save()
+      import('html2pdf.js').then(mod => mod.default().from(el).set(pdfOpts(`pedido_compra_${po.orderNumber || 'novo'}.pdf`)).save()
         .then(() => { setPOToPrint(null); toast.success('PDF do pedido gerado!'); })
-        .catch(() => { toast.error('Erro ao gerar PDF'); setPOToPrint(null); });
+        .catch(() => { toast.error('Erro ao gerar PDF'); setPOToPrint(null); }));
     }, 600);
   };
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, Navigate } from 'react-router-dom';
 import { usePartnerAuth } from '@/contexts/PartnerAuthContext';
 import {
   LayoutDashboard,
@@ -26,7 +26,7 @@ const partnerNavItems = [
 ];
 
 export default function PartnerLayout() {
-  const { consultant, partnerLogout } = usePartnerAuth();
+  const { consultant, partnerLogout, isLoading } = usePartnerAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -37,6 +37,8 @@ export default function PartnerLayout() {
   };
 
   const closeSidebar = () => setSidebarOpen(false);
+
+  if (!consultant && !isLoading) return <Navigate to="/partner/login" replace />;
 
   return (
     <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%)' }}>

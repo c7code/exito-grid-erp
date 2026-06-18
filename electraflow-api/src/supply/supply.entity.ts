@@ -135,10 +135,10 @@ export class SupplierContact {
     @Column({ default: false })
     isPrimary: boolean;
 
-    @Column()
+    @Column({ nullable: true })
     supplierId: string;
 
-    @ManyToOne(() => Supplier, (s) => s.contacts, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Supplier, (s) => s.contacts, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'supplierId' })
     supplier: Supplier;
 

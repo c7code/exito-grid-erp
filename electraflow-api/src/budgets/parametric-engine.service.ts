@@ -241,9 +241,15 @@ export class ParametricEngineService {
                          (Number(financials.issPercent) || 0) +
                          (Number(financials.icmsPercent) || 0);
 
-        // Fórmula BDI = (1+AC)(1+S)(1+R)(1+DF)(1+L) / (1-I) - 1
-        // Simplificado para soma direta (mais intuitivo para o usuário)
-        const bdiPercent = adminCentral + seguro + risco + despesasFinanceiras + lucro + impostos;
+        // Fórmula BDI TCU/DNIT = ((1+AC)(1+S)(1+R)(1+DF)(1+L)) / (1-I) - 1
+        const bdiPercent = (
+            ((1 + adminCentral / 100) *
+             (1 + seguro / 100) *
+             (1 + risco / 100) *
+             (1 + despesasFinanceiras / 100) *
+             (1 + lucro / 100)) /
+            (1 - impostos / 100) - 1
+        ) * 100;
 
         return { adminCentral, seguro, risco, despesasFinanceiras, lucro, impostos, bdiPercent, bdiValue: 0 };
     }

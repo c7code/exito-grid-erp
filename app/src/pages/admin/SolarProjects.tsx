@@ -3,7 +3,7 @@ import { api } from '@/api';
 import { toast } from 'sonner';
 import { SolarProposalPDFTemplate } from '@/components/SolarProposalPDFTemplate';
 import { ClientDialog } from '@/components/ClientDialog';
-import html2pdf from 'html2pdf.js';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -369,7 +369,7 @@ export default function SolarProjects() {
         jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
       };
 
-      html2pdf().from(element).set(opt).save().then(() => {
+      import('html2pdf.js').then(mod => mod.default().from(element).set(opt).save().then(() => {
         setShowPdfRender(false);
         setPdfGenerating(false);
         setPdfCompanyData(null);
@@ -379,7 +379,7 @@ export default function SolarProjects() {
         setShowPdfRender(false);
         setPdfGenerating(false);
         toast.error('Erro ao gerar PDF.');
-      });
+      }));
     };
 
     setTimeout(() => tryCapture(), 1500);

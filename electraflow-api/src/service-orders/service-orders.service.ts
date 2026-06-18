@@ -1,9 +1,19 @@
-import { Injectable, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, OnModuleInit, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { ServiceOrder, ServiceOrderStatus } from './service-order.entity';
 import { WorkCost, WorkCostCategory, WorkCostStatus } from '../finance/work-cost.entity';
 import { Notification } from '../notifications/notification.entity';
+
+const VALID_SO_TRANSITIONS: Record<string, string[]> = {
+  'draft': ['open', 'cancelled'],
+  'open': ['in_progress', 'cancelled'],
+  'in_progress': ['completed', 'paused', 'cancelled'],
+  'paused': ['in_progress', 'cancelled'],
+  'completed': ['closed'],
+  'closed': [],
+  'cancelled': ['draft'],
+};
 
 @Injectable()
 export class ServiceOrdersService implements OnModuleInit {
@@ -116,6 +126,15 @@ export class ServiceOrdersService implements OnModuleInit {
 
     async update(id: string, data: Partial<ServiceOrder>) {
         const so = await this.findOne(id);
+
+        // Validate status transition
+        if (data.status && data.status !== so.status) {
+            const allowed = VALID_SO_TRANSITIONS[so.status] || [];
+            if (!allowed.includes(data.status)) {
+                throw new BadRequestException(`Transição de status inválida: ${so.status} → ${data.status}`);
+            }
+        }
+
         const wasNotCompleted = so.status !== ServiceOrderStatus.COMPLETED;
         Object.assign(so, data);
 

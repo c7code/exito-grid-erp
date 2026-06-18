@@ -18,6 +18,12 @@ export class ProtocolsController {
     return this.protocolsService.findAll(status);
   }
 
+  @Get('sla-stats')
+  @ApiOperation({ summary: 'Estatísticas de SLA dos protocolos' })
+  async getSLAStats() {
+    return this.protocolsService.getSLAStats();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Buscar protocolo por ID' })
   async findOne(@Param('id') id: string) {

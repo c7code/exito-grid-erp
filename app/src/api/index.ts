@@ -24,7 +24,7 @@ function detectApiUrl(): string {
     // 3. Railway: usa sempre a URL fixa do serviço da API
     // (frontend e API são serviços separados no Railway)
     if (hostname.includes('.up.railway.app')) {
-      return 'https://exito-grid-erp-production.up.railway.app/api';
+      return `${origin}/api`;
     }
 
     // 4. Domínio customizado: assume serviço unificado (API+Frontend no mesmo host)

@@ -64,15 +64,30 @@ export function useNotifications(enabled = true) {
         }
     }, []);
 
-    // Poll unread count every 30 seconds
+    // Poll unread count every 30s — pause when tab is hidden
     useEffect(() => {
         if (!enabled) return;
 
-        fetchUnreadCount();
+        const startPolling = () => {
+            fetchUnreadCount();
+            intervalRef.current = setInterval(fetchUnreadCount, 30_000);
+        };
 
-        intervalRef.current = setInterval(fetchUnreadCount, 30_000);
+        const stopPolling = () => {
+            if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+        };
+
+        const handleVisibility = () => {
+            if (document.hidden) stopPolling();
+            else startPolling();
+        };
+
+        startPolling();
+        document.addEventListener('visibilitychange', handleVisibility);
+
         return () => {
-            if (intervalRef.current) clearInterval(intervalRef.current);
+            stopPolling();
+            document.removeEventListener('visibilitychange', handleVisibility);
         };
     }, [enabled, fetchUnreadCount]);
 

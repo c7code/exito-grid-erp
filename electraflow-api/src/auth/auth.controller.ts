@@ -35,9 +35,7 @@ class RegisterDto {
 export class AuthController {
   constructor(private authService: AuthService) { }
 
-  // Login: bcrypt já é lento por natureza — proteção natural contra brute-force.
-  // Throttle aqui causava 429 em mobile e ao tentar múltiplas vezes seguidas.
-  @SkipThrottle()
+
   @Post('login')
   @ApiOperation({ summary: 'Login do usuário' })
   async login(@Body() loginDto: LoginDto) {
@@ -48,8 +46,11 @@ export class AuthController {
     return this.authService.login(user);
   }
 
+  // Admin-only: apenas usuários autenticados com papel de admin podem registrar novos usuários
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Post('register')
-  @ApiOperation({ summary: 'Registro de novo usuário' })
+  @ApiOperation({ summary: 'Registro de novo usuário (admin)' })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(
       registerDto.name,
@@ -69,7 +70,6 @@ export class AuthController {
 
   // ═══ CLIENT AUTH ══════════════════════════════════════════════════════════
 
-  @SkipThrottle()
   @Post('client-login')
   @ApiOperation({ summary: 'Login do cliente (Portal)' })
   async clientLogin(@Body() loginDto: LoginDto) {
@@ -90,7 +90,6 @@ export class AuthController {
 
   // ═══ UNIFIED LOGIN ═══════════════════════════════════════════════════════
 
-  @SkipThrottle()
   @Post('unified-login')
   @ApiOperation({ summary: 'Login unificado - retorna todos os portais disponíveis' })
   async unifiedLogin(@Body() loginDto: LoginDto) {

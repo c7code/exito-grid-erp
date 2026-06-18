@@ -31,7 +31,7 @@ export class Opportunity {
   @Column({ nullable: true })
   leadId: string;
 
-  @OneToOne(() => Lead, lead => lead.opportunity)
+  @OneToOne(() => Lead)
   @JoinColumn({ name: 'leadId' })
   lead: Lead;
 

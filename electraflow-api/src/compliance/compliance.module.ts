@@ -15,6 +15,7 @@ import { RiskGroupExam } from './risk-group-exam.entity';
 import { ExamReferral, ExamReferralItem } from './exam-referral.entity';
 import { Employee } from '../employees/employee.entity';
 import { Supplier } from '../supply/supply.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ComplianceService } from './compliance.service';
 import { ComplianceController } from './compliance.controller';
 import { ComplianceFilesController } from './compliance-files.controller';
@@ -39,6 +40,7 @@ import { ComplianceFilesController } from './compliance-files.controller';
             Employee,
             Supplier,
         ]),
+        NotificationsModule,
     ],
     controllers: [ComplianceController, ComplianceFilesController],
     providers: [ComplianceService],

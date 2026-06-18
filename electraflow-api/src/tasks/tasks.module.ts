@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TasksController } from './tasks.controller';
 import { TasksService } from './tasks.service';
@@ -8,14 +8,17 @@ import { Work } from '../works/work.entity';
 import { Employee } from '../employees/employee.entity';
 import { User } from '../users/user.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { WorksModule } from '../works/works.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Task, TaskResolver, Work, Employee, User]),
     NotificationsModule,
+    forwardRef(() => WorksModule),
   ],
   controllers: [TasksController],
   providers: [TasksService],
   exports: [TasksService],
 })
 export class TasksModule { }
+

@@ -35,6 +35,18 @@ export class FiscalConfig {
     @Column({ nullable: true })
     companyCep: string;
 
+    @Column({ nullable: true })
+    companyBairro: string;             // Bairro da empresa
+
+    @Column({ nullable: true })
+    companyPhone: string;              // Telefone da empresa (para infRespTec)
+
+    @Column({ nullable: true })
+    companyEmail: string;              // E-mail da empresa (para infRespTec)
+
+    @Column({ nullable: true, default: '01' })
+    defaultPaymentType: string;        // Tipo de pagamento padrão NF-e (01=Dinheiro, 03=Cartão, 15=Boleto, 17=PIX)
+
     // Certificado Digital A1
     @Column({ nullable: true })
     certificateFile: string;           // Caminho do arquivo .pfx

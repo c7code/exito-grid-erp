@@ -1,5 +1,5 @@
 import {
-    Controller, Get, Param, Query, Headers, Res, NotFoundException,
+    Controller, Get, Param, Query, Headers, Res, NotFoundException, BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { ComplianceService } from './compliance.service';
@@ -34,7 +34,10 @@ export class ComplianceFilesController {
 
     private validateToken(token?: string, authHeader?: string): boolean {
         const jwt = require('jsonwebtoken');
-        const secret = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+            throw new Error('JWT_SECRET não está configurado no ambiente');
+        }
         const bearerToken = authHeader?.replace('Bearer ', '');
         const tokenToVerify = token || bearerToken;
         if (!tokenToVerify) return false;
@@ -58,7 +61,12 @@ export class ComplianceFilesController {
             return res.status(401).json({ message: 'Token não fornecido ou inválido' });
         }
 
-        const filePath = path.join(UPLOAD_DIR, filename);
+        const safeFilename = path.basename(filename);
+        if (safeFilename !== filename) {
+            throw new BadRequestException('Nome de arquivo inválido');
+        }
+
+        const filePath = path.join(UPLOAD_DIR, safeFilename);
         if (!fs.existsSync(filePath)) {
             throw new NotFoundException('Arquivo não encontrado');
         }
@@ -67,7 +75,7 @@ export class ComplianceFilesController {
         const contentType = MIME_MAP[ext] || 'application/octet-stream';
 
         res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
         res.setHeader('Cache-Control', 'private, max-age=3600');
         const stream = fs.createReadStream(filePath);
         stream.pipe(res);
@@ -85,12 +93,17 @@ export class ComplianceFilesController {
             return res.status(401).json({ message: 'Token não fornecido ou inválido' });
         }
 
-        const filePath = path.join(UPLOAD_DIR, filename);
+        const safeFilename = path.basename(filename);
+        if (safeFilename !== filename) {
+            throw new BadRequestException('Nome de arquivo inválido');
+        }
+
+        const filePath = path.join(UPLOAD_DIR, safeFilename);
         if (!fs.existsSync(filePath)) {
             throw new NotFoundException('Arquivo não encontrado');
         }
 
-        const originalName = await this.complianceService.getOriginalFileName(filename);
+        const originalName = await this.complianceService.getOriginalFileName(safeFilename);
         const downloadName = originalName || filename;
 
         res.setHeader('Content-Type', 'application/octet-stream');

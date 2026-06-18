@@ -73,6 +73,30 @@ export class TasksController {
     );
   }
 
+  @Post(':id/approve')
+  @ApiOperation({ summary: 'Aprovar tarefa (revisão interna)' })
+  async approve(@Param('id') id: string) {
+    return this.tasksService.approve(id);
+  }
+
+  @Post(':id/client-approve')
+  @ApiOperation({ summary: 'Aprovar tarefa (revisão do cliente)' })
+  async clientApprove(@Param('id') id: string) {
+    return this.tasksService.clientApprove(id);
+  }
+
+  @Post(':id/reject')
+  @ApiOperation({ summary: 'Rejeitar tarefa' })
+  async reject(@Param('id') id: string, @Body('reason') reason: string) {
+    return this.tasksService.reject(id, reason);
+  }
+
+  @Post(':id/submit-review')
+  @ApiOperation({ summary: 'Enviar tarefa para revisão' })
+  async submitForReview(@Param('id') id: string) {
+    return this.tasksService.submitForReview(id);
+  }
+
   @Put(':id/resolvers')
   @ApiOperation({ summary: 'Atualizar resolvedores da tarefa' })
   async updateResolvers(@Param('id') id: string, @Body('resolverIds') resolverIds: string[]) {

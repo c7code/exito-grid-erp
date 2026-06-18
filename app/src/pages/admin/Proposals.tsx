@@ -75,7 +75,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { DialogFooter } from '@/components/ui/dialog';
-import html2pdf from 'html2pdf.js';
+
 import { Download, MessageCircle, Mail, ExternalLink, Copy, Link2 } from 'lucide-react';
 
 const statusLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: any }> = {
@@ -744,7 +744,7 @@ export default function AdminProposals() {
         }),
       };
 
-      html2pdf().from(element).set(opt).save().then(() => {
+      import('html2pdf.js').then(mod => mod.default().from(element).set(opt).save().then(() => {
         setProposalToPrint(null);
         setSolarProjectData(null);
         setCompanyData(null);
@@ -752,7 +752,7 @@ export default function AdminProposals() {
       }).catch((err: any) => {
         console.error('PDF Error:', err);
         toast.error('Erro ao gerar PDF.');
-      });
+      }));
     };
 
     setTimeout(() => tryCapturePDF(), 1200);

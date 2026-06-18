@@ -422,6 +422,7 @@ export class SinapiService implements OnModuleInit {
         let idx = 1;
         if (type) { where.push(`i.type = $${idx}`); p.push(type); idx++; }
         if (search) { where.push(`(i.code ILIKE $${idx} OR i.description ILIKE $${idx})`); p.push(`%${search}%`); idx++; }
+        const stateParamIdx = idx; p.push(refState); idx++;
         const wh = where.join(' AND ');
         const sql = `
             SELECT i.*, p."priceNotTaxed", p."priceTaxed",
@@ -431,7 +432,7 @@ export class SinapiService implements OnModuleInit {
                 SELECT ip."priceNotTaxed", ip."priceTaxed", ip."referenceId", ip.state
                 FROM sinapi_input_prices ip
                 JOIN sinapi_references sr ON sr.id = ip."referenceId"
-                WHERE ip."inputId" = i.id AND ip.state = '${refState}'
+                WHERE ip."inputId" = i.id AND ip.state = $${stateParamIdx}
                 ORDER BY sr.year DESC, sr.month DESC
                 LIMIT 1
             ) ip_state ON true

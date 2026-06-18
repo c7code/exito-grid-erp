@@ -13,6 +13,7 @@ export enum NotificationType {
     PROPOSAL_ACCEPTED = 'proposal_accepted',
     OS_COMPLETED = 'os_completed',
     SYSTEM = 'system',
+    DOCUMENT_EXPIRING = 'document_expiring',
 }
 
 @Entity('notifications')
@@ -45,6 +46,9 @@ export class Notification {
     @ManyToOne(() => Task, { onDelete: 'CASCADE', nullable: true })
     @JoinColumn({ name: 'taskId' })
     task: Task;
+
+    @Column({ nullable: true })
+    link: string;
 
     @Column({ default: false })
     isRead: boolean;

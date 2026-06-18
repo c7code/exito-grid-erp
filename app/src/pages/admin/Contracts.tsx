@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import html2pdf from 'html2pdf.js';
+
 import { api } from '@/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -263,11 +263,11 @@ export default function Contracts() {
                 pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['tr', '.pdf-clause', '.pdf-keep-together', '.sig-block', '.avoid-page-break', 'li', 'h3', 'h4'] },
             };
 
-            html2pdf().from(content).set(opt).save().then(() => {
+            import('html2pdf.js').then(mod => mod.default().from(content).set(opt).save().then(() => {
                 toast.success('PDF do contrato gerado!');
             }).catch(() => {
                 toast.error('Erro ao gerar PDF');
-            });
+            }));
         }, 500);
     };
 
