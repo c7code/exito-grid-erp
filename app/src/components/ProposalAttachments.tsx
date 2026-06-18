@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { api } from '@/api';
 import {
   Paperclip, Upload, Trash2, FileText, Image, File as FileIcon,
-  Loader2, Eye,
+  Loader2, Eye, EyeOff,
 } from 'lucide-react';
 
 interface Attachment {
@@ -21,6 +21,7 @@ interface Attachment {
   mimeType: string;
   size: number;
   description?: string;
+  purpose?: string;
   createdAt: string;
 }
 
@@ -45,6 +46,7 @@ export default function ProposalAttachments({ proposalId, readOnly }: Props) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Load attachments ──
@@ -76,6 +78,7 @@ export default function ProposalAttachments({ proposalId, readOnly }: Props) {
           type: 'attachment',
           name: file.name,
           description: `Anexo da proposta`,
+          purpose: 'proposal_internal',
         });
         successCount++;
       } catch (err) {
@@ -89,6 +92,26 @@ export default function ProposalAttachments({ proposalId, readOnly }: Props) {
     }
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // ── Toggle visibility ──
+  const handleToggleVisibility = async (att: Attachment) => {
+    const newPurpose = att.purpose === 'proposal_external' ? 'proposal_internal' : 'proposal_external';
+    setTogglingId(att.id);
+    try {
+      await api.updateDocumentPurpose(att.id, newPurpose);
+      setAttachments(prev =>
+        prev.map(a => a.id === att.id ? { ...a, purpose: newPurpose } : a)
+      );
+      toast.success(
+        newPurpose === 'proposal_external'
+          ? 'Anexo visível na proposta do cliente'
+          : 'Anexo oculto da proposta do cliente'
+      );
+    } catch {
+      toast.error('Erro ao alterar visibilidade');
+    }
+    setTogglingId(null);
   };
 
   // ── Delete ──
@@ -123,7 +146,7 @@ export default function ProposalAttachments({ proposalId, readOnly }: Props) {
       </div>
 
       <p className="text-xs text-slate-400">
-        Relatórios de visita, fotos, documentos técnicos — serão incluídos como anexo ao imprimir.
+        Relatórios de visita, fotos, documentos técnicos — anexos marcados como visíveis serão incluídos na proposta impressa.
       </p>
 
       {/* Upload area */}
@@ -170,6 +193,8 @@ export default function ProposalAttachments({ proposalId, readOnly }: Props) {
           {attachments.map(att => {
             const Icon = getFileIcon(att.mimeType);
             const isImage = att.mimeType?.startsWith('image/');
+            const isExternal = att.purpose === 'proposal_external';
+            const isToggling = togglingId === att.id;
             return (
               <div
                 key={att.id}
@@ -201,11 +226,33 @@ export default function ProposalAttachments({ proposalId, readOnly }: Props) {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1">
+                  {/* Visibility toggle */}
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleVisibility(att)}
+                      disabled={isToggling}
+                      className={`p-1.5 rounded transition-colors ${
+                        isExternal
+                          ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                          : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                      }`}
+                      title={isExternal ? 'Visível para o cliente na proposta' : 'Oculto do cliente'}
+                    >
+                      {isToggling ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : isExternal ? (
+                        <Eye className="w-4 h-4" />
+                      ) : (
+                        <EyeOff className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => handleView(att)}
-                    className="p-1.5 rounded hover:bg-blue-50 text-blue-500"
+                    className="p-1.5 rounded hover:bg-blue-50 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Visualizar"
                   >
                     <Eye className="w-4 h-4" />
@@ -214,7 +261,7 @@ export default function ProposalAttachments({ proposalId, readOnly }: Props) {
                     <button
                       type="button"
                       onClick={() => handleDelete(att.id)}
-                      className="p-1.5 rounded hover:bg-red-50 text-red-400"
+                      className="p-1.5 rounded hover:bg-red-50 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                       title="Remover"
                     >
                       <Trash2 className="w-4 h-4" />

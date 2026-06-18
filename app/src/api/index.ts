@@ -595,6 +595,11 @@ class ApiService {
     return response.data;
   }
 
+  async updateDocumentPurpose(id: string, purpose: string) {
+    const response = await this.client.patch(`/documents/${id}/purpose`, { purpose });
+    return response.data;
+  }
+
   // Document Folders
   async getDocumentFolders(workId?: string, clientId?: string) {
     const params: any = {};

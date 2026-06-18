@@ -1403,6 +1403,41 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                             <div style={{ fontSize: '8px', color: '#94a3b8', marginBottom: '12px', fontStyle: 'italic' }}>
                                 * Os documentos listados acima fazem parte integrante desta proposta e devem ser considerados para fins de execução contratual.
                             </div>
+                            {/* ═══ RENDERIZAÇÃO EM PÁGINA INTEIRA — IMAGENS ANEXAS ═══ */}
+                            {rawDocs
+                                .filter((doc: any) => /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(doc.fileName || doc.name || ''))
+                                .map((doc: any, idx: number) => (
+                                    <div key={`attachment-page-${idx}`} style={{
+                                        pageBreakBefore: 'always',
+                                        width: '100%',
+                                        minHeight: '100vh',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        padding: '40px 30px',
+                                    }}>
+                                        <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '20px', color: '#1a1a2e' }}>
+                                            Anexo {idx + 1} — {doc.name || doc.fileName}
+                                        </h2>
+                                        <img
+                                            src={doc.url}
+                                            alt={doc.name || doc.fileName}
+                                            style={{
+                                                maxWidth: '100%',
+                                                maxHeight: 'calc(100vh - 120px)',
+                                                objectFit: 'contain',
+                                                border: '1px solid #e0e0e0',
+                                                borderRadius: '4px',
+                                            }}
+                                            crossOrigin="anonymous"
+                                        />
+                                        {doc.description && (
+                                            <p style={{ marginTop: '12px', fontSize: '12px', color: '#666', textAlign: 'center' }}>
+                                                {doc.description}
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
                         </>
                     );
                 })()}

@@ -202,6 +202,12 @@ export class DocumentsController {
 
   // ========== ROTAS COM :id (por último para evitar conflito) ==========
 
+  @Patch(':id/purpose')
+  @ApiOperation({ summary: 'Atualizar purpose do documento' })
+  async updatePurpose(@Param('id') id: string, @Body() body: { purpose: string }) {
+    return this.documentsService.update(id, { purpose: body.purpose });
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Buscar documento por ID' })
   async findOne(@Param('id') id: string) {
