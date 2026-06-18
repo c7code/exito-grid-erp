@@ -1403,41 +1403,107 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                             <div style={{ fontSize: '8px', color: '#94a3b8', marginBottom: '12px', fontStyle: 'italic' }}>
                                 * Os documentos listados acima fazem parte integrante desta proposta e devem ser considerados para fins de execução contratual.
                             </div>
-                            {/* ═══ RENDERIZAÇÃO EM PÁGINA INTEIRA — IMAGENS ANEXAS ═══ */}
-                            {rawDocs
-                                .filter((doc: any) => /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(doc.fileName || doc.name || ''))
-                                .map((doc: any, idx: number) => (
-                                    <div key={`attachment-page-${idx}`} style={{
-                                        pageBreakBefore: 'always',
-                                        width: '100%',
-                                        minHeight: '100vh',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        padding: '40px 30px',
-                                    }}>
-                                        <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '20px', color: '#1a1a2e' }}>
-                                            Anexo {idx + 1} — {doc.name || doc.fileName}
-                                        </h2>
-                                        <img
-                                            src={doc.url}
-                                            alt={doc.name || doc.fileName}
-                                            style={{
-                                                maxWidth: '100%',
-                                                maxHeight: 'calc(100vh - 120px)',
-                                                objectFit: 'contain',
-                                                border: '1px solid #e0e0e0',
-                                                borderRadius: '4px',
-                                            }}
-                                            crossOrigin="anonymous"
-                                        />
-                                        {doc.description && (
-                                            <p style={{ marginTop: '12px', fontSize: '12px', color: '#666', textAlign: 'center' }}>
-                                                {doc.description}
-                                            </p>
+                            {/* ═══ RENDERIZAÇÃO EM PÁGINA INTEIRA — TODOS OS ANEXOS ═══ */}
+                            {(() => {
+                                // Páginas de PDFs renderizados via pdf.js
+                                const pdfPages: any[] = proposal.attachmentPages || [];
+                                // Imagens diretas
+                                const imageDocs = rawDocs.filter((doc: any) =>
+                                    /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(doc.fileName || doc.name || '') ||
+                                    (doc.mimeType && doc.mimeType.startsWith('image/'))
+                                );
+
+                                let pageCounter = 0;
+
+                                return (
+                                    <>
+                                        {/* PDFs renderizados como imagens (cada página = 1 página no documento) */}
+                                        {pdfPages.map((attachment: any) =>
+                                            attachment.pages.map((page: any) => {
+                                                pageCounter++;
+                                                return (
+                                                    <div key={`pdf-page-${attachment.docId}-${page.pageNumber}`} style={{
+                                                        pageBreakBefore: 'always',
+                                                        width: '100%',
+                                                        minHeight: '100vh',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        alignItems: 'center',
+                                                        padding: '30px 20px',
+                                                    }}>
+                                                        <div style={{
+                                                            fontSize: '14px',
+                                                            fontWeight: 'bold',
+                                                            color: '#1a1a2e',
+                                                            marginBottom: '16px',
+                                                            textAlign: 'center',
+                                                            width: '100%',
+                                                            borderBottom: '2px solid #e67e22',
+                                                            paddingBottom: '8px',
+                                                        }}>
+                                                            ANEXO — {attachment.docName}
+                                                            {attachment.pages.length > 1 && ` (Página ${page.pageNumber}/${attachment.pages.length})`}
+                                                        </div>
+                                                        <img
+                                                            src={page.dataUrl}
+                                                            alt={`${attachment.docName} - Página ${page.pageNumber}`}
+                                                            style={{
+                                                                maxWidth: '100%',
+                                                                maxHeight: 'calc(100vh - 100px)',
+                                                                objectFit: 'contain',
+                                                            }}
+                                                        />
+                                                    </div>
+                                                );
+                                            })
                                         )}
-                                    </div>
-                                ))}
+
+                                        {/* Imagens diretas (PNG, JPG, etc.) */}
+                                        {imageDocs.map((doc: any, idx: number) => {
+                                            pageCounter++;
+                                            return (
+                                                <div key={`img-page-${idx}`} style={{
+                                                    pageBreakBefore: 'always',
+                                                    width: '100%',
+                                                    minHeight: '100vh',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    padding: '30px 20px',
+                                                }}>
+                                                    <div style={{
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold',
+                                                        color: '#1a1a2e',
+                                                        marginBottom: '16px',
+                                                        textAlign: 'center',
+                                                        width: '100%',
+                                                        borderBottom: '2px solid #e67e22',
+                                                        paddingBottom: '8px',
+                                                    }}>
+                                                        ANEXO — {doc.name || doc.fileName}
+                                                    </div>
+                                                    <img
+                                                        src={doc.url}
+                                                        alt={doc.name || doc.fileName}
+                                                        style={{
+                                                            maxWidth: '100%',
+                                                            maxHeight: 'calc(100vh - 100px)',
+                                                            objectFit: 'contain',
+                                                        }}
+                                                        crossOrigin="anonymous"
+                                                    />
+                                                    {doc.description && (
+                                                        <p style={{ marginTop: '10px', fontSize: '11px', color: '#666', textAlign: 'center' }}>
+                                                            {doc.description}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </>
+                                );
+                            })()}
                         </>
                     );
                 })()}

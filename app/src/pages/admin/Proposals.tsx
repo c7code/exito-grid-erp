@@ -66,6 +66,7 @@ import { OeMProposalPDFTemplate } from '@/components/OeMProposalPDFTemplate';
 import { RentalProposalPDFTemplate } from '@/components/RentalProposalPDFTemplate';
 import { SignatureSelector } from '@/components/SignatureSelector';
 import ProposalAttachments from '@/components/ProposalAttachments';
+import { renderAttachmentPdfs } from '@/utils/pdfRenderer';
 import {
   Select,
   SelectContent,
@@ -562,6 +563,16 @@ export default function AdminProposals() {
         }
       } catch { /* silencioso */ }
 
+      // ═══ RENDERIZAR PDFs ANEXOS COMO IMAGENS ═══
+      try {
+        const externalDocs = freshProposal.documents || [];
+        if (externalDocs.length > 0) {
+          toast.info('Processando anexos PDF...');
+          const renderedPdfs = await renderAttachmentPdfs(externalDocs, 2);
+          freshProposal = { ...freshProposal, attachmentPages: renderedPdfs };
+        }
+      } catch (err) { console.warn('Falha ao renderizar PDFs anexos:', err); }
+
       let coData = null;
       try { coData = await api.getPrimaryCompany(); } catch {}
 
@@ -650,6 +661,16 @@ export default function AdminProposals() {
     } catch (err) {
       console.warn('Could not fetch proposal documents:', err);
     }
+
+    // ═══ RENDERIZAR PDFs ANEXOS COMO IMAGENS ═══
+    try {
+      const externalDocs = freshProposal.documents || [];
+      if (externalDocs.length > 0) {
+        toast.info('Processando anexos PDF...');
+        const renderedPdfs = await renderAttachmentPdfs(externalDocs, 2);
+        freshProposal = { ...freshProposal, attachmentPages: renderedPdfs };
+      }
+    } catch (err) { console.warn('Falha ao renderizar PDFs anexos:', err); }
 
     // If solar proposal, load solar project data first
     let solarData = null;
