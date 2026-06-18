@@ -13,32 +13,9 @@ export class ContractsService {
         @InjectRepository(ContractTemplate)
         private templateRepo: Repository<ContractTemplate>,
         private dataSource: DataSource,
-    ) {
-        this.ensureTemplateTable();
-    }
+    ) {}
 
-    private async ensureTemplateTable() {
-        try {
-            await this.dataSource.query(`
-                CREATE TABLE IF NOT EXISTS contract_templates (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    name VARCHAR NOT NULL,
-                    type VARCHAR DEFAULT 'service',
-                    scope TEXT, "paymentTerms" TEXT, penalties TEXT, warranty TEXT,
-                    termination TEXT, confidentiality TEXT, "forceMajeure" TEXT,
-                    jurisdiction TEXT, "contractorObligations" TEXT, "clientObligations" TEXT,
-                    "generalProvisions" TEXT,
-                    "createdAt" TIMESTAMP DEFAULT NOW(), "updatedAt" TIMESTAMP DEFAULT NOW(),
-                    "deletedAt" TIMESTAMP
-                )
-            `);
-        } catch (e) { console.warn('Template table migration:', e?.message); }
 
-        // Ensure proposalId column exists in documents table
-        try {
-            await this.dataSource.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS "proposalId" UUID`);
-        } catch (e) { console.warn('Documents proposalId migration:', e?.message); }
-    }
 
     async findAll(filters?: { status?: string; workId?: string; clientId?: string }) {
         const query = this.contractRepo

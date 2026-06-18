@@ -20,115 +20,13 @@ export class BudgetsService implements OnModuleInit {
 
     async onModuleInit() {
         try {
-            await this.ensureTables();
             await this.parametricEngine.seedDefaultRules();
         } catch (e) {
             this.logger.error('Budget module init error (non-fatal): ' + e.message);
         }
     }
 
-    private async ensureTables() {
-        try {
-            await this.dataSource.query(`
-                CREATE TABLE IF NOT EXISTS budgets (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    name VARCHAR(500) NOT NULL,
-                    description TEXT,
-                    state VARCHAR(10) DEFAULT 'PE',
-                    "workType" VARCHAR(50) DEFAULT 'geral',
-                    "bdiPercent" DECIMAL(5,2) DEFAULT 0,
-                    status VARCHAR(30) DEFAULT 'rascunho',
-                    "totalMaterial" DECIMAL(14,2) DEFAULT 0,
-                    "totalLabor" DECIMAL(14,2) DEFAULT 0,
-                    "totalEquipment" DECIMAL(14,2) DEFAULT 0,
-                    subtotal DECIMAL(14,2) DEFAULT 0,
-                    "bdiValue" DECIMAL(14,2) DEFAULT 0,
-                    total DECIMAL(14,2) DEFAULT 0,
-                    "userId" UUID,
-                    "companyId" UUID,
-                    "createdAt" TIMESTAMP DEFAULT NOW(),
-                    "updatedAt" TIMESTAMP DEFAULT NOW()
-                );
 
-                CREATE TABLE IF NOT EXISTS budget_items (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    "budgetId" UUID NOT NULL REFERENCES budgets(id) ON DELETE CASCADE,
-                    "sinapiCode" VARCHAR(20),
-                    "sinapiCompositionId" UUID,
-                    description TEXT NOT NULL,
-                    unit VARCHAR(20) DEFAULT 'UN',
-                    "itemType" VARCHAR(30) DEFAULT 'composicao',
-                    "costCategory" VARCHAR(30) DEFAULT 'material',
-                    quantity DECIMAL(14,6) DEFAULT 1,
-                    "sinapiCoefficient" DECIMAL(14,6),
-                    "unitCost" DECIMAL(14,4) DEFAULT 0,
-                    subtotal DECIMAL(14,2) DEFAULT 0,
-                    "priceSource" VARCHAR(30),
-                    "sortOrder" INTEGER DEFAULT 0,
-                    notes TEXT,
-                    "parametricData" JSONB,
-                    "isManualOverride" BOOLEAN DEFAULT false,
-                    "suggestedCost" DECIMAL(14,4),
-                    "confidenceLevel" VARCHAR(20),
-                    "createdAt" TIMESTAMP DEFAULT NOW()
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_budget_items_budget ON budget_items("budgetId");
-
-                -- Service Rules
-                CREATE TABLE IF NOT EXISTS service_rules (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    name VARCHAR(200) NOT NULL,
-                    category VARCHAR(50) DEFAULT 'eletrica',
-                    keywords JSONB DEFAULT '[]',
-                    "excludeKeywords" JSONB DEFAULT '[]',
-                    "parameterName" VARCHAR(100),
-                    "parameterRegex" VARCHAR(500),
-                    "professionalCode" VARCHAR(20),
-                    "professionalLabel" VARCHAR(100),
-                    "helperCode" VARCHAR(20),
-                    "helperLabel" VARCHAR(100),
-                    bands JSONB DEFAULT '[]',
-                    "customProfitPercent" DECIMAL(6,2),
-                    "isActive" BOOLEAN DEFAULT true,
-                    "sortOrder" INTEGER DEFAULT 0,
-                    "companyId" UUID,
-                    "createdAt" TIMESTAMP DEFAULT NOW(),
-                    "updatedAt" TIMESTAMP DEFAULT NOW()
-                );
-
-                -- Company Financials
-                CREATE TABLE IF NOT EXISTS company_financials (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    "profileName" VARCHAR(200) DEFAULT 'Padrão',
-                    "encargosPercent" DECIMAL(6,2) DEFAULT 68.47,
-                    "adminCentralPercent" DECIMAL(6,2) DEFAULT 4.00,
-                    "seguroPercent" DECIMAL(6,2) DEFAULT 0.80,
-                    "riscoPercent" DECIMAL(6,2) DEFAULT 1.20,
-                    "despesasFinanceirasPercent" DECIMAL(6,2) DEFAULT 1.40,
-                    "lucroPercent" DECIMAL(6,2) DEFAULT 8.00,
-                    "pisCofinPercent" DECIMAL(6,2) DEFAULT 3.65,
-                    "issPercent" DECIMAL(6,2) DEFAULT 5.00,
-                    "icmsPercent" DECIMAL(6,2) DEFAULT 0.00,
-                    "categoryMargins" JSONB,
-                    "bdiCalculated" DECIMAL(6,2) DEFAULT 25.00,
-                    "isActive" BOOLEAN DEFAULT true,
-                    "companyId" UUID,
-                    "createdAt" TIMESTAMP DEFAULT NOW(),
-                    "updatedAt" TIMESTAMP DEFAULT NOW()
-                );
-
-                -- Add new columns if tables already existed
-                ALTER TABLE budget_items ADD COLUMN IF NOT EXISTS "parametricData" JSONB;
-                ALTER TABLE budget_items ADD COLUMN IF NOT EXISTS "isManualOverride" BOOLEAN DEFAULT false;
-                ALTER TABLE budget_items ADD COLUMN IF NOT EXISTS "suggestedCost" DECIMAL(14,4);
-                ALTER TABLE budget_items ADD COLUMN IF NOT EXISTS "confidenceLevel" VARCHAR(20);
-            `);
-            this.logger.log('Budget + ServiceRules + CompanyFinancials tables ensured');
-        } catch (e) {
-            this.logger.warn('Budget tables migration: ' + e.message);
-        }
-    }
 
     // ═══════════════════════════════════════════════════════════
     // CRUD

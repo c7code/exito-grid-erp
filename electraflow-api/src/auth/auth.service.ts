@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -8,7 +8,7 @@ import { User, UserRole, UserStatus } from '../users/user.entity';
 import { Client } from '../clients/client.entity';
 
 @Injectable()
-export class AuthService implements OnModuleInit {
+export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
@@ -20,20 +20,7 @@ export class AuthService implements OnModuleInit {
     private dataSource: DataSource,
   ) { }
 
-  // ═══ AUTO-MIGRATION ═════════════════════════════════════════════════════
-  async onModuleInit() {
-    try {
-      // Add refreshToken columns to users table if missing
-      await this.dataSource.query(`
-        ALTER TABLE users
-          ADD COLUMN IF NOT EXISTS "refreshToken" TEXT,
-          ADD COLUMN IF NOT EXISTS "refreshTokenExpiresAt" TIMESTAMP;
-      `);
-      this.logger.log('Auto-migration: refreshToken columns OK');
-    } catch (e) {
-      this.logger.warn('Auto-migration skipped:', e.message);
-    }
-  }
+
 
   // ═══ USER AUTH ════════════════════════════════════════════════════════════
 
