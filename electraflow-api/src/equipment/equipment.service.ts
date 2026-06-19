@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
-import { Equipment, EquipmentRental, EquipmentMaintenance, EquipmentDailyLog, EquipmentService as EquipmentServiceEntity, EquipmentChecklist, EquipmentDocument, EquipmentLiftingPlan, EquipmentDailyExpense } from './equipment.entity';
+import { Repository, DataSource, In } from 'typeorm';
+import { Equipment, EquipmentRental, EquipmentMaintenance, EquipmentDailyLog, EquipmentService as EquipmentServiceEntity, EquipmentChecklist, EquipmentDocument, EquipmentLiftingPlan, EquipmentDailyExpense, EquipmentBoletim } from './equipment.entity';
 
 @Injectable()
 export class EquipmentService implements OnModuleInit {
@@ -149,6 +149,25 @@ export class EquipmentService implements OnModuleInit {
         notes TEXT,
         "createdAt" TIMESTAMP DEFAULT NOW(),
         "updatedAt" TIMESTAMP DEFAULT NOW()
+      )`,
+      // ══ equipment_boletins ══
+      `CREATE TABLE IF NOT EXISTS equipment_boletins (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "rentalId" UUID NOT NULL,
+        "boletimNumber" INT DEFAULT 1,
+        "periodStart" DATE,
+        "periodEnd" DATE,
+        "totalValue" NUMERIC(15,2) DEFAULT 0,
+        "totalNormalHours" NUMERIC(8,2) DEFAULT 0,
+        "totalOvertimeHours" NUMERIC(8,2) DEFAULT 0,
+        "totalNightHours" NUMERIC(8,2) DEFAULT 0,
+        status VARCHAR DEFAULT 'generated',
+        "generatedById" UUID,
+        notes TEXT,
+        "dailyLogIds" TEXT,
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        "updatedAt" TIMESTAMP DEFAULT NOW(),
+        "deletedAt" TIMESTAMP
       )`,
     ];
 
@@ -1112,5 +1131,71 @@ export class EquipmentService implements OnModuleInit {
       total: totalValue,
       rentalCode: rental.code,
     };
+  }
+
+  // ═══ BOLETINS DE MEDIÇÃO ═══════════════════════════════════════
+
+  async createBoletim(rentalId: string, data: { dailyLogIds: string[]; notes?: string; generatedById?: string }) {
+    const repo = this.dataSource.getRepository(EquipmentBoletim);
+
+    // Próximo número de boletim para esta locação
+    const lastBoletim = await repo.findOne({
+      where: { rentalId },
+      order: { boletimNumber: 'DESC' },
+    });
+    const nextNumber = (lastBoletim?.boletimNumber || 0) + 1;
+
+    // Carregar as diárias para calcular totais
+    const logs = await this.dailyRepo.findBy({ id: In(data.dailyLogIds) });
+
+    const totalValue = logs.reduce((sum, l) => sum + Number(l.totalValue || 0), 0);
+    const totalNormalHours = logs.reduce((sum, l) => sum + Number(l.normalHours || 0), 0);
+    const totalOvertimeHours = logs.reduce((sum, l) => sum + Number(l.overtimeHours || 0), 0);
+    const totalNightHours = logs.reduce((sum, l) => sum + Number(l.nightHours || 0), 0);
+
+    const dates = logs.map(l => new Date(l.date)).sort((a, b) => a.getTime() - b.getTime());
+
+    const boletim = repo.create({
+      rentalId,
+      boletimNumber: nextNumber,
+      periodStart: dates[0] || null,
+      periodEnd: dates[dates.length - 1] || null,
+      totalValue,
+      totalNormalHours,
+      totalOvertimeHours,
+      totalNightHours,
+      dailyLogIds: data.dailyLogIds,
+      notes: data.notes,
+      generatedById: data.generatedById,
+    });
+
+    return repo.save(boletim);
+  }
+
+  async getBoletins(rentalId: string) {
+    const repo = this.dataSource.getRepository(EquipmentBoletim);
+    return repo.find({
+      where: { rentalId },
+      order: { boletimNumber: 'DESC' },
+    });
+  }
+
+  async getBoletim(id: string) {
+    const repo = this.dataSource.getRepository(EquipmentBoletim);
+    const boletim = await repo.findOneBy({ id });
+    if (!boletim) throw new NotFoundException('Boletim não encontrado');
+
+    // Carregar as diárias vinculadas
+    const logIds = boletim.dailyLogIds || [];
+    const logs = logIds.length ? await this.dailyRepo.findBy({ id: In(logIds) }) : [];
+
+    return { ...boletim, logs };
+  }
+
+  async deleteBoletim(id: string) {
+    const repo = this.dataSource.getRepository(EquipmentBoletim);
+    const boletim = await repo.findOneBy({ id });
+    if (!boletim) throw new NotFoundException('Boletim não encontrado');
+    return repo.softRemove(boletim);
   }
 }

@@ -152,6 +152,25 @@ export class EquipmentController {
     @Query('endDate') endDate?: string,
   ) { return this.svc.getMeasurementReport(id, startDate, endDate); }
 
+  // ═══ BOLETINS DE MEDIÇÃO ═══
+  @Post('boletins')
+  @ApiOperation({ summary: 'Criar boletim de medição com diárias selecionadas' })
+  createBoletim(@Body() body: { rentalId: string; dailyLogIds: string[]; notes?: string; generatedById?: string }) {
+    return this.svc.createBoletim(body.rentalId, body);
+  }
+
+  @Get('rentals/:id/boletins')
+  @ApiOperation({ summary: 'Listar boletins de uma locação' })
+  getBoletins(@Param('id') rentalId: string) { return this.svc.getBoletins(rentalId); }
+
+  @Get('boletins/:id')
+  @ApiOperation({ summary: 'Obter boletim com diárias' })
+  getBoletim(@Param('id') id: string) { return this.svc.getBoletim(id); }
+
+  @Delete('boletins/:id')
+  @ApiOperation({ summary: 'Excluir boletim' })
+  removeBoletim(@Param('id') id: string) { return this.svc.deleteBoletim(id); }
+
   // ═══ SERVICES (Pontuais) ═══
   @Get('services/all')
   @ApiOperation({ summary: 'Listar serviços pontuais' })

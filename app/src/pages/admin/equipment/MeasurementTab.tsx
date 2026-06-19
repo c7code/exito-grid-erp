@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, FileText, Printer, DollarSign, Clock, Moon, Calendar, TrendingUp, Pencil, Trash2, Eye, CalendarRange, AlertTriangle } from 'lucide-react';
+import { Loader2, FileText, Printer, DollarSign, Clock, Moon, Calendar, TrendingUp, Pencil, Trash2, Eye, CalendarRange, AlertTriangle, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { DAILY_STATUS, fmt, fD } from './EquipmentTypes';
@@ -46,11 +46,34 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   const [selectedLog, setSelectedLog] = useState<any>(null);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
 
+  // Boletim selection & history
+  const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
+  const [boletins, setBoletins] = useState<any[]>([]);
+  const [showBoletimHistory, setShowBoletimHistory] = useState(false);
+  const [savingBoletim, setSavingBoletim] = useState(false);
+
   // Boletim Adaptado (datas fictícias para faturamento)
   const [adaptedMode, setAdaptedMode] = useState(false);
   const [adaptedStart, setAdaptedStart] = useState('');
   const [adaptedEnd, setAdaptedEnd] = useState('');
   const [adaptedDates, setAdaptedDates] = useState<Record<string, string>>({});
+
+  const loadBoletins = async () => {
+    if (!selectedRentalId) return;
+    try {
+      const data = await api.getEquipmentBoletins(selectedRentalId);
+      setBoletins(Array.isArray(data) ? data : []);
+    } catch { setBoletins([]); }
+  };
+
+  const measuredLogIds = useMemo(() => {
+    const ids = new Set<string>();
+    boletins.forEach(b => {
+      const logIds = typeof b.dailyLogIds === 'string' ? JSON.parse(b.dailyLogIds || '[]') : (b.dailyLogIds || []);
+      logIds.forEach((id: string) => ids.add(id));
+    });
+    return ids;
+  }, [boletins]);
 
   async function loadReport() {
     if (!selectedRentalId) { toast.error('Selecione uma locação'); return; }
@@ -58,9 +81,57 @@ export default function MeasurementTab({ rentals, reload }: Props) {
       setLoading(true);
       const data = await api.getMeasurementReport(selectedRentalId, startDate || undefined, endDate || undefined);
       setReport(data);
+      await loadBoletins();
     } catch { toast.error('Erro ao gerar boletim'); }
     finally { setLoading(false); }
   }
+
+  const handleSaveBoletim = async () => {
+    if (selectedLogIds.size === 0) return toast.error('Selecione pelo menos uma diária');
+    setSavingBoletim(true);
+    try {
+      await api.createEquipmentBoletim({
+        rentalId: selectedRentalId,
+        dailyLogIds: Array.from(selectedLogIds),
+      });
+      toast.success('Boletim salvo com sucesso!');
+      setSelectedLogIds(new Set());
+      await loadReport();
+      await loadBoletins();
+    } catch (err: any) {
+      toast.error('Erro ao salvar boletim: ' + (err?.response?.data?.message || err.message));
+    } finally {
+      setSavingBoletim(false);
+    }
+  };
+
+  const handleDeleteBoletim = async (id: string) => {
+    if (!confirm('Excluir este boletim? As diárias voltarão a ficar disponíveis.')) return;
+    try {
+      await api.deleteEquipmentBoletim(id);
+      toast.success('Boletim excluído');
+      await loadBoletins();
+      await loadReport();
+    } catch (err: any) {
+      toast.error('Erro ao excluir boletim');
+    }
+  };
+
+  const handlePrintBoletim = async (boletim: any) => {
+    try {
+      const data = await api.getEquipmentBoletim(boletim.id);
+      // Use the existing printReport logic but with the boletim's logs
+      const tempReport = { ...report, logs: data.logs };
+      const prevReport = report;
+      setReport(tempReport);
+      setTimeout(() => {
+        printReport();
+        setReport(prevReport);
+      }, 100);
+    } catch {
+      toast.error('Erro ao carregar boletim para impressão');
+    }
+  };
 
   async function billPeriod() {
     if (!selectedRentalId) return;
@@ -161,7 +232,10 @@ export default function MeasurementTab({ rentals, reload }: Props) {
       });
     } catch { /* logo opcional */ }
     const s = report.summary;
-    const logs = report.logs || [];
+    const allLogs = report.logs || [];
+    const logs = selectedLogIds.size > 0
+      ? allLogs.filter((l: any) => selectedLogIds.has(l.id))
+      : allLogs;
 
     const logsHtml = logs.map((log: any) => {
       const displayDate = isAdapted && adaptedDatesMap.has(log.id) ? fD(adaptedDatesMap.get(log.id)!) : fD(log.date);
@@ -343,10 +417,10 @@ export default function MeasurementTab({ rentals, reload }: Props) {
             <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
           </div>
         </div>
-        <div className="flex gap-2 mt-3">
+        <div className="flex gap-2 mt-3 flex-wrap items-center">
           <Button onClick={loadReport} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <TrendingUp className="h-4 w-4 mr-1" />}
-            Gerar Boletim
+            Carregar Diárias
           </Button>
           {report && (
             <>
@@ -355,6 +429,15 @@ export default function MeasurementTab({ rentals, reload }: Props) {
               </Button>
               <Button variant="outline" className="text-emerald-600 border-emerald-300 hover:bg-emerald-50" onClick={billPeriod}>
                 <DollarSign className="h-4 w-4 mr-1" />Faturar Período
+              </Button>
+            </>
+          )}
+          {selectedLogIds.size > 0 && (
+            <>
+              <span className="text-xs text-slate-500 ml-2">{selectedLogIds.size} selecionada(s)</span>
+              <Button onClick={handleSaveBoletim} disabled={savingBoletim} className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Save className="w-4 h-4 mr-1" />
+                Salvar Boletim ({selectedLogIds.size} diária{selectedLogIds.size > 1 ? 's' : ''})
               </Button>
             </>
           )}
@@ -412,6 +495,23 @@ export default function MeasurementTab({ rentals, reload }: Props) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-100 text-slate-600 text-xs">
+                    <th className="w-8 px-2 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={report?.logs?.filter((l: any) => !measuredLogIds.has(l.id)).length > 0 &&
+                          report?.logs?.filter((l: any) => !measuredLogIds.has(l.id)).every((l: any) => selectedLogIds.has(l.id))}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            const newSet = new Set(selectedLogIds);
+                            report?.logs?.filter((l: any) => !measuredLogIds.has(l.id)).forEach((l: any) => newSet.add(l.id));
+                            setSelectedLogIds(newSet);
+                          } else {
+                            setSelectedLogIds(new Set());
+                          }
+                        }}
+                        className="rounded"
+                      />
+                    </th>
                     <th className="px-4 py-2.5 text-left font-semibold">Data</th>
                     <th className="px-3 py-2.5 text-left font-semibold">Horário</th>
                     <th className="px-3 py-2.5 text-right font-semibold">Normal</th>
@@ -426,7 +526,26 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                 </thead>
                 <tbody>
                   {(report.logs || []).map((log: any) => (
-                    <tr key={log.id} className="border-b hover:bg-slate-50/60 transition-colors">
+                    <tr key={log.id} className={`border-b hover:bg-slate-50/60 transition-colors ${measuredLogIds.has(log.id) ? 'opacity-60' : ''}`}>
+                      <td className="px-2 py-2 text-center">
+                        {measuredLogIds.has(log.id) ? (
+                          <Badge variant="outline" className="text-[9px] bg-green-50 text-green-700 border-green-200">
+                            Medido
+                          </Badge>
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={selectedLogIds.has(log.id)}
+                            onChange={(e) => {
+                              const newSet = new Set(selectedLogIds);
+                              if (e.target.checked) newSet.add(log.id);
+                              else newSet.delete(log.id);
+                              setSelectedLogIds(newSet);
+                            }}
+                            className="rounded"
+                          />
+                        )}
+                      </td>
                       <td className="px-4 py-2 font-medium">
                         {fD(log.date)}
                         {isNationalHoliday(safeDate(log.date)) && (
@@ -478,6 +597,7 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                 </tbody>
                 <tfoot>
                   <tr className="bg-blue-50 font-bold text-sm">
+                    <td></td>
                     <td className="px-4 py-2.5" colSpan={2}>TOTAIS</td>
                     <td className="px-3 py-2.5 text-right">{report.summary.totalNormalHours.toFixed(1)}h</td>
                     <td className="px-3 py-2.5 text-right text-orange-600">{report.summary.totalOvertimeHours.toFixed(1)}h</td>
@@ -490,6 +610,51 @@ export default function MeasurementTab({ rentals, reload }: Props) {
               </table>
             </div>
           </Card>
+
+          {/* Histórico de Boletins */}
+          {boletins.length > 0 && (
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <FileText className="w-4 h-4" /> Boletins Salvos ({boletins.length})
+                </h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowBoletimHistory(!showBoletimHistory)}>
+                  {showBoletimHistory ? 'Ocultar' : 'Ver Histórico'}
+                </Button>
+              </div>
+              {showBoletimHistory && (
+                <div className="space-y-2">
+                  {boletins.map((b: any) => {
+                    const logIds = typeof b.dailyLogIds === 'string' ? JSON.parse(b.dailyLogIds || '[]') : (b.dailyLogIds || []);
+                    return (
+                      <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                        <div>
+                          <span className="font-medium text-sm">Boletim #{b.boletimNumber}</span>
+                          <span className="text-xs text-gray-500 ml-2">
+                            {b.periodStart && new Date(b.periodStart).toLocaleDateString('pt-BR')} — {b.periodEnd && new Date(b.periodEnd).toLocaleDateString('pt-BR')}
+                          </span>
+                          <span className="text-xs text-gray-400 ml-2">
+                            ({logIds.length} diária{logIds.length > 1 ? 's' : ''})
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-green-700">
+                            R$ {Number(b.totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                          <Button variant="ghost" size="sm" onClick={() => handlePrintBoletim(b)}>
+                            <Printer className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-red-500" onClick={() => handleDeleteBoletim(b.id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+          )}
 
           {/* Clauses if any */}
           {report.rental.proposalClauses?.filter((c: any) => c.enabled).length > 0 && (

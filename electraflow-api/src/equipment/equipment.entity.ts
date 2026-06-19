@@ -801,3 +801,57 @@ export class EquipmentLiftingPlan {
   @DeleteDateColumn()
   deletedAt: Date;
 }
+
+// ══════════════════════════════════════════════════════════════════
+// EQUIPMENT BOLETIM — Boletins de Medição Salvos
+// ══════════════════════════════════════════════════════════════════
+@Entity('equipment_boletins')
+export class EquipmentBoletim {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ nullable: false })
+  rentalId: string;
+
+  @Column({ default: 1 })
+  boletimNumber: number;
+
+  @Column('date', { nullable: true })
+  periodStart: Date;
+
+  @Column('date', { nullable: true })
+  periodEnd: Date;
+
+  @Column('numeric', { precision: 15, scale: 2, default: 0 })
+  totalValue: number;
+
+  @Column('numeric', { precision: 8, scale: 2, default: 0 })
+  totalNormalHours: number;
+
+  @Column('numeric', { precision: 8, scale: 2, default: 0 })
+  totalOvertimeHours: number;
+
+  @Column('numeric', { precision: 8, scale: 2, default: 0 })
+  totalNightHours: number;
+
+  @Column({ default: 'generated' })
+  status: string; // generated, approved, billed
+
+  @Column({ nullable: true })
+  generatedById: string;
+
+  @Column({ nullable: true, type: 'text' })
+  notes: string;
+
+  @Column('simple-json', { nullable: true })
+  dailyLogIds: string[];
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
+}

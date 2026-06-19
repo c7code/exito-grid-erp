@@ -3218,6 +3218,12 @@ class ApiService {
   async markExpenseReimbursed(id: string) { return (await this.client.patch(`/equipment/expenses/${id}/reimbursed`, {})).data; }
   async deleteEquipmentExpense(id: string) { return (await this.client.delete(`/equipment/expenses/${id}`)).data; }
 
+  // Boletins de Medição
+  async getEquipmentBoletins(rentalId: string) { return (await this.client.get(`/equipment/rentals/${rentalId}/boletins`)).data; }
+  async getEquipmentBoletim(id: string) { return (await this.client.get(`/equipment/boletins/${id}`)).data; }
+  async createEquipmentBoletim(data: { rentalId: string; dailyLogIds: string[] }) { return (await this.client.post('/equipment/boletins', data)).data; }
+  async deleteEquipmentBoletim(id: string) { return (await this.client.delete(`/equipment/boletins/${id}`)).data; }
+
   // ═══════════════════════════════════════════════════
   // Canal de Indicações Solar — Referrals
   // ═══════════════════════════════════════════════════
