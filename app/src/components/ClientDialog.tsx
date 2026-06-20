@@ -240,12 +240,17 @@ export function ClientDialog({
         setLoading(true);
 
         try {
+            // Remove empty strings to avoid backend validation issues (e.g. @IsEmail on '')
+            const cleanedData = Object.fromEntries(
+                Object.entries(formData).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+            );
+
             let savedClient;
             if (client) {
-                savedClient = await api.updateClient(client.id, formData);
+                savedClient = await api.updateClient(client.id, cleanedData);
                 toast.success('Cliente atualizado com sucesso');
             } else {
-                savedClient = await api.createClient(formData);
+                savedClient = await api.createClient(cleanedData);
                 // Capture the generated portal password
                 if (savedClient.portalPassword) {
                     setGeneratedPassword(savedClient.portalPassword);
@@ -281,8 +286,10 @@ export function ClientDialog({
             if (!savedClient.portalPassword) {
                 onOpenChange(false);
             }
-        } catch (error) {
-            toast.error('Erro ao salvar cliente');
+        } catch (error: any) {
+            const msg = error?.response?.data?.message;
+            const detail = Array.isArray(msg) ? msg.join(', ') : (msg || 'Erro ao salvar cliente');
+            toast.error(detail);
         } finally {
             setLoading(false);
         }

@@ -44,35 +44,7 @@ export class ClientsController {
     return this.clientsService.findAll(query, Number(page), Number(pageSize));
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Buscar cliente por ID' })
-  async findOne(@Param('id') id: string) {
-    return this.clientsService.findOne(id);
-  }
-
-  @Post()
-  @ApiOperation({ summary: 'Criar cliente (gera acesso ao portal automaticamente)' })
-  async create(@Body() clientData: CreateClientDto, @Request() req) {
-    return this.clientsService.create({ ...clientData, createdById: req.user?.userId || req.user?.id });
-  }
-
-  @Put(':id')
-  @ApiOperation({ summary: 'Atualizar cliente' })
-  async update(@Param('id') id: string, @Body() clientData: UpdateClientDto) {
-    return this.clientsService.update(id, clientData);
-  }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Remover cliente' })
-  async remove(@Param('id') id: string) {
-    return this.clientsService.remove(id);
-  }
-
-  @Post(':id/generate-access')
-  @ApiOperation({ summary: 'Gerar/resetar senha do portal para o cliente' })
-  async generatePortalAccess(@Param('id') id: string) {
-    return this.clientsService.generatePortalAccess(id);
-  }
+  // ═══ ROTAS ESTÁTICAS — devem vir ANTES de :id para evitar conflito ═════════
 
   @Post('sync-users')
   @ApiOperation({ summary: 'Sincronizar clientes existentes — cria Users para quem ainda não tem' })
@@ -106,6 +78,38 @@ export class ClientsController {
       status: body.status,
       respondedBy: req.user.name || req.user.email || req.user.userId,
     });
+  }
+
+  // ═══ ROTAS COM PARÂMETRO :id ═══════════════════════════════════════════════
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Buscar cliente por ID' })
+  async findOne(@Param('id') id: string) {
+    return this.clientsService.findOne(id);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Criar cliente (gera acesso ao portal automaticamente)' })
+  async create(@Body() clientData: CreateClientDto, @Request() req) {
+    return this.clientsService.create({ ...clientData, createdById: req.user?.userId || req.user?.id });
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Atualizar cliente' })
+  async update(@Param('id') id: string, @Body() clientData: UpdateClientDto) {
+    return this.clientsService.update(id, clientData);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Remover cliente' })
+  async remove(@Param('id') id: string) {
+    return this.clientsService.remove(id);
+  }
+
+  @Post(':id/generate-access')
+  @ApiOperation({ summary: 'Gerar/resetar senha do portal para o cliente' })
+  async generatePortalAccess(@Param('id') id: string) {
+    return this.clientsService.generatePortalAccess(id);
   }
 
   // ═══ DOCUMENTS ═════════════════════════════════════════════════════════════

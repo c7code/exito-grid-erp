@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, IsEnum, IsNumber, IsBoolean, IsNotEmpty } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsEnum, IsNumber, IsBoolean, IsNotEmpty, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { ClientSegment, ClientType, ClientClassification } from './client.entity';
@@ -28,6 +28,7 @@ export class CreateClientDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @ValidateIf((o) => o.email !== '' && o.email != null)
   @IsEmail()
   email?: string;
 
@@ -68,6 +69,7 @@ export class CreateClientDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @ValidateIf((o) => o.contactEmail !== '' && o.contactEmail != null)
   @IsEmail()
   contactEmail?: string;
 
@@ -130,6 +132,16 @@ export class CreateClientDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Inscrição Estadual' })
+  @IsOptional()
+  @IsString()
+  stateRegistration?: string;
+
+  @ApiPropertyOptional({ description: 'Nome da Obra / Identificação do Projeto' })
+  @IsOptional()
+  @IsString()
+  obraName?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
