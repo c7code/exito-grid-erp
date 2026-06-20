@@ -6,9 +6,11 @@
  * com Supabase Storage.
  */
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// Configurar o worker — usa o CDN para evitar problemas de bundle
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Configurar o worker — usa import ?url do Vite para resolver o caminho local
+// (o CDN não possui a versão 6.x do pdf.js)
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
 export interface RenderedPage {
   dataUrl: string;     // base64 data URL da página
