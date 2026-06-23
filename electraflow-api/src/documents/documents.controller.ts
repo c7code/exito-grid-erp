@@ -277,15 +277,22 @@ export class DocumentsController {
   @Delete(':id')
   @ApiOperation({ summary: 'Remover documento' })
   async remove(@Param('id') id: string, @Request() req) {
-    if (req.user?.role !== 'admin') throw new ForbiddenException('Apenas administradores podem excluir');
     const doc = await this.documentsService.findOne(id);
+    const userId = req.user?.userId || req.user?.id;
+    const userRole = req?.user?.role;
+    const userPermissions: string[] = req?.user?.permissions || [];
+    const isAdmin = userRole === 'admin';
+    const isCreator = doc.createdById && userId && doc.createdById === userId;
+
+    // Permite exclusão se for admin ou criador do documento
+    if (!isAdmin && !isCreator) {
+      throw new ForbiddenException('Apenas administradores ou o autor do documento podem excluir.');
+    }
 
     // Bloqueia exclusão de documentos restritos se não for admin
     const docAccess = doc.accessLevel || 'public';
     if (docAccess !== 'public') {
-      const userRole = req?.user?.role;
-      const userPermissions: string[] = req?.user?.permissions || [];
-      const canAccess = userRole === 'admin' || userPermissions.includes('documents-restricted');
+      const canAccess = isAdmin || userPermissions.includes('documents-restricted');
       if (!canAccess) {
         throw new ForbiddenException('Você não tem permissão para excluir este documento.');
       }
