@@ -108,6 +108,20 @@ export default function NewProposalDialog({
     }
     const [attachedFiles, setAttachedFiles] = useState<AttachedFileEntry[]>([]);
 
+    // Documentos já salvos no banco (carregados ao editar)
+    interface ExistingDoc {
+        id: string;
+        name: string;
+        fileName: string;
+        url: string;
+        mimeType: string;
+        size: number;
+        description?: string;
+        purpose?: string;
+    }
+    const [existingDocs, setExistingDocs] = useState<ExistingDoc[]>([]);
+    const [loadingDocs, setLoadingDocs] = useState(false);
+
     // Preview state — renderização em memória, sem persistir no banco
     const [previewOpen, setPreviewOpen] = useState(false);
     const [previewData, setPreviewData] = useState<any>(null);
@@ -409,6 +423,16 @@ export default function NewProposalDialog({
                     summaryTotalLabel: initialData.summaryTotalLabel || 'Valor Global',
                     referralConsultantId: initialData.referralConsultantId || '',
                 });
+
+                // Carregar documentos/anexos já salvos no banco
+                if (initialData.id) {
+                    setLoadingDocs(true);
+                    api.getDocuments({ proposalId: initialData.id }).then((docs: any) => {
+                        setExistingDocs(Array.isArray(docs) ? docs : []);
+                    }).catch(() => {
+                        setExistingDocs([]);
+                    }).finally(() => setLoadingDocs(false));
+                }
                 if (initialData.items && initialData.items.length > 0) {
                     setItems(initialData.items.map((it: any) => ({
                         id: it.id,
@@ -654,6 +678,7 @@ export default function NewProposalDialog({
         setItems([{ ...emptyItem }]);
         setErrors({});
         setAttachedFiles([]);
+        setExistingDocs([]);
     };
 
     const handleClientCreated = async () => {
@@ -2932,8 +2957,121 @@ export default function NewProposalDialog({
                                 <span className="text-[10px] text-slate-400">Por padrão, anexos são Internos. Mude para Externo para incluir no PDF.</span>
                             </div>
 
+                            {/* Documentos já salvos (existentes no banco) */}
+                            {loadingDocs && (
+                                <div className="flex items-center justify-center py-3">
+                                    <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+                                    <span className="text-xs text-slate-400 ml-2">Carregando anexos...</span>
+                                </div>
+                            )}
+                            {existingDocs.length > 0 && (
+                                <div className="space-y-2">
+                                    <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Anexos salvos</p>
+                                    {existingDocs.map((doc) => {
+                                        const isExternal = doc.purpose === 'proposal_external';
+                                        return (
+                                            <div key={doc.id} className={`flex items-center gap-2 p-2.5 rounded-lg border ${
+                                                isExternal
+                                                    ? 'bg-emerald-50 border-emerald-200'
+                                                    : 'bg-slate-50 border-slate-200'
+                                            }`}>
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                                    isExternal ? 'bg-emerald-100' : 'bg-amber-100'
+                                                }`}>
+                                                    <FileText className={`w-4 h-4 ${
+                                                        isExternal ? 'text-emerald-600' : 'text-amber-600'
+                                                    }`} />
+                                                </div>
+
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-medium text-slate-700 truncate">{doc.name || doc.fileName}</p>
+                                                    {doc.description && (
+                                                        <p className="text-[10px] text-slate-400 truncate">{doc.description}</p>
+                                                    )}
+                                                </div>
+
+                                                <span className="text-[10px] text-slate-400 shrink-0">{doc.size ? `${(doc.size / 1024).toFixed(0)} KB` : ''}</span>
+
+                                                {/* Visualizar */}
+                                                {doc.url && (
+                                                    <button
+                                                        type="button"
+                                                        className="h-6 w-6 flex items-center justify-center text-blue-400 hover:text-blue-600 shrink-0"
+                                                        title="Visualizar"
+                                                        onClick={() => window.open(doc.url, '_blank')}
+                                                    >
+                                                        <Eye className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
+
+                                                {/* Toggle de visibilidade */}
+                                                <button
+                                                    type="button"
+                                                    title={isExternal ? 'Clique para tornar Interno (não vai no PDF)' : 'Clique para tornar Externo (vai no PDF do cliente)'}
+                                                    className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all ${
+                                                        isExternal
+                                                            ? 'bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600'
+                                                            : 'bg-slate-200 text-slate-600 border-slate-300 hover:bg-slate-300'
+                                                    }`}
+                                                    onClick={async () => {
+                                                        const newPurpose = isExternal ? 'proposal_internal' : 'proposal_external';
+                                                        try {
+                                                            await api.updateDocumentPurpose(doc.id, newPurpose);
+                                                            setExistingDocs(prev => prev.map(d => d.id === doc.id ? { ...d, purpose: newPurpose } : d));
+                                                            toast.success(newPurpose === 'proposal_external' ? 'Anexo agora aparece no PDF' : 'Anexo oculto do PDF');
+                                                        } catch { toast.error('Erro ao alterar visibilidade'); }
+                                                    }}
+                                                >
+                                                    {isExternal ? '🟢 Externo' : '🔵 Interno'}
+                                                </button>
+
+                                                {/* Editar nome */}
+                                                <button
+                                                    type="button"
+                                                    className="h-6 w-6 flex items-center justify-center text-amber-400 hover:text-amber-600 shrink-0"
+                                                    title="Editar nome"
+                                                    onClick={async () => {
+                                                        const newName = prompt('Novo nome do anexo:', doc.name || doc.fileName);
+                                                        if (newName && newName.trim()) {
+                                                            try {
+                                                                await api.updateDocument(doc.id, { name: newName.trim() });
+                                                                setExistingDocs(prev => prev.map(d => d.id === doc.id ? { ...d, name: newName.trim() } : d));
+                                                                toast.success('Nome atualizado');
+                                                            } catch { toast.error('Erro ao renomear'); }
+                                                        }
+                                                    }}
+                                                >
+                                                    <Pencil className="w-3.5 h-3.5" />
+                                                </button>
+
+                                                {/* Excluir */}
+                                                <button
+                                                    type="button"
+                                                    className="h-6 w-6 flex items-center justify-center text-slate-400 hover:text-red-500 shrink-0"
+                                                    title="Remover anexo"
+                                                    onClick={async () => {
+                                                        if (!confirm(`Excluir "${doc.name || doc.fileName}"?`)) return;
+                                                        try {
+                                                            await api.deleteDocument(doc.id);
+                                                            setExistingDocs(prev => prev.filter(d => d.id !== doc.id));
+                                                            toast.success('Anexo removido');
+                                                        } catch { toast.error('Erro ao excluir anexo'); }
+                                                    }}
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Novos arquivos (ainda não salvos) */}
                             {attachedFiles.length > 0 && (
                                 <div className="space-y-2">
+                                    {existingDocs.length > 0 && (
+                                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider pt-2">Novos anexos (serão salvos ao confirmar)</p>
+                                    )}
                                     {attachedFiles.map((entry, idx) => (
                                         <div key={idx} className={`flex items-center gap-2 p-2.5 rounded-lg border ${
                                             entry.visibility === 'external'
