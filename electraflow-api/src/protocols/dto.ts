@@ -13,7 +13,17 @@ export class CreateProtocolDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  protocolNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   utilityCompany?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Date)
+  openedAt?: Date;
 
   @ApiPropertyOptional()
   @IsOptional()
