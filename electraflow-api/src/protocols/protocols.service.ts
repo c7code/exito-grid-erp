@@ -53,9 +53,22 @@ export class ProtocolsService {
 
   private async generateCode(): Promise<string> {
     const year = new Date().getFullYear();
-    const count = await this.protocolRepository.count();
-    const sequence = (count + 1).toString().padStart(3, '0');
-    return `PROT-${year}-${sequence}`;
+    const prefix = `PROT-${year}-`;
+    // Busca o maior código existente (incluindo soft-deleted) para evitar duplicatas
+    const result = await this.protocolRepository
+      .createQueryBuilder('p')
+      .withDeleted()
+      .select('p.code')
+      .where('p.code LIKE :prefix', { prefix: `${prefix}%` })
+      .orderBy('p.code', 'DESC')
+      .limit(1)
+      .getRawOne();
+    let nextSeq = 1;
+    if (result?.p_code) {
+      const lastSeq = parseInt(result.p_code.replace(prefix, ''), 10);
+      if (!isNaN(lastSeq)) nextSeq = lastSeq + 1;
+    }
+    return `${prefix}${nextSeq.toString().padStart(3, '0')}`;
   }
 
   async create(protocolData: Partial<Protocol>, userId?: string): Promise<Protocol> {
