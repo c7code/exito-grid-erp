@@ -279,9 +279,6 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                 }
                 @media print {
                     @page { margin: 0.5cm; }
-                    body * { visibility: hidden; }
-                    #proposal-pdf-content, #proposal-pdf-content * { visibility: visible; }
-                    #proposal-pdf-content { position: absolute; left: 0; top: 0; width: 100%; }
                     #proposal-pdf-content .attachment-page { min-height: auto; page-break-before: always; }
                 }
                 #proposal-pdf-content { padding-bottom: 38px; }
