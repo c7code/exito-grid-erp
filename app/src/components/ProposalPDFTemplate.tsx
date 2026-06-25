@@ -263,8 +263,26 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                 #proposal-pdf-content .pdf-fragmentable { break-inside: auto; }
                 #proposal-pdf-content .pdf-fragmentable > div,
                 #proposal-pdf-content .pdf-fragmentable > p { break-inside: auto; }
+                #proposal-pdf-content .attachment-page {
+                    page-break-before: always;
+                    width: 100%;
+                    min-height: 800px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    padding: 30px 20px;
+                }
+                #proposal-pdf-content .attachment-page img {
+                    max-width: 100%;
+                    max-height: 1000px;
+                    object-fit: contain;
+                }
                 @media print {
-                    @page { margin-bottom: 1cm; }
+                    @page { margin: 0.5cm; }
+                    body * { visibility: hidden; }
+                    #proposal-pdf-content, #proposal-pdf-content * { visibility: visible; }
+                    #proposal-pdf-content { position: absolute; left: 0; top: 0; width: 100%; }
+                    #proposal-pdf-content .attachment-page { min-height: auto; page-break-before: always; }
                 }
                 #proposal-pdf-content { padding-bottom: 38px; }
             `}</style>
@@ -1422,15 +1440,7 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                                             attachment.pages.map((page: any) => {
                                                 pageCounter++;
                                                 return (
-                                                    <div key={`pdf-page-${attachment.docId}-${page.pageNumber}`} style={{
-                                                        pageBreakBefore: 'always',
-                                                        width: '100%',
-                                                        minHeight: '100vh',
-                                                        display: 'flex',
-                                                        flexDirection: 'column',
-                                                        alignItems: 'center',
-                                                        padding: '30px 20px',
-                                                    }}>
+                                                    <div key={`pdf-page-${attachment.docId}-${page.pageNumber}`} className="attachment-page">
                                                         <div style={{
                                                             fontSize: '14px',
                                                             fontWeight: 'bold',
@@ -1447,11 +1457,6 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                                                         <img
                                                             src={page.dataUrl}
                                                             alt={`${attachment.docName} - Página ${page.pageNumber}`}
-                                                            style={{
-                                                                maxWidth: '100%',
-                                                                maxHeight: 'calc(100vh - 100px)',
-                                                                objectFit: 'contain',
-                                                            }}
                                                         />
                                                     </div>
                                                 );
@@ -1462,15 +1467,7 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                                         {imageDocs.map((doc: any, idx: number) => {
                                             pageCounter++;
                                             return (
-                                                <div key={`img-page-${idx}`} style={{
-                                                    pageBreakBefore: 'always',
-                                                    width: '100%',
-                                                    minHeight: '100vh',
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    alignItems: 'center',
-                                                    padding: '30px 20px',
-                                                }}>
+                                                <div key={`img-page-${idx}`} className="attachment-page">
                                                     <div style={{
                                                         fontSize: '14px',
                                                         fontWeight: 'bold',
@@ -1486,11 +1483,6 @@ export function ProposalPDFTemplate({ proposal, company, hideFinancialValues = f
                                                     <img
                                                         src={doc.url}
                                                         alt={doc.name || doc.fileName}
-                                                        style={{
-                                                            maxWidth: '100%',
-                                                            maxHeight: 'calc(100vh - 100px)',
-                                                            objectFit: 'contain',
-                                                        }}
                                                         crossOrigin="anonymous"
                                                     />
                                                     {doc.description && (
