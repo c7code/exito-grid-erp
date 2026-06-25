@@ -37,6 +37,7 @@ import { api } from '@/api';
 import type { Work, Client } from '@/types';
 import { format } from 'date-fns';
 import { ClientDialog } from '@/components/ClientDialog';
+import NewWorkDialog from '@/components/NewWorkDialog';
 
 interface NewProtocolDialogProps {
     open: boolean;
@@ -52,6 +53,7 @@ export function NewProtocolDialog({ open, onOpenChange, onSuccess, initialWorkId
     const [clients, setClients] = useState<Client[]>([]);
 
     const [showClientDialog, setShowClientDialog] = useState(false);
+    const [showWorkDialog, setShowWorkDialog] = useState(false);
     const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
     const [formData, setFormData] = useState({
@@ -195,6 +197,21 @@ export function NewProtocolDialog({ open, onOpenChange, onSuccess, initialWorkId
         } catch { /* ignore */ }
     };
 
+    const handleWorkCreated = async () => {
+        try {
+            const worksData = await api.getWorks();
+            const list = Array.isArray(worksData) ? worksData : [];
+            setWorks(list);
+            if (list.length > 0) {
+                const newest = list.reduce((a: any, b: any) =>
+                    new Date(a.createdAt) > new Date(b.createdAt) ? a : b
+                );
+                setFormData(prev => ({ ...prev, workId: newest.id, clientId: newest.client?.id || prev.clientId }));
+                toast.success(`Obra "${newest.title}" selecionada automaticamente!`);
+            }
+        } catch { /* ignore */ }
+    };
+
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
@@ -212,9 +229,20 @@ export function NewProtocolDialog({ open, onOpenChange, onSuccess, initialWorkId
                     <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 bg-slate-50 space-y-6">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                                    <Building2 className="w-3.5 h-3.5" /> Obra / Projeto *
-                                </Label>
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                        <Building2 className="w-3.5 h-3.5" /> Obra / Projeto *
+                                    </Label>
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        size="sm"
+                                        className="h-auto p-0 text-xs text-amber-600 gap-1"
+                                        onClick={() => setShowWorkDialog(true)}
+                                    >
+                                        <Building2 className="w-3 h-3" /> + Nova Obra
+                                    </Button>
+                                </div>
                                 <Select
                                     value={formData.workId}
                                     onValueChange={(val) => setFormData(prev => ({ ...prev, workId: val }))}
@@ -411,6 +439,13 @@ export function NewProtocolDialog({ open, onOpenChange, onSuccess, initialWorkId
                 open={showClientDialog}
                 onOpenChange={setShowClientDialog}
                 onSuccess={handleClientCreated}
+            />
+
+            {/* Work Dialog for quick creation */}
+            <NewWorkDialog
+                open={showWorkDialog}
+                onOpenChange={setShowWorkDialog}
+                onWorkCreated={handleWorkCreated}
             />
         </>
     );

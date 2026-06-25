@@ -53,6 +53,7 @@ import { ClientDetailViewer } from '@/components/ClientDetailViewer';
 import { cn } from '@/lib/utils';
 import type { Protocol, ProtocolEvent, Client } from '@/types';
 import { toast } from 'sonner';
+import NewWorkDialog from '@/components/NewWorkDialog';
 
 const statusLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: any; color: string }> = {
   open: { label: 'Aberto', variant: 'outline', icon: Clock, color: 'text-slate-500' },
@@ -81,6 +82,7 @@ export default function AdminProtocols() {
   const [editLoading, setEditLoading] = useState(false);
   const [works, setWorks] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
+  const [showWorkDialog, setShowWorkDialog] = useState(false);
 
   useEffect(() => {
     loadProtocols();
@@ -454,9 +456,20 @@ export default function AdminProtocols() {
               {/* Obra e Cliente */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5" /> Obra Relacionada
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5" /> Obra Relacionada
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-xs text-amber-600 gap-1"
+                      onClick={() => setShowWorkDialog(true)}
+                    >
+                      <Building2 className="w-3 h-3" /> + Nova Obra
+                    </Button>
+                  </div>
                   <Select value={editingProtocol.workId} onValueChange={val => {
                     const work = works.find((w: any) => w.id === val);
                     setEditingProtocol((p: any) => ({
@@ -568,6 +581,15 @@ export default function AdminProtocols() {
         open={isClientViewerOpen}
         onOpenChange={setIsClientViewerOpen}
         client={viewingClient}
+      />
+
+      <NewWorkDialog
+        open={showWorkDialog}
+        onOpenChange={setShowWorkDialog}
+        onWorkCreated={async () => {
+          await loadAuxData();
+          toast.success('Obra criada! Selecione-a no campo acima.');
+        }}
       />
     </div>
   );
