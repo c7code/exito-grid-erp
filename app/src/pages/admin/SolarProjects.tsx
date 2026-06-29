@@ -316,7 +316,7 @@ export default function SolarProjects() {
     finally { setSaving(false); }
   };
 
-  // ââ€¢Âââ€¢Âââ€¢Â UPDATE PROPOSAL (re-generate with latest data) ââ€¢Âââ€¢Âââ€¢Â
+  // ââ€¢Â ââ€¢Â ââ€¢Â  UPDATE PROPOSAL (re-generate with latest data) ââ€¢Â ââ€¢Â ââ€¢Â 
   const handleUpdateProposal = async () => {
     await handleSave(true);
     if (!currentProject?.id) return;
@@ -329,9 +329,11 @@ export default function SolarProjects() {
     finally { setSaving(false); }
   };
 
-  // ââ€¢Âââ€¢Âââ€¢Â DOWNLOAD SOLAR PDF ââ€¢Âââ€¢Âââ€¢Â
+  // ââ€¢Â ââ€¢Â ââ€¢Â  DOWNLOAD SOLAR PDF ââ€¢Â ââ€¢Â ââ€¢Â 
   const handleDownloadSolarPDF = async () => {
     if (!currentProject?.id) { toast.error('Salve o projeto primeiro'); return; }
+    // Auto-save before generating PDF to ensure latest data is persisted
+    await handleSave(true);
     setPdfGenerating(true);
     toast.info('Gerando PDF da proposta solar...');
 
@@ -2175,7 +2177,15 @@ export default function SolarProjects() {
           {showPdfRender && currentProject && (
             <SolarProposalPDFTemplate
               proposal={currentProject.proposal || { proposalNumber: currentProject.code, client: clients.find((c: any) => c.id === form.clientId) }}
-              solarProject={currentProject}
+              solarProject={{
+                ...currentProject,
+                // Merge latest form data (user edits) on top of backend data
+                equipment: form.equipment || currentProject.equipment,
+                commercialKits: form.commercialKits || currentProject.commercialKits,
+                commercialStrategyEnabled: form.commercialStrategyEnabled ?? currentProject.commercialStrategyEnabled,
+                paymentConditions: form.paymentConditions || currentProject.paymentConditions,
+                notes: form.notes || currentProject.notes,
+              }}
               company={pdfCompanyData}
             />
           )}

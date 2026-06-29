@@ -91,8 +91,8 @@ function buildData(proposal: any, solarProject: any, company: any) {
 
 
 
-  // Map kits from ERP format
-  const erpKits: any[] = toArray(p.commercialKits);
+  // Map kits from ERP format — filter out invalid entries (empty arrays, non-objects)
+  const erpKits: any[] = toArray(p.commercialKits).filter((k: any) => k && typeof k === 'object' && !Array.isArray(k) && Object.keys(k).length > 0);
   const kits = erpKits.map((kit: any) => {
     const modules = (kit.equipment || []).filter((e: any) => e.type === 'module');
     const inverters = (kit.equipment || []).filter((e: any) => e.type === 'inverter');
