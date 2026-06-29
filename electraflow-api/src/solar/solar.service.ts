@@ -108,6 +108,9 @@ export class SolarService {
     }
 
     async create(data: Partial<SolarProject>): Promise<SolarProject> {
+        // Sanitize empty-string IDs to null (avoid FK constraint errors)
+        if (data.clientId === '' || data.clientId === '__none__') data.clientId = null as any;
+        if (data.companyId === '' || data.companyId === '__none__') data.companyId = null as any;
         const sanitized = this.sanitizeData(data);
 
         // Retry logic to handle race conditions on unique code
@@ -148,6 +151,9 @@ export class SolarService {
 
     async update(id: string, data: Partial<SolarProject>): Promise<SolarProject> {
         const project = await this.findOne(id);
+        // Sanitize empty-string IDs to null (avoid FK constraint errors)
+        if (data.clientId === '' || data.clientId === '__none__') data.clientId = null as any;
+        if (data.companyId === '' || data.companyId === '__none__') data.companyId = null as any;
         const sanitized = this.sanitizeData(data);
         Object.assign(project, sanitized);
         return this.solarRepo.save(project);

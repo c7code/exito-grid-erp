@@ -136,10 +136,10 @@ class PaymentConditionsDto {
 }
 
 export class CreateSolarProjectDto {
-    @ApiProperty({ description: 'Código único do projeto', example: 'SOL-0042' })
+    @ApiPropertyOptional({ description: 'Código único do projeto (gerado automaticamente se não informado)', example: 'SOL-0042' })
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
-    code: string;
+    code?: string;
 
     @ApiPropertyOptional({ description: 'Título do projeto' })
     @IsOptional()
@@ -148,7 +148,7 @@ export class CreateSolarProjectDto {
 
     @ApiPropertyOptional({ description: 'ID do cliente' })
     @IsOptional()
-    @IsUUID()
+    @IsString()
     clientId?: string;
 
     @ApiPropertyOptional({ description: 'ID da empresa' })
