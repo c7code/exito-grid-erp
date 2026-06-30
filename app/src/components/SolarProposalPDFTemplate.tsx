@@ -264,9 +264,9 @@ const MESES_FULL = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", 
 // ─── COMPONENTES BASE ──────────────────────────────────────────────────────
 
 const Page = ({ children, bg = C.navy, style = {} }: { children: React.ReactNode; bg?: string; style?: React.CSSProperties }) => (
-  <div style={{
-    width: 794, height: 1123, backgroundColor: bg,
-    position: "relative", overflow: "hidden",
+  <div className="pdf-page" style={{
+    width: 794, minHeight: 1123, backgroundColor: bg,
+    position: "relative",
     fontFamily: "'Segoe UI', 'Arial', 'Helvetica Neue', sans-serif",
     boxSizing: "border-box",
     fontSize: 13,
@@ -309,7 +309,7 @@ const KPICard = ({ label, value, unit, color = C.green, bg = C.navy }: { label: 
   </div>
 );
 
-const PageFooter = ({ empresa, pageNum }: { empresa: any; pageNum: string }) => (
+const PageFooter = ({ empresa, pageNum, totalPages = '11' }: { empresa: any; pageNum: string; totalPages?: string }) => (
   <div style={{
     position: "absolute", bottom: 0, left: 0, right: 0,
     borderTop: `2px solid ${C.green}`,
@@ -319,7 +319,7 @@ const PageFooter = ({ empresa, pageNum }: { empresa: any; pageNum: string }) => 
   }}>
     <span style={{ fontSize: 9, color: "rgba(255,255,255,0.5)" }}>{empresa.nome} · CNPJ {empresa.cnpj}</span>
     <span style={{ fontSize: 9, color: "rgba(255,255,255,0.5)" }}>{empresa.fone} · {empresa.email}</span>
-    <span style={{ fontSize: 9, color: C.gold, fontWeight: 700 }}>{pageNum} / 09</span>
+    <span style={{ fontSize: 9, color: C.gold, fontWeight: 700 }}>{pageNum} / {totalPages}</span>
   </div>
 );
 
@@ -1773,7 +1773,7 @@ const Page9 = ({ data }: { data: any }) => {
 // PÁGINA 10 — CONDIÇÕES DE PAGAMENTO & TERMO DE ACEITE
 // ══════════════════════════════════════════════════════════════════════════
 const Page10 = ({ data }: { data: any }) => {
-  const { empresa, cliente, proposta, kits, paymentConditions: rawPC } = data;
+  const { empresa, proposta, kits, paymentConditions: rawPC } = data;
   // Normalize: support both single object (legacy) and new lines[] array format
   const rawList: any[] = Array.isArray(rawPC) ? rawPC : (rawPC ? [rawPC] : []);
   // Filter out empty/invalid payment conditions that somehow passed through
@@ -2124,9 +2124,28 @@ const Page10 = ({ data }: { data: any }) => {
             </div>
           )}
 
+        </div>
+      </div>
+      <PageFooter empresa={empresa} pageNum="10" />
+    </Page>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════════════
+// PÁGINA 11 — TERMO DE ACEITE & ASSINATURAS
+// ══════════════════════════════════════════════════════════════════════════
+const Page11 = ({ data }: { data: any }) => {
+  const { empresa, cliente, proposta } = data;
+  return (
+    <Page bg={C.white} style={{ color: C.navy }}>
+      <div style={{ padding: "0 0 80px" }}>
+        <SectionHeader num="11" title="Termo de Aceite" subtitle="Formalização e assinaturas da proposta" />
+
+        <div style={{ padding: "0 40px" }}>
+
           {/* ══ TERMO DE ACEITE ══ */}
           <div style={{
-            border: `2px solid ${C.navy}`, borderRadius: 12, overflow: "hidden",
+            border: `2px solid ${C.navy}`, borderRadius: 12, overflow: "hidden", marginBottom: 32,
           }}>
             <div style={{
               backgroundColor: C.navy, padding: "14px 24px",
@@ -2179,29 +2198,24 @@ const Page10 = ({ data }: { data: any }) => {
             </div>
           </div>
 
+          {/* Observações finais */}
+          <div style={{
+            backgroundColor: C.gray50, border: `1px solid ${C.gray200}`, borderRadius: 10,
+            padding: '16px 24px', marginBottom: 24,
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.navy, marginBottom: 8 }}>📌 Observações Importantes</div>
+            <ul style={{ fontSize: 10, color: C.gray600, lineHeight: 1.8, paddingLeft: 16, margin: 0 }}>
+              <li>Esta proposta é válida por <strong>{proposta.validadeDias} dias</strong> a partir da data de emissão.</li>
+              <li>Valores sujeitos a reajuste após o vencimento da proposta.</li>
+              <li>O prazo de execução inicia após a aprovação formal e pagamento da entrada.</li>
+              <li>Equipamentos sujeitos à disponibilidade de estoque na data da aprovação.</li>
+            </ul>
+          </div>
+
         </div>
       </div>
-      {/* Rodapé final */}
-      <div style={{
-        position: "absolute", bottom: 0, left: 0, right: 0,
-        background: `linear-gradient(90deg, ${C.navy}, ${C.navyMid})`,
-        padding: "14px 40px",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        borderTop: `3px solid ${C.gold}`,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 32, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
-          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>CNPJ {empresa.cnpj} · {empresa.endereco}</div>
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 9, color: C.gold }}>⚡ Energia do sol. Economia real. ⚡</div>
-          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.5)" }}>{empresa.site}</div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>{empresa.fone}</div>
-          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>{empresa.email}</div>
-        </div>
-      </div>
+
+      <PageFooter empresa={empresa} pageNum="11" />
     </Page>
   );
 };
@@ -2212,6 +2226,7 @@ const Page10 = ({ data }: { data: any }) => {
 export function SolarProposalPDFTemplate({ proposal, solarProject, company }: SolarProposalPDFTemplateProps) {
   const data = buildData(proposal, solarProject, company);
   const hasKits = data.kits && data.kits.length > 0;
+  const hasPayment = data.paymentConditions && (Array.isArray(data.paymentConditions) ? data.paymentConditions.length > 0 : true);
 
   return (
     <div id="solar-proposal-pdf-content" style={{ background: C.white, maxWidth: 794, margin: '0 auto' }}>
@@ -2219,6 +2234,18 @@ export function SolarProposalPDFTemplate({ proposal, solarProject, company }: So
         #solar-proposal-pdf-content tr { break-inside: avoid; }
         #solar-proposal-pdf-content .avoid-page-break { break-inside: avoid; page-break-inside: avoid; }
         #solar-proposal-pdf-content .sig-block { break-inside: avoid; }
+        #solar-proposal-pdf-content .pdf-page { page-break-after: always; page-break-inside: avoid; }
+        #solar-proposal-pdf-content .pdf-page:last-child { page-break-after: auto; }
+        @media print {
+          body { margin: 0; padding: 0; }
+          #solar-proposal-pdf-content { width: 100%; max-width: none; }
+          #solar-proposal-pdf-content .pdf-page {
+            width: 794px; min-height: 1123px;
+            page-break-after: always; page-break-inside: avoid;
+            margin: 0; padding: 0;
+          }
+          #solar-proposal-pdf-content .pdf-page:last-child { page-break-after: auto; }
+        }
       `}</style>
       <Page1 data={data} />
       <Page2 data={data} />
@@ -2230,7 +2257,8 @@ export function SolarProposalPDFTemplate({ proposal, solarProject, company }: So
       {hasKits && <Page8 data={data} />}
       <Page9Env data={data} />
       <Page9 data={data} />
-      <Page10 data={data} />
+      {hasPayment && <Page10 data={data} />}
+      <Page11 data={data} />
     </div>
   );
 }
