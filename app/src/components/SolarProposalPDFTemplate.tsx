@@ -234,7 +234,24 @@ function buildData(proposal: any, solarProject: any, company: any) {
     })(),
     savings25Years: N(p.savings25Years),
     cashFlow: p.cashFlow || [],
-    paymentConditions: p.paymentConditions || null,
+    paymentConditions: (() => {
+      const raw = p.paymentConditions;
+      if (!raw) return null;
+      // Normalize to array
+      const arr = Array.isArray(raw) ? raw : [raw];
+      // Filter out empty/invalid payment conditions (objects with only 'notes' or no meaningful data)
+      const valid = arr.filter((pc: any) => {
+        if (!pc || typeof pc !== 'object') return false;
+        // Check if it has any meaningful payment data beyond just 'notes'
+        const hasLines = pc.lines && Array.isArray(pc.lines) && pc.lines.length > 0;
+        const hasMethod = pc.method && pc.method.trim() !== '';
+        const hasLabel = pc.label && pc.label.trim() !== '';
+        const hasDownPayment = N(pc.downPayment) > 0;
+        const hasInstallments = N(pc.installments) > 0;
+        return hasLines || hasMethod || hasLabel || hasDownPayment || hasInstallments;
+      });
+      return valid.length > 0 ? valid : null;
+    })(),
   };
 }
 
@@ -1759,8 +1776,16 @@ const Page10 = ({ data }: { data: any }) => {
   const { empresa, cliente, proposta, kits, paymentConditions: rawPC } = data;
   // Normalize: support both single object (legacy) and new lines[] array format
   const rawList: any[] = Array.isArray(rawPC) ? rawPC : (rawPC ? [rawPC] : []);
-  // Each item might be old-format (with method/installments) or new-format (with lines[])
-  const pcList = rawList;
+  // Filter out empty/invalid payment conditions that somehow passed through
+  const pcList = rawList.filter((pc: any) => {
+    if (!pc || typeof pc !== 'object') return false;
+    const hasLines = pc.lines && Array.isArray(pc.lines) && pc.lines.length > 0;
+    const hasMethod = pc.method && String(pc.method).trim() !== '';
+    const hasLabel = pc.label && String(pc.label).trim() !== '';
+    const hasDownPayment = Number(pc.downPayment || 0) > 0;
+    const hasInstallments = Number(pc.installments || 0) > 0;
+    return hasLines || hasMethod || hasLabel || hasDownPayment || hasInstallments;
+  });
   const recKit = kits?.find((k: any) => k.badge) || kits?.[0];
   const totalValue = recKit?.precoFinal || 0;
 

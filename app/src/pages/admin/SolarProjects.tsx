@@ -329,63 +329,77 @@ export default function SolarProjects() {
     finally { setSaving(false); }
   };
 
-  // ââ€¢Â ââ€¢Â ââ€¢Â  DOWNLOAD SOLAR PDF ââ€¢Â ââ€¢Â ââ€¢Â 
+  // ✦✦✦  DOWNLOAD SOLAR PDF ✦✦✦
   const handleDownloadSolarPDF = async () => {
     if (!currentProject?.id) { toast.error('Salve o projeto primeiro'); return; }
-    // Auto-save before generating PDF to ensure latest data is persisted
-    await handleSave(true);
-    setPdfGenerating(true);
-    toast.info('Gerando PDF da proposta solar...');
+    try {
+      // Auto-save before generating PDF to ensure latest data is persisted
+      await handleSave(true);
+      setPdfGenerating(true);
+      toast.info('Gerando PDF da proposta solar...');
 
-    // Find company from already-loaded state array
-    let coData = null;
-    if (form.companyId) {
-      coData = companies.find((c: any) => c.id === form.companyId) || null;
-    }
-    if (!coData) {
-      coData = companies.find((c: any) => c.isPrimary) || companies[0] || null;
-    }
-    setPdfCompanyData(coData);
-    setShowPdfRender(true);
+      // Find company from already-loaded state array
+      let coData = null;
+      if (form.companyId) {
+        coData = companies.find((c: any) => c.id === form.companyId) || null;
+      }
+      if (!coData) {
+        coData = companies.find((c: any) => c.isPrimary) || companies[0] || null;
+      }
+      setPdfCompanyData(coData);
+      setShowPdfRender(true);
 
-    // Wait for render then generate PDF
-    const tryCapture = (attempt = 0) => {
-      const element = document.getElementById('solar-proposal-pdf-content');
-      if (!element) {
-        if (attempt < 3) {
-          // Retry after a short delay (rendering may not be complete yet)
-          setTimeout(() => tryCapture(attempt + 1), 500);
+      // Wait for render then generate PDF
+      const tryCapture = (attempt = 0) => {
+        const element = document.getElementById('solar-proposal-pdf-content');
+        if (!element) {
+          if (attempt < 5) {
+            // Retry after a short delay (rendering may not be complete yet)
+            setTimeout(() => tryCapture(attempt + 1), 600);
+            return;
+          }
+          toast.error('Erro ao gerar PDF: elemento não encontrado.');
+          setShowPdfRender(false);
+          setPdfGenerating(false);
           return;
         }
-        toast.error('Erro ao gerar PDF: elemento não encontrado.');
-        setShowPdfRender(false);
-        setPdfGenerating(false);
-        return;
-      }
 
-      const opt = {
-        margin: 0,
-        filename: `proposta_solar_${currentProject.code || 'projeto'}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 3, dpi: 192, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
-        jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
+        const opt = {
+          margin: 0,
+          filename: `proposta_solar_${currentProject.code || 'projeto'}.pdf`,
+          image: { type: 'jpeg' as const, quality: 0.98 },
+          html2canvas: { scale: 3, dpi: 192, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
+          jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
+        };
+
+        import('html2pdf.js').then(mod => mod.default().from(element).set(opt).save().then(() => {
+          setShowPdfRender(false);
+          setPdfGenerating(false);
+          setPdfCompanyData(null);
+          toast.success('PDF gerado com sucesso!');
+        }).catch((err: any) => {
+          console.error('PDF Error:', err);
+          setShowPdfRender(false);
+          setPdfGenerating(false);
+          toast.error('Erro ao gerar PDF. Verifique o console para detalhes.');
+        })).catch((err: any) => {
+          console.error('PDF Import Error:', err);
+          setShowPdfRender(false);
+          setPdfGenerating(false);
+          toast.error('Erro ao carregar módulo de PDF.');
+        });
       };
 
-      import('html2pdf.js').then(mod => mod.default().from(element).set(opt).save().then(() => {
-        setShowPdfRender(false);
-        setPdfGenerating(false);
-        setPdfCompanyData(null);
-        toast.success('PDF gerado com sucesso!');
-      }).catch((err: any) => {
-        console.error('PDF Error:', err);
-        setShowPdfRender(false);
-        setPdfGenerating(false);
-        toast.error('Erro ao gerar PDF.');
-      }));
-    };
-
-    setTimeout(() => tryCapture(), 1500);
+      // Wait longer for complex template to render (10+ pages)
+      setTimeout(() => tryCapture(), 2000);
+    } catch (err: any) {
+      console.error('PDF Generation Error:', err);
+      setShowPdfRender(false);
+      setPdfGenerating(false);
+      toast.error('Erro inesperado ao gerar PDF.');
+    }
   };
+
 
   // ââ€¢Âââ€¢Âââ€¢Â DELETE ââ€¢Âââ€¢Âââ€¢Â
   const handleDelete = async (id: string) => {
