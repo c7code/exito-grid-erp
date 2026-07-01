@@ -265,12 +265,13 @@ const MESES_FULL = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", 
 
 const Page = ({ children, bg = C.navy, style = {} }: { children: React.ReactNode; bg?: string; style?: React.CSSProperties }) => (
   <div className="pdf-page" style={{
-    width: 794, minHeight: 1123, backgroundColor: bg,
+    width: 794, height: 1123, backgroundColor: bg,
     position: "relative",
     fontFamily: "'Segoe UI', 'Arial', 'Helvetica Neue', sans-serif",
     boxSizing: "border-box",
     fontSize: 13,
     lineHeight: 1.5,
+    overflow: "hidden",
     ...style,
   }}>
     {/* Gold border - all 4 sides */}
@@ -2234,17 +2235,16 @@ export function SolarProposalPDFTemplate({ proposal, solarProject, company }: So
         #solar-proposal-pdf-content tr { break-inside: avoid; }
         #solar-proposal-pdf-content .avoid-page-break { break-inside: avoid; page-break-inside: avoid; }
         #solar-proposal-pdf-content .sig-block { break-inside: avoid; }
-        #solar-proposal-pdf-content .pdf-page { page-break-after: always; page-break-inside: avoid; }
-        #solar-proposal-pdf-content .pdf-page:last-child { page-break-after: auto; }
+        #solar-proposal-pdf-content .pdf-page { page-break-inside: avoid; }
         @media print {
           body { margin: 0; padding: 0; }
           #solar-proposal-pdf-content { width: 100%; max-width: none; }
           #solar-proposal-pdf-content .pdf-page {
-            width: 794px; min-height: 1123px;
-            page-break-after: always; page-break-inside: avoid;
+            width: 794px; height: 1123px;
+            page-break-inside: avoid;
             margin: 0; padding: 0;
+            overflow: hidden;
           }
-          #solar-proposal-pdf-content .pdf-page:last-child { page-break-after: auto; }
         }
       `}</style>
       <Page1 data={data} />
