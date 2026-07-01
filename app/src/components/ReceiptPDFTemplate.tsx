@@ -4,6 +4,7 @@ import { EXITO_GRID_LOGO } from '@/assets/exito-grid-logo-base64';
 interface ReceiptPDFTemplateProps {
     receipt: any;
     company?: any;
+    signature?: { imageUrl?: string; signerName?: string; signerRole?: string; signerDocument?: string };
 }
 
 const fmt = (v: number) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -28,7 +29,7 @@ const methodLabels: Record<string, string> = {
     credit_card: 'Cartão de Crédito', cash: 'Dinheiro', check: 'Cheque',
 };
 
-export function ReceiptPDFTemplate({ receipt, company }: ReceiptPDFTemplateProps) {
+export function ReceiptPDFTemplate({ receipt, company, signature }: ReceiptPDFTemplateProps) {
     const co = company || {};
     const empresa = {
         nome: co.razaoSocial || co.name || co.tradeName || 'EXITO GRID COMERCIO E SERVICOS ELETRICOS LTDA',
@@ -232,11 +233,29 @@ export function ReceiptPDFTemplate({ receipt, company }: ReceiptPDFTemplateProps
                 {/* ASSINATURAS */}
                 <div style={s.sigArea}>
                     <div style={s.sigBox}>
-                        <div style={{ marginBottom: 8 }}>
-                            <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 40, objectFit: 'contain' as const }} />
+                        <div style={{ minHeight: 65, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                            {signature?.imageUrl ? (
+                                <img
+                                    src={signature.imageUrl}
+                                    alt="Assinatura"
+                                    style={{
+                                        height: '65px',
+                                        maxWidth: '240px',
+                                        objectFit: 'contain' as const,
+                                        mixBlendMode: 'multiply' as const,
+                                        filter: 'contrast(1.6) brightness(1.15) grayscale(0.3)',
+                                    }}
+                                />
+                            ) : (
+                                <div style={{ width: '180px', borderBottom: '1px dashed #ccc', height: '65px' }} />
+                            )}
                         </div>
-                        <div style={s.sigLine}>{empresa.nome}</div>
+                        <div style={s.sigLine}>{signature?.signerName || empresa.nome}</div>
+                        {signature?.signerRole && (
+                            <div style={s.sigSub}>{signature.signerRole}</div>
+                        )}
                         <div style={s.sigSub}>CNPJ: {empresa.cnpj}</div>
+                        <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 28, objectFit: 'contain' as const, marginTop: 6 }} />
                         <div style={{ ...s.sigSub, fontWeight: 600, marginTop: 4 }}>EMITENTE</div>
                     </div>
                     <div style={s.sigBox}>

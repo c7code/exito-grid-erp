@@ -216,6 +216,7 @@ export default function AdminFinance() {
   const [receiptToPrint, setReceiptToPrint] = useState<any>(null);
   const [poToPrint, setPOToPrint] = useState<any>(null);
   const [companyData, setCompanyData] = useState<any>(null);
+  const [companySignature, setCompanySignature] = useState<any>(null);
 
   const emptyForm = {
     description: '', amount: '', type: 'income', category: 'other',
@@ -339,6 +340,12 @@ export default function AdminFinance() {
       if (extSummary) setSummaryExt(extSummary);
       // Load company data for PDF templates
       try { const co = await api.getPrimaryCompany(); if (co) setCompanyData(co); } catch {}
+      // Load company signature (same as proposals)
+      try {
+        const allSlots = await api.getSignatureSlots();
+        const defaultCompanySlot = (Array.isArray(allSlots) ? allSlots : []).find((s: any) => s.scope === 'company' && s.isDefault);
+        if (defaultCompanySlot) setCompanySignature(defaultCompanySlot);
+      } catch {}
     } catch (err) {
       console.error(err);
       toast.error('Erro ao carregar dados financeiros.');
@@ -414,9 +421,16 @@ export default function AdminFinance() {
 
   const handleDownloadReceiptPDF = async (receipt: any) => {
     toast.info('Gerando PDF do recibo...');
-    // Ensure company data is loaded for the receipt template
+    // Ensure company data and signature are loaded
     if (!companyData) {
       try { const co = await api.getPrimaryCompany(); if (co) setCompanyData(co); } catch {}
+    }
+    if (!companySignature) {
+      try {
+        const allSlots = await api.getSignatureSlots();
+        const defaultSlot = (Array.isArray(allSlots) ? allSlots : []).find((s: any) => s.scope === 'company' && s.isDefault);
+        if (defaultSlot) setCompanySignature(defaultSlot);
+      } catch {}
     }
     setReceiptToPrint(receipt);
     setTimeout(() => {
@@ -3088,7 +3102,7 @@ export default function AdminFinance() {
 
       {/* Hidden containers for PDF generation */}
       <div className="fixed -left-[9999px] top-0">
-        {receiptToPrint && <ReceiptPDFTemplate receipt={receiptToPrint} company={companyData} />}
+        {receiptToPrint && <ReceiptPDFTemplate receipt={receiptToPrint} company={companyData} signature={companySignature} />}
         {poToPrint && <PurchaseOrderPDFTemplate order={poToPrint} company={companyData} />}
       </div>
     </div>
