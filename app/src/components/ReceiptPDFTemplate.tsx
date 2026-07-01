@@ -231,12 +231,13 @@ export function ReceiptPDFTemplate({ receipt, company }: ReceiptPDFTemplateProps
                     <div style={s.sigBox}>
                         <div style={s.sigLine}>{empresa.nome}</div>
                         <div style={s.sigSub}>CNPJ: {empresa.cnpj}</div>
-                        <div style={{ ...s.sigSub, fontWeight: 600 }}>EMITENTE</div>
+                        <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 32, objectFit: 'contain' as const, marginTop: 8 }} />
+                        <div style={{ ...s.sigSub, fontWeight: 600, marginTop: 4 }}>EMITENTE</div>
                     </div>
                     <div style={s.sigBox}>
                         <div style={s.sigLine}>{clientName}</div>
                         <div style={s.sigSub}>CPF/CNPJ: {clientDoc}</div>
-                        <div style={{ ...s.sigSub, fontWeight: 600 }}>PAGADOR</div>
+                        <div style={{ ...s.sigSub, fontWeight: 600, marginTop: 4 }}>PAGADOR</div>
                     </div>
                 </div>
             </div>

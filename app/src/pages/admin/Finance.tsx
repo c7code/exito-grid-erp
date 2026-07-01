@@ -123,11 +123,15 @@ export default function AdminFinance() {
     if (tab) setActiveTab(tab);
     if (tab === 'receipts' && proposalId) {
       setTimeout(() => {
+        const total = searchParams.get('total') || '0';
+        const pct = 100;
+        const calculatedAmount = ((Number(total) * pct) / 100).toFixed(2);
         setEditingReceiptId(null);
         setReceiptForm({
           description: searchParams.get('title') ? decodeURIComponent(searchParams.get('title')!) : '',
-          amount: '', percentage: '100',
-          totalProposalValue: searchParams.get('total') || '0',
+          amount: calculatedAmount,
+          percentage: String(pct),
+          totalProposalValue: total,
           paymentMethod: 'pix',
           paidAt: new Date().toISOString().split('T')[0],
           notes: `Ref. Proposta ${searchParams.get('proposalNumber') || ''}`,
