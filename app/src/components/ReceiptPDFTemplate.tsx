@@ -37,6 +37,9 @@ export function ReceiptPDFTemplate({ receipt, company }: ReceiptPDFTemplateProps
         telefone: co.phone || '(81) 8887-0766',
         email: co.email || 'contato@exitogrid.com.br',
         site: co.website || 'www.exitogrid.com.br',
+        signatureImageUrl: co.signatureImageUrl || '',
+        signatureSignerName: co.signatureSignerName || '',
+        signatureSignerRole: co.signatureSignerRole || '',
     };
 
     const clientName = receipt.client?.name || receipt.clientName || '—';
@@ -229,9 +232,19 @@ export function ReceiptPDFTemplate({ receipt, company }: ReceiptPDFTemplateProps
                 {/* ASSINATURAS */}
                 <div style={s.sigArea}>
                     <div style={s.sigBox}>
-                        <div style={s.sigLine}>{empresa.nome}</div>
+                        {empresa.signatureImageUrl ? (
+                            <img src={empresa.signatureImageUrl} alt="Assinatura" style={{ height: 50, objectFit: 'contain' as const, marginBottom: 4 }} />
+                        ) : (
+                            <div style={{ height: 50 }} />
+                        )}
+                        <div style={s.sigLine}>
+                            {empresa.signatureSignerName || empresa.nome}
+                        </div>
+                        {empresa.signatureSignerRole && (
+                            <div style={s.sigSub}>{empresa.signatureSignerRole}</div>
+                        )}
                         <div style={s.sigSub}>CNPJ: {empresa.cnpj}</div>
-                        <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 32, objectFit: 'contain' as const, marginTop: 8 }} />
+                        <img src={EXITO_GRID_LOGO} alt="Êxito Grid" style={{ height: 28, objectFit: 'contain' as const, marginTop: 6 }} />
                         <div style={{ ...s.sigSub, fontWeight: 600, marginTop: 4 }}>EMITENTE</div>
                     </div>
                     <div style={s.sigBox}>

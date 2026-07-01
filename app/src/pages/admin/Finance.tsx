@@ -327,7 +327,7 @@ export default function AdminFinance() {
       setMonthlyEvolution(evolution);
       if (extSummary) setSummaryExt(extSummary);
       // Load company data for PDF templates
-      try { const cos = await api.getCompanies(); if (cos?.length) setCompanyData(cos[0]); } catch {}
+      try { const co = await api.getPrimaryCompany(); if (co) setCompanyData(co); } catch {}
     } catch (err) {
       console.error(err);
       toast.error('Erro ao carregar dados financeiros.');
