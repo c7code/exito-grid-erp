@@ -123,6 +123,17 @@ export default function AdminFinance() {
     if (tab) setActiveTab(tab);
     if (tab === 'receipts' && proposalId) {
       setTimeout(() => {
+        // Close all other dialogs to prevent stacking
+        setIsDialogOpen(false);
+        setIsRegisterDialogOpen(false);
+        setInstallmentDialogOpen(false);
+        setPayInstallmentDialogOpen(false);
+        setPODialogOpen(false);
+        setDasDialogOpen(false);
+        setDebtDialogOpen(false);
+        setDebtPayDialogOpen(false);
+        setNewStatementDialog(false);
+
         const total = searchParams.get('total') || '0';
         const pct = 100;
         const calculatedAmount = ((Number(total) * pct) / 100).toFixed(2);
@@ -2604,7 +2615,7 @@ export default function AdminFinance() {
 
       {/* ═══ RECEIPT DIALOG ═══ */}
       <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] z-[200]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Receipt className="w-5 h-5 text-emerald-600" /> {editingReceiptId ? 'Editar' : 'Novo'} Recibo de Pagamento
@@ -2619,7 +2630,7 @@ export default function AdminFinance() {
               <Label>Cliente</Label>
               <Select value={receiptForm.clientId || 'none'} onValueChange={v => setReceiptForm({ ...receiptForm, clientId: v === 'none' ? '' : v })}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="z-[300] max-h-[200px]">
                   <SelectItem value="none">Nenhum</SelectItem>
                   {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
@@ -2649,7 +2660,7 @@ export default function AdminFinance() {
               <Label>Método de Pagamento</Label>
               <Select value={receiptForm.paymentMethod} onValueChange={v => setReceiptForm({ ...receiptForm, paymentMethod: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="z-[300]">
                   <SelectItem value="pix">PIX</SelectItem>
                   <SelectItem value="bank_transfer">Transferência</SelectItem>
                   <SelectItem value="boleto">Boleto</SelectItem>
