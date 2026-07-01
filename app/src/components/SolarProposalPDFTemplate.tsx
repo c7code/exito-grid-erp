@@ -2230,7 +2230,7 @@ export function SolarProposalPDFTemplate({ proposal, solarProject, company }: So
   const hasPayment = data.paymentConditions && (Array.isArray(data.paymentConditions) ? data.paymentConditions.length > 0 : true);
 
   return (
-    <div id="solar-proposal-pdf-content" style={{ background: C.white, maxWidth: 794, margin: '0 auto' }}>
+    <div id="solar-proposal-pdf-content" style={{ background: C.white, width: 794, margin: '0 auto', fontSize: 0, lineHeight: 0 }}>
       <style>{`
         #solar-proposal-pdf-content tr { break-inside: avoid; }
         #solar-proposal-pdf-content .avoid-page-break { break-inside: avoid; page-break-inside: avoid; }

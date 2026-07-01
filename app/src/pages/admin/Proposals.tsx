@@ -761,7 +761,7 @@ export default function AdminProposals() {
         html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
         jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
         pagebreak: isSolar
-          ? { mode: ['css', 'legacy'], before: '.pdf-page' }
+          ? { mode: ['css'] }
           : { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['tr', '.sig-block', '.pdf-keep-together', '.pdf-section-title', '.avoid-page-break'] },
       };
 
