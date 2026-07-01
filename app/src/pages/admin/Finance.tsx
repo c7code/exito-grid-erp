@@ -412,8 +412,12 @@ export default function AdminFinance() {
     pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['tr', '.pdf-keep-together', '.pdf-section-title', '.sig-block', '.avoid-page-break'] },
   });
 
-  const handleDownloadReceiptPDF = (receipt: any) => {
+  const handleDownloadReceiptPDF = async (receipt: any) => {
     toast.info('Gerando PDF do recibo...');
+    // Ensure company data is loaded for the receipt template
+    if (!companyData) {
+      try { const co = await api.getPrimaryCompany(); if (co) setCompanyData(co); } catch {}
+    }
     setReceiptToPrint(receipt);
     setTimeout(() => {
       const el = document.getElementById('receipt-pdf-content');
@@ -421,7 +425,7 @@ export default function AdminFinance() {
       import('html2pdf.js').then(mod => mod.default().from(el).set(pdfOpts(`recibo_${receipt.receiptNumber || 'novo'}.pdf`)).save()
         .then(() => { setReceiptToPrint(null); toast.success('PDF do recibo gerado!'); })
         .catch(() => { toast.error('Erro ao gerar PDF'); setReceiptToPrint(null); }));
-    }, 600);
+    }, 800);
   };
 
   const handleDownloadPOPDF = (po: any) => {
