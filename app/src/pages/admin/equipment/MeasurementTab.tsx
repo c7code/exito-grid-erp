@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, FileText, Printer, DollarSign, Clock, Moon, Calendar, TrendingUp, Pencil, Trash2, Eye, CalendarRange, AlertTriangle, Save } from 'lucide-react';
+import { Loader2, FileText, Printer, DollarSign, Clock, Moon, Calendar, TrendingUp, Pencil, Trash2, Eye, CalendarRange, AlertTriangle, Save, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { DAILY_STATUS, fmt, fD } from './EquipmentTypes';
@@ -547,7 +547,17 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                         )}
                       </td>
                       <td className="px-4 py-2 font-medium">
-                        {fD(log.date)}
+                        <div className="flex items-center gap-1.5">
+                          {fD(log.date)}
+                          {log.createdAt && safeDate(log.createdAt) !== safeDate(log.date) && (
+                            <span title={`Registrado em ${new Date(log.createdAt).toLocaleDateString('pt-BR')} às ${new Date(log.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}>
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                            </span>
+                          )}
+                        </div>
+                        {log.createdAt && (
+                          <span className="block text-[10px] text-slate-400">📝 Reg: {new Date(log.createdAt).toLocaleDateString('pt-BR')} {new Date(log.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        )}
                         {isNationalHoliday(safeDate(log.date)) && (
                           <span className="block text-[10px] text-red-500">🎉 {isNationalHoliday(safeDate(log.date))!.name}</span>
                         )}
@@ -636,6 +646,11 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                           <span className="text-xs text-gray-400 ml-2">
                             ({logIds.length} diária{logIds.length > 1 ? 's' : ''})
                           </span>
+                          {b.createdAt && (
+                            <span className="block text-[10px] text-slate-400 mt-0.5">
+                              📝 Gerado em: {new Date(b.createdAt).toLocaleDateString('pt-BR')} às {new Date(b.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold text-green-700">
@@ -684,8 +699,35 @@ export default function MeasurementTab({ rentals, reload }: Props) {
           <DialogHeader><DialogTitle>Detalhes da Diária</DialogTitle></DialogHeader>
           {selectedLog && (
             <div className="grid grid-cols-2 gap-3 text-sm mt-2">
-              <div><span className="text-slate-400">Data:</span> <strong>{fD(selectedLog.date)}</strong></div>
+              <div><span className="text-slate-400">Data da Diária:</span> <strong>{fD(selectedLog.date)}</strong></div>
               <div><span className="text-slate-400">Horário:</span> {selectedLog.startTime || '—'} - {selectedLog.endTime || '—'}</div>
+              {/* Controle Interno: Data de Registro */}
+              <div className="col-span-2 bg-slate-50 rounded-lg p-2.5 border">
+                <div className="flex items-center gap-2 mb-1">
+                  <Info className="h-3.5 w-3.5 text-blue-500" />
+                  <span className="text-xs font-semibold text-slate-600">Controle Interno</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Registrado no sistema em:</span>
+                    <span className="text-xs font-medium">
+                      {selectedLog.createdAt
+                        ? `${new Date(selectedLog.createdAt).toLocaleDateString('pt-BR')} às ${new Date(selectedLog.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                        : '—'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Data informada p/ medição:</span>
+                    <span className="text-xs font-medium">{fD(selectedLog.date)}</span>
+                  </div>
+                </div>
+                {selectedLog.createdAt && safeDate(selectedLog.createdAt) !== safeDate(selectedLog.date) && (
+                  <div className="flex items-center gap-1.5 mt-2 p-1.5 bg-amber-50 rounded border border-amber-200">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                    <span className="text-[10px] text-amber-700 font-medium">A data da diária difere da data em que foi registrada no sistema</span>
+                  </div>
+                )}
+              </div>
               <div><span className="text-slate-400">Horas Normais:</span> {Number(selectedLog.normalHours || 0).toFixed(1)}h</div>
               <div><span className="text-slate-400">Horas Extras:</span> <span className="text-orange-600">{Number(selectedLog.overtimeHours || 0).toFixed(1)}h</span></div>
               <div><span className="text-slate-400">Horas Noturnas:</span> <span className="text-indigo-600">{Number(selectedLog.nightHours || 0).toFixed(1)}h</span></div>

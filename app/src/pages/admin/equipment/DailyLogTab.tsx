@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Clock, Pencil, Trash2, Moon, Sun, Calendar, MapPin, DollarSign, CheckCircle2 } from 'lucide-react';
+import { Plus, Clock, Pencil, Trash2, Moon, Sun, Calendar, MapPin, DollarSign, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { DAILY_STATUS, fmt, fD } from './EquipmentTypes';
@@ -294,11 +294,21 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
                       {d.isHoliday && <Badge variant="outline" className="text-xs text-red-600 border-red-300"><Calendar className="h-3 w-3 mr-0.5" />Feriado</Badge>}
                       {d.isWeekend && !d.isHoliday && <Badge variant="outline" className="text-xs text-purple-600 border-purple-300"><Sun className="h-3 w-3 mr-0.5" />F.Semana</Badge>}
                       {d.clientApproval === 'approved' && <Badge className="bg-green-100 text-green-700 text-xs"><CheckCircle2 className="h-3 w-3 mr-0.5" />Aprovado</Badge>}
+                      {d.createdAt && safeDate(d.createdAt) !== safeDate(d.date) && (
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 bg-amber-50">
+                          <AlertTriangle className="h-3 w-3 mr-0.5" />Data difere do registro
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
                       {d.operatorName || '—'} • {Number(d.normalHours || d.hoursWorked || 0)}h normal
                       {d.workLocation && <><MapPin className="h-3 w-3 inline ml-2 mr-0.5" />{d.workLocation}</>}
                     </p>
+                    {d.createdAt && (
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        📝 Registrado em: {new Date(d.createdAt).toLocaleDateString('pt-BR')} às {new Date(d.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
                     {d.description && <p className="text-xs text-slate-400 truncate">{d.description}</p>}
                   </div>
                   <div className="text-right shrink-0 space-y-0.5">
