@@ -569,14 +569,18 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                       <td className="px-4 py-2 font-medium">
                         <div className="flex items-center gap-1.5">
                           {fD(log.date)}
-                          {log.createdAt && safeDate(log.createdAt) !== safeDate(log.date) && (
+                          {log.originalDate && safeDate(log.originalDate) !== safeDate(log.date) && (
                             <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300 bg-amber-50 ml-1">
                               <AlertTriangle className="h-3 w-3 mr-0.5" />Ajustada
                             </Badge>
                           )}
                         </div>
                         {log.createdAt && (
-                          <span className="block text-[10px] text-slate-400">📝 Reg: {new Date(log.createdAt).toLocaleDateString('pt-BR')} {new Date(log.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span className="block text-[10px] text-slate-400">📝 Reg: {new Date(log.createdAt).toLocaleDateString('pt-BR')} {new Date(log.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            {log.originalDate && safeDate(log.originalDate) !== safeDate(log.date) && (
+                              <span className="text-amber-600 font-medium"> • Data original: {fD(log.originalDate)}</span>
+                            )}
+                          </span>
                         )}
                         {isNationalHoliday(safeDate(log.date)) && (
                           <span className="block text-[10px] text-red-500">🎉 {isNationalHoliday(safeDate(log.date))!.name}</span>
@@ -659,7 +663,7 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                     const isExpanded = expandedBoletimId === b.id;
                     // Count adjusted dailies in expanded logs
                     const adjustedCount = isExpanded
-                      ? expandedBoletimLogs.filter((l: any) => l.createdAt && safeDate(l.createdAt) !== safeDate(l.date)).length
+                      ? expandedBoletimLogs.filter((l: any) => l.originalDate && safeDate(l.originalDate) !== safeDate(l.date)).length
                       : 0;
                     return (
                       <div key={b.id} className="bg-gray-50 rounded-lg border overflow-hidden">
@@ -713,7 +717,7 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                             </div>
                             <div className="divide-y">
                               {expandedBoletimLogs.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((log: any) => {
-                                const hasAdjustedDate = log.createdAt && safeDate(log.createdAt) !== safeDate(log.date);
+                                const hasAdjustedDate = log.originalDate && safeDate(log.originalDate) !== safeDate(log.date);
                                 return (
                                   <div key={log.id} className={`px-4 py-2.5 text-sm flex items-start gap-3 ${hasAdjustedDate ? 'bg-amber-50/50' : ''}`}>
                                     <div className="flex-1 min-w-0">
@@ -736,7 +740,7 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                                         <p className="text-[10px] text-slate-400 mt-0.5">
                                           📝 Registrado no sistema em: {new Date(log.createdAt).toLocaleDateString('pt-BR')} às {new Date(log.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                           {hasAdjustedDate && (
-                                            <span className="text-amber-600 font-medium"> → Data no boletim: {fD(log.date)}</span>
+                                            <span className="text-amber-600 font-medium"> → Data original: {fD(log.originalDate)} → Ajustada para: {fD(log.date)}</span>
                                           )}
                                         </p>
                                       )}
@@ -809,10 +813,12 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                     <span className="text-xs font-medium">{fD(selectedLog.date)}</span>
                   </div>
                 </div>
-                {selectedLog.createdAt && safeDate(selectedLog.createdAt) !== safeDate(selectedLog.date) && (
+                {selectedLog.originalDate && safeDate(selectedLog.originalDate) !== safeDate(selectedLog.date) && (
                   <div className="flex items-center gap-1.5 mt-2 p-1.5 bg-amber-50 rounded border border-amber-200">
                     <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                    <span className="text-[10px] text-amber-700 font-medium">A data desta diária foi ajustada para medição (registrada em data diferente no sistema)</span>
+                    <span className="text-[10px] text-amber-700 font-medium">
+                      Data ajustada para medição: original era {fD(selectedLog.originalDate)}, alterada para {fD(selectedLog.date)}
+                    </span>
                   </div>
                 )}
               </div>

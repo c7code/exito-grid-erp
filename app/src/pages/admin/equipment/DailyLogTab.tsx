@@ -256,7 +256,7 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
     if (filterEnd && logDate > filterEnd) return false;
     if (filterRentalId && d.rentalId !== filterRentalId) return false;
     if (filterAdjustedOnly) {
-      if (!d.createdAt || safeDate(d.createdAt) === safeDate(d.date)) return false;
+      if (!d.originalDate || safeDate(d.originalDate) === safeDate(d.date)) return false;
     }
     return true;
   });
@@ -357,7 +357,7 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
                       {d.isHoliday && <Badge variant="outline" className="text-xs text-red-600 border-red-300"><Calendar className="h-3 w-3 mr-0.5" />Feriado</Badge>}
                       {d.isWeekend && !d.isHoliday && <Badge variant="outline" className="text-xs text-purple-600 border-purple-300"><Sun className="h-3 w-3 mr-0.5" />F.Semana</Badge>}
                       {d.clientApproval === 'approved' && <Badge className="bg-green-100 text-green-700 text-xs"><CheckCircle2 className="h-3 w-3 mr-0.5" />Aprovado</Badge>}
-                      {d.createdAt && safeDate(d.createdAt) !== safeDate(d.date) && (
+                      {d.originalDate && safeDate(d.originalDate) !== safeDate(d.date) && (
                         <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 bg-amber-50">
                           <AlertTriangle className="h-3 w-3 mr-0.5" />Data ajustada p/ medição
                         </Badge>
@@ -370,6 +370,9 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
                     {d.createdAt && (
                       <p className="text-[10px] text-slate-400 mt-0.5">
                         📝 Registrado em: {new Date(d.createdAt).toLocaleDateString('pt-BR')} às {new Date(d.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        {d.originalDate && safeDate(d.originalDate) !== safeDate(d.date) && (
+                          <span className="text-amber-600 font-medium"> • Data original: {fD(d.originalDate)}</span>
+                        )}
                       </p>
                     )}
                     {d.description && <p className="text-xs text-slate-400 truncate">{d.description}</p>}

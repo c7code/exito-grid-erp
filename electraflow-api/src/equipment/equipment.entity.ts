@@ -345,6 +345,9 @@ export class EquipmentDailyLog {
   @Column({ type: 'date' })
   date: Date;
 
+  @Column({ type: 'date', nullable: true, default: null })
+  originalDate: Date;
+
   @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
   hoursWorked: number;
 

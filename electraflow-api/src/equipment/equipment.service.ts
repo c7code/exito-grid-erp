@@ -531,6 +531,19 @@ export class EquipmentService implements OnModuleInit {
   }
 
   async updateDailyLog(id: string, data: Partial<EquipmentDailyLog>): Promise<EquipmentDailyLog> {
+    // Track date changes for internal control (medição)
+    if (data.date !== undefined) {
+      const existing = await this.dailyRepo.findOneBy({ id });
+      if (existing) {
+        const existingDate = String(existing.date).substring(0, 10);
+        const newDate = String(data.date).substring(0, 10);
+        if (existingDate !== newDate && !existing.originalDate) {
+          // First time the date is being changed — save original date
+          data.originalDate = existing.date;
+        }
+      }
+    }
+
     // Recalculate totalValue if any value field is provided
     if (data.normalValue !== undefined || data.overtimeValue !== undefined || 
         data.nightValue !== undefined || data.holidayValue !== undefined || data.weekendValue !== undefined) {
