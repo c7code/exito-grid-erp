@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Clock, Pencil, Trash2, Moon, Sun, Calendar, MapPin, DollarSign, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Plus, Clock, Pencil, Trash2, Moon, Sun, Calendar, MapPin, DollarSign, CheckCircle2, AlertTriangle, Filter, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { DAILY_STATUS, fmt, fD } from './EquipmentTypes';
@@ -53,6 +53,13 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
   const [dlgOpen, setDlgOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, any>>({ ...defaultForm });
+
+  // Filtros
+  const [filterStart, setFilterStart] = useState('');
+  const [filterEnd, setFilterEnd] = useState('');
+  const [filterRentalId, setFilterRentalId] = useState('');
+  const [filterAdjustedOnly, setFilterAdjustedOnly] = useState(false);
+  const hasFilters = filterStart || filterEnd || filterRentalId || filterAdjustedOnly;
 
   const F = (field: string, val: any) => setForm(prev => ({ ...prev, [field]: val }));
 
@@ -242,22 +249,78 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
     catch { toast.error('Erro ao faturar'); }
   }
 
+  // Apply filters
+  const filteredLogs = dailyLogs.filter((d: any) => {
+    const logDate = safeDate(d.date);
+    if (filterStart && logDate < filterStart) return false;
+    if (filterEnd && logDate > filterEnd) return false;
+    if (filterRentalId && d.rentalId !== filterRentalId) return false;
+    if (filterAdjustedOnly) {
+      if (!d.createdAt || safeDate(d.createdAt) === safeDate(d.date)) return false;
+    }
+    return true;
+  });
+
   // Group by rental
   const grouped = rentals.map((r: any) => ({
     rental: r,
-    logs: dailyLogs.filter((d: any) => d.rentalId === r.id),
+    logs: filteredLogs.filter((d: any) => d.rentalId === r.id),
   })).filter(g => g.logs.length > 0);
 
-  const unlinked = dailyLogs.filter((d: any) => !rentals.find((r: any) => r.id === d.rentalId));
+  const unlinked = filteredLogs.filter((d: any) => !rentals.find((r: any) => r.id === d.rentalId));
+
+  function clearFilters() {
+    setFilterStart(''); setFilterEnd(''); setFilterRentalId(''); setFilterAdjustedOnly(false);
+  }
 
   return (
     <>
       <div className="flex justify-between items-center">
-        <p className="text-sm text-muted-foreground">{dailyLogs.length} diária(s) registrada(s)</p>
+        <p className="text-sm text-muted-foreground">
+          {hasFilters ? `${filteredLogs.length} de ${dailyLogs.length}` : dailyLogs.length} diária(s){hasFilters ? ' (filtradas)' : ' registrada(s)'}
+        </p>
         <Button onClick={openNew} className="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold">
           <Plus className="h-4 w-4 mr-1.5" />Registrar Diária
         </Button>
       </div>
+
+      {/* Filtros */}
+      <Card className="p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <Filter className="h-4 w-4 text-slate-500" />
+          <span className="text-xs font-semibold text-slate-600">Filtros</span>
+          {hasFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-auto h-6 text-xs text-slate-400 hover:text-red-500">
+              <X className="h-3 w-3 mr-1" />Limpar filtros
+            </Button>
+          )}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+          <div>
+            <Label className="text-xs text-slate-500">Data Início</Label>
+            <Input type="date" value={filterStart} onChange={e => setFilterStart(e.target.value)} className="h-8 text-sm" />
+          </div>
+          <div>
+            <Label className="text-xs text-slate-500">Data Fim</Label>
+            <Input type="date" value={filterEnd} onChange={e => setFilterEnd(e.target.value)} className="h-8 text-sm" />
+          </div>
+          <div>
+            <Label className="text-xs text-slate-500">Locação / Equipamento</Label>
+            <Select value={filterRentalId} onValueChange={setFilterRentalId}>
+              <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Todas" /></SelectTrigger>
+              <SelectContent>
+                {rentals.map((r: any) => (
+                  <SelectItem key={r.id} value={r.id}>{r.code} - {r.equipment?.name || ''}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2 pb-0.5">
+            <Switch checked={filterAdjustedOnly} onCheckedChange={setFilterAdjustedOnly} />
+            <span className="text-xs text-amber-600 font-medium">Só ajustadas p/ medição</span>
+          </div>
+        </div>
+      </Card>
 
       {grouped.map(({ rental, logs }) => (
         <Card key={rental.id} className="overflow-hidden">
