@@ -296,7 +296,7 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
                       {d.clientApproval === 'approved' && <Badge className="bg-green-100 text-green-700 text-xs"><CheckCircle2 className="h-3 w-3 mr-0.5" />Aprovado</Badge>}
                       {d.createdAt && safeDate(d.createdAt) !== safeDate(d.date) && (
                         <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 bg-amber-50">
-                          <AlertTriangle className="h-3 w-3 mr-0.5" />Data difere do registro
+                          <AlertTriangle className="h-3 w-3 mr-0.5" />Data ajustada p/ medição
                         </Badge>
                       )}
                     </div>

@@ -58,6 +58,10 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   const [adaptedEnd, setAdaptedEnd] = useState('');
   const [adaptedDates, setAdaptedDates] = useState<Record<string, string>>({});
 
+  // Boletim detail view (expand to see dailies inside a boletim)
+  const [expandedBoletimId, setExpandedBoletimId] = useState<string | null>(null);
+  const [expandedBoletimLogs, setExpandedBoletimLogs] = useState<any[]>([]);
+
   const loadBoletins = async () => {
     if (!selectedRentalId) return;
     try {
@@ -130,6 +134,22 @@ export default function MeasurementTab({ rentals, reload }: Props) {
       }, 100);
     } catch {
       toast.error('Erro ao carregar boletim para impressão');
+    }
+  };
+
+  // Expand/collapse boletim to see its dailies with internal control info
+  const handleToggleBoletimDetail = async (boletimId: string) => {
+    if (expandedBoletimId === boletimId) {
+      setExpandedBoletimId(null);
+      setExpandedBoletimLogs([]);
+      return;
+    }
+    try {
+      const data = await api.getEquipmentBoletim(boletimId);
+      setExpandedBoletimLogs(data.logs || []);
+      setExpandedBoletimId(boletimId);
+    } catch {
+      toast.error('Erro ao carregar diárias do boletim');
     }
   };
 
@@ -550,9 +570,9 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                         <div className="flex items-center gap-1.5">
                           {fD(log.date)}
                           {log.createdAt && safeDate(log.createdAt) !== safeDate(log.date) && (
-                            <span title={`Registrado em ${new Date(log.createdAt).toLocaleDateString('pt-BR')} às ${new Date(log.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}>
-                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                            </span>
+                            <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300 bg-amber-50 ml-1">
+                              <AlertTriangle className="h-3 w-3 mr-0.5" />Ajustada
+                            </Badge>
                           )}
                         </div>
                         {log.createdAt && (
@@ -636,33 +656,101 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                 <div className="space-y-2">
                   {boletins.map((b: any) => {
                     const logIds = typeof b.dailyLogIds === 'string' ? JSON.parse(b.dailyLogIds || '[]') : (b.dailyLogIds || []);
+                    const isExpanded = expandedBoletimId === b.id;
+                    // Count adjusted dailies in expanded logs
+                    const adjustedCount = isExpanded
+                      ? expandedBoletimLogs.filter((l: any) => l.createdAt && safeDate(l.createdAt) !== safeDate(l.date)).length
+                      : 0;
                     return (
-                      <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
-                        <div>
-                          <span className="font-medium text-sm">Boletim #{b.boletimNumber}</span>
-                          <span className="text-xs text-gray-500 ml-2">
-                            {b.periodStart && new Date(b.periodStart).toLocaleDateString('pt-BR')} — {b.periodEnd && new Date(b.periodEnd).toLocaleDateString('pt-BR')}
-                          </span>
-                          <span className="text-xs text-gray-400 ml-2">
-                            ({logIds.length} diária{logIds.length > 1 ? 's' : ''})
-                          </span>
-                          {b.createdAt && (
-                            <span className="block text-[10px] text-slate-400 mt-0.5">
-                              📝 Gerado em: {new Date(b.createdAt).toLocaleDateString('pt-BR')} às {new Date(b.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      <div key={b.id} className="bg-gray-50 rounded-lg border overflow-hidden">
+                        <div className="flex items-center justify-between p-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-sm">Boletim #{b.boletimNumber}</span>
+                              <span className="text-xs text-gray-500">
+                                {b.periodStart && new Date(b.periodStart).toLocaleDateString('pt-BR')} — {b.periodEnd && new Date(b.periodEnd).toLocaleDateString('pt-BR')}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                ({logIds.length} diária{logIds.length > 1 ? 's' : ''})
+                              </span>
+                              {isExpanded && adjustedCount > 0 && (
+                                <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300 bg-amber-50">
+                                  <AlertTriangle className="h-3 w-3 mr-0.5" />{adjustedCount} com data ajustada
+                                </Badge>
+                              )}
+                            </div>
+                            {b.createdAt && (
+                              <span className="block text-[10px] text-slate-400 mt-0.5">
+                                📝 Gerado em: {new Date(b.createdAt).toLocaleDateString('pt-BR')} às {new Date(b.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-green-700">
+                              R$ {Number(b.totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </span>
-                          )}
+                            <Button variant="ghost" size="sm" onClick={() => handleToggleBoletimDetail(b.id)} title="Ver diárias">
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handlePrintBoletim(b)}>
+                              <Printer className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-red-500" onClick={() => handleDeleteBoletim(b.id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-green-700">
-                            R$ {Number(b.totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
-                          <Button variant="ghost" size="sm" onClick={() => handlePrintBoletim(b)}>
-                            <Printer className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-red-500" onClick={() => handleDeleteBoletim(b.id)}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+
+                        {/* Expanded: show dailies inside this boletim with internal control */}
+                        {isExpanded && (
+                          <div className="border-t bg-white">
+                            <div className="px-3 py-2 bg-blue-50 border-b flex items-center gap-2">
+                              <Info className="h-3.5 w-3.5 text-blue-600" />
+                              <span className="text-xs font-semibold text-blue-700">Controle Interno — Diárias deste Boletim</span>
+                              {adjustedCount > 0 && (
+                                <span className="text-[10px] text-amber-600 font-medium ml-auto">⚠️ {adjustedCount} diária{adjustedCount > 1 ? 's' : ''} com data ajustada para medição</span>
+                              )}
+                            </div>
+                            <div className="divide-y">
+                              {expandedBoletimLogs.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((log: any) => {
+                                const hasAdjustedDate = log.createdAt && safeDate(log.createdAt) !== safeDate(log.date);
+                                return (
+                                  <div key={log.id} className={`px-4 py-2.5 text-sm flex items-start gap-3 ${hasAdjustedDate ? 'bg-amber-50/50' : ''}`}>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-medium">{fD(log.date)}</span>
+                                        {log.startTime && log.endTime && (
+                                          <span className="text-xs text-slate-500">{log.startTime} - {log.endTime}</span>
+                                        )}
+                                        <span className="text-xs text-slate-500">{Number(log.normalHours || 0).toFixed(1)}h normal</span>
+                                        {Number(log.overtimeHours || 0) > 0 && (
+                                          <span className="text-xs text-orange-600">{Number(log.overtimeHours).toFixed(1)}h extra</span>
+                                        )}
+                                        {hasAdjustedDate && (
+                                          <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300 bg-amber-50">
+                                            <AlertTriangle className="h-3 w-3 mr-0.5" />Data ajustada p/ medição
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {log.createdAt && (
+                                        <p className="text-[10px] text-slate-400 mt-0.5">
+                                          📝 Registrado no sistema em: {new Date(log.createdAt).toLocaleDateString('pt-BR')} às {new Date(log.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                          {hasAdjustedDate && (
+                                            <span className="text-amber-600 font-medium"> → Data no boletim: {fD(log.date)}</span>
+                                          )}
+                                        </p>
+                                      )}
+                                      {log.workLocation && (
+                                        <p className="text-[10px] text-slate-400">📍 {log.workLocation}</p>
+                                      )}
+                                    </div>
+                                    <span className="text-sm font-semibold text-slate-700 shrink-0">{fmt(log.totalValue)}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -724,7 +812,7 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                 {selectedLog.createdAt && safeDate(selectedLog.createdAt) !== safeDate(selectedLog.date) && (
                   <div className="flex items-center gap-1.5 mt-2 p-1.5 bg-amber-50 rounded border border-amber-200">
                     <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                    <span className="text-[10px] text-amber-700 font-medium">A data da diária difere da data em que foi registrada no sistema</span>
+                    <span className="text-[10px] text-amber-700 font-medium">A data desta diária foi ajustada para medição (registrada em data diferente no sistema)</span>
                   </div>
                 )}
               </div>
