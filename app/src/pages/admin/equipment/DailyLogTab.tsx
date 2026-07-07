@@ -234,7 +234,8 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
       setDlgOpen(false); setEditId(null); reload();
     } catch (err: any) {
       console.error('Erro ao salvar diária:', err?.response?.data || err);
-      toast.error('Erro ao salvar diária');
+      const msg = err?.response?.data?.message || err?.message || 'Erro desconhecido';
+      toast.error(`Erro ao salvar diária: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`);
     }
   }
 
