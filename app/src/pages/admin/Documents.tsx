@@ -124,16 +124,24 @@ export default function AdminDocuments() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [docsRes, foldersRes, clientsRes, categoriesRes] = await Promise.all([
+      const [docsRes, foldersRes, clientsRes, categoriesRes] = await Promise.allSettled([
         api.getDocuments(clientFilter !== 'all' ? { clientId: clientFilter } : undefined),
         api.getRootFolders(undefined, clientFilter !== 'all' ? clientFilter : undefined),
         api.getClients(),
-        api.getFolderCategories().catch(() => []),
+        api.getFolderCategories(),
       ]);
-      setDocuments(Array.isArray(docsRes) ? docsRes : (docsRes?.data ?? []));
-      setFolders(Array.isArray(foldersRes) ? foldersRes : (foldersRes?.data ?? []));
-      setClients(Array.isArray(clientsRes) ? clientsRes : []);
-      setFolderCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
+      const docsVal = docsRes.status === 'fulfilled' ? docsRes.value : [];
+      const foldersVal = foldersRes.status === 'fulfilled' ? foldersRes.value : [];
+      const clientsVal = clientsRes.status === 'fulfilled' ? clientsRes.value : [];
+      const catsVal = categoriesRes.status === 'fulfilled' ? categoriesRes.value : [];
+      setDocuments(Array.isArray(docsVal) ? docsVal : (docsVal?.data ?? []));
+      setFolders(Array.isArray(foldersVal) ? foldersVal : (foldersVal?.data ?? []));
+      setClients(Array.isArray(clientsVal) ? clientsVal : []);
+      setFolderCategories(Array.isArray(catsVal) ? catsVal : []);
+      // Log individual failures for debugging
+      if (docsRes.status === 'rejected') console.error('Erro ao carregar documentos:', docsRes.reason);
+      if (foldersRes.status === 'rejected') console.error('Erro ao carregar pastas:', foldersRes.reason);
+      if (clientsRes.status === 'rejected') console.error('Erro ao carregar clientes:', clientsRes.reason);
     } catch (error) {
       console.error('Erro ao carregar documentos:', error);
       toast.error('Erro ao carregar documentos.');

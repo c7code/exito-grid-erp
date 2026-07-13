@@ -22,11 +22,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored auth on mount
+    // Check for stored auth on mount and validate token
     const token = localStorage.getItem('electraflow_token');
     const storedUser = localStorage.getItem('electraflow_user');
     if (token && storedUser) {
       setUser(JSON.parse(storedUser));
+      // Validate token is still accepted by the API
+      // Note: we use /users (not /auth/*) because the request interceptor
+      // skips adding Authorization header for /auth/ routes.
+      api.client.get('/users?pageSize=1').catch((err: any) => {
+        if (err?.response?.status === 401 || err?.response?.status === 403) {
+          console.warn('Token inválido detectado — forçando re-login');
+          localStorage.removeItem('electraflow_token');
+          localStorage.removeItem('electraflow_refresh_token');
+          localStorage.removeItem('electraflow_user');
+          setUser(null);
+        }
+      });
     }
     setIsLoading(false);
   }, []);
