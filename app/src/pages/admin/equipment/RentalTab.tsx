@@ -285,17 +285,17 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
                 ) : null;
               })()}
             </div>
-            <div>
+            <div className="col-span-2">
               <Label>Cliente</Label>
               <div className="flex gap-1.5">
-                <Popover open={clientOpen} onOpenChange={setClientOpen}>
+                <Popover open={clientOpen} onOpenChange={setClientOpen} modal={true}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" aria-expanded={clientOpen} className="w-full justify-between h-9 font-normal text-sm">
+                    <Button variant="outline" role="combobox" aria-expanded={clientOpen} className="w-full justify-between h-9 font-normal text-sm truncate">
                       {form.clientId ? (clients.find(c => c.id === form.clientId)?.name || 'Selecione...') : 'Selecione o cliente...'}
                       <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[400px] p-0" align="start">
+                  <PopoverContent className="p-0 z-[9999]" style={{ width: 'var(--radix-popover-trigger-width)' }} align="start" sideOffset={4}>
                     <Command>
                       <CommandInput placeholder="Buscar cliente..." />
                       <CommandList>
@@ -304,7 +304,7 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
                           {clients.map(c => (
                             <CommandItem key={c.id} value={c.name} onSelect={() => { F('clientId', c.id); setClientOpen(false); }}>
                               <Check className={`mr-2 h-4 w-4 ${form.clientId === c.id ? 'opacity-100' : 'opacity-0'}`} />
-                              <span className="truncate">{c.name}</span>
+                              <span>{c.name}</span>
                             </CommandItem>
                           ))}
                         </CommandGroup>
