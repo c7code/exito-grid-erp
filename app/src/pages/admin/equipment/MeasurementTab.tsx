@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, FileText, Printer, DollarSign, Clock, Moon, Calendar, TrendingUp, Pencil, Trash2, Eye, CalendarRange, AlertTriangle, Save, Info } from 'lucide-react';
+import { Loader2, FileText, Printer, DollarSign, Clock, Moon, Calendar, TrendingUp, Pencil, Trash2, Eye, CalendarRange, AlertTriangle, Save, Info, Layers, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { DAILY_STATUS, fmt, fD } from './EquipmentTypes';
@@ -49,7 +49,7 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   // Boletim selection & history
   const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
   const [boletins, setBoletins] = useState<any[]>([]);
-  const [showBoletimHistory, setShowBoletimHistory] = useState(false);
+  const [showBoletimHistory, setShowBoletimHistory] = useState(true);
   const [savingBoletim, setSavingBoletim] = useState(false);
 
   // Boletim Adaptado (datas fictícias para faturamento)
@@ -61,6 +61,21 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   // Boletim detail view (expand to see dailies inside a boletim)
   const [expandedBoletimId, setExpandedBoletimId] = useState<string | null>(null);
   const [expandedBoletimLogs, setExpandedBoletimLogs] = useState<any[]>([]);
+
+  // Edição de Boletim
+  const [editBoletimDlg, setEditBoletimDlg] = useState(false);
+  const [editBoletimData, setEditBoletimData] = useState<any>(null);
+  const [editBoletimNotes, setEditBoletimNotes] = useState('');
+  const [editBoletimStatus, setEditBoletimStatus] = useState('');
+
+  // Medição Coletiva
+  const [collectiveDlg, setCollectiveDlg] = useState(false);
+  const [collectiveStartDate, setCollectiveStartDate] = useState('');
+  const [collectiveEndDate, setCollectiveEndDate] = useState('');
+  const [collectivePreview, setCollectivePreview] = useState<any[]>([]);
+  const [collectiveSelected, setCollectiveSelected] = useState<Set<string>>(new Set());
+  const [collectiveLoading, setCollectiveLoading] = useState(false);
+  const [collectiveSaving, setCollectiveSaving] = useState(false);
 
   const loadBoletins = async () => {
     if (!selectedRentalId) return;
@@ -225,6 +240,77 @@ export default function MeasurementTab({ rentals, reload }: Props) {
       loadReport();
       reload();
     } catch { toast.error('Erro ao excluir'); }
+  }
+
+  // ─── Edição de Boletim ───
+  function openEditBoletim(boletim: any) {
+    setEditBoletimData(boletim);
+    setEditBoletimNotes(boletim.notes || '');
+    setEditBoletimStatus(boletim.status || 'generated');
+    setEditBoletimDlg(true);
+  }
+
+  async function saveEditBoletim() {
+    if (!editBoletimData) return;
+    try {
+      await api.updateEquipmentBoletim(editBoletimData.id, {
+        notes: editBoletimNotes,
+        status: editBoletimStatus,
+      });
+      toast.success('Boletim atualizado!');
+      setEditBoletimDlg(false);
+      setEditBoletimData(null);
+      await loadBoletins();
+    } catch (err: any) {
+      toast.error('Erro ao atualizar boletim: ' + (err?.response?.data?.message || err.message));
+    }
+  }
+
+  // ─── Medição Coletiva ───
+  async function loadCollectivePreview() {
+    if (!collectiveStartDate || !collectiveEndDate) {
+      toast.error('Informe o período (data início e fim)');
+      return;
+    }
+    setCollectiveLoading(true);
+    try {
+      const data = await api.getCollectiveMeasurementPreview(collectiveStartDate, collectiveEndDate);
+      setCollectivePreview(Array.isArray(data) ? data : []);
+      setCollectiveSelected(new Set(data.map((d: any) => d.rental.id)));
+    } catch (err: any) {
+      toast.error('Erro ao carregar preview: ' + (err?.response?.data?.message || err.message));
+    } finally {
+      setCollectiveLoading(false);
+    }
+  }
+
+  async function generateCollectiveBoletins() {
+    const selectedItems = collectivePreview.filter(p => collectiveSelected.has(p.rental.id));
+    if (selectedItems.length === 0) {
+      toast.error('Selecione pelo menos uma locação');
+      return;
+    }
+    setCollectiveSaving(true);
+    try {
+      const items = selectedItems.map(p => ({
+        rentalId: p.rental.id,
+        dailyLogIds: p.dailyLogIds,
+      }));
+      const results = await api.createCollectiveBoletins(items);
+      toast.success(`${results.length} boletim(ns) gerado(s) com sucesso!`);
+      setCollectiveDlg(false);
+      setCollectivePreview([]);
+      setCollectiveSelected(new Set());
+      reload();
+      if (selectedRentalId) {
+        await loadReport();
+        await loadBoletins();
+      }
+    } catch (err: any) {
+      toast.error('Erro ao gerar boletins: ' + (err?.response?.data?.message || err.message));
+    } finally {
+      setCollectiveSaving(false);
+    }
   }
 
   const EF = (field: string, val: any) => setEditForm(prev => ({ ...prev, [field]: val }));
@@ -441,6 +527,9 @@ export default function MeasurementTab({ rentals, reload }: Props) {
           <Button onClick={loadReport} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <TrendingUp className="h-4 w-4 mr-1" />}
             Carregar Diárias
+          </Button>
+          <Button variant="outline" className="text-purple-700 border-purple-300 hover:bg-purple-50" onClick={() => setCollectiveDlg(true)}>
+            <Layers className="h-4 w-4 mr-1" />Medição Coletiva
           </Button>
           {report && (
             <>
@@ -690,11 +779,17 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                             )}
                           </div>
                           <div className="flex items-center gap-2">
+                            <Badge className={`text-[9px] ${b.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : b.status === 'billed' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                              {b.status === 'approved' ? 'Aprovado' : b.status === 'billed' ? 'Faturado' : 'Gerado'}
+                            </Badge>
                             <span className="text-sm font-semibold text-green-700">
                               R$ {Number(b.totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </span>
                             <Button variant="ghost" size="sm" onClick={() => handleToggleBoletimDetail(b.id)} title="Ver diárias">
                               <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => openEditBoletim(b)} title="Editar boletim">
+                              <Pencil className="w-4 h-4 text-blue-500" />
                             </Button>
                             <Button variant="ghost" size="sm" onClick={() => handlePrintBoletim(b)}>
                               <Printer className="w-4 h-4" />
@@ -887,6 +982,188 @@ export default function MeasurementTab({ rentals, reload }: Props) {
           <DialogFooter className="mt-3">
             <Button variant="outline" onClick={() => { setEditDlg(false); setSelectedLog(null); }}>Cancelar</Button>
             <Button onClick={saveEditLog} className="bg-blue-600 hover:bg-blue-700 text-white">Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Boletim Dialog */}
+      <Dialog open={editBoletimDlg} onOpenChange={v => { if (!v) { setEditBoletimDlg(false); setEditBoletimData(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Editar Boletim #{editBoletimData?.boletimNumber}</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label>Status</Label>
+              <Select value={editBoletimStatus} onValueChange={setEditBoletimStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="generated">Gerado</SelectItem>
+                  <SelectItem value="approved">Aprovado</SelectItem>
+                  <SelectItem value="billed">Faturado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Observações</Label>
+              <Textarea value={editBoletimNotes} onChange={e => setEditBoletimNotes(e.target.value)} rows={3} placeholder="Observações sobre o boletim..." />
+            </div>
+            {editBoletimData && (
+              <div className="bg-slate-50 rounded-lg p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Período:</span>
+                  <span>{editBoletimData.periodStart ? fD(editBoletimData.periodStart) : '—'} a {editBoletimData.periodEnd ? fD(editBoletimData.periodEnd) : '—'}</span>
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-slate-500">Diárias:</span>
+                  <span>{(editBoletimData.dailyLogIds || []).length}</span>
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-slate-500">Total:</span>
+                  <strong className="text-green-700">{fmt(editBoletimData.totalValue)}</strong>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="mt-3">
+            <Button variant="outline" onClick={() => { setEditBoletimDlg(false); setEditBoletimData(null); }}>Cancelar</Button>
+            <Button onClick={saveEditBoletim} className="bg-blue-600 hover:bg-blue-700 text-white">Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Collective Measurement Dialog */}
+      <Dialog open={collectiveDlg} onOpenChange={v => { if (!v) { setCollectiveDlg(false); setCollectivePreview([]); setCollectiveSelected(new Set()); } }}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5 text-purple-600" />
+              Medição Coletiva
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            {/* Period Selection */}
+            <div className="grid grid-cols-3 gap-3 items-end">
+              <div>
+                <Label>Data Início</Label>
+                <Input type="date" value={collectiveStartDate} onChange={e => setCollectiveStartDate(e.target.value)} />
+              </div>
+              <div>
+                <Label>Data Fim</Label>
+                <Input type="date" value={collectiveEndDate} onChange={e => setCollectiveEndDate(e.target.value)} />
+              </div>
+              <Button onClick={loadCollectivePreview} disabled={collectiveLoading} className="bg-purple-600 hover:bg-purple-700 text-white">
+                {collectiveLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <TrendingUp className="h-4 w-4 mr-1" />}
+                Carregar
+              </Button>
+            </div>
+
+            {/* Preview Results */}
+            {collectivePreview.length > 0 && (
+              <>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-slate-600">
+                    <strong>{collectivePreview.length}</strong> locação(ões) com diárias não medidas no período
+                  </p>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setCollectiveSelected(new Set(collectivePreview.map(p => p.rental.id)))}>
+                      Selecionar Todos
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setCollectiveSelected(new Set())}>
+                      Limpar
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {collectivePreview.map((item: any) => (
+                    <div
+                      key={item.rental.id}
+                      className={`border rounded-lg p-3 cursor-pointer transition-all ${collectiveSelected.has(item.rental.id) ? 'border-purple-400 bg-purple-50/50' : 'border-slate-200 hover:border-slate-300'}`}
+                      onClick={() => {
+                        const s = new Set(collectiveSelected);
+                        if (s.has(item.rental.id)) s.delete(item.rental.id);
+                        else s.add(item.rental.id);
+                        setCollectiveSelected(s);
+                      }}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={collectiveSelected.has(item.rental.id)}
+                            onChange={() => {}}
+                            className="mt-1 rounded"
+                          />
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-sm">{item.rental.code}</span>
+                              <span className="text-xs text-slate-500">{item.rental.equipmentName}</span>
+                              {item.rental.operatorName && (
+                                <Badge variant="outline" className="text-[10px]">👷 {item.rental.operatorName}</Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-600 mt-0.5">{item.rental.clientName}</p>
+                            {item.rental.deliveryCity && (
+                              <p className="text-[10px] text-slate-400">📍 {item.rental.deliveryCity}</p>
+                            )}
+                            {item.rental.cnpjFaturamento && (
+                              <p className="text-[10px] text-slate-400">🏢 CNPJ Faturamento: {item.rental.cnpjFaturamento}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-green-700">{fmt(item.totalValue)}</p>
+                          <p className="text-xs text-slate-500">{item.totalDays} diária(s)</p>
+                          <p className="text-xs text-slate-400">{item.totalHours.toFixed(1)}h total</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Summary */}
+                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-semibold text-purple-800">
+                        {collectiveSelected.size} locação(ões) selecionada(s)
+                      </p>
+                      <p className="text-xs text-purple-600">
+                        {collectivePreview.filter(p => collectiveSelected.has(p.rental.id)).reduce((s, p) => s + p.totalDays, 0)} diária(s) total
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-purple-800">
+                        {fmt(collectivePreview.filter(p => collectiveSelected.has(p.rental.id)).reduce((s, p) => s + p.totalValue, 0))}
+                      </p>
+                      <p className="text-[10px] text-purple-500">Valor total dos boletins</p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {collectivePreview.length === 0 && !collectiveLoading && collectiveStartDate && collectiveEndDate && (
+              <div className="text-center py-8 text-slate-400">
+                <FileText className="h-12 w-12 mx-auto mb-3 text-slate-200" />
+                <p className="font-medium">Nenhuma diária não medida encontrada no período</p>
+                <p className="text-xs mt-1">Todas as diárias do período já foram incluídas em boletins</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => { setCollectiveDlg(false); setCollectivePreview([]); }}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={generateCollectiveBoletins}
+              disabled={collectiveSaving || collectiveSelected.size === 0}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              {collectiveSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckSquare className="h-4 w-4 mr-1" />}
+              Gerar {collectiveSelected.size} Boletim(ns) Individual(is)
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

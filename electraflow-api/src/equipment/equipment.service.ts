@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
-import { Equipment, EquipmentRental, EquipmentMaintenance, EquipmentDailyLog, EquipmentService as EquipmentServiceEntity, EquipmentChecklist, EquipmentDocument, EquipmentLiftingPlan, EquipmentDailyExpense, EquipmentBoletim } from './equipment.entity';
+import { Equipment, EquipmentRental, EquipmentMaintenance, EquipmentDailyLog, EquipmentService as EquipmentServiceEntity, EquipmentChecklist, EquipmentDocument, EquipmentLiftingPlan, EquipmentDailyExpense, EquipmentBoletim, EquipmentRentalChangeLog } from './equipment.entity';
 
 @Injectable()
 export class EquipmentService implements OnModuleInit {
@@ -169,6 +169,16 @@ export class EquipmentService implements OnModuleInit {
         "updatedAt" TIMESTAMP DEFAULT NOW(),
         "deletedAt" TIMESTAMP
       )`,
+      // ══ equipment_rental_change_logs ══
+      `CREATE TABLE IF NOT EXISTS equipment_rental_change_logs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "rentalId" UUID NOT NULL,
+        "changeType" VARCHAR NOT NULL,
+        "previousValue" TEXT,
+        "newValue" TEXT,
+        reason TEXT,
+        "changedAt" TIMESTAMP DEFAULT NOW()
+      )`,
     ];
 
     for (const sql of tables) {
@@ -218,6 +228,10 @@ export class EquipmentService implements OnModuleInit {
       { table: 'equipment_daily_logs', col: 'workLocation', type: 'VARCHAR' },
       { table: 'equipment_daily_logs', col: 'clientApproval', type: 'VARCHAR DEFAULT \'pending\'' },
       { table: 'equipment_daily_logs', col: 'clientApprovalNote', type: 'TEXT' },
+      // Rental: CNPJs
+      { table: 'equipment_rentals', col: 'cnpjSolicitante', type: 'VARCHAR' },
+      { table: 'equipment_rentals', col: 'cnpjFaturamento', type: 'VARCHAR' },
+      { table: 'equipment_rentals', col: 'hideCnpjSolicitante', type: 'BOOLEAN DEFAULT FALSE' },
     ];
     for (const { table, col, type } of cols) {
       try {
@@ -371,6 +385,33 @@ export class EquipmentService implements OnModuleInit {
 
   async updateRental(id: string, data: Partial<EquipmentRental>): Promise<EquipmentRental> {
     const old = await this.getRentalById(id);
+
+    // ─── Log de alterações (operador, equipamento) ───
+    const changeLogRepo = this.dataSource.getRepository(EquipmentRentalChangeLog);
+    const changes: Partial<EquipmentRentalChangeLog>[] = [];
+
+    if (data.operatorId !== undefined && data.operatorId !== old.operatorId) {
+      changes.push({
+        rentalId: id,
+        changeType: 'operator',
+        previousValue: JSON.stringify({ operatorId: old.operatorId, operatorName: old.operatorName }),
+        newValue: JSON.stringify({ operatorId: data.operatorId, operatorName: data.operatorName || old.operatorName }),
+      });
+    }
+    if (data.equipmentId !== undefined && data.equipmentId !== old.equipmentId) {
+      changes.push({
+        rentalId: id,
+        changeType: 'equipment',
+        previousValue: JSON.stringify({ equipmentId: old.equipmentId, equipmentName: old.equipment?.name }),
+        newValue: JSON.stringify({ equipmentId: data.equipmentId }),
+      });
+    }
+
+    if (changes.length > 0) {
+      await changeLogRepo.save(changes.map(c => changeLogRepo.create(c)));
+      this.logger.log(`Rental ${old.code}: ${changes.length} change(s) logged`);
+    }
+
     await this.rentalRepo.update(id, data);
     if ((data.status === 'completed' || data.status === 'cancelled') && old.status !== data.status) {
       const activeRentals = await this.rentalRepo.count({
@@ -1210,5 +1251,116 @@ export class EquipmentService implements OnModuleInit {
     const boletim = await repo.findOneBy({ id });
     if (!boletim) throw new NotFoundException('Boletim não encontrado');
     return repo.softRemove(boletim);
+  }
+
+  // ═══ RENTAL CHANGE LOGS ════════════════════════════════════════
+
+  async getRentalChangeLogs(rentalId: string) {
+    const repo = this.dataSource.getRepository(EquipmentRentalChangeLog);
+    return repo.find({
+      where: { rentalId },
+      order: { changedAt: 'DESC' },
+    });
+  }
+
+  // ═══ UPDATE BOLETIM ════════════════════════════════════════════
+
+  async updateBoletim(id: string, data: { dailyLogIds?: string[]; notes?: string; status?: string }) {
+    const repo = this.dataSource.getRepository(EquipmentBoletim);
+    const boletim = await repo.findOneBy({ id });
+    if (!boletim) throw new NotFoundException('Boletim não encontrado');
+
+    if (data.dailyLogIds) {
+      // Recalculate totals from new daily log selection
+      const logs = await this.dailyRepo.findBy({ id: In(data.dailyLogIds) });
+      const totalValue = logs.reduce((sum, l) => sum + Number(l.totalValue || 0), 0);
+      const totalNormalHours = logs.reduce((sum, l) => sum + Number(l.normalHours || 0), 0);
+      const totalOvertimeHours = logs.reduce((sum, l) => sum + Number(l.overtimeHours || 0), 0);
+      const totalNightHours = logs.reduce((sum, l) => sum + Number(l.nightHours || 0), 0);
+      const dates = logs.map(l => new Date(l.date)).sort((a, b) => a.getTime() - b.getTime());
+
+      boletim.dailyLogIds = data.dailyLogIds;
+      boletim.totalValue = totalValue;
+      boletim.totalNormalHours = totalNormalHours;
+      boletim.totalOvertimeHours = totalOvertimeHours;
+      boletim.totalNightHours = totalNightHours;
+      boletim.periodStart = dates[0] || boletim.periodStart;
+      boletim.periodEnd = dates[dates.length - 1] || boletim.periodEnd;
+    }
+    if (data.notes !== undefined) boletim.notes = data.notes;
+    if (data.status) boletim.status = data.status;
+
+    return repo.save(boletim);
+  }
+
+  // ═══ MEDIÇÃO COLETIVA ════════════════════════════════════════════
+
+  async getCollectivePreview(startDate: string, endDate: string) {
+    // Find all active/confirmed rentals that have unmeasured daily logs in the period
+    const rentals = await this.rentalRepo.find({
+      where: [{ status: 'active' }, { status: 'confirmed' }, { status: 'completed' }],
+      relations: ['equipment', 'client'],
+      order: { createdAt: 'DESC' },
+    });
+
+    // Get all existing boletins to know which dailies are already measured
+    const boletimRepo = this.dataSource.getRepository(EquipmentBoletim);
+    const allBoletins = await boletimRepo.find({ where: { deletedAt: null } as any });
+    const measuredIds = new Set<string>();
+    allBoletins.forEach(b => {
+      const ids = typeof b.dailyLogIds === 'string' ? JSON.parse(b.dailyLogIds || '[]') : (b.dailyLogIds || []);
+      ids.forEach((id: string) => measuredIds.add(id));
+    });
+
+    const result = [];
+    for (const rental of rentals) {
+      const logs = await this.dailyRepo.createQueryBuilder('dl')
+        .where('dl.rentalId = :rentalId', { rentalId: rental.id })
+        .andWhere('dl.deletedAt IS NULL')
+        .andWhere('dl.date >= :startDate', { startDate })
+        .andWhere('dl.date <= :endDate', { endDate })
+        .orderBy('dl.date', 'ASC')
+        .getMany();
+
+      // Filter out already-measured logs
+      const unmeasuredLogs = logs.filter(l => !measuredIds.has(l.id));
+      if (unmeasuredLogs.length === 0) continue;
+
+      const totalValue = unmeasuredLogs.reduce((sum, l) => sum + Number(l.totalValue || 0), 0);
+      const totalHours = unmeasuredLogs.reduce((sum, l) => sum + Number(l.normalHours || 0) + Number(l.overtimeHours || 0), 0);
+
+      result.push({
+        rental: {
+          id: rental.id,
+          code: rental.code,
+          equipmentName: rental.equipment?.name || '',
+          equipmentCode: rental.equipment?.code || '',
+          clientName: rental.client?.name || '',
+          clientCnpj: (rental.client as any)?.cnpj || (rental.client as any)?.document || '',
+          operatorName: rental.operatorName || '',
+          cnpjSolicitante: (rental as any).cnpjSolicitante || '',
+          cnpjFaturamento: (rental as any).cnpjFaturamento || '',
+          deliveryCity: rental.deliveryCity || '',
+        },
+        dailyLogIds: unmeasuredLogs.map(l => l.id),
+        totalDays: unmeasuredLogs.length,
+        totalHours,
+        totalValue,
+      });
+    }
+
+    return result;
+  }
+
+  async createCollectiveBoletins(items: Array<{ rentalId: string; dailyLogIds: string[]; notes?: string }>) {
+    const results = [];
+    for (const item of items) {
+      const boletim = await this.createBoletim(item.rentalId, {
+        dailyLogIds: item.dailyLogIds,
+        notes: item.notes,
+      });
+      results.push(boletim);
+    }
+    return results;
   }
 }

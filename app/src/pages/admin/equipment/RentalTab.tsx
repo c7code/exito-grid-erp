@@ -30,6 +30,7 @@ const defaultForm: Record<string, any> = {
   holidayMode: 'percent', holidayRate: '100', weekendMode: 'percent', weekendRate: '50',
   includesOperator: true, operatorCostPerDay: '',
   startDate: '', endDate: '', deliveryAddress: '', deliveryCity: '', deliveryState: '', notes: '',
+  cnpjSolicitante: '', cnpjFaturamento: '', hideCnpjSolicitante: false,
   accessRestrictions: '', clientResponsibilities: '',
   proposalClauses: DEFAULT_CLAUSES.map(t => ({ text: t, enabled: true })),
 };
@@ -69,6 +70,7 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
       endDate: r.endDate ? r.endDate.substring(0, 10) : '',
       deliveryAddress: r.deliveryAddress || '', deliveryCity: r.deliveryCity || '',
       deliveryState: r.deliveryState || '', notes: r.notes || '',
+      cnpjSolicitante: r.cnpjSolicitante || '', cnpjFaturamento: r.cnpjFaturamento || '', hideCnpjSolicitante: r.hideCnpjSolicitante || false,
       accessRestrictions: r.accessRestrictions || '',
       clientResponsibilities: r.clientResponsibilities || '',
       proposalClauses: r.proposalClauses || DEFAULT_CLAUSES.map(t => ({ text: t, enabled: true })),
@@ -206,7 +208,14 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
                 </div>
                 <p className="text-sm text-slate-600 mt-0.5">{r.equipment?.name || '—'}</p>
                 <p className="text-xs text-muted-foreground">{r.client?.name || 'Sem cliente'} • {fD(r.startDate)} a {fD(r.endDate)}</p>
+                {r.operatorName && <p className="text-xs text-slate-500 mt-0.5">👷 Operador: <strong>{r.operatorName}</strong></p>}
                 {r.deliveryCity && <p className="text-xs text-slate-400 mt-0.5">📍 {r.deliveryCity}{r.deliveryState ? ` / ${r.deliveryState}` : ''}</p>}
+                {(r.cnpjSolicitante || r.cnpjFaturamento) && (
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {r.cnpjFaturamento && <span>🏢 Faturar: <strong>{r.cnpjFaturamento}</strong></span>}
+                    {r.cnpjSolicitante && !r.hideCnpjSolicitante && <span className="ml-2">• Solicitante: {r.cnpjSolicitante}</span>}
+                  </p>
+                )}
                 {r.proposalClauses?.filter((c: any) => c.enabled).length > 0 && (
                   <p className="text-xs text-amber-600 mt-0.5"><Shield className="h-3 w-3 inline mr-1" />{r.proposalClauses.filter((c: any) => c.enabled).length} cláusula(s) ativa(s)</p>
                 )}
@@ -326,6 +335,25 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
             <div className="col-span-2"><Label>Endereço de Entrega</Label><Input value={form.deliveryAddress} onChange={e => F('deliveryAddress', e.target.value)} /></div>
             <div><Label>Cidade</Label><Input value={form.deliveryCity} onChange={e => F('deliveryCity', e.target.value)} /></div>
             <div><Label>Estado</Label><Input value={form.deliveryState} onChange={e => F('deliveryState', e.target.value)} /></div>
+
+            {/* ── CNPJs ── */}
+            <div className="col-span-2 border-t pt-3 mt-2">
+              <Label className="text-xs font-semibold text-slate-600 mb-2 block">CNPJs (Controle Interno e Faturamento)</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">CNPJ Solicitante</Label>
+                  <Input value={form.cnpjSolicitante} onChange={e => F('cnpjSolicitante', e.target.value)} placeholder="00.000.000/0000-00" />
+                </div>
+                <div>
+                  <Label className="text-xs">CNPJ Faturamento</Label>
+                  <Input value={form.cnpjFaturamento} onChange={e => F('cnpjFaturamento', e.target.value)} placeholder="00.000.000/0000-00" />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Switch checked={form.hideCnpjSolicitante} onCheckedChange={v => F('hideCnpjSolicitante', v)} />
+                <span className="text-xs text-slate-500">Ocultar CNPJ Solicitante no boletim impresso (manter apenas para controle interno)</span>
+              </div>
+            </div>
           </div>
 
           {/* ── Adicionais (colapsável) ── */}

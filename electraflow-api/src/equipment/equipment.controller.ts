@@ -53,6 +53,10 @@ export class EquipmentController {
   @ApiOperation({ summary: 'Listar locações' })
   getRentals() { return this.svc.getRentals(); }
 
+  @Get('rentals/:id/change-logs')
+  @ApiOperation({ summary: 'Histórico de alterações da locação' })
+  getRentalChangeLogs(@Param('id') id: string) { return this.svc.getRentalChangeLogs(id); }
+
   @Get('rentals/:id')
   getRentalById(@Param('id') id: string) { return this.svc.getRentalById(id); }
 
@@ -163,9 +167,28 @@ export class EquipmentController {
   @ApiOperation({ summary: 'Listar boletins de uma locação' })
   getBoletins(@Param('id') rentalId: string) { return this.svc.getBoletins(rentalId); }
 
+  @Get('boletins/collective-preview')
+  @ApiOperation({ summary: 'Preview de medição coletiva' })
+  getCollectivePreview(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) { return this.svc.getCollectivePreview(startDate, endDate); }
+
+  @Post('boletins/collective')
+  @ApiOperation({ summary: 'Criar boletins de medição coletivos' })
+  createCollectiveBoletins(@Body() body: { items: Array<{ rentalId: string; dailyLogIds: string[]; notes?: string }> }) {
+    return this.svc.createCollectiveBoletins(body.items);
+  }
+
   @Get('boletins/:id')
   @ApiOperation({ summary: 'Obter boletim com diárias' })
   getBoletim(@Param('id') id: string) { return this.svc.getBoletim(id); }
+
+  @Put('boletins/:id')
+  @ApiOperation({ summary: 'Atualizar boletim de medição' })
+  updateBoletim(@Param('id') id: string, @Body() data: { dailyLogIds?: string[]; notes?: string; status?: string }) {
+    return this.svc.updateBoletim(id, data);
+  }
 
   @Delete('boletins/:id')
   @ApiOperation({ summary: 'Excluir boletim' })

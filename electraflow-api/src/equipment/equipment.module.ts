@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Equipment, EquipmentRental, EquipmentMaintenance, EquipmentDailyLog, EquipmentService, EquipmentChecklist, EquipmentDocument, EquipmentLiftingPlan, EquipmentDailyExpense, EquipmentBoletim } from './equipment.entity';
+import { Equipment, EquipmentRental, EquipmentMaintenance, EquipmentDailyLog, EquipmentService, EquipmentChecklist, EquipmentDocument, EquipmentLiftingPlan, EquipmentDailyExpense, EquipmentBoletim, EquipmentRentalChangeLog } from './equipment.entity';
 import { EquipmentService as EquipmentSvc } from './equipment.service';
 import { EquipmentController } from './equipment.controller';
 
@@ -9,7 +9,7 @@ import { EquipmentController } from './equipment.controller';
     Equipment, EquipmentRental, EquipmentMaintenance,
     EquipmentDailyLog, EquipmentService, EquipmentChecklist,
     EquipmentDocument, EquipmentLiftingPlan, EquipmentDailyExpense,
-    EquipmentBoletim,
+    EquipmentBoletim, EquipmentRentalChangeLog,
   ])],
   providers: [EquipmentSvc],
   controllers: [EquipmentController],

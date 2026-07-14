@@ -3222,7 +3222,16 @@ class ApiService {
   async getEquipmentBoletins(rentalId: string) { return (await this.client.get(`/equipment/rentals/${rentalId}/boletins`)).data; }
   async getEquipmentBoletim(id: string) { return (await this.client.get(`/equipment/boletins/${id}`)).data; }
   async createEquipmentBoletim(data: { rentalId: string; dailyLogIds: string[] }) { return (await this.client.post('/equipment/boletins', data)).data; }
+  async updateEquipmentBoletim(id: string, data: { dailyLogIds?: string[]; notes?: string; status?: string }) { return (await this.client.put(`/equipment/boletins/${id}`, data)).data; }
   async deleteEquipmentBoletim(id: string) { return (await this.client.delete(`/equipment/boletins/${id}`)).data; }
+
+  // Medição Coletiva
+  async getCollectiveMeasurementPreview(startDate: string, endDate: string) { return (await this.client.get('/equipment/boletins/collective-preview', { params: { startDate, endDate } })).data; }
+  async createCollectiveBoletins(items: Array<{ rentalId: string; dailyLogIds: string[]; notes?: string }>) { return (await this.client.post('/equipment/boletins/collective', { items })).data; }
+
+  // Histórico de Alterações de Locações
+  async getRentalChangeLogs(rentalId: string) { return (await this.client.get(`/equipment/rentals/${rentalId}/change-logs`)).data; }
+
 
   // ═══════════════════════════════════════════════════
   // Canal de Indicações Solar — Referrals

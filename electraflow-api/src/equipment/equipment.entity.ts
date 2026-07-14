@@ -252,6 +252,16 @@ export class EquipmentRental {
   @Column({ type: 'text', nullable: true })
   measurementNotes: string;
 
+  // ─── CNPJs (Solicitante e Faturamento) ───
+  @Column({ nullable: true })
+  cnpjSolicitante: string;
+
+  @Column({ nullable: true })
+  cnpjFaturamento: string;
+
+  @Column({ default: false })
+  hideCnpjSolicitante: boolean; // Ocultar CNPJ Solicitante no boletim impresso (controle interno)
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -857,4 +867,31 @@ export class EquipmentBoletim {
 
   @DeleteDateColumn()
   deletedAt: Date;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// EQUIPMENT RENTAL CHANGE LOG — Histórico de Alterações de Locações
+// ══════════════════════════════════════════════════════════════════
+@Entity('equipment_rental_change_logs')
+export class EquipmentRentalChangeLog {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  rentalId: string;
+
+  @Column({ type: 'varchar' })
+  changeType: string; // 'operator' | 'equipment' | 'cnpj'
+
+  @Column({ type: 'text', nullable: true })
+  previousValue: string; // JSON stringified
+
+  @Column({ type: 'text', nullable: true })
+  newValue: string; // JSON stringified
+
+  @Column({ type: 'text', nullable: true })
+  reason: string;
+
+  @CreateDateColumn()
+  changedAt: Date;
 }
