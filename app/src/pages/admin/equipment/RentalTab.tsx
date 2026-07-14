@@ -8,8 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, FileText, Pencil, Trash2, ChevronDown, ChevronUp, Shield, AlertTriangle, Clock, FileCheck } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2, ChevronDown, ChevronUp, Shield, AlertTriangle, Clock, FileCheck, UserPlus, Check, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { RENT_STATUS, BILLING_MODALITY, DEFAULT_CLAUSES, fmt, fD } from './EquipmentTypes';
@@ -42,6 +44,11 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
   const [form, setForm] = useState<Record<string, any>>({ ...defaultForm });
   const [showRates, setShowRates] = useState(false);
   const [showClauses, setShowClauses] = useState(false);
+  const [clientOpen, setClientOpen] = useState(false);
+  const [newClientDlg, setNewClientDlg] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientDoc, setNewClientDoc] = useState('');
+  const [newClientSaving, setNewClientSaving] = useState(false);
 
   const F = (field: string, val: any) => setForm(prev => ({ ...prev, [field]: val }));
 
@@ -280,10 +287,35 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
             </div>
             <div>
               <Label>Cliente</Label>
-              <Select value={form.clientId} onValueChange={v => F('clientId', v)}>
-                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <div className="flex gap-1.5">
+                <Popover open={clientOpen} onOpenChange={setClientOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" aria-expanded={clientOpen} className="w-full justify-between h-9 font-normal text-sm">
+                      {form.clientId ? (clients.find(c => c.id === form.clientId)?.name || 'Selecione...') : 'Selecione o cliente...'}
+                      <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar cliente..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                        <CommandGroup className="max-h-[250px] overflow-y-auto">
+                          {clients.map(c => (
+                            <CommandItem key={c.id} value={c.name} onSelect={() => { F('clientId', c.id); setClientOpen(false); }}>
+                              <Check className={`mr-2 h-4 w-4 ${form.clientId === c.id ? 'opacity-100' : 'opacity-0'}`} />
+                              <span className="truncate">{c.name}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0 text-emerald-600 border-emerald-300 hover:bg-emerald-50" title="Adicionar novo cliente" onClick={() => { setNewClientName(''); setNewClientDoc(''); setNewClientDlg(true); }}>
+                  <UserPlus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div>
               <Label>Modalidade de Faturamento</Label>
@@ -443,6 +475,46 @@ export default function RentalTab({ rentals, equipment, clients, employees, relo
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => { setDlgOpen(false); setEditId(null); }}>Cancelar</Button>
             <Button onClick={save} className="bg-blue-600 hover:bg-blue-700 text-white">{editId ? 'Salvar' : 'Criar Locação'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick-add Client Dialog */}
+      <Dialog open={newClientDlg} onOpenChange={v => { if (!v) setNewClientDlg(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5 text-emerald-600" /> Novo Cliente</DialogTitle></DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div>
+              <Label>Nome / Razão Social *</Label>
+              <Input value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="Nome do cliente ou empresa" />
+            </div>
+            <div>
+              <Label>CNPJ / CPF</Label>
+              <Input value={newClientDoc} onChange={e => setNewClientDoc(e.target.value)} placeholder="00.000.000/0000-00 ou 000.000.000-00" />
+            </div>
+          </div>
+          <DialogFooter className="mt-3">
+            <Button variant="outline" onClick={() => setNewClientDlg(false)}>Cancelar</Button>
+            <Button
+              disabled={!newClientName.trim() || newClientSaving}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={async () => {
+                setNewClientSaving(true);
+                try {
+                  const result = await api.createClient({ name: newClientName.trim(), document: newClientDoc.trim() });
+                  toast.success('Cliente criado com sucesso!');
+                  F('clientId', result.id);
+                  setNewClientDlg(false);
+                  reload();
+                } catch (err: any) {
+                  toast.error('Erro ao criar cliente: ' + (err?.response?.data?.message || err.message));
+                } finally {
+                  setNewClientSaving(false);
+                }
+              }}
+            >
+              {newClientSaving ? 'Salvando...' : 'Criar Cliente'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
