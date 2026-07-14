@@ -49,7 +49,7 @@ const defaultForm: Record<string, any> = {
   adicionalHExtra: '0', // R$ a mais por hora extra
 };
 
-export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
+export default function DailyLogTab({ dailyLogs, rentals, equipment, employees, reload }: Props) {
   const [dlgOpen, setDlgOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, any>>({ ...defaultForm });
@@ -365,8 +365,19 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
                       )}
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {d.operatorName || '—'} • {Number(d.normalHours || d.hoursWorked || 0)}h normal
+                      👷 {d.operatorName || '—'} • {Number(d.normalHours || d.hoursWorked || 0)}h normal
                       {d.workLocation && <><MapPin className="h-3 w-3 inline ml-2 mr-0.5" />{d.workLocation}</>}
+                      {(() => {
+                        const ren = rentals.find((r: any) => r.id === d.rentalId);
+                        const diffEquip = ren && d.equipmentId && d.equipmentId !== ren.equipmentId;
+                        const diffOp = ren && d.operatorName && d.operatorName !== ren.operatorName;
+                        if (!diffEquip && !diffOp) return null;
+                        return (
+                          <span className="text-amber-600 ml-2 text-[10px]">
+                            ⚠ {diffEquip ? 'Equip. diferente' : ''}{diffEquip && diffOp ? ' • ' : ''}{diffOp ? 'Oper. diferente' : ''} da locação
+                          </span>
+                        );
+                      })()}
                     </p>
                     {d.createdAt && (
                       <p className="text-[10px] text-slate-400 mt-0.5">
@@ -452,6 +463,52 @@ export default function DailyLogTab({ dailyLogs, rentals, reload }: Props) {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Equipamento e Operador (override) */}
+            {form.rentalId && (
+              <div className="col-span-2 grid grid-cols-2 gap-3 bg-slate-50/80 rounded-lg p-3 border border-slate-200">
+                <div>
+                  <Label className="text-xs text-slate-600">Equipamento (Munck)</Label>
+                  <Select value={form.equipmentId} onValueChange={v => F('equipmentId', v)}>
+                    <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Equipamento da locação" /></SelectTrigger>
+                    <SelectContent>
+                      {equipment.filter((e: any) => e.isActive !== false).map((e: any) => (
+                        <SelectItem key={e.id} value={e.id}>{e.code} - {e.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {form.equipmentId && form.equipmentId !== rentals.find((r: any) => r.id === form.rentalId)?.equipmentId && (
+                    <span className="text-[10px] text-amber-600 mt-0.5 block">⚠ Diferente do equipamento da locação</span>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-600">Operador</Label>
+                  {employees.length > 0 ? (
+                    <Select value={form.operatorId || '_manual'} onValueChange={v => {
+                      if (v === '_manual') { F('operatorId', ''); return; }
+                      const emp = employees.find((e: any) => e.id === v);
+                      setForm(prev => ({ ...prev, operatorId: v, operatorName: emp?.name || prev.operatorName }));
+                    }}>
+                      <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_manual">Digitar manualmente</SelectItem>
+                        {employees.map((e: any) => (
+                          <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input className="h-8 text-xs mt-1" value={form.operatorName} onChange={e => F('operatorName', e.target.value)} placeholder="Nome do operador" />
+                  )}
+                  {!form.operatorId && (
+                    <Input className="h-8 text-xs mt-1" value={form.operatorName} onChange={e => F('operatorName', e.target.value)} placeholder="Nome do operador" />
+                  )}
+                  {form.operatorName && form.operatorName !== rentals.find((r: any) => r.id === form.rentalId)?.operatorName && (
+                    <span className="text-[10px] text-amber-600 mt-0.5 block">⚠ Diferente do operador da locação</span>
+                  )}
+                </div>
+              </div>
+            )}
             <div>
               <Label>Data *</Label>
               <Input type="date" value={form.date} onChange={e => onDateChange(e.target.value)} />
