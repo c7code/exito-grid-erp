@@ -76,6 +76,8 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   const [collectiveSelected, setCollectiveSelected] = useState<Set<string>>(new Set());
   const [collectiveLoading, setCollectiveLoading] = useState(false);
   const [collectiveSaving, setCollectiveSaving] = useState(false);
+  const [collectiveExpanded, setCollectiveExpanded] = useState<Set<string>>(new Set());
+  const [collectiveAdaptedDates, setCollectiveAdaptedDates] = useState<Record<string, string>>({});
 
   const loadBoletins = async () => {
     if (!selectedRentalId) return;
@@ -292,6 +294,16 @@ export default function MeasurementTab({ rentals, reload }: Props) {
     }
     setCollectiveSaving(true);
     try {
+      // First, save any adapted dates
+      const dateEntries = Object.entries(collectiveAdaptedDates);
+      if (dateEntries.length > 0) {
+        for (const [logId, newDate] of dateEntries) {
+          if (newDate) {
+            await api.updateEquipmentDailyLog(logId, { date: newDate });
+          }
+        }
+      }
+
       const items = selectedItems.map(p => ({
         rentalId: p.rental.id,
         dailyLogIds: p.dailyLogIds,
@@ -301,6 +313,8 @@ export default function MeasurementTab({ rentals, reload }: Props) {
       setCollectiveDlg(false);
       setCollectivePreview([]);
       setCollectiveSelected(new Set());
+      setCollectiveExpanded(new Set());
+      setCollectiveAdaptedDates({});
       reload();
       if (selectedRentalId) {
         await loadReport();
@@ -311,6 +325,17 @@ export default function MeasurementTab({ rentals, reload }: Props) {
     } finally {
       setCollectiveSaving(false);
     }
+  }
+
+  function toggleCollectiveExpand(rentalId: string) {
+    const s = new Set(collectiveExpanded);
+    if (s.has(rentalId)) s.delete(rentalId);
+    else s.add(rentalId);
+    setCollectiveExpanded(s);
+  }
+
+  function setCollectiveLogDate(logId: string, newDate: string) {
+    setCollectiveAdaptedDates(prev => ({ ...prev, [logId]: newDate }));
   }
 
   const EF = (field: string, val: any) => setEditForm(prev => ({ ...prev, [field]: val }));
@@ -1074,19 +1099,35 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                   </div>
                 </div>
 
+                {/* Adapted dates info */}
+                {Object.keys(collectiveAdaptedDates).length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-amber-800">Datas adaptadas para faturamento</p>
+                      <p className="text-[10px] text-amber-600 mt-0.5">
+                        {Object.keys(collectiveAdaptedDates).length} diária(s) com data alterada. As datas originais serão preservadas no controle interno.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2 max-h-[400px] overflow-y-auto">
                   {collectivePreview.map((item: any) => (
                     <div
                       key={item.rental.id}
-                      className={`border rounded-lg p-3 cursor-pointer transition-all ${collectiveSelected.has(item.rental.id) ? 'border-purple-400 bg-purple-50/50' : 'border-slate-200 hover:border-slate-300'}`}
-                      onClick={() => {
-                        const s = new Set(collectiveSelected);
-                        if (s.has(item.rental.id)) s.delete(item.rental.id);
-                        else s.add(item.rental.id);
-                        setCollectiveSelected(s);
-                      }}
+                      className={`border rounded-lg transition-all ${collectiveSelected.has(item.rental.id) ? 'border-purple-400 bg-purple-50/50' : 'border-slate-200 hover:border-slate-300'}`}
                     >
-                      <div className="flex items-start justify-between">
+                      {/* Rental header */}
+                      <div
+                        className="flex items-start justify-between p-3 cursor-pointer"
+                        onClick={() => {
+                          const s = new Set(collectiveSelected);
+                          if (s.has(item.rental.id)) s.delete(item.rental.id);
+                          else s.add(item.rental.id);
+                          setCollectiveSelected(s);
+                        }}
+                      >
                         <div className="flex items-start gap-3">
                           <input
                             type="checkbox"
@@ -1111,12 +1152,62 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                             )}
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-bold text-green-700">{fmt(item.totalValue)}</p>
-                          <p className="text-xs text-slate-500">{item.totalDays} diária(s)</p>
-                          <p className="text-xs text-slate-400">{item.totalHours.toFixed(1)}h total</p>
+                        <div className="flex items-start gap-3">
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-bold text-green-700">{fmt(item.totalValue)}</p>
+                            <p className="text-xs text-slate-500">{item.totalDays} diária(s)</p>
+                            <p className="text-xs text-slate-400">{item.totalHours.toFixed(1)}h total</p>
+                          </div>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={(e) => { e.stopPropagation(); toggleCollectiveExpand(item.rental.id); }}
+                            title="Ver/editar diárias"
+                          >
+                            <CalendarRange className="h-3.5 w-3.5 mr-1" />
+                            {collectiveExpanded.has(item.rental.id) ? 'Ocultar' : 'Datas'}
+                          </Button>
                         </div>
                       </div>
+
+                      {/* Expanded daily logs with date editing */}
+                      {collectiveExpanded.has(item.rental.id) && item.dailyLogs && (
+                        <div className="border-t bg-white px-3 pb-3">
+                          <div className="flex items-center gap-2 py-2 mb-1">
+                            <CalendarRange className="h-3.5 w-3.5 text-amber-600" />
+                            <span className="text-[10px] font-semibold text-amber-700 uppercase">Editar datas para faturamento (datas originais preservadas)</span>
+                          </div>
+                          <div className="space-y-1">
+                            {item.dailyLogs.map((log: any) => {
+                              const origDate = safeDate(log.originalDate || log.date);
+                              const currentDate = collectiveAdaptedDates[log.id] || safeDate(log.date);
+                              const isAdapted = collectiveAdaptedDates[log.id] && collectiveAdaptedDates[log.id] !== origDate;
+                              return (
+                                <div key={log.id} className={`flex items-center gap-3 py-1.5 px-2 rounded text-xs ${isAdapted ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'}`}>
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <Input
+                                      type="date"
+                                      className="h-7 text-xs w-[140px]"
+                                      value={currentDate}
+                                      onChange={e => setCollectiveLogDate(log.id, e.target.value)}
+                                    />
+                                    {isAdapted && (
+                                      <span className="text-[10px] text-amber-600 whitespace-nowrap">
+                                        (orig: {fD(origDate)})
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-slate-500 whitespace-nowrap">{Number(log.normalHours || 0).toFixed(1)}h</span>
+                                  <span className="font-medium text-green-700 whitespace-nowrap">{fmt(log.totalValue)}</span>
+                                  {log.description && (
+                                    <span className="text-slate-400 truncate max-w-[120px]" title={log.description}>{log.description}</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1130,6 +1221,9 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                       </p>
                       <p className="text-xs text-purple-600">
                         {collectivePreview.filter(p => collectiveSelected.has(p.rental.id)).reduce((s, p) => s + p.totalDays, 0)} diária(s) total
+                        {Object.keys(collectiveAdaptedDates).length > 0 && (
+                          <span className="text-amber-600 ml-2">• {Object.keys(collectiveAdaptedDates).length} data(s) adaptada(s)</span>
+                        )}
                       </p>
                     </div>
                     <div className="text-right">
