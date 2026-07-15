@@ -8,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, FileText, Printer, DollarSign, Clock, Moon, Calendar, TrendingUp, Pencil, Trash2, Eye, CalendarRange, AlertTriangle, Save, Info, Layers, CheckSquare } from 'lucide-react';
+import { Loader2, FileText, Printer, DollarSign, Clock, Moon, Calendar, TrendingUp, Pencil, Trash2, Eye, CalendarRange, AlertTriangle, Save, Info, Layers, CheckSquare, Download, FileDown, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
 import { DAILY_STATUS, fmt, fD } from './EquipmentTypes';
 import { isNationalHoliday } from './holidays';
+import { BoletimPDFTemplate, CollectiveBoletimPDFTemplate } from '@/components/BoletimPDFTemplate';
 
 // Extract YYYY-MM-DD safely from any date format
 function safeDate(d: any): string {
@@ -78,6 +79,21 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   const [collectiveSaving, setCollectiveSaving] = useState(false);
   const [collectiveExpanded, setCollectiveExpanded] = useState<Set<string>>(new Set());
   const [collectiveAdaptedDates, setCollectiveAdaptedDates] = useState<Record<string, string>>({});
+
+  // ─── PDF Generation ───────────────────────────────────────────────
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [pdfBoletim, setPdfBoletim] = useState<any>(null);          // individual
+  const [pdfSignatures, setPdfSignatures] = useState<any>(null);
+  const [pdfCompany, setPdfCompany] = useState<any>(null);
+  const [collectivePdfItems, setCollectivePdfItems] = useState<any[]>([]); // collective
+  const [showCollectivePdf, setShowCollectivePdf] = useState(false);
+
+  // ─── CNPJ Override Dialog ─────────────────────────────────────────
+  const [cnpjOverrideDlg, setCnpjOverrideDlg] = useState(false);
+  const [cnpjOverrideMode, setCnpjOverrideMode] = useState<'individual' | 'collective'>('individual');
+  const [cnpjOverrideTarget, setCnpjOverrideTarget] = useState<any>(null); // boletim or items[]
+  const [cnpjOverrideValue, setCnpjOverrideValue] = useState('');
+  const [cnpjOverrideLog, setCnpjOverrideLog] = useState('');
 
   const loadBoletins = async () => {
     if (!selectedRentalId) return;
@@ -145,19 +161,26 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   };
 
   const handlePrintBoletim = async (boletim: any) => {
-    try {
-      const data = await api.getEquipmentBoletim(boletim.id);
-      // Use the existing printReport logic but with the boletim's logs
-      const tempReport = { ...report, logs: data.logs };
-      const prevReport = report;
-      setReport(tempReport);
-      setTimeout(() => {
-        printReport();
-        setReport(prevReport);
-      }, 100);
-    } catch {
-      toast.error('Erro ao carregar boletim para impressão');
-    }
+    // Use new PDF generation
+    await generateBoletimPDF(boletim);
+  };
+
+  const handlePrintBoletimWithCnpjOverride = (boletim: any) => {
+    setCnpjOverrideTarget(boletim);
+    setCnpjOverrideMode('individual');
+    setCnpjOverrideValue('');
+    setCnpjOverrideLog('');
+    setCnpjOverrideDlg(true);
+  };
+
+  const handleGenerateCollectivePdfFromHistory = () => {
+    // Collect all boletins from the list
+    if (boletins.length === 0) { toast.error('Nenhum boletim para gerar PDF'); return; }
+    setCnpjOverrideTarget(boletins);
+    setCnpjOverrideMode('collective');
+    setCnpjOverrideValue('');
+    setCnpjOverrideLog('');
+    setCnpjOverrideDlg(true);
   };
 
   // Expand/collapse boletim to see its dailies with internal control info
@@ -346,184 +369,152 @@ export default function MeasurementTab({ rentals, reload }: Props) {
 
   const EF = (field: string, val: any) => setEditForm(prev => ({ ...prev, [field]: val }));
 
+  // ─── Load signatures (same pattern as Proposals) ─────────────────────────
+  async function loadSignatures(entityId?: string) {
+    try {
+      if (entityId) {
+        const sigs = await api.resolveSignatures('boletim', entityId, ['contratada', 'contratante']);
+        if (sigs && Object.keys(sigs).some((k: string) => sigs[k]?.imageUrl)) return sigs;
+      }
+    } catch { /* fallback */ }
+    try {
+      const allSlots = await api.getSignatureSlots();
+      const slots = Array.isArray(allSlots) ? allSlots : [];
+      const scopeMap: Record<string, string> = { contratada: 'company', contratante: 'client' };
+      const fallback: Record<string, any> = {};
+      for (const [pos, scope] of Object.entries(scopeMap)) {
+        const slot = slots.find((s: any) => s.scope === scope && s.isDefault);
+        if (slot) fallback[pos] = { imageUrl: slot.imageUrl, signerName: slot.signerName, signerRole: slot.signerRole, signerDocument: slot.signerDocument };
+      }
+      return Object.keys(fallback).length > 0 ? fallback : null;
+    } catch { return null; }
+  }
+
+  // ─── Capture PDF from rendered DOM element ────────────────────────────────
+  async function capturePdf(elementId: string, filename: string) {
+    const element = document.getElementById(elementId);
+    if (!element) throw new Error('Elemento PDF não encontrado');
+    const opt = {
+      margin: [0, 0, 0, 0] as [number, number, number, number],
+      filename,
+      image: { type: 'jpeg' as const, quality: 0.97 },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
+      jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['tr', '.sig-block', '.avoid-break'] },
+    };
+    const mod = await import('html2pdf.js');
+    await mod.default().from(element).set(opt).save();
+  }
+
+  // ─── Gerar PDF de boletim INDIVIDUAL ─────────────────────────────────────
+  async function generateBoletimPDF(boletimData: any, cnpjOverride?: string, overrideLogText?: string) {
+    if (generatingPdf) return;
+    setGeneratingPdf(true);
+    toast.info('Gerando PDF do boletim...');
+    try {
+      // Load boletim logs from API
+      const boletimFull = await api.getEquipmentBoletim(boletimData.id);
+      const logs = boletimFull.logs || [];
+
+      // Load company and signatures
+      let company = pdfCompany;
+      if (!company) {
+        try { company = await api.getPrimaryCompany(); setPdfCompany(company); } catch { company = null; }
+      }
+      const sigs = await loadSignatures(boletimData.id);
+
+      // Mount boletim object
+      const boletimObj = {
+        ...boletimData,
+        cnpjFaturamentoOverride: cnpjOverride,
+        cnpjSolicitanteOverride: undefined,
+        cnpjOverrideLog: overrideLogText,
+      };
+
+      setPdfBoletim({ boletim: boletimObj, rental: report?.rental || {}, logs });
+      setPdfSignatures(sigs);
+      setPdfCompany(company);
+
+      // Delay for React render then capture
+      setTimeout(async () => {
+        try {
+          await capturePdf('boletim-pdf-content', `boletim_${report?.rental?.code || 'medicao'}_${String(boletimData.boletimNumber).padStart(3, '0')}.pdf`);
+          toast.success('PDF gerado com sucesso!');
+        } catch (e: any) { toast.error('Erro ao gerar PDF: ' + e.message); }
+        finally { setPdfBoletim(null); setGeneratingPdf(false); }
+      }, 1200);
+    } catch (e: any) {
+      toast.error('Erro: ' + e.message);
+      setGeneratingPdf(false);
+    }
+  }
+
+  // ─── Gerar PDF COLETIVO (todos os boletins selecionados) ─────────────────
+  async function generateCollectivePDF(items: any[], cnpjOverride?: string, overrideLogText?: string) {
+    if (generatingPdf) return;
+    setGeneratingPdf(true);
+    // Save override values so the template can use them
+    setCnpjOverrideValue(cnpjOverride || '');
+    setCnpjOverrideLog(overrideLogText || '');
+    toast.info(`Gerando PDF coletivo com ${items.length} boletim(ns)...`);
+    try {
+      let company = pdfCompany;
+      if (!company) {
+        try { company = await api.getPrimaryCompany(); setPdfCompany(company); } catch { company = null; }
+      }
+      const sigs = await loadSignatures();
+
+      // Load logs for each item
+      const fullItems = await Promise.all(items.map(async (item) => {
+        const boletimFull = await api.getEquipmentBoletim(item.id);
+        return { boletim: item, rental: item.rental || {}, logs: boletimFull.logs || [] };
+      }));
+
+      setCollectivePdfItems(fullItems);
+      setPdfSignatures(sigs);
+      setPdfCompany(company);
+      setShowCollectivePdf(true);
+
+      setTimeout(async () => {
+        try {
+          await capturePdf('collective-boletim-pdf-content', `medicao_coletiva_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
+          toast.success('PDF coletivo gerado com sucesso!');
+        } catch (e: any) { toast.error('Erro ao gerar PDF: ' + e.message); }
+        finally { setShowCollectivePdf(false); setCollectivePdfItems([]); setGeneratingPdf(false); }
+      }, 2000);
+    } catch (e: any) {
+      toast.error('Erro: ' + e.message);
+      setGeneratingPdf(false);
+    }
+  }
+
+  // ─── Old window.print() (mantido como fallback rápido) ───────────────────
   async function printReport() {
     if (!report) return;
     const r = report.rental;
-    const isAdapted = adaptedMode && adaptedStart && adaptedEnd;
-    const adaptedDatesMap = new Map<string, string>();
-    if (isAdapted) {
-      Object.entries(adaptedDates).forEach(([logId, date]) => {
-        if (date) adaptedDatesMap.set(logId, date);
-      });
-    }
-
-    // Converter logo para base64 para funcionar no window.open()
-    let logoBase64 = '';
-    try {
-      const resp = await fetch('/exito-grid-logo.png');
-      const blob = await resp.blob();
-      logoBase64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
-    } catch { /* logo opcional */ }
-    const s = report.summary;
     const allLogs = report.logs || [];
-    const logs = selectedLogIds.size > 0
-      ? allLogs.filter((l: any) => selectedLogIds.has(l.id))
-      : allLogs;
-
-    const logsHtml = logs.map((log: any) => {
-      const displayDate = isAdapted && adaptedDatesMap.has(log.id) ? fD(adaptedDatesMap.get(log.id)!) : fD(log.date);
-      return `
+    const logs = selectedLogIds.size > 0 ? allLogs.filter((l: any) => selectedLogIds.has(l.id)) : allLogs;
+    const logsHtml = logs.map((log: any) => `
       <tr>
-        <td>${displayDate}</td>
-        <td>${log.startTime || '—'}</td>
-        <td>${log.endTime || '—'}</td>
-        <td class="right">${Number(log.normalHours || 0).toFixed(1)}</td>
-        <td class="right">${Number(log.overtimeHours || 0).toFixed(1)}</td>
-        <td class="right">${Number(log.nightHours || 0).toFixed(1)}</td>
-        <td class="center">${log.isHoliday ? '✓' : log.isWeekend ? 'FS' : '—'}</td>
-        <td class="right">${fmt(log.totalValue)}</td>
-        <td>${log.workLocation || '—'}</td>
-      </tr>
-    `;
-    }).join('');
-
-    // Clauses
-    const clausesHtml = (r.proposalClauses || [])
-      .filter((c: any) => c.enabled)
-      .map((c: any, i: number) => `<li>${i + 1}. ${c.text}</li>`)
-      .join('');
-
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="UTF-8">
-<title>Boletim de Medição - ${r.code}</title>
-<style>
-  @page { size: A4; margin: 15mm; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1e293b; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1e40af; padding-bottom: 12px; margin-bottom: 16px; }
-  .header h1 { font-size: 20px; color: #1e40af; }
-  .header .code { font-size: 14px; color: #64748b; }
-  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin-bottom: 16px; }
-  .info-grid .item { display: flex; gap: 6px; }
-  .info-grid .label { font-weight: 600; color: #475569; min-width: 100px; }
-  .info-grid .value { color: #1e293b; }
-  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 10px; }
-  table th { background: #1e40af; color: white; padding: 6px 8px; text-align: left; font-weight: 600; }
-  table td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
-  table tr:nth-child(even) { background: #f8fafc; }
-  table .right { text-align: right; }
-  table .center { text-align: center; }
-  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 16px 0; }
-  .summary-card { background: #f1f5f9; border-radius: 6px; padding: 10px 12px; text-align: center; }
-  .summary-card .label { font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 600; }
-  .summary-card .value { font-size: 16px; font-weight: 700; color: #0f172a; margin-top: 2px; }
-  .summary-card.total { background: #1e40af; }
-  .summary-card.total .label, .summary-card.total .value { color: white; }
-  .clauses { margin: 16px 0; }
-  .clauses h3 { font-size: 12px; font-weight: 700; color: #1e40af; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
-  .clauses ul { list-style: none; padding: 0; }
-  .clauses li { padding: 3px 0; font-size: 10px; color: #475569; }
-  .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 50px; padding-top: 20px; }
-  .sig-block { text-align: center; }
-  .sig-line { border-top: 1px solid #94a3b8; padding-top: 6px; margin-top: 40px; font-size: 10px; color: #475569; }
-  .sig-name { font-weight: 600; font-size: 11px; color: #1e293b; margin-top: 2px; }
-  .footer { margin-top: 20px; text-align: center; font-size: 8px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
-</style>
-</head><body>
-  <div class="header">
-    <div style="display:flex;align-items:center;gap:12px">
-      ${logoBase64 ? `<img src="${logoBase64}" style="height:48px;width:auto;object-fit:contain" alt="Logo" />` : ''}
-      <div>
-        <h1>BOLETIM DE MEDIÇÃO</h1>
-        <div class="code">${r.code}</div>
-      </div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-size:12px;font-weight:700;color:#1e40af">Exito Grid</div>
-      <div style="font-size:8px;color:#475569">Exito Grid Comercio Serviços Elétrico LTDA</div>
-      <div style="font-size:8px;color:#64748b">CNPJ: 55.303.935/0001-39</div>
-      <div style="font-size:9px;color:#64748b;margin-top:4px">Documento gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
-    </div>
-  </div>
-
-  <div class="info-grid">
-    <div class="item"><span class="label">Equipamento:</span><span class="value">${r.equipment?.name || '—'} (${r.equipment?.code || ''})</span></div>
-    <div class="item"><span class="label">Cliente:</span><span class="value">${r.client?.name || '—'}</span></div>
-    <div class="item"><span class="label">Operador:</span><span class="value">${r.operatorName || '—'}</span></div>
-    <div class="item"><span class="label">Período:</span><span class="value">${isAdapted ? fD(adaptedStart) + ' a ' + fD(adaptedEnd) : (startDate ? fD(startDate) : fD(r.startDate)) + ' a ' + (endDate ? fD(endDate) : fD(r.endDate))}</span></div>
-    <div class="item"><span class="label">Valor Diária:</span><span class="value">${fmt(r.unitRate)}</span></div>
-    <div class="item"><span class="label">Horas/Dia:</span><span class="value">${r.contractedHoursPerDay || 8}h</span></div>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th>Data</th><th>Início</th><th>Fim</th>
-        <th class="right">Normal</th><th class="right">Extra</th><th class="right">Noturno</th>
-        <th class="center">Fer/FS</th><th class="right">Valor</th><th>Local</th>
-      </tr>
-    </thead>
-    <tbody>${logsHtml}</tbody>
-  </table>
-
-  <div class="summary-grid">
-    <div class="summary-card">
-      <div class="label">Horas Normais</div>
-      <div class="value">${s.totalNormalHours.toFixed(1)}h</div>
-      <div class="label" style="margin-top:4px">${fmt(s.totalNormalValue)}</div>
-    </div>
-    <div class="summary-card">
-      <div class="label">Horas Extras</div>
-      <div class="value" style="color:#ea580c">${s.totalOvertimeHours.toFixed(1)}h</div>
-      <div class="label" style="margin-top:4px;color:#ea580c">${fmt(s.totalOvertimeValue)}</div>
-    </div>
-    <div class="summary-card">
-      <div class="label">Adic. Noturno + Feriado + FS</div>
-      <div class="value" style="color:#6366f1">${s.totalNightHours.toFixed(1)}h</div>
-      <div class="label" style="margin-top:4px;color:#6366f1">${fmt(s.totalNightValue + s.totalHolidayValue + s.totalWeekendValue)}</div>
-    </div>
-    <div class="summary-card total">
-      <div class="label">TOTAL DO PERÍODO</div>
-      <div class="value">${fmt(s.totalValue)}</div>
-      <div class="label" style="margin-top:4px">${s.totalDays} dia(s) trabalhado(s)</div>
-    </div>
-  </div>
-
-  ${clausesHtml ? `
-  <div class="clauses">
-    <h3>CLÁUSULAS E CONDIÇÕES</h3>
-    <ul>${clausesHtml}</ul>
-  </div>
-  ` : ''}
-
-  <div class="signatures">
-    <div class="sig-block">
-      <div class="sig-line">CONTRATADA</div>
-      <div class="sig-name">Exito Grid Comercio Serviços Elétrico LTDA</div>
-      <div style="font-size:9px;color:#64748b">CNPJ: 55.303.935/0001-39</div>
-    </div>
-    <div class="sig-block">
-      <div class="sig-line">CONTRATANTE</div>
-      <div class="sig-name">${r.client?.name || '___________________'}</div>
-    </div>
-  </div>
-
-  <div class="footer">
-    Boletim de Medição gerado automaticamente pelo sistema Exito Grid ERP • ${r.code}
-  </div>
-</body></html>`;
-
+        <td>${fD(log.date)}</td><td>${log.startTime || '—'}</td><td>${log.endTime || '—'}</td>
+        <td>${Number(log.normalHours || 0).toFixed(1)}</td><td>${Number(log.overtimeHours || 0).toFixed(1)}</td>
+        <td>${Number(log.nightHours || 0).toFixed(1)}</td>
+        <td>${log.isHoliday ? 'Fer' : log.isWeekend ? 'FS' : '—'}</td>
+        <td>${fmt(log.totalValue)}</td><td>${log.workLocation || '—'}</td>
+      </tr>`).join('');
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Boletim ${r.code}</title>
+      <style>body{font-family:Arial,sans-serif;font-size:10px;color:#1e293b}table{width:100%;border-collapse:collapse}th{background:#1e40af;color:#fff;padding:5px 7px}td{padding:4px 7px;border-bottom:1px solid #e2e8f0}.sig{display:flex;gap:40px;margin-top:40px}.sig-block{flex:1;text-align:center;border-top:1px solid #94a3b8;padding-top:8px}</style>
+      </head><body>
+      <h2 style="color:#1e40af">BOLETIM DE MEDIÇÃO — ${r.code}</h2>
+      <p><b>Cliente:</b> ${r.client?.name || '—'} | <b>Equipamento:</b> ${r.equipment?.name || '—'} | <b>Operador:</b> ${r.operatorName || '—'}</p>
+      <table><thead><tr><th>Data</th><th>Início</th><th>Fim</th><th>H.Norm</th><th>H.Extra</th><th>H.Not</th><th>Tipo</th><th>Valor</th><th>Local</th></tr></thead><tbody>${logsHtml}</tbody></table>
+      <div class="sig"><div class="sig-block">Exito Grid Comercio Serviços Elétrico LTDA<br/><small>CONTRATADA</small></div><div class="sig-block">${r.client?.name || '—'}<br/><small>CONTRATANTE</small></div></div>
+      </body></html>`;
     const w = window.open('', '_blank');
-    if (w) {
-      w.document.write(html);
-      w.document.close();
-      setTimeout(() => w.print(), 500);
-    }
+    if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 500); }
   }
+
+
 
   const activeRentals = rentals.filter(r => ['active', 'confirmed', 'completed'].includes(r.status));
 
@@ -772,9 +763,15 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                 <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <FileText className="w-4 h-4" /> Boletins Salvos ({boletins.length})
                 </h3>
-                <Button variant="ghost" size="sm" onClick={() => setShowBoletimHistory(!showBoletimHistory)}>
-                  {showBoletimHistory ? 'Ocultar' : 'Ver Histórico'}
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="sm" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 text-xs" onClick={handleGenerateCollectivePdfFromHistory} disabled={generatingPdf || boletins.length === 0}>
+                    {generatingPdf ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <FileDown className="h-3 w-3 mr-1" />}
+                    PDF Coletivo
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setShowBoletimHistory(!showBoletimHistory)}>
+                    {showBoletimHistory ? 'Ocultar' : 'Ver Histórico'}
+                  </Button>
+                </div>
               </div>
               {showBoletimHistory && (
                 <div className="space-y-2">
@@ -822,8 +819,11 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                             <Button variant="ghost" size="sm" onClick={() => openEditBoletim(b)} title="Editar boletim">
                               <Pencil className="w-4 h-4 text-blue-500" />
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handlePrintBoletim(b)}>
-                              <Printer className="w-4 h-4" />
+                            <Button variant="ghost" size="sm" title="Baixar PDF" onClick={() => handlePrintBoletim(b)} disabled={generatingPdf}>
+                              {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 text-emerald-600" />}
+                            </Button>
+                            <Button variant="ghost" size="sm" title="PDF com CNPJ diferente" onClick={() => handlePrintBoletimWithCnpjOverride(b)} disabled={generatingPdf}>
+                              <Building2 className="w-4 h-4 text-amber-500" />
                             </Button>
                             <Button variant="ghost" size="sm" className="text-red-500" onClick={() => handleDeleteBoletim(b.id)}>
                               <Trash2 className="w-4 h-4" />
@@ -1267,6 +1267,89 @@ export default function MeasurementTab({ rentals, reload }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ─── CNPJ Override Dialog ────────────────────────────────────────── */}
+      <Dialog open={cnpjOverrideDlg} onOpenChange={setCnpjOverrideDlg}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-amber-500" />
+              {cnpjOverrideMode === 'collective' ? 'PDF Coletivo' : 'PDF com CNPJ Diferente'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+              <strong>⚠ Controle Interno:</strong> O CNPJ original é mantido no sistema. Esta alteração é apenas para geração do PDF e fica registrada no histórico.
+            </div>
+            <div>
+              <Label>CNPJ de Faturamento{cnpjOverrideMode === 'collective' ? ' (único para todos)' : ''}</Label>
+              <Input
+                placeholder="00.000.000/0000-00 (deixe vazio para usar o padrão)"
+                value={cnpjOverrideValue}
+                onChange={e => setCnpjOverrideValue(e.target.value)}
+                className="mt-1"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">Se vazio, usa o CNPJ cadastrado em cada locação.</p>
+            </div>
+            <div>
+              <Label>Motivo / Log Interno <span className="text-red-500">*</span></Label>
+              <Textarea
+                placeholder="Ex: Cliente solicitou faturamento unificado no CNPJ matriz para o mês de julho/2026"
+                value={cnpjOverrideLog}
+                onChange={e => setCnpjOverrideLog(e.target.value)}
+                rows={3}
+                className="mt-1"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">Obrigatório para manter rastreabilidade.</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setCnpjOverrideDlg(false)}>Cancelar</Button>
+            <Button
+              disabled={!cnpjOverrideLog.trim()}
+              onClick={() => {
+                setCnpjOverrideDlg(false);
+                if (cnpjOverrideMode === 'individual') {
+                  generateBoletimPDF(cnpjOverrideTarget, cnpjOverrideValue || undefined, cnpjOverrideLog);
+                } else {
+                  generateCollectivePDF(cnpjOverrideTarget, cnpjOverrideValue || undefined, cnpjOverrideLog);
+                }
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <FileDown className="h-4 w-4 mr-1" />
+              {cnpjOverrideMode === 'collective' ? 'Gerar PDF Coletivo' : 'Gerar PDF'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Hidden PDF Render: Individual Boletim ───────────────────────── */}
+      {pdfBoletim && (
+        <div style={{ position: 'fixed', top: -9999, left: -9999, zIndex: -1, width: 794 }}>
+          <BoletimPDFTemplate
+            boletim={pdfBoletim.boletim}
+            rental={pdfBoletim.rental}
+            logs={pdfBoletim.logs}
+            company={pdfCompany}
+            signatures={pdfSignatures}
+          />
+        </div>
+      )}
+
+      {/* ─── Hidden PDF Render: Collective Boletins ──────────────────────── */}
+      {showCollectivePdf && collectivePdfItems.length > 0 && (
+        <div style={{ position: 'fixed', top: -9999, left: -9999, zIndex: -1, width: 794 }}>
+          <CollectiveBoletimPDFTemplate
+            items={collectivePdfItems}
+            company={pdfCompany}
+            signatures={pdfSignatures}
+            overrideCnpj={cnpjOverrideValue || undefined}
+            overrideLog={cnpjOverrideLog || undefined}
+          />
+        </div>
+      )}
+
     </>
   );
 }
