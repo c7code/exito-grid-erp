@@ -387,20 +387,32 @@ export default function MeasurementTab({ rentals, reload }: Props) {
     } catch { return null; }
   }
 
-  // ─── Capture PDF from rendered DOM element ────────────────────────────────
-  async function capturePdf(elementId: string, filename: string) {
-    const element = document.getElementById(elementId);
-    if (!element) throw new Error('Elemento PDF não encontrado');
-    const opt = {
-      margin: [0, 0, 0, 0] as [number, number, number, number],
-      filename,
-      image: { type: 'jpeg' as const, quality: 0.97 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
-      jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['tr', '.sig-block', '.avoid-break'] },
-    };
-    const mod = await import('html2pdf.js');
-    await mod.default().from(element).set(opt).save();
+  // ─── Capture PDF (mesmo padrão do Proposals.tsx) ────────────────────────────
+  function capturePdf(elementId: string, filename: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const tryCapture = (attempt = 0) => {
+        const element = document.getElementById(elementId);
+        if (!element) {
+          if (attempt < 5) { setTimeout(() => tryCapture(attempt + 1), 400); return; }
+          reject(new Error('Elemento PDF não encontrado após 5 tentativas'));
+          return;
+        }
+        const opt = {
+          margin: [0, 0, 0, 0] as [number, number, number, number],
+          filename,
+          image: { type: 'jpeg' as const, quality: 0.97 },
+          html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 794, windowWidth: 794 },
+          jsPDF: { unit: 'px', format: [794, 1123] as [number, number], orientation: 'portrait' as const, hotfixes: ['px_scaling'] },
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.next-page', avoid: ['tr', '.sig-block', '.avoid-break'] },
+        };
+        import('html2pdf.js').then(mod =>
+          mod.default().from(element).set(opt).save()
+            .then(() => resolve())
+            .catch((err: any) => reject(err))
+        ).catch((err: any) => reject(err));
+      };
+      tryCapture();
+    });
   }
 
   // ─── Gerar PDF de boletim INDIVIDUAL ─────────────────────────────────────
