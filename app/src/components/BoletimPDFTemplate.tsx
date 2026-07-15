@@ -171,16 +171,13 @@ export function BoletimPDFTemplate({ boletim, rental, logs, company, signatures,
           </thead>
           <tbody>
             {logs.map((log, i) => {
-              const isAdapted = log.originalDate && String(log.originalDate).substring(0, 10) !== String(log.date).substring(0, 10);
               const tipo = log.isHoliday ? 'Feriado' : log.isWeekend ? 'F.Sem' : 'Útil';
               return (
                 <tr key={log.id} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff' }}>
                   <td style={{ padding: '4px 6px', borderBottom: '1px solid #e2e8f0', fontSize: '6.5px', color: '#64748b', textAlign: 'center' }}>{i + 1}</td>
                   <td style={{ padding: '4px 6px', borderBottom: '1px solid #e2e8f0', fontSize: FST }}>
+                    {/* Mostra apenas a data de medição — data original é controle interno, não vai para o cliente */}
                     <div style={{ fontWeight: 600, color: '#0f172a' }}>{fDate(log.date)}</div>
-                    {isAdapted && (
-                      <div style={{ fontSize: '6px', color: '#b45309', fontStyle: 'italic' }}>orig: {fDate(log.originalDate)}</div>
-                    )}
                   </td>
                   <td style={{ padding: '4px 6px', borderBottom: '1px solid #e2e8f0', fontSize: FST, color: '#475569' }}>
                     {log.startTime && log.endTime ? `${log.startTime}–${log.endTime}` : '—'}
