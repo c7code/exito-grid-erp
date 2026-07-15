@@ -53,10 +53,7 @@ export default function MeasurementTab({ rentals, reload }: Props) {
   const [showBoletimHistory, setShowBoletimHistory] = useState(true);
   const [savingBoletim, setSavingBoletim] = useState(false);
 
-  // Boletim Adaptado (datas fictícias para faturamento)
-  const [adaptedMode, setAdaptedMode] = useState(false);
-  const [adaptedStart, setAdaptedStart] = useState('');
-  const [adaptedEnd, setAdaptedEnd] = useState('');
+  // Datas adaptadas para faturamento (editadas inline por linha)
   const [adaptedDates, setAdaptedDates] = useState<Record<string, string>>({});
 
   // Boletim detail view (expand to see dailies inside a boletim)
@@ -556,7 +553,7 @@ export default function MeasurementTab({ rentals, reload }: Props) {
           {report && (
             <>
               <Button variant="outline" onClick={printReport}>
-                <Printer className="h-4 w-4 mr-1" />{adaptedMode ? 'Imprimir Adaptado' : 'Imprimir / PDF'}
+                <Printer className="h-4 w-4 mr-1" />Imprimir / PDF
               </Button>
               <Button variant="outline" className="text-emerald-600 border-emerald-300 hover:bg-emerald-50" onClick={billPeriod}>
                 <DollarSign className="h-4 w-4 mr-1" />Faturar Período
@@ -574,38 +571,20 @@ export default function MeasurementTab({ rentals, reload }: Props) {
           )}
         </div>
 
-        {/* Boletim Adaptado para Faturamento */}
-        <div className="mt-3 border-t pt-3">
-          <div className="flex items-center gap-3">
-            <Switch checked={adaptedMode} onCheckedChange={setAdaptedMode} />
-            <div className="flex items-center gap-1.5">
-              <CalendarRange className="h-4 w-4 text-amber-600" />
-              <span className="text-sm font-medium text-slate-700">Boletim Adaptado (Faturamento)</span>
+        {/* Aviso datas adaptadas ativas */}
+        {Object.keys(adaptedDates).filter(id => adaptedDates[id]).length > 0 && (
+          <div className="mt-3 border-t pt-3">
+            <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+              <CalendarRange className="h-4 w-4 text-amber-600 shrink-0" />
+              <span className="text-xs text-amber-700">
+                <strong>{Object.keys(adaptedDates).filter(id => adaptedDates[id]).length} data(s)</strong> ajustadas para faturamento. As datas originais estão preservadas no sistema.
+              </span>
+              <Button variant="ghost" size="sm" className="ml-auto text-xs text-amber-700 h-6" onClick={() => setAdaptedDates({})}>
+                Limpar ajustes
+              </Button>
             </div>
           </div>
-          {adaptedMode && (
-            <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <div className="flex items-start gap-2 mb-3">
-                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                <p className="text-xs text-amber-700">
-                  <strong>Modo adaptado ativado.</strong> As datas reais serão mantidas no sistema. Ao imprimir, 
-                  as datas do boletim serão redistribuídas dentro do período de medição informado abaixo 
-                  para fins de faturamento junto à construtora.
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-amber-800">Início do Período de Medição</Label>
-                  <Input type="date" value={adaptedStart} onChange={e => setAdaptedStart(e.target.value)} className="mt-1 border-amber-300" />
-                </div>
-                <div>
-                  <Label className="text-xs text-amber-800">Fim do Período de Medição</Label>
-                  <Input type="date" value={adaptedEnd} onChange={e => setAdaptedEnd(e.target.value)} className="mt-1 border-amber-300" />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        )}
       </Card>
 
       {/* Report View */}
@@ -677,36 +656,62 @@ export default function MeasurementTab({ rentals, reload }: Props) {
                           />
                         )}
                       </td>
-                      <td className="px-4 py-2 font-medium">
-                        <div className="flex items-center gap-1.5">
-                          {fD(log.date)}
-                          {log.originalDate && safeDate(log.originalDate) !== safeDate(log.date) && (
-                            <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300 bg-amber-50 ml-1">
-                              <AlertTriangle className="h-3 w-3 mr-0.5" />Ajustada
-                            </Badge>
+                      <td className="px-3 py-2 font-medium">
+                        {/* Data de medição com edição inline */}
+                        <div className="group flex items-start gap-1">
+                          <div className="flex-1">
+                            {adaptedDates[log.id] ? (
+                              // Data ajustada — mostra a nova data com input editável e original abaixo
+                              <div>
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="date"
+                                    className="h-6 text-xs border-amber-400 bg-amber-50 text-amber-800 font-semibold w-32 px-1"
+                                    value={adaptedDates[log.id]}
+                                    onChange={e => setAdaptedDates(prev => ({ ...prev, [log.id]: e.target.value }))}
+                                  />
+                                  <button
+                                    title="Remover ajuste — voltar à data original"
+                                    className="text-slate-400 hover:text-red-500 transition-colors text-sm"
+                                    onClick={() => setAdaptedDates(prev => { const n = { ...prev }; delete n[log.id]; return n; })}
+                                  >✕</button>
+                                </div>
+                                <span className="text-[10px] text-slate-400">orig: {fD(log.date)}</span>
+                              </div>
+                            ) : (
+                              // Data original — mostra a data e botão de ajuste hover
+                              <div className="flex items-center gap-1.5">
+                                <span>{fD(log.date)}</span>
+                                {log.originalDate && safeDate(log.originalDate) !== safeDate(log.date) && (
+                                  <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300 bg-amber-50">
+                                    <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />Ajust.
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                            {log.createdAt && (
+                              <span className="block text-[10px] text-slate-400">
+                                📝 {new Date(log.createdAt).toLocaleDateString('pt-BR')} {new Date(log.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                {log.originalDate && safeDate(log.originalDate) !== safeDate(log.date) && (
+                                  <span className="text-amber-600 font-medium"> • orig: {fD(log.originalDate)}</span>
+                                )}
+                              </span>
+                            )}
+                            {isNationalHoliday(safeDate(log.date)) && (
+                              <span className="block text-[10px] text-red-500">🎉 {isNationalHoliday(safeDate(log.date))!.name}</span>
+                            )}
+                          </div>
+                          {/* Botão de ajustar data — sempre visível, não requer ativar modo */}
+                          {!measuredLogIds.has(log.id) && !adaptedDates[log.id] && (
+                            <button
+                              title="Ajustar data para faturamento (data original mantida no sistema)"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 text-amber-500 hover:text-amber-700"
+                              onClick={() => setAdaptedDates(prev => ({ ...prev, [log.id]: safeDate(log.date) }))}
+                            >
+                              <CalendarRange className="h-3.5 w-3.5" />
+                            </button>
                           )}
                         </div>
-                        {log.createdAt && (
-                          <span className="block text-[10px] text-slate-400">📝 Reg: {new Date(log.createdAt).toLocaleDateString('pt-BR')} {new Date(log.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                            {log.originalDate && safeDate(log.originalDate) !== safeDate(log.date) && (
-                              <span className="text-amber-600 font-medium"> • Data original: {fD(log.originalDate)}</span>
-                            )}
-                          </span>
-                        )}
-                        {isNationalHoliday(safeDate(log.date)) && (
-                          <span className="block text-[10px] text-red-500">🎉 {isNationalHoliday(safeDate(log.date))!.name}</span>
-                        )}
-                        {adaptedMode && (
-                          <div className="mt-1">
-                            <Input
-                              type="date"
-                              className="h-7 text-xs border-amber-300 bg-amber-50"
-                              value={adaptedDates[log.id] || ''}
-                              onChange={e => setAdaptedDates(prev => ({ ...prev, [log.id]: e.target.value }))}
-                              placeholder="Data adaptada"
-                            />
-                          </div>
-                        )}
                       </td>
                       <td className="px-3 py-2 text-slate-500">{log.startTime || '—'} - {log.endTime || '—'}</td>
                       <td className="px-3 py-2 text-right">{Number(log.normalHours || 0).toFixed(1)}h</td>
