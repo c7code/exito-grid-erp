@@ -89,12 +89,18 @@ export default function MeasurementTab({ rentals, reload }: Props) {
 
   const measuredLogIds = useMemo(() => {
     const ids = new Set<string>();
-    boletins.forEach(b => {
-      const logIds = typeof b.dailyLogIds === 'string' ? JSON.parse(b.dailyLogIds || '[]') : (b.dailyLogIds || []);
-      logIds.forEach((id: string) => ids.add(id));
-    });
+    // Use backend-provided measuredLogIds (from actual boletins) — more reliable
+    if (report?.measuredLogIds) {
+      (report.measuredLogIds as string[]).forEach((id: string) => ids.add(id));
+    } else {
+      // Fallback: compute from local boletins
+      boletins.forEach(b => {
+        const logIds = typeof b.dailyLogIds === 'string' ? JSON.parse(b.dailyLogIds || '[]') : (b.dailyLogIds || []);
+        logIds.forEach((id: string) => ids.add(id));
+      });
+    }
     return ids;
-  }, [boletins]);
+  }, [report, boletins]);
 
   async function loadReport() {
     if (!selectedRentalId) { toast.error('Selecione uma locação'); return; }

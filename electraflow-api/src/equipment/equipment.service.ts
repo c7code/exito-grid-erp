@@ -654,6 +654,19 @@ export class EquipmentService implements OnModuleInit {
 
     const logs = await qb.getMany();
 
+    // ─── Build measured set from actual boletins ───
+    const boletimRepo = this.dataSource.getRepository(EquipmentBoletim);
+    const boletins = await boletimRepo.find({ where: { rentalId, deletedAt: null } as any });
+    const measuredLogIds: string[] = [];
+    const boletimMap: Record<string, string> = {}; // logId -> boletimId
+    for (const b of boletins) {
+      const ids = typeof b.dailyLogIds === 'string' ? JSON.parse(b.dailyLogIds || '[]') : (b.dailyLogIds || []);
+      for (const id of ids) {
+        measuredLogIds.push(id);
+        boletimMap[id] = b.id;
+      }
+    }
+
     const summary = {
       totalDays: logs.length,
       totalNormalHours: 0, totalOvertimeHours: 0, totalNightHours: 0,
@@ -691,9 +704,13 @@ export class EquipmentService implements OnModuleInit {
         includesOperator: rental.includesOperator,
         proposalClauses: rental.proposalClauses,
         startDate: rental.startDate, endDate: rental.endDate,
+        cnpjSolicitante: (rental as any).cnpjSolicitante,
+        cnpjFaturamento: (rental as any).cnpjFaturamento,
       },
       period: { startDate, endDate },
       logs,
+      measuredLogIds,
+      boletimMap,
       summary,
     };
   }
