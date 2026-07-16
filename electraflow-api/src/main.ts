@@ -164,12 +164,16 @@ async function bootstrap() {
   // Isso permite que a API e o frontend coexistam no mesmo serviço Railway
   const frontendDist = join(__dirname, '..', 'public', 'frontend');
   if (fs.existsSync(frontendDist)) {
+    // Servir arquivos estáticos (JS chunks, CSS, imagens) ANTES do catch-all
     app.useStaticAssets(frontendDist, { index: false });
-    // Catch-all: APENAS GET de rotas não-API retorna o index.html do React
-    // POST/PUT/PATCH/DELETE sempre passam para o NestJS
+    // Catch-all: APENAS GET de rotas não-API e não-asset retorna o index.html do React
     app.use((req: any, res: any, next: any) => {
       if (req.method !== 'GET') return next();
-      if (req.url.startsWith('/api') || req.url.startsWith('/uploads')) return next();
+      if (req.url.startsWith('/api')) return next();
+      if (req.url.startsWith('/uploads')) return next();
+      // Não interceptar requests de assets estáticos (JS, CSS, imagens, fontes)
+      if (req.url.startsWith('/assets/')) return next();
+      if (/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map)$/.test(req.url)) return next();
       const indexPath = join(frontendDist, 'index.html');
       if (fs.existsSync(indexPath)) return res.sendFile(indexPath);
       next();
