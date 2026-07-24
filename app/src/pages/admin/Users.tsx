@@ -124,6 +124,12 @@ export default function AdminUsers() {
     const [resetPasswordResult, setResetPasswordResult] = useState<{ userName: string; userEmail: string; newPassword: string } | null>(null);
     const [, setResettingPassword] = useState(false);
 
+    // === Alterar Função ===
+    const [showRoleDialog, setShowRoleDialog] = useState(false);
+    const [roleUser, setRoleUser] = useState<any>(null);
+    const [newRole, setNewRole] = useState('');
+    const [savingRole, setSavingRole] = useState(false);
+
     // === Criar Conta Cliente ===
     const [showClientDialog, setShowClientDialog] = useState(false);
     const [clientMode, setClientMode] = useState<'new' | 'link'>('new');
@@ -346,6 +352,26 @@ export default function AdminUsers() {
             alert(error?.response?.data?.message || 'Erro ao resetar senha');
         } finally {
             setResettingPassword(false);
+        }
+    };
+
+    const handleOpenRoleDialog = (user: any) => {
+        setRoleUser(user);
+        setNewRole(user.role);
+        setShowRoleDialog(true);
+    };
+
+    const handleSaveRole = async () => {
+        if (!roleUser || !newRole) return;
+        setSavingRole(true);
+        try {
+            await api.updateUser(roleUser.id, { role: newRole });
+            loadUsers();
+            setShowRoleDialog(false);
+        } catch (error: any) {
+            alert(error?.response?.data?.message || 'Erro ao alterar função');
+        } finally {
+            setSavingRole(false);
         }
     };
 
@@ -619,6 +645,10 @@ export default function AdminUsers() {
                                                             </Button>
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem onClick={() => handleOpenRoleDialog(user)}>
+                                                                <UserCheck className="w-4 h-4 mr-2" />
+                                                                Alterar Função
+                                                            </DropdownMenuItem>
                                                             <DropdownMenuItem onClick={() => handleOpenPermissions(user)}>
                                                                 <Key className="w-4 h-4 mr-2" />
                                                                 Permissões
@@ -1108,6 +1138,88 @@ export default function AdminUsers() {
                             </div>
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Dialog: Alterar Função */}
+            <Dialog open={showRoleDialog} onOpenChange={setShowRoleDialog}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <UserCheck className="w-5 h-5 text-amber-500" />
+                            Alterar Função
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="bg-slate-50 rounded-lg p-3">
+                            <p className="text-sm font-medium text-slate-800">{roleUser?.name}</p>
+                            <p className="text-xs text-slate-500">{roleUser?.email}</p>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Nova função</label>
+                            <Select value={newRole} onValueChange={setNewRole}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecionar função..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="admin">
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+                                            Administrador
+                                        </span>
+                                    </SelectItem>
+                                    <SelectItem value="commercial">
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                                            Comercial
+                                        </span>
+                                    </SelectItem>
+                                    <SelectItem value="engineer">
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                                            Engenheiro
+                                        </span>
+                                    </SelectItem>
+                                    <SelectItem value="finance">
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />
+                                            Financeiro
+                                        </span>
+                                    </SelectItem>
+                                    <SelectItem value="employee">
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                                            Funcionário
+                                        </span>
+                                    </SelectItem>
+                                    <SelectItem value="viewer">
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-slate-500 inline-block" />
+                                            Visualizador
+                                        </span>
+                                    </SelectItem>
+                                    <SelectItem value="client">
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-cyan-500 inline-block" />
+                                            Cliente
+                                        </span>
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex gap-3 justify-end pt-1">
+                            <Button variant="outline" onClick={() => setShowRoleDialog(false)}>
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={handleSaveRole}
+                                disabled={savingRole || newRole === roleUser?.role}
+                                className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-medium"
+                            >
+                                {savingRole ? 'Salvando...' : 'Salvar Função'}
+                            </Button>
+                        </div>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
