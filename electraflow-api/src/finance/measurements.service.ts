@@ -61,7 +61,11 @@ export class MeasurementsService {
         const baseValue = contractValue - directBillingTotal;
         const executedPercentage = Number(data.executedPercentage || 0);
         const accumulatedPercentage = accumulatedBefore + executedPercentage;
-        const totalAmount = baseValue * (executedPercentage / 100);
+        // Usar totalAmount enviado pelo frontend se disponivel (calculado sobre a base efetiva)
+        // Caso contrario, recalcular a partir do percentual (comportamento legado)
+        const totalAmount = Number(data.totalAmount) > 0
+            ? Number(data.totalAmount)
+            : baseValue * (executedPercentage / 100);
         const retentionAmount = Number(data.retentionAmount || 0);
         const taxAmount = Number(data.taxAmount || 0);
         const netAmount = totalAmount - retentionAmount - taxAmount;
@@ -106,7 +110,10 @@ export class MeasurementsService {
         const baseValue = contractValue - directBillingTotal;
         const executedPercentage = Number(data.executedPercentage ?? measurement.executedPercentage);
         const accumulatedPercentage = accumulatedBefore + executedPercentage;
-        const totalAmount = baseValue * (executedPercentage / 100);
+        // Usar totalAmount enviado pelo frontend se disponivel (calculado sobre a base efetiva)
+        const totalAmount = Number((data as any).totalAmount) > 0
+            ? Number((data as any).totalAmount)
+            : baseValue * (executedPercentage / 100);
         const retentionAmount = Number(data.retentionAmount ?? measurement.retentionAmount);
         const taxAmount = Number(data.taxAmount ?? measurement.taxAmount);
         const netAmount = totalAmount - retentionAmount - taxAmount;

@@ -75,7 +75,6 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
     // When editing, subtract THIS measurement's accumulated values to avoid double-counting
     const selfExecuted = selectedMeasurement ? Number(selectedMeasurement.executedPercentage || 0) : 0;
     const accumulatedTotal = (balance?.totalExecuted || 0) - (selectedMeasurement ? Number(selectedMeasurement.totalAmount || selectedMeasurement.netAmount || 0) : 0);
-    const accumulatedPercentage = (balance?.totalExecutedPercentage || 0) - selfExecuted;
 
     // Each stage contributes a value to the total measurement
     const stageValues = stages.map(s => {
@@ -255,7 +254,14 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
         if (!contractVal || contractVal <= 0) { toast.error('Informe o valor do contrato'); return; }
         const validStages = stages.filter(s => s.description.trim() || parsePrice(s.percentage) > 0 || parsePrice(s.value) > 0);
         if (validStages.length === 0) { toast.error('Adicione ao menos uma etapa de medição'); return; }
-        if (execPercent + accumulatedPercentage > 100.5) { toast.error(`Percentual acumulado (${(execPercent + accumulatedPercentage).toFixed(1)}%) não pode ultrapassar 100%`); return; }
+
+        // Percentual acumulado calculado sobre effectiveBase para consistência
+        const execPercentForSave = effectiveBase > 0 ? (measurementValue / effectiveBase) * 100 : execPercent;
+        const accumulatedForValidation = (balance?.totalExecutedPercentage || 0) - selfExecuted;
+        if (execPercentForSave + accumulatedForValidation > 100.5) {
+            toast.error(`Percentual acumulado (${(execPercentForSave + accumulatedForValidation).toFixed(1)}%) não pode ultrapassar 100%`);
+            return;
+        }
 
         setSaving(true);
         try {
@@ -272,11 +278,13 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                 contractValue: contractVal,
                 directBillingTotal,
                 directBillingItems: directBillingItems.length > 0 ? JSON.stringify(directBillingItems) : null,
-                executedPercentage: execPercent,
+                // executedPercentage baseado na effectiveBase (garante soma correta a 100%)
+                executedPercentage: Math.round(execPercentForSave * 100) / 100,
+                // totalAmount enviado explicitamente: backend usa este valor, não recalcula
+                totalAmount: Math.round(measurementValue * 100) / 100,
                 startDate: startDate || null, endDate: endDate || null,
                 notes: notes || null,
                 proposalId: selectedProposalId || null,
-                // Store stages as JSON in directBillingItems sibling field or notes
                 // We'll store stages in a dedicated JSON field
                 stages: JSON.stringify(stagesData),
             };
