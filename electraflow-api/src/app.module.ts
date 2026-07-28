@@ -111,8 +111,8 @@ import { HealthModule } from './health/health.module';
         url: configService.get('DATABASE_URL'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
-        migrationsRun: false, // DDL já existe em produção. Para novos ambientes: npx typeorm migration:run
-        synchronize: false, // Colunas novas criadas via deploy anterior — manter false
+        migrationsRun: true, // Roda migrations pendentes no startup (AddMeasurementNewFields)
+        synchronize: false, // Colunas novas criadas via migration — manter false
         logging: configService.get('NODE_ENV') === 'development' ? ['error', 'warn', 'schema'] : false,
         ssl: { rejectUnauthorized: false },
         retryAttempts: 5,
