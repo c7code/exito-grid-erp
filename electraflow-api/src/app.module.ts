@@ -112,7 +112,7 @@ import { HealthModule } from './health/health.module';
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
         migrationsRun: false, // DDL já existe em produção. Para novos ambientes: npx typeorm migration:run
-        synchronize: false, // Banco antigo já possui schema completo
+        synchronize: true, // TEMPORÁRIO: criar novas colunas (measurementType, additiveValue, additiveDescription, includeMemorial) — reverter para false após deploy
         logging: configService.get('NODE_ENV') === 'development' ? ['error', 'warn', 'schema'] : false,
         ssl: { rejectUnauthorized: false },
         retryAttempts: 5,
