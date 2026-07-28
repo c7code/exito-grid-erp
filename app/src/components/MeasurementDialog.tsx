@@ -87,10 +87,17 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
     const execPercentRaw = baseValue > 0 ? (measurementValue / baseValue) * 100 : 0;
     // Arredondar para 2 casas decimais (evita imprecisão de ponto flutuante)
     const execPercent = Math.round(execPercentRaw * 100) / 100;
-    const remainingBalanceRaw = baseValue - accumulatedTotal - measurementValue;
+
+    // Para exibir Saldo Restante e % Restante, usar a base efetiva do balance
+    // (já considera fat. direto acumulado de TODAS as medições anteriores, incl. transformer)
+    // Ao criar nova medição sem fat. direto, o transformer da medição anterior continua deduzido
+    const effectiveBase = !selectedMeasurement && balance?.baseValue && balance.baseValue > 0
+        ? balance.baseValue
+        : baseValue;
+    const remainingBalanceRaw = effectiveBase - accumulatedTotal - measurementValue;
     // Tratar como zero se diferença < R$ 0,01
     const remainingBalance = Math.abs(remainingBalanceRaw) < 0.01 ? 0 : Math.round(remainingBalanceRaw * 100) / 100;
-    const remainingPercentageRaw = 100 - accumulatedPercentage - execPercent;
+    const remainingPercentageRaw = effectiveBase > 0 ? (remainingBalanceRaw / effectiveBase) * 100 : 0;
     // Tratar como zero se diferença < 0.05% (imprecisão acumulada de ponto flutuante)
     const remainingPercentage = Math.abs(remainingPercentageRaw) < 0.05 ? 0 : Math.round(remainingPercentageRaw * 100) / 100;
 
@@ -778,7 +785,7 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
                             <div className="flex items-center gap-2 mb-3"><Calculator className="w-4 h-4 text-slate-600" /><span className="text-sm font-semibold text-slate-700">Resumo</span></div>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                <div className="text-center bg-white rounded p-2"><p className="text-[10px] text-slate-500 uppercase">Saldo Base</p><p className="text-sm font-bold text-slate-800">R$ {fmt(baseValue)}</p></div>
+                                <div className="text-center bg-white rounded p-2"><p className="text-[10px] text-slate-500 uppercase">Saldo Base</p><p className="text-sm font-bold text-slate-800">R$ {fmt(effectiveBase)}</p>{effectiveBase !== baseValue && <p className="text-[9px] text-slate-400">incl. Fat. Direto anterior</p>}</div>
                                 <div className="text-center bg-white rounded p-2"><p className="text-[10px] text-slate-500 uppercase">Esta Medição</p><p className="text-lg font-bold text-green-700">R$ {fmt(measurementValue)}</p><p className="text-[10px] text-slate-400">{execPercent.toFixed(2)}%</p></div>
                                 <div className="text-center bg-white rounded p-2"><p className="text-[10px] text-slate-500 uppercase">Saldo Restante</p><p className="text-lg font-bold text-amber-700">R$ {fmt(Math.max(0, remainingBalance))}</p></div>
                                 <div className="text-center bg-white rounded p-2"><p className="text-[10px] text-slate-500 uppercase">% Restante</p><p className="text-lg font-bold text-slate-700">{Math.max(0, remainingPercentage).toFixed(1)}%</p></div>
