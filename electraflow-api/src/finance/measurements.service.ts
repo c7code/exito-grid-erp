@@ -163,14 +163,22 @@ export class MeasurementsService {
             };
         }
 
-        const latest = measurements[measurements.length - 1];
-        const contractValue = Number(latest.contractValue || 0);
-        const directBillingTotal = Number(latest.directBillingTotal || 0);
+        // Usar o maior contractValue registrado (o mais completo/atualizado)
+        const contractValue = Math.max(...measurements.map(m => Number(m.contractValue || 0)));
+        const refMeasurement = measurements.find(m => Number(m.contractValue) === contractValue) || measurements[measurements.length - 1];
+        const directBillingTotal = Number(refMeasurement.directBillingTotal || 0);
         const baseValue = contractValue - directBillingTotal;
-        const totalExecuted = measurements.reduce((sum, m) => sum + Number(m.totalAmount || 0), 0);
-        const totalExecutedPercentage = measurements.reduce(
+        const totalExecuted = Math.round(measurements.reduce((sum, m) => sum + Number(m.totalAmount || 0), 0) * 100) / 100;
+        const totalExecutedPercentageRaw = measurements.reduce(
             (sum, m) => sum + Number(m.executedPercentage || 0), 0,
         );
+        // Arredondar percentual acumulado (evita imprecisão de ponto flutuante)
+        const totalExecutedPercentage = Math.round(totalExecutedPercentageRaw * 100) / 100;
+        const remainingBalanceRaw = baseValue - totalExecuted;
+        // Tratar valores < R$ 0,01 como zero (diferença de centavo por arredondamento)
+        const remainingBalance = Math.abs(remainingBalanceRaw) < 0.01 ? 0 : Math.round(remainingBalanceRaw * 100) / 100;
+        const remainingPercentageRaw = 100 - totalExecutedPercentage;
+        const remainingPercentage = Math.abs(remainingPercentageRaw) < 0.05 ? 0 : Math.round(remainingPercentageRaw * 100) / 100;
 
         return {
             contractValue,
@@ -178,8 +186,8 @@ export class MeasurementsService {
             baseValue,
             totalExecuted,
             totalExecutedPercentage,
-            remainingBalance: baseValue - totalExecuted,
-            remainingPercentage: 100 - totalExecutedPercentage,
+            remainingBalance,
+            remainingPercentage,
             measurements: measurements.map(m => ({
                 id: m.id,
                 number: m.number,

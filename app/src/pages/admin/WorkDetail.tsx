@@ -1240,10 +1240,16 @@ export default function AdminWorkDetail() {
               const perdaFiscal = dedISS + dedINSS + dedOther;
               const perdaFinanceira = dedAnt;
               const perdaTotal = emitted - incomeReceived;
-              // Saldo do contrato = base - fat. direto - já medido (executado)
-              const medidoTotal = measurements.reduce((s: number, m: any) => s + Number(m.totalAmount || m.netAmount || m.value || m.amount || 0), 0);
-              const saldoContrato = base - fatDireto;
-              const saldoAMedir = saldoContrato - medidoTotal;
+              // Saldo do contrato = base + aditivos - fat. direto - já medido (executado)
+              // Aditivos entram na base de medição: novo saldo só aparece se houver aditivo vinculado
+              const medidoTotal = Math.round(measurements.reduce((s: number, m: any) => s + Number(m.totalAmount || m.netAmount || m.value || m.amount || 0), 0) * 100) / 100;
+              const saldoContrato = base - fatDireto; // base sem aditivos (contrato original)
+              const saldoContratoComAditivos = saldoContrato + additivesTotal; // base total incl. aditivos
+              const saldoAMedirRaw = saldoContratoComAditivos - medidoTotal;
+              // Tratar valores < R$ 0,01 como zero para não mostrar pendência falsa
+              const saldoAMedir = Math.abs(saldoAMedirRaw) < 0.01 ? 0 : Math.round(saldoAMedirRaw * 100) / 100;
+              // Só há novo saldo a medir se: ainda não mediu tudo OU há aditivos que aumentaram a base
+              const totalmenteMedido = saldoAMedir <= 0;
               return (
                 <div className="space-y-3">
                   {/* Row 1: Contrato e Composição */}
@@ -1264,17 +1270,27 @@ export default function AdminWorkDetail() {
                     <Card className="border-l-4 border-l-amber-500">
                       <CardContent className="p-3">
                         <p className="text-[10px] text-slate-500 uppercase font-medium">= Saldo Medições</p>
-                        <p className="text-xl font-bold font-mono text-amber-600">R$ {fmt(saldoContrato)}</p>
-                        <p className="text-[9px] text-slate-400 mt-0.5">Contrato − Fat. Direto</p>
+                        <p className="text-xl font-bold font-mono text-amber-600">R$ {fmt(saldoContratoComAditivos)}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Contrato + Aditivos − Fat. Direto</p>
                       </CardContent>
                     </Card>
-                    <Card className={`border-l-4 ${saldoAMedir >= 0 ? 'border-l-teal-500' : 'border-l-red-600'}`}>
-                      <CardContent className="p-3">
-                        <p className="text-[10px] text-slate-500 uppercase font-medium">📏 A Medir</p>
-                        <p className={`text-xl font-bold font-mono ${saldoAMedir >= 0 ? 'text-teal-600' : 'text-red-600'}`}>R$ {fmt(saldoAMedir)}</p>
-                        <p className="text-[9px] text-slate-400 mt-0.5">Medido: R$ {fmt(medidoTotal)}</p>
-                      </CardContent>
-                    </Card>
+                    {totalmenteMedido ? (
+                      <Card className="border-l-4 border-l-emerald-500 bg-emerald-50/40">
+                        <CardContent className="p-3">
+                          <p className="text-[10px] text-slate-500 uppercase font-medium">✅ A Medir</p>
+                          <p className="text-xl font-bold font-mono text-emerald-600">R$ 0,00</p>
+                          <p className="text-[9px] text-emerald-600 mt-0.5 font-semibold">Totalmente medido</p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card className={`border-l-4 ${saldoAMedir > 0 ? 'border-l-teal-500' : 'border-l-red-600'}`}>
+                        <CardContent className="p-3">
+                          <p className="text-[10px] text-slate-500 uppercase font-medium">📏 A Medir</p>
+                          <p className={`text-xl font-bold font-mono ${saldoAMedir > 0 ? 'text-teal-600' : 'text-red-600'}`}>R$ {fmt(saldoAMedir)}</p>
+                          <p className="text-[9px] text-slate-400 mt-0.5">Medido: R$ {fmt(medidoTotal)}</p>
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
                   {/* Row 2: Recebimentos e Líquido */}
                   <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">

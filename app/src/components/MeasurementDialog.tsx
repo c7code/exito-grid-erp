@@ -84,9 +84,15 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
         return baseValue * (pct / 100);
     });
     const measurementValue = stageValues.reduce((s, v) => s + v, 0);
-    const execPercent = baseValue > 0 ? (measurementValue / baseValue) * 100 : 0;
-    const remainingBalance = baseValue - accumulatedTotal - measurementValue;
-    const remainingPercentage = 100 - accumulatedPercentage - execPercent;
+    const execPercentRaw = baseValue > 0 ? (measurementValue / baseValue) * 100 : 0;
+    // Arredondar para 2 casas decimais (evita imprecisão de ponto flutuante)
+    const execPercent = Math.round(execPercentRaw * 100) / 100;
+    const remainingBalanceRaw = baseValue - accumulatedTotal - measurementValue;
+    // Tratar como zero se diferença < R$ 0,01
+    const remainingBalance = Math.abs(remainingBalanceRaw) < 0.01 ? 0 : Math.round(remainingBalanceRaw * 100) / 100;
+    const remainingPercentageRaw = 100 - accumulatedPercentage - execPercent;
+    // Tratar como zero se diferença < 0.05% (imprecisão acumulada de ponto flutuante)
+    const remainingPercentage = Math.abs(remainingPercentageRaw) < 0.05 ? 0 : Math.round(remainingPercentageRaw * 100) / 100;
 
     useEffect(() => { if (isOpen && workId) loadData(); }, [isOpen, workId]);
 
