@@ -67,6 +67,24 @@ export class Measurement {
     @Column({ type: 'text', nullable: true })
     stages: string;
 
+    // ═══ Tipo da Medição ═══
+
+    /** Tipo: 'contract' = medição do contrato principal | 'additive' = aditivo separado */
+    @Column({ type: 'varchar', default: 'contract' })
+    measurementType: string;
+
+    /** Valor base do aditivo (quando measurementType = 'additive') */
+    @Column({ type: 'decimal', precision: 15, scale: 2, default: 0, nullable: true })
+    additiveValue: number;
+
+    /** Descrição do aditivo (ex: Laudo Elétrico 225kVA) */
+    @Column({ type: 'varchar', nullable: true })
+    additiveDescription: string;
+
+    /** Se true, o PDF do boletim inclui o memorial (histórico) das medições anteriores */
+    @Column({ type: 'boolean', default: false })
+    includeMemorial: boolean;
+
     // ═══ Totais ═══
 
     @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })

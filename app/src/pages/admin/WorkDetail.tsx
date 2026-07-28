@@ -1448,6 +1448,7 @@ export default function AdminWorkDetail() {
                         paid: { label: 'Pago', color: 'bg-emerald-100 text-emerald-700' },
                       };
                       const st = statusLabel[m.status] || statusLabel.draft;
+                      const isAdditive = (m.measurementType || 'contract') === 'additive';
                       return (
                         <div key={m.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition cursor-pointer border border-slate-200"
                           onClick={() => setIsMeasurementDialogOpen(true)}>
@@ -1466,6 +1467,7 @@ export default function AdminWorkDetail() {
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
+                            {isAdditive && <Badge className="bg-indigo-100 text-indigo-700 text-[10px]">🔷 Aditivo</Badge>}
                             <Badge className={st.color + ' text-[10px]'}>{st.label}</Badge>
                             <p className="font-mono font-bold text-sm">R$ {fmt(m.totalAmount || m.netAmount || m.value || m.amount || 0)}</p>
                           </div>

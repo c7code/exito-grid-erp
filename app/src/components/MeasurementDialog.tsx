@@ -66,33 +66,44 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
     const [directBillingItems, setDirectBillingItems] = useState<DirectBillingItem[]>([]);
     const [stages, setStages] = useState<MeasurementStage[]>([]);
     const [selectedProposalId, setSelectedProposalId] = useState('');
+    // Tipo da medição
+    const [measurementType, setMeasurementType] = useState<'contract' | 'additive'>('contract');
+    const [additiveValue, setAdditiveValue] = useState('');
+    const [additiveDescription, setAdditiveDescription] = useState('');
+    // Toggle memorial no boletim PDF
+    const [includeMemorial, setIncludeMemorial] = useState(false);
 
     // Calculated values
     const directBillingTotal = directBillingItems.reduce((s, i) => s + (i.total || 0), 0);
     const contractVal = parsePrice(contractValue);
     const baseValue = contractVal - directBillingTotal;
 
+    // Base efetiva para cálculos:
+    // - Aditivo: usa additiveVal (base própria do aditivo)
+    // - Contrato: usa balance.baseValue (já com transformer deduzido) ou baseValue desta medição
+    const additiveVal = parsePrice(additiveValue);
+    const calcBase = measurementType === 'additive'
+        ? additiveVal
+        : (!selectedMeasurement && balance?.baseValue && balance.baseValue > 0 ? balance.baseValue : baseValue);
+
     // When editing, subtract THIS measurement's accumulated values to avoid double-counting
     const selfExecuted = selectedMeasurement ? Number(selectedMeasurement.executedPercentage || 0) : 0;
-    const accumulatedTotal = (balance?.totalExecuted || 0) - (selectedMeasurement ? Number(selectedMeasurement.totalAmount || selectedMeasurement.netAmount || 0) : 0);
+    const accumulatedTotal = measurementType === 'additive'
+        ? 0  // aditivo: acumulado próprio (não usa balance do contrato)
+        : (balance?.totalExecuted || 0) - (selectedMeasurement ? Number(selectedMeasurement.totalAmount || selectedMeasurement.netAmount || 0) : 0);
 
     // Each stage contributes a value to the total measurement
     const stageValues = stages.map(s => {
         if (s.inputMode === 'value') return parsePrice(s.value);
         const pct = parsePrice(s.percentage);
-        return baseValue * (pct / 100);
+        return calcBase * (pct / 100);
     });
     const measurementValue = stageValues.reduce((s, v) => s + v, 0);
-    const execPercentRaw = baseValue > 0 ? (measurementValue / baseValue) * 100 : 0;
+    const execPercentRaw = calcBase > 0 ? (measurementValue / calcBase) * 100 : 0;
     // Arredondar para 2 casas decimais (evita imprecisão de ponto flutuante)
     const execPercent = Math.round(execPercentRaw * 100) / 100;
 
-    // Para exibir Saldo Restante e % Restante, usar a base efetiva do balance
-    // (já considera fat. direto acumulado de TODAS as medições anteriores, incl. transformer)
-    // Ao criar nova medição sem fat. direto, o transformer da medição anterior continua deduzido
-    const effectiveBase = !selectedMeasurement && balance?.baseValue && balance.baseValue > 0
-        ? balance.baseValue
-        : baseValue;
+    const effectiveBase = calcBase;
     const remainingBalanceRaw = effectiveBase - accumulatedTotal - measurementValue;
     // Tratar como zero se diferença < R$ 0,01
     const remainingBalance = Math.abs(remainingBalanceRaw) < 0.01 ? 0 : Math.round(remainingBalanceRaw * 100) / 100;
@@ -132,6 +143,9 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
         setDirectBillingItems([]);
         setStages([{ description: '', inputMode: 'percentage', percentage: '', value: '' }]);
         setSelectedProposalId(''); setSelectedMeasurement(null);
+        setMeasurementType('contract');
+        setAdditiveValue(''); setAdditiveDescription('');
+        setIncludeMemorial(false);
     };
 
     const handleNewMeasurement = () => { resetForm(); setMode('create'); };
@@ -158,13 +172,15 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
         setStages(prev => {
             const s = [...prev];
             (s[idx] as any)[field] = val;
+            // Base correta: aditivo usa additiveVal, contrato usa baseValue
+            const calcBase = measurementType === 'additive' ? parsePrice(additiveValue) : baseValue;
             // auto-sync: when user types %, fill value and vice-versa
             if (field === 'percentage' && s[idx].inputMode === 'percentage') {
                 const pct = parsePrice(val);
-                if (baseValue > 0 && pct >= 0) s[idx].value = (baseValue * (pct / 100)).toFixed(2);
+                if (calcBase > 0 && pct >= 0) s[idx].value = (calcBase * (pct / 100)).toFixed(2);
             } else if (field === 'value' && s[idx].inputMode === 'value') {
                 const v = parsePrice(val);
-                if (baseValue > 0 && v >= 0) s[idx].percentage = ((v / baseValue) * 100).toFixed(2);
+                if (calcBase > 0 && v >= 0) s[idx].percentage = ((v / calcBase) * 100).toFixed(2);
             }
             return s;
         });
@@ -255,12 +271,17 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
         const validStages = stages.filter(s => s.description.trim() || parsePrice(s.percentage) > 0 || parsePrice(s.value) > 0);
         if (validStages.length === 0) { toast.error('Adicione ao menos uma etapa de medição'); return; }
 
-        // Percentual acumulado calculado sobre effectiveBase para consistência
+        // Validação de 100%: aditivos têm base própria, contrato usa balance
         const execPercentForSave = effectiveBase > 0 ? (measurementValue / effectiveBase) * 100 : execPercent;
-        const accumulatedForValidation = (balance?.totalExecutedPercentage || 0) - selfExecuted;
-        if (execPercentForSave + accumulatedForValidation > 100.5) {
-            toast.error(`Percentual acumulado (${(execPercentForSave + accumulatedForValidation).toFixed(1)}%) não pode ultrapassar 100%`);
-            return;
+        if (measurementType === 'contract') {
+            const accumulatedForValidation = (balance?.totalExecutedPercentage || 0) - selfExecuted;
+            if (execPercentForSave + accumulatedForValidation > 100.5) {
+                toast.error(`Percentual acumulado (${(execPercentForSave + accumulatedForValidation).toFixed(1)}%) não pode ultrapassar 100%`);
+                return;
+            }
+        }
+        if (measurementType === 'additive' && additiveVal <= 0) {
+            toast.error('Informe o valor total do aditivo'); return;
         }
 
         setSaving(true);
@@ -269,24 +290,28 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                 description: s.description,
                 inputMode: s.inputMode,
                 percentage: parsePrice(s.percentage),
-                value: s.inputMode === 'value' ? parsePrice(s.value) : baseValue * (parsePrice(s.percentage) / 100),
+                value: s.inputMode === 'value' ? parsePrice(s.value) : calcBase * (parsePrice(s.percentage) / 100),
             }));
 
             const data = {
                 workId,
-                description: description || `Medição ${(measurements.length || 0) + 1}`,
-                contractValue: contractVal,
-                directBillingTotal,
+                description: description || (measurementType === 'additive'
+                    ? `Aditivo — ${additiveDescription || 'Sem descrição'}`
+                    : `Medição ${(measurements.length || 0) + 1}`),
+                contractValue: measurementType === 'additive' ? 0 : contractVal,
+                directBillingTotal: measurementType === 'additive' ? 0 : directBillingTotal,
                 directBillingItems: directBillingItems.length > 0 ? JSON.stringify(directBillingItems) : null,
-                // executedPercentage baseado na effectiveBase (garante soma correta a 100%)
                 executedPercentage: Math.round(execPercentForSave * 100) / 100,
-                // totalAmount enviado explicitamente: backend usa este valor, não recalcula
                 totalAmount: Math.round(measurementValue * 100) / 100,
                 startDate: startDate || null, endDate: endDate || null,
                 notes: notes || null,
                 proposalId: selectedProposalId || null,
-                // We'll store stages in a dedicated JSON field
                 stages: JSON.stringify(stagesData),
+                // Novos campos
+                measurementType,
+                additiveValue: measurementType === 'additive' ? additiveVal : 0,
+                additiveDescription: measurementType === 'additive' ? additiveDescription : null,
+                includeMemorial,
             };
 
             if (selectedMeasurement?.id) {
@@ -294,7 +319,7 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                 toast.success('Medição atualizada!');
             } else {
                 await api.createMeasurement(data);
-                toast.success('Medição criada com sucesso!');
+                toast.success(measurementType === 'additive' ? 'Medição de aditivo criada!' : 'Medição criada com sucesso!');
             }
             await loadData(); onSuccess(); setMode('list');
         } catch (err: any) { toast.error(err?.response?.data?.message || err?.message || 'Erro ao salvar medição'); }
@@ -655,6 +680,47 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                 ) : (
                     /* ═══ CREATE/EDIT MODE ═══ */
                     <div className="space-y-5">
+
+                        {/* ── Seletor de Tipo ── */}
+                        <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+                            <button
+                                type="button"
+                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${measurementType === 'contract' ? 'bg-white shadow text-orange-700 border border-orange-200' : 'text-slate-500 hover:text-slate-700'}`}
+                                onClick={() => setMeasurementType('contract')}
+                            >
+                                <Hammer className="w-4 h-4" /> Contrato Principal
+                            </button>
+                            <button
+                                type="button"
+                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${measurementType === 'additive' ? 'bg-white shadow text-indigo-700 border border-indigo-200' : 'text-slate-500 hover:text-slate-700'}`}
+                                onClick={() => setMeasurementType('additive')}
+                            >
+                                <Plus className="w-4 h-4" /> Medição de Aditivo
+                            </button>
+                        </div>
+
+                        {/* ── Campos exclusivos do Aditivo ── */}
+                        {measurementType === 'additive' && (
+                            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 space-y-3">
+                                <p className="text-xs font-bold text-indigo-700">🔷 Configuração do Aditivo</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <Label className="text-xs text-indigo-700">Valor Total do Aditivo (R$) *</Label>
+                                        <Input type="text" inputMode="decimal" placeholder="10000.00"
+                                            value={additiveValue} onChange={e => setAdditiveValue(e.target.value)}
+                                            className="border-indigo-300 focus:ring-indigo-400" />
+                                        <p className="text-[10px] text-indigo-500 mt-0.5">Base de 100% deste aditivo</p>
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-indigo-700">Descrição do Aditivo *</Label>
+                                        <Input placeholder="Ex: Laudo Elétrico 225kVA"
+                                            value={additiveDescription} onChange={e => setAdditiveDescription(e.target.value)}
+                                            className="border-indigo-300 focus:ring-indigo-400" />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Header fields */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div className="sm:col-span-3">
@@ -663,7 +729,9 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                             </div>
                             <div><Label>Data Início</Label><Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
                             <div><Label>Data Fim</Label><Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></div>
-                            <div><Label>Valor do Contrato (R$) *</Label><Input type="text" inputMode="decimal" placeholder="100000.00" value={contractValue} onChange={e => setContractValue(e.target.value)} /></div>
+                            {measurementType === 'contract' && (
+                                <div><Label>Valor do Contrato (R$) *</Label><Input type="text" inputMode="decimal" placeholder="100000.00" value={contractValue} onChange={e => setContractValue(e.target.value)} /></div>
+                            )}
                         </div>
 
                         {/* Proposal import — ALWAYS VISIBLE */}
@@ -803,11 +871,33 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                         {/* Observações */}
                         <div><Label>Observações</Label><Textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." /></div>
 
+                        {/* ── Toggle Memorial ── */}
+                        <button
+                            type="button"
+                            onClick={() => setIncludeMemorial(v => !v)}
+                            className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border-2 transition-all text-left ${includeMemorial ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <ClipboardList className={`w-5 h-5 ${includeMemorial ? 'text-blue-600' : 'text-slate-400'}`} />
+                                <div>
+                                    <p className={`text-sm font-semibold ${includeMemorial ? 'text-blue-700' : 'text-slate-600'}`}>
+                                        📋 Incluir Memorial no Boletim
+                                    </p>
+                                    <p className="text-[10px] text-slate-400">
+                                        {includeMemorial ? 'O PDF incluirá o histórico de todas as medições anteriores' : 'O PDF mostrará apenas esta medição'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-1 ${includeMemorial ? 'bg-blue-500 justify-end' : 'bg-slate-300 justify-start'}`}>
+                                <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
+                            </div>
+                        </button>
+
                         <DialogFooter className="gap-2">
                             <Button variant="outline" onClick={() => { setSelectedMeasurement(null); setMode('list'); }}>Cancelar</Button>
-                            <Button className="bg-orange-500 hover:bg-orange-600 text-white" disabled={saving} onClick={handleSave}>
+                            <Button className={`${measurementType === 'additive' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-orange-500 hover:bg-orange-600'} text-white`} disabled={saving} onClick={handleSave}>
                                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                {saving ? 'Salvando...' : selectedMeasurement ? 'Atualizar Medição' : 'Criar Medição'}
+                                {saving ? 'Salvando...' : selectedMeasurement ? 'Atualizar Medição' : measurementType === 'additive' ? '🔷 Criar Medição de Aditivo' : 'Criar Medição'}
                             </Button>
                         </DialogFooter>
                     </div>

@@ -43,17 +43,28 @@ export class MeasurementsService {
             where: { workId },
             order: { number: 'DESC' },
         });
-
         const nextNumber = (lastMeasurement?.number || 0) + 1;
 
-        // Calculate accumulated percentage from previous measurements
         const previousMeasurements = await this.measurementRepository.find({
             where: { workId },
             order: { number: 'ASC' },
         });
-        const accumulatedBefore = previousMeasurements.reduce(
-            (sum, m) => sum + Number(m.executedPercentage || 0), 0,
-        );
+
+        const measurementType = (data as any).measurementType || 'contract';
+
+        // Acumulado: contrato usa só medições de contrato; aditivo usa só medições do mesmo aditivo
+        let accumulatedBefore = 0;
+        if (measurementType === 'additive') {
+            const additiveDesc = (data as any).additiveDescription || '';
+            accumulatedBefore = previousMeasurements
+                .filter(m => (m.measurementType || 'contract') === 'additive' &&
+                             (m.additiveDescription || '') === additiveDesc)
+                .reduce((sum, m) => sum + Number(m.executedPercentage || 0), 0);
+        } else {
+            accumulatedBefore = previousMeasurements
+                .filter(m => (m.measurementType || 'contract') === 'contract')
+                .reduce((sum, m) => sum + Number(m.executedPercentage || 0), 0);
+        }
 
         // Calculate derived values
         const contractValue = Number(data.contractValue || 0);
@@ -62,7 +73,6 @@ export class MeasurementsService {
         const executedPercentage = Number(data.executedPercentage || 0);
         const accumulatedPercentage = accumulatedBefore + executedPercentage;
         // Usar totalAmount enviado pelo frontend se disponivel (calculado sobre a base efetiva)
-        // Caso contrario, recalcular a partir do percentual (comportamento legado)
         const totalAmount = Number(data.totalAmount) > 0
             ? Number(data.totalAmount)
             : baseValue * (executedPercentage / 100);
@@ -84,6 +94,10 @@ export class MeasurementsService {
             retentionAmount,
             taxAmount,
             netAmount,
+            measurementType,
+            additiveValue: Number((data as any).additiveValue || 0),
+            additiveDescription: (data as any).additiveDescription || null,
+            includeMemorial: Boolean((data as any).includeMemorial ?? false),
         });
 
         return this.measurementRepository.save(measurement);
@@ -132,6 +146,10 @@ export class MeasurementsService {
             retentionAmount,
             taxAmount,
             netAmount,
+            measurementType: (data as any).measurementType ?? measurement.measurementType ?? 'contract',
+            additiveValue: Number((data as any).additiveValue ?? measurement.additiveValue ?? 0),
+            additiveDescription: (data as any).additiveDescription ?? measurement.additiveDescription ?? null,
+            includeMemorial: Boolean((data as any).includeMemorial ?? measurement.includeMemorial ?? false),
         };
 
         // Remove undefined values
@@ -167,25 +185,55 @@ export class MeasurementsService {
                 remainingBalance: 0,
                 remainingPercentage: 100,
                 measurements: [],
+                additiveMeasurements: [],
             };
         }
 
-        // Usar o maior contractValue registrado (o mais completo/atualizado)
-        const contractValue = Math.max(...measurements.map(m => Number(m.contractValue || 0)));
-        const refMeasurement = measurements.find(m => Number(m.contractValue) === contractValue) || measurements[measurements.length - 1];
-        const directBillingTotal = Number(refMeasurement.directBillingTotal || 0);
+        // Separar medições de contrato e de aditivo
+        const contractMsmnts = measurements.filter(m => (m.measurementType || 'contract') === 'contract');
+        const additiveMsmnts = measurements.filter(m => (m.measurementType || 'contract') === 'additive');
+
+        // ── Balanço do contrato ──
+        const contractValue = Math.max(...contractMsmnts.map(m => Number(m.contractValue || 0)), 0);
+        const refMeasurement = contractMsmnts.find(m => Number(m.contractValue) === contractValue) || contractMsmnts[contractMsmnts.length - 1];
+        const directBillingTotal = refMeasurement ? Number(refMeasurement.directBillingTotal || 0) : 0;
         const baseValue = contractValue - directBillingTotal;
-        const totalExecuted = Math.round(measurements.reduce((sum, m) => sum + Number(m.totalAmount || 0), 0) * 100) / 100;
-        const totalExecutedPercentageRaw = measurements.reduce(
-            (sum, m) => sum + Number(m.executedPercentage || 0), 0,
-        );
-        // Arredondar percentual acumulado (evita imprecisão de ponto flutuante)
+        const totalExecuted = Math.round(contractMsmnts.reduce((sum, m) => sum + Number(m.totalAmount || 0), 0) * 100) / 100;
+        const totalExecutedPercentageRaw = contractMsmnts.reduce((sum, m) => sum + Number(m.executedPercentage || 0), 0);
         const totalExecutedPercentage = Math.round(totalExecutedPercentageRaw * 100) / 100;
         const remainingBalanceRaw = baseValue - totalExecuted;
-        // Tratar valores < R$ 0,01 como zero (diferença de centavo por arredondamento)
         const remainingBalance = Math.abs(remainingBalanceRaw) < 0.01 ? 0 : Math.round(remainingBalanceRaw * 100) / 100;
         const remainingPercentageRaw = 100 - totalExecutedPercentage;
         const remainingPercentage = Math.abs(remainingPercentageRaw) < 0.05 ? 0 : Math.round(remainingPercentageRaw * 100) / 100;
+
+        // ── Balanço dos aditivos (agrupados por additiveDescription) ──
+        const additiveGroups: Record<string, any> = {};
+        for (const m of additiveMsmnts) {
+            const key = m.additiveDescription || 'Aditivo';
+            if (!additiveGroups[key]) {
+                additiveGroups[key] = {
+                    description: key,
+                    totalValue: Number(m.additiveValue || 0),
+                    totalExecuted: 0,
+                    totalPercentage: 0,
+                    measurements: [],
+                };
+            }
+            additiveGroups[key].totalExecuted += Number(m.totalAmount || 0);
+            additiveGroups[key].totalPercentage += Number(m.executedPercentage || 0);
+            additiveGroups[key].measurements.push({
+                id: m.id,
+                number: m.number,
+                status: m.status,
+                executedPercentage: Number(m.executedPercentage),
+                totalAmount: Number(m.totalAmount),
+            });
+        }
+        const additiveMeasurements = Object.values(additiveGroups).map((g: any) => ({
+            ...g,
+            remainingBalance: Math.max(0, g.totalValue - g.totalExecuted),
+            remainingPercentage: Math.max(0, 100 - g.totalPercentage),
+        }));
 
         return {
             contractValue,
@@ -195,7 +243,7 @@ export class MeasurementsService {
             totalExecutedPercentage,
             remainingBalance,
             remainingPercentage,
-            measurements: measurements.map(m => ({
+            measurements: contractMsmnts.map(m => ({
                 id: m.id,
                 number: m.number,
                 status: m.status,
@@ -205,6 +253,7 @@ export class MeasurementsService {
                 startDate: m.startDate,
                 endDate: m.endDate,
             })),
+            additiveMeasurements,
         };
     }
 
@@ -212,16 +261,21 @@ export class MeasurementsService {
         const measurement = await this.findOne(id);
         measurement.status = MeasurementStatus.APPROVED;
 
+        const isAdditive = (measurement.measurementType || 'contract') === 'additive';
+        const label = isAdditive
+            ? `Aditivo #${measurement.number} - ${measurement.additiveDescription || measurement.work?.title || 'Obra'}`
+            : `Medição #${measurement.number} - ${measurement.work?.title || 'Obra'}`;
+
         // Auto-generate "Conta a Receber"
         await this.financeService.create({
             workId: measurement.workId,
             clientId: measurement.work?.clientId,
             measurementId: measurement.id,
-            description: `Medição #${measurement.number} - ${measurement.work?.title || 'Obra'}`,
+            description: label,
             amount: measurement.netAmount,
             type: PaymentType.INCOME,
             category: TransactionCategory.PROJECT,
-            dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 days default
+            dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
         });
 
         return this.measurementRepository.save(measurement);
