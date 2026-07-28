@@ -132,9 +132,9 @@ const navSections: NavSection[] = [
   {
     section: 'SEGURANÇA DO TRABALHO',
     items: [
-      { path: '/admin/company-documents', label: 'Docs da Empresa', icon: FileText, module: 'company-documents', roles: ['admin', 'employee'] },
-      { path: '/admin/safety-programs', label: 'Programas / GHE', icon: Shield, module: 'safety-programs', roles: ['admin', 'employee'] },
-      { path: '/admin/exam-referrals', label: 'Guias de Exames', icon: Stethoscope, module: 'exam-referrals', roles: ['admin', 'employee'] },
+      { path: '/admin/company-documents', label: 'Docs da Empresa', icon: FileText, module: 'company-documents', roles: ['admin', 'employee', 'engineer', 'commercial', 'finance', 'viewer'] },
+      { path: '/admin/safety-programs', label: 'Programas / GHE', icon: Shield, module: 'safety-programs', roles: ['admin', 'employee', 'engineer', 'commercial', 'finance', 'viewer'] },
+      { path: '/admin/exam-referrals', label: 'Guias de Exames', icon: Stethoscope, module: 'exam-referrals', roles: ['admin', 'employee', 'engineer', 'commercial', 'finance', 'viewer'] },
     ],
   },
   {
@@ -167,10 +167,9 @@ export default function AdminLayout() {
       items: section.items.filter(item => {
         if (!user) return false;
         if (user.role === 'admin') return true;
-        if (user.role === 'employee') {
-          // Employee must have role AND module permission
-          return item.roles.includes('employee') && hasPermission(item.module);
-        }
+        // Se o item define roles específicos e o role do usuário está listado → sempre visível
+        if (item.roles && item.roles.includes(user.role)) return true;
+        // Caso contrário, exige permissão explícita no módulo
         if (item.module && hasPermission(item.module)) return true;
         return false;
       }),
