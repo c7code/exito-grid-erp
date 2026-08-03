@@ -12,7 +12,7 @@ import {
 import {
     Loader2, Plus, X, CheckCircle, Trash2, Download,
     Calculator, ClipboardList, Building2, Percent, DollarSign,
-    ArrowLeftRight, Hammer,
+    ArrowLeftRight, Hammer, Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api';
@@ -637,6 +637,7 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                                                 <span>{Number(m.executedPercentage || 0).toFixed(1)}%</span><span>•</span>
                                                 <span>R$ {fmt(Number(m.totalAmount || 0))}</span>
                                                 {m.startDate && <><span>•</span><span>{new Date(m.startDate).toLocaleDateString('pt-BR')}</span></>}
+                                                {m.measurementType === 'additive' && <span className="text-indigo-600 font-semibold">🔷 Aditivo</span>}
                                             </div>
                                         </div>
                                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${statusColor[m.status] || 'bg-slate-100'}`}>{statusLabel[m.status] || m.status}</span>
@@ -656,7 +657,15 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                 ) : mode === 'view' ? (
                     /* ═══ VIEW MODE ═══ */
                     <div className="space-y-4">
-                        <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+                        <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+                            {selectedMeasurement?.description && (
+                                <p className="text-sm font-medium text-slate-700">{selectedMeasurement.description}</p>
+                            )}
+                            {selectedMeasurement?.measurementType === 'additive' && (
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold">
+                                    🔷 Aditivo — {selectedMeasurement.additiveDescription || 'Sem descrição'}
+                                </div>
+                            )}
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div><span className="text-slate-500">Contrato:</span> <strong>R$ {fmt(Number(selectedMeasurement?.contractValue || 0))}</strong></div>
                                 <div><span className="text-slate-500">Fat. Direto:</span> <strong className="text-red-600">R$ {fmt(Number(selectedMeasurement?.directBillingTotal || 0))}</strong></div>
@@ -664,11 +673,44 @@ export function MeasurementDialog({ isOpen, onClose, workId, work, onSuccess }: 
                                 <div><span className="text-slate-500">% Executado:</span> <strong>{Number(selectedMeasurement?.executedPercentage || 0).toFixed(2)}%</strong></div>
                                 <div><span className="text-slate-500">Valor Medição:</span> <strong className="text-green-700">R$ {fmt(Number(selectedMeasurement?.totalAmount || 0))}</strong></div>
                                 <div><span className="text-slate-500">Valor Líquido:</span> <strong className="text-emerald-700">R$ {fmt(Number(selectedMeasurement?.netAmount || 0))}</strong></div>
+                                {selectedMeasurement?.startDate && <div><span className="text-slate-500">Período:</span> <strong>{new Date(selectedMeasurement.startDate).toLocaleDateString('pt-BR')}{selectedMeasurement.endDate ? ` a ${new Date(selectedMeasurement.endDate).toLocaleDateString('pt-BR')}` : ''}</strong></div>}
+                                <div><span className="text-slate-500">Status:</span> <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor[selectedMeasurement?.status] || 'bg-slate-100'}`}>{statusLabel[selectedMeasurement?.status] || selectedMeasurement?.status}</span></div>
                             </div>
+                            {selectedMeasurement?.stages && (() => {
+                                try {
+                                    const stgs = JSON.parse(selectedMeasurement.stages);
+                                    if (stgs.length === 0) return null;
+                                    return (
+                                        <div className="mt-3 pt-3 border-t border-slate-200">
+                                            <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Etapas</p>
+                                            <div className="space-y-1">
+                                                {stgs.map((s: any, i: number) => (
+                                                    <div key={i} className="flex justify-between text-xs text-slate-600">
+                                                        <span>{s.description || `Etapa ${i+1}`}</span>
+                                                        <span className="font-medium">{s.inputMode === 'value' ? `R$ ${fmt(Number(s.value || 0))}` : `${Number(s.percentage || 0).toFixed(1)}%`}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                } catch { return null; }
+                            })()}
+                            {selectedMeasurement?.notes && (
+                                <div className="mt-2 pt-2 border-t border-slate-200">
+                                    <p className="text-xs text-slate-500 font-semibold uppercase">Observações</p>
+                                    <p className="text-sm text-slate-600 mt-1">{selectedMeasurement.notes}</p>
+                                </div>
+                            )}
                         </div>
                         <DialogFooter className="gap-2">
                             <Button variant="outline" onClick={() => setMode('list')}>Voltar</Button>
                             <Button variant="outline" onClick={() => generatePDF(selectedMeasurement)}><Download className="w-4 h-4 mr-1" /> PDF</Button>
+                            {/* Editar: disponível para draft e approved (não para billed/paid) */}
+                            {(selectedMeasurement?.status === 'draft' || selectedMeasurement?.status === 'approved') && (
+                                <Button variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50" onClick={() => setMode('create')}>
+                                    <Pencil className="w-4 h-4 mr-1" /> Editar
+                                </Button>
+                            )}
                             {selectedMeasurement?.status === 'draft' && (
                                 <>
                                     <Button variant="outline" className="text-red-600" onClick={() => handleDelete(selectedMeasurement.id)}><Trash2 className="w-4 h-4 mr-1" /> Excluir</Button>

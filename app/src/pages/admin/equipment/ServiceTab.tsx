@@ -87,9 +87,12 @@ export default function ServiceTab({ services, equipment, clients, employees, re
   return (
     <>
       <div className="flex justify-between items-center">
-        <p className="text-sm text-muted-foreground">{services.length} serviço(s)</p>
+        <div>
+          <p className="text-sm text-muted-foreground">{services.length} serviço(s) pontual(is)</p>
+          <p className="text-xs text-slate-400 mt-0.5">⚡ Use para içamentos, transportes e cobranças avulsas sem locação contínua</p>
+        </div>
         <Button onClick={openNew} className="bg-purple-600 hover:bg-purple-700 text-white font-semibold">
-          <Plus className="h-4 w-4 mr-1.5" />Novo Serviço
+          <Plus className="h-4 w-4 mr-1.5" />⚡ Novo Serviço Pontual
         </Button>
       </div>
 
@@ -184,10 +187,19 @@ export default function ServiceTab({ services, equipment, clients, employees, re
               </Select>
             </div>
             <div><Label>Data Agendada</Label><Input type="date" value={form.scheduledDate} onChange={e => F('scheduledDate', e.target.value)} /></div>
-            <div><Label>Valor Unitário (R$)</Label><Input type="number" value={form.unitRate} onChange={e => F('unitRate', e.target.value)} /></div>
+            <div><Label>Valor Unitário (R$)</Label><Input type="number" value={form.unitRate} onChange={e => F('unitRate', e.target.value)} placeholder="Ex: 350.00" /></div>
             <div><Label>Quantidade</Label><Input type="number" value={form.quantity} onChange={e => F('quantity', e.target.value)} /></div>
-            <div className="col-span-2"><Label>Descrição</Label><Textarea value={form.description} onChange={e => F('description', e.target.value)} rows={2} /></div>
-            <div className="col-span-2"><Label>Endereço</Label><Input value={form.address} onChange={e => F('address', e.target.value)} /></div>
+            {/* Preview do valor total */}
+            {(Number(form.unitRate) > 0) && (
+              <div className="col-span-2 bg-purple-50 border border-purple-200 rounded-lg p-3 flex justify-between items-center">
+                <span className="text-sm text-purple-700 font-medium">Total calculado:</span>
+                <span className="text-lg font-bold text-purple-700">
+                  R$ {(Number(form.unitRate) * Number(form.quantity || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
+            <div className="col-span-2"><Label>Descrição do Serviço</Label><Textarea value={form.description} onChange={e => F('description', e.target.value)} rows={2} placeholder="Descreva o serviço pontual realizado..." /></div>
+            <div className="col-span-2"><Label>Endereço / Local</Label><Input value={form.address} onChange={e => F('address', e.target.value)} /></div>
             <div><Label>Cidade</Label><Input value={form.city} onChange={e => F('city', e.target.value)} /></div>
             <div><Label>Estado</Label><Input value={form.state} onChange={e => F('state', e.target.value)} /></div>
             <div className="col-span-2"><Label>Observações</Label><Textarea value={form.notes} onChange={e => F('notes', e.target.value)} rows={2} /></div>

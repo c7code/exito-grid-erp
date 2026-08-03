@@ -5,7 +5,7 @@ import { Measurement, MeasurementStatus } from './measurement.entity';
 import { MeasurementItem } from './measurement-item.entity';
 import { Task } from '../tasks/task.entity';
 import { FinanceService } from './finance.service';
-import { PaymentType, TransactionCategory } from './payment.entity';
+import { Payment, PaymentType, TransactionCategory } from './payment.entity';
 
 @Injectable()
 export class MeasurementsService {
@@ -16,6 +16,8 @@ export class MeasurementsService {
         private itemRepository: Repository<MeasurementItem>,
         @InjectRepository(Task)
         private taskRepository: Repository<Task>,
+        @InjectRepository(Payment)
+        private paymentRepository: Repository<Payment>,
         private financeService: FinanceService,
     ) { }
 
@@ -105,8 +107,9 @@ export class MeasurementsService {
 
     async update(id: string, data: Partial<Measurement>): Promise<Measurement> {
         const measurement = await this.findOne(id);
-        if (measurement.status !== MeasurementStatus.DRAFT) {
-            throw new Error('Apenas medições em rascunho podem ser editadas');
+        // Permitir edição de medições draft E approved (não permite billed/paid)
+        if (measurement.status === MeasurementStatus.BILLED || measurement.status === MeasurementStatus.PAID) {
+            throw new Error('Medições já faturadas ou pagas não podem ser editadas');
         }
 
         // Recalculate accumulated percentage (excluding this measurement)
@@ -158,6 +161,22 @@ export class MeasurementsService {
         }
 
         await this.measurementRepository.update(id, updateData);
+
+        // Se a medição estava aprovada, atualiza o lançamento financeiro vinculado
+        if (measurement.status === MeasurementStatus.APPROVED) {
+            try {
+                const linkedPayment = await this.paymentRepository.findOne({ where: { measurementId: id } });
+                if (linkedPayment) {
+                    linkedPayment.amount = netAmount;
+                    linkedPayment.description = `Medição #${measurement.number} - ${measurement.work?.title || 'Obra'} (editada)`;
+                    await this.paymentRepository.save(linkedPayment);
+                }
+            } catch (e) {
+                // não bloqueia se falhar ao atualizar o payment
+                console.warn('Aviso: não foi possível atualizar o lançamento financeiro da medição:', e?.message);
+            }
+        }
+
         return this.findOne(id);
     }
 
