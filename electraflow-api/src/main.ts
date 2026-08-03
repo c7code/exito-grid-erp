@@ -82,8 +82,10 @@ async function bootstrap() {
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:3000',
-    // Production custom domain
+    // Production custom domains
     'https://erp.producao.grupoexito.app.br',
+    'https://exitogriderp.com',
+    'https://www.exitogriderp.com',
     // Any env-var configured frontend
     process.env.FRONTEND_URL,
   ].filter(Boolean);
@@ -94,6 +96,8 @@ async function bootstrap() {
       if (!origin) return callback(null, true);
       // Allow any Railway subdomain (*.up.railway.app)
       if (origin.includes('.up.railway.app')) return callback(null, true);
+      // Allow apex + any subdomain of exitogriderp.com
+      if (/^https:\/\/([a-z0-9-]+\.)*exitogriderp\.com$/.test(origin)) return callback(null, true);
       // Allow explicit list
       if (allowedOrigins.includes(origin)) return callback(null, true);
       // Blocked — log it so we can diagnose
