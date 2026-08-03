@@ -573,34 +573,108 @@ export class EquipmentService implements OnModuleInit {
 
   async updateDailyLog(id: string, data: Partial<EquipmentDailyLog>): Promise<EquipmentDailyLog> {
     // Track date changes for internal control (medição)
+    const existing = await this.dailyRepo.findOne({ where: { id }, relations: ['rental'] });
+    if (!existing) throw new NotFoundException('Diária não encontrada');
+
     if (data.date !== undefined) {
-      const existing = await this.dailyRepo.findOneBy({ id });
-      if (existing) {
-        const existingDate = String(existing.date).substring(0, 10);
-        const newDate = String(data.date).substring(0, 10);
-        if (existingDate !== newDate && !existing.originalDate) {
-          // First time the date is being changed — save original date
-          data.originalDate = existing.date;
-        }
+      const existingDate = String(existing.date).substring(0, 10);
+      const newDate = String(data.date).substring(0, 10);
+      if (existingDate !== newDate && !existing.originalDate) {
+        data.originalDate = existing.date;
       }
     }
 
-    // Recalculate totalValue if any value field is provided
-    if (data.normalValue !== undefined || data.overtimeValue !== undefined || 
-        data.nightValue !== undefined || data.holidayValue !== undefined || data.weekendValue !== undefined) {
-      const existing = await this.dailyRepo.findOneBy({ id });
-      if (existing) {
-        const nv = data.normalValue !== undefined ? Number(data.normalValue) : Number(existing.normalValue || 0);
-        const ov = data.overtimeValue !== undefined ? Number(data.overtimeValue) : Number(existing.overtimeValue || 0);
-        const niv = data.nightValue !== undefined ? Number(data.nightValue) : Number(existing.nightValue || 0);
-        const hv = data.holidayValue !== undefined ? Number(data.holidayValue) : Number(existing.holidayValue || 0);
-        const wv = data.weekendValue !== undefined ? Number(data.weekendValue) : Number(existing.weekendValue || 0);
-        data.totalValue = nv + ov + niv + hv + wv;
-      }
+    // ── Recalcular totalValue ──────────────────────────────────────────────────
+    const hasValueOverride = data.normalValue !== undefined || data.overtimeValue !== undefined ||
+      data.nightValue !== undefined || data.holidayValue !== undefined || data.weekendValue !== undefined;
+
+    if (hasValueOverride) {
+      // Usuário passou valores individuais manualmente → soma direta
+      const nv = data.normalValue !== undefined ? Number(data.normalValue) : Number(existing.normalValue || 0);
+      const ov = data.overtimeValue !== undefined ? Number(data.overtimeValue) : Number(existing.overtimeValue || 0);
+      const niv = data.nightValue !== undefined ? Number(data.nightValue) : Number(existing.nightValue || 0);
+      const hv = data.holidayValue !== undefined ? Number(data.holidayValue) : Number(existing.holidayValue || 0);
+      const wv = data.weekendValue !== undefined ? Number(data.weekendValue) : Number(existing.weekendValue || 0);
+      data.totalValue = nv + ov + niv + hv + wv;
+    } else if (data.dailyRate !== undefined || data.normalHours !== undefined || data.overtimeHours !== undefined || data.nightHours !== undefined) {
+      // Usuário alterou dailyRate ou horas → recalcular tudo com base nas taxas da locação
+      const rental = existing.rental;
+      const dailyRate = Number(data.dailyRate ?? existing.dailyRate ?? 0);
+      const contractedH = Number(rental?.contractedHoursPerDay || 8);
+      const hourlyRate = dailyRate / contractedH;
+
+      const normalH = Number(data.normalHours ?? existing.normalHours ?? 0);
+      const overtimeH = Number(data.overtimeHours ?? existing.overtimeHours ?? 0);
+      const nightH = Number(data.nightHours ?? existing.nightHours ?? 0);
+      const isHoliday = data.isHoliday ?? existing.isHoliday ?? false;
+      const isWeekend = data.isWeekend ?? existing.isWeekend ?? false;
+
+      // Adicional hora extra
+      const overtimeRate = Number(rental?.overtimeRate || 0);
+      const overtimeAdd = rental?.overtimeMode === 'percent'
+        ? hourlyRate * (overtimeRate / 100)
+        : overtimeRate;
+
+      // Adicional noturno
+      const nightRate = Number(rental?.nightRate || 0);
+      const nightAdd = rental?.nightMode === 'percent'
+        ? hourlyRate * (nightRate / 100)
+        : nightRate;
+
+      // Adicional feriado
+      const holidayRate = Number(rental?.holidayRate || 0);
+      const holidayAdd = rental?.holidayMode === 'percent'
+        ? hourlyRate * (holidayRate / 100)
+        : holidayRate;
+
+      // Adicional fim de semana
+      const weekendRate = Number(rental?.weekendRate || 0);
+      const weekendAdd = rental?.weekendMode === 'percent'
+        ? hourlyRate * (weekendRate / 100)
+        : weekendRate;
+
+      const normalValue = normalH * hourlyRate;
+      const overtimeValue = overtimeH * (hourlyRate + overtimeAdd);
+      const nightValue = nightH * nightAdd;
+      const holidayValue = isHoliday ? (normalH + overtimeH) * holidayAdd : 0;
+      const weekendValue = isWeekend ? (normalH + overtimeH) * weekendAdd : 0;
+      const totalValue = normalValue + overtimeValue + nightValue + holidayValue + weekendValue;
+
+      data.normalValue = normalValue;
+      data.overtimeValue = overtimeValue;
+      data.nightValue = nightValue;
+      data.holidayValue = holidayValue;
+      data.weekendValue = weekendValue;
+      data.totalValue = totalValue;
     }
+
     await this.dailyRepo.update(id, data);
+
+    // ── Recalcular boletim que contém esta diária ──────────────────────────────
+    try {
+      const boletimRepo = this.dataSource.getRepository(EquipmentBoletim);
+      const allBoletins = await boletimRepo.find({ where: { deletedAt: null } as any });
+      for (const boletim of allBoletins) {
+        const logIds: string[] = typeof boletim.dailyLogIds === 'string'
+          ? JSON.parse(boletim.dailyLogIds || '[]')
+          : (boletim.dailyLogIds || []);
+        if (logIds.includes(id)) {
+          // Recalcular totais do boletim com os valores atualizados das diárias
+          const logs = await this.dailyRepo.findBy({ id: In(logIds) });
+          boletim.totalValue = logs.reduce((sum, l) => sum + Number(l.totalValue || 0), 0);
+          boletim.totalNormalHours = logs.reduce((sum, l) => sum + Number(l.normalHours || 0), 0);
+          boletim.totalOvertimeHours = logs.reduce((sum, l) => sum + Number(l.overtimeHours || 0), 0);
+          boletim.totalNightHours = logs.reduce((sum, l) => sum + Number(l.nightHours || 0), 0);
+          await boletimRepo.save(boletim);
+        }
+      }
+    } catch (e) {
+      this.logger.warn('Aviso: não foi possível recalcular boletim após edição de diária:', e?.message);
+    }
+
     return this.dailyRepo.findOne({ where: { id }, relations: ['rental', 'equipment'] });
   }
+
 
   async removeDailyLog(id: string): Promise<void> {
     await this.dailyRepo.softDelete(id);
