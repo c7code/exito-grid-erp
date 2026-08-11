@@ -49,6 +49,8 @@ import {
   Wallet,
   UserPlus,
   Headphones,
+  Target,
+  Megaphone,
 } from 'lucide-react';
 
 type NavItem = { path: string; label: string; icon: any; module: string; roles: string[] };
@@ -73,6 +75,13 @@ const navSections: NavSection[] = [
       { path: '/admin/client-requests', label: 'Solicitações', icon: MessageSquare, module: 'client-requests', roles: ['admin', 'commercial', 'employee'] },
       { path: '/admin/laudos', label: 'Laudos Elétricos', icon: Zap, module: 'laudos', roles: ['admin', 'commercial', 'engineer'] },
       { path: '/admin/simulator', label: 'Simulador', icon: Calculator, module: 'finance-simulator', roles: ['admin', 'commercial', 'finance', 'employee'] },
+    ],
+  },
+  {
+    section: 'MARKETING',
+    items: [
+      { path: '/admin/marketing', label: 'Dashboard Marketing', icon: Target, module: 'marketing', roles: ['admin', 'commercial', 'employee'] },
+      { path: '/admin/marketing/campaigns', label: 'Campanhas', icon: Megaphone, module: 'marketing', roles: ['admin', 'commercial', 'employee'] },
     ],
   },
   {

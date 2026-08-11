@@ -1,0 +1,73 @@
+# ============================================================
+# EXITOGRID — Performance & Security .htaccess
+# ============================================================
+
+# Force UTF-8
+AddDefaultCharset UTF-8
+AddCharset UTF-8 .html .css .js .xml .svg
+
+# MIME types
+AddType text/html .html
+AddType text/css .css
+AddType application/javascript .js
+AddType image/webp .webp
+AddType image/svg+xml .svg
+AddType font/woff2 .woff2
+
+# ============================================================
+# COMPRESSAO GZIP — reduz ate 70% no tamanho dos arquivos
+# ============================================================
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html
+  AddOutputFilterByType DEFLATE text/css
+  AddOutputFilterByType DEFLATE application/javascript
+  AddOutputFilterByType DEFLATE text/xml
+  AddOutputFilterByType DEFLATE image/svg+xml
+  AddOutputFilterByType DEFLATE font/woff2
+  AddOutputFilterByType DEFLATE application/json
+  BrowserMatch ^Mozilla/4 gzip-only-text/html
+  BrowserMatch ^Mozilla/4\.0[678] no-gzip
+  BrowserMatch \bMSIE !no-gzip !gzip-only-text/html
+  Header append Vary User-Agent
+</IfModule>
+
+# ============================================================
+# CACHE DO NAVEGADOR
+# ============================================================
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/jpeg        "access plus 6 months"
+  ExpiresByType image/png         "access plus 6 months"
+  ExpiresByType image/webp        "access plus 6 months"
+  ExpiresByType image/gif         "access plus 6 months"
+  ExpiresByType image/svg+xml     "access plus 6 months"
+  ExpiresByType image/x-icon      "access plus 1 year"
+  ExpiresByType font/woff2        "access plus 1 year"
+  ExpiresByType font/woff         "access plus 1 year"
+  ExpiresByType text/css          "access plus 1 week"
+  ExpiresByType application/javascript "access plus 1 week"
+  ExpiresByType text/html         "access plus 0 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|ico|woff2|woff)$">
+    Header set Cache-Control "public, max-age=15552000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(css|js)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  Header set Connection keep-alive
+</IfModule>
+
+# ============================================================
+# SEGURANCA
+# ============================================================
+Options -Indexes
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ilberto Felix de Sousa Junior - Currículo Profissional</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #2d3748;
+            line-height: 1.5;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-columns: 65mm 145mm;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            background: linear-gradient(180deg, #1a202c 0%, #2d3748 100%);
+            color: white;
+            padding: 40px 25px;
+            position: relative;
+        }
+
+        .profile-section {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .profile-img-placeholder {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            font-weight: 700;
+            color: white;
+            border: 4px solid rgba(255,255,255,0.2);
+        }
+
+        .sidebar-name {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            line-height: 1.3;
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            color: #a0aec0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-section {
+            margin-bottom: 30px;
+        }
+
+        .sidebar-heading {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #63b3ed;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .contact-list {
+            list-style: none;
+        }
+
+        .contact-list li {
+            font-size: 10px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            line-height: 1.4;
+        }
+
+        .contact-icon {
+            width: 16px;
+            height: 16px;
+            min-width: 16px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+        }
+
+        .skills-sidebar {
+            list-style: none;
+        }
+
+        .skills-sidebar li {
+            font-size: 10px;
+            margin-bottom: 8px;
+            padding: 6px 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+            border-left: 2px solid #4299e1;
+        }
+
+        .lang-item {
+            margin-bottom: 12px;
+        }
+
+        .lang-name {
+            font-size: 10px;
+            margin-bottom: 4px;
+        }
+
+        .lang-bar {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .lang-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4299e1, #63b3ed);
+            border-radius: 2px;
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            padding: 40px 35px;
+        }
+
+        .main-header {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .main-name {
+            font-size: 28px;
+            font-weight: 800;
+            color: #1a202c;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .main-role {
+            font-size: 14px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .content-section {
+            margin-bottom: 25px;
+        }
+
+        .section-header-main {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .section-icon-main {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+
+        .section-title-main {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1a202c;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .objective-text {
+            font-size: 11px;
+            line-height: 1.8;
+            color: #4a5568;
+            text-align: justify;
+        }
+
+        .experience-card {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 18px;
+            margin-bottom: 12px;
+            border-left: 3px solid #4299e1;
+        }
+
+        .job-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .job-title-main {
+            font-size: 13px;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .job-period {
+            font-size: 9px;
+            color: #718096;
+            background: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .job-company {
+            font-size: 10px;
+            color: #4299e1;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .duties-list-main {
+            list-style: none;
+        }
+
+        .duties-list-main li {
+            font-size: 10px;
+            color: #4a5568;
+            padding: 4px 0;
+            padding-left: 16px;
+            position: relative;
+            line-height: 1.6;
+        }
+
+        .duties-list-main li::before {
+            content: '—';
+            position: absolute;
+            left: 0;
+            color: #4299e1;
+            font-weight: bold;
+        }
+
+        .education-main {
+            display: grid;
+            gap: 10px;
+        }
+
+        .edu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: #f0fff4;
+            border-radius: 6px;
+            border-left: 3px solid #48bb78;
+        }
+
+        .edu-icon {
+            width: 28px;
+            height: 28px;
+            background: #48bb78;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .edu-text {
+            font-size: 11px;
+            font-weight: 600;
+            color: #22543d;
+        }
+
+        .edu-level {
+            font-size: 9px;
+            color: #38a169;
+            margin-top: 2px;
+        }
+
+        .additional-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .add-item {
+            text-align: center;
+            padding: 12px 8px;
+            background: linear-gradient(135deg, #fffaf0 0%, #feebc8 100%);
+            border-radius: 6px;
+            border: 1px solid #fbd38d;
+        }
+
+        .add-icon {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .add-text {
+            font-size: 9px;
+            font-weight: 600;
+            color: #744210;
+            line-height: 1.3;
+        }
+
+        @media print {
+            body { background: white; }
+            .page { 
+                width: 100%; 
+                box-shadow: none;
+                grid-template-columns: 65mm 145mm;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="profile-section">
+                <div class="profile-img-placeholder">IF</div>
+                <div class="sidebar-name">Ilberto Felix<br>de Sousa Junior</div>
+                <div class="sidebar-title">Profissional de Atendimento</div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="sidebar-heading">Contato</h3>
+                <ul class="contact-list">
+                    <li>
+                        <span class="contact-icon">📍</span>
+                        <span>Recife, PE</span>
+                    </li>
+                    <li>
+                        <span class="contact-icon">📱</span>
+                        <span>(81) 9 9710-1462</span>
+                    </li>
+                    <li>
+                        <span class="contact-icon">✉️</span>
+                        <span style="font-size: 9px;">betinhofelex<wbr>@gmail.com</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="sidebar-heading">Habilidades</h3>
+                <ul class="skills-sidebar">
+                    <li>Atendimento ao Cliente</li>
+                    <li>Suporte Técnico</li>
+                    <li>Manutenção de Hardware</li>
+                    <li>Comunicação Clara</li>
+                    <li>Trabalho em Equipe</li>
+                    <li>Organização</li>
+                    <li>Proatividade</li>
+                    <li>Agilidade</li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="sidebar-heading">Informática</h3>
+                <ul class="skills-sidebar">
+                    <li>Windows / Office</li>
+                    <li>Manutenção de PCs</li>
+                    <li>Instalação de Softwares</li>
+                    <li>Configuração de Redes</li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="sidebar-heading">Idiomas</h3>
+                <div class="lang-item">
+                    <div class="lang-name">Português</div>
+                    <div class="lang-bar"><div class="lang-fill" style="width: 100%;"></div></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <div class="main-header">
+                <h1 class="main-name">Ilberto Felix de Sousa Junior</h1>
+                <p class="main-role">Técnico em Atendimento e Suporte | Logística | Operacional</p>
+            </div>
+
+            <section class="content-section">
+                <div class="section-header-main">
+                    <div class="section-icon-main">🎯</div>
+                    <h2 class="section-title-main">Objetivo Profissional</h2>
+                </div>
+                <p class="objective-text">
+                    Atuar na área operacional, logística ou atendimento em atacarejo, contribuindo com produtividade, 
+                    organização e excelência no atendimento ao cliente. Busco oportunidades que valorizem o 
+                    desenvolvimento profissional, onde possa aplicar minhas habilidades técnicas e de comunicação 
+                    para agregar valor à equipe e à empresa.
+                </p>
+            </section>
+
+            <section class="content-section">
+                <div class="section-header-main">
+                    <div class="section-icon-main">💼</div>
+                    <h2 class="section-title-main">Experiência Profissional</h2>
+                </div>
+
+                <div class="experience-card">
+                    <div class="job-header">
+                        <h3 class="job-title-main">Atendimento e Suporte Técnico</h3>
+                    </div>
+                    <div class="job-company">Área de Tecnologia e Atendimento</div>
+                    <ul class="duties-list-main">
+                        <li>Manutenção básica de computadores e impressoras (hardware e software)</li>
+                        <li>Atendimento direto ao público com foco em resolução de problemas</li>
+                        <li>Suporte técnico presencial e remoto a clientes e usuários</li>
+                        <li>Organização e controle de equipamentos e ambiente de trabalho</li>
+                        <li>Instalação e configuração de sistemas e periféricos</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="content-section">
+                <div class="section-header-main">
+                    <div class="section-icon-main">🎓</div>
+                    <h2 class="section-title-main">Formação Acadêmica</h2>
+                </div>
+                <div class="education-main">
+                    <div class="edu-item">
+                        <div class="edu-icon">✓</div>
+                        <div>
+                            <div class="edu-text">Ensino Médio Completo</div>
+                            <div class="edu-level">Concluído</div>
+                        </div>
+                    </div>
+                    <div class="edu-item">
+                        <div class="edu-icon">✓</div>
+                        <div>
+                            <div class="edu-text">Informática Básica</div>
+                            <div class="edu-level">Certificação em Informática</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="content-section">
+                <div class="section-header-main">
+                    <div class="section-icon-main">⭐</div>
+                    <h2 class="section-title-main">Diferenciais</h2>
+                </div>
+                <div class="additional-grid">
+                    <div class="add-item">
+                        <div class="add-icon">🕐</div>
+                        <div class="add-text">Disponibilidade Total de Horário</div>
+                    </div>
+                    <div class="add-item">
+                        <div class="add-icon">🔄</div>
+                        <div class="add-text">Facilidade de Adaptação</div>
+                    </div>
+                    <div class="add-item">
+                        <div class="add-icon">📈</div>
+                        <div class="add-text">Foco em Crescimento Profissional</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+</body>
+</html>
