@@ -49,6 +49,7 @@ import { LaudosModule } from './laudos/laudos.module';
 import { CategoriesModule } from './categories/categories.module';
 import { HealthModule } from './health/health.module';
 import { MarketingModule } from './marketing/marketing.module';
+import { DailyChecklistModule } from './daily-checklist/daily-checklist.module';
 
 @Module({
   imports: [
@@ -169,6 +170,7 @@ import { MarketingModule } from './marketing/marketing.module';
     CategoriesModule,
     HealthModule,
     MarketingModule,
+    DailyChecklistModule,
   ],
   providers: [
     {

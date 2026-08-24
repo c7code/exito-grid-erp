@@ -151,6 +151,7 @@ const AdminPackages = lazy(() => import('./pages/admin/Packages'));
 const AdminRules = lazy(() => import('./pages/admin/Rules'));
 const AdminMarketing = lazy(() => import('./pages/admin/Marketing'));
 const AdminMarketingCampaigns = lazy(() => import('./pages/admin/MarketingCampaigns'));
+const AdminDailyChecklist = lazy(() => import('./pages/admin/DailyChecklist'));
 
 const NotFound = lazy(() => import('./pages/NotFound'));
 
@@ -273,6 +274,7 @@ function App() {
               <Route path="/admin/rules" element={<AdminRules />} />
               <Route path="/admin/marketing" element={<AdminMarketing />} />
               <Route path="/admin/marketing/campaigns" element={<AdminMarketingCampaigns />} />
+              <Route path="/admin/daily-checklist" element={<AdminDailyChecklist />} />
 
               <Route path="/admin/employees" element={<AdminEmployees />} />
               <Route path="/admin/employees/:id/compliance" element={<AdminEmployeeCompliance />} />

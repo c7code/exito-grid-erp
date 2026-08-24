@@ -3693,6 +3693,35 @@ class ApiService {
   async deleteMarketingAction(id: string) {
     await this.client.delete(`/marketing/actions/${id}`);
   }
+
+  // ── Daily Checklist ───────────────────────────────────────────────────────
+  async getDailyChecklistToday() {
+    const r = await this.client.get("/daily-checklist/today");
+    return r.data;
+  }
+  async getDailyChecklists() {
+    const r = await this.client.get("/daily-checklist");
+    return r.data;
+  }
+  async getDailyChecklist(id: string) {
+    const r = await this.client.get(`/daily-checklist/${id}`);
+    return r.data;
+  }
+  async addDailyChecklistItem(checklistId: string, data: any) {
+    const r = await this.client.post(`/daily-checklist/${checklistId}/items`, data);
+    return r.data;
+  }
+  async toggleDailyChecklistItem(itemId: string) {
+    const r = await this.client.patch(`/daily-checklist/items/${itemId}/toggle`);
+    return r.data;
+  }
+  async updateDailyChecklistItem(itemId: string, data: any) {
+    const r = await this.client.patch(`/daily-checklist/items/${itemId}`, data);
+    return r.data;
+  }
+  async deleteDailyChecklistItem(itemId: string) {
+    await this.client.delete(`/daily-checklist/items/${itemId}`);
+  }
 }
 
 export const api = new ApiService();

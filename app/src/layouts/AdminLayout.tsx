@@ -51,6 +51,7 @@ import {
   Headphones,
   Target,
   Megaphone,
+  ClipboardCheck,
 } from 'lucide-react';
 
 type NavItem = { path: string; label: string; icon: any; module: string; roles: string[] };
@@ -61,6 +62,7 @@ const navSections: NavSection[] = [
     section: 'GERAL',
     items: [
       { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, module: 'dashboard', roles: ['admin', 'employee'] },
+      { path: '/admin/daily-checklist', label: 'Checklist Diário', icon: ClipboardCheck, module: 'daily-checklist', roles: ['admin', 'employee'] },
     ],
   },
   {
