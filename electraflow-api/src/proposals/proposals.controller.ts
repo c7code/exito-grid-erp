@@ -45,6 +45,12 @@ export class ProposalsController {
     return this.proposalsService.diagnoseSchema();
   }
 
+  @Get('trash/all')
+  @ApiOperation({ summary: 'Listar propostas na lixeira' })
+  async findDeleted() {
+    return this.proposalsService.findDeleted();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Buscar proposta por ID' })
   async findOne(@Param('id') id: string) {
@@ -142,15 +148,18 @@ export class ProposalsController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Remover proposta (soft delete)' })
+  @ApiOperation({ summary: 'Remover proposta (soft delete — vai para lixeira)' })
   async remove(@Param('id') id: string) {
     await this.proposalsService.remove(id);
-    return { message: 'Proposta removida com sucesso' };
+    return { message: 'Proposta movida para a lixeira' };
   }
 
   @Delete(':id/permanent')
-  @ApiOperation({ summary: 'Remover proposta permanentemente' })
-  async permanentDelete(@Param('id') id: string) {
+  @ApiOperation({ summary: 'Remover proposta permanentemente (apenas admin)' })
+  async permanentDelete(@Param('id') id: string, @Req() req: any) {
+    if (req.user?.role !== 'admin') {
+      throw new Error('Apenas administradores podem excluir permanentemente');
+    }
     await this.proposalsService.permanentDelete(id);
     return { message: 'Proposta removida permanentemente' };
   }

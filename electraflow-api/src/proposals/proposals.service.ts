@@ -621,6 +621,27 @@ export class ProposalsService {
     await this.proposalRepository.remove(proposal);
   }
 
+  async restore(id: string): Promise<Proposal> {
+    const proposal = await this.proposalRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+    if (!proposal) throw new NotFoundException('Proposta não encontrada');
+    if (!proposal.deletedAt) throw new BadRequestException('Proposta não está na lixeira');
+    await this.proposalRepository.restore(id);
+    return this.findOne(id);
+  }
+
+  async findDeleted(): Promise<Proposal[]> {
+    return this.proposalRepository
+      .createQueryBuilder('p')
+      .withDeleted()
+      .leftJoinAndSelect('p.client', 'client')
+      .where('p.deletedAt IS NOT NULL')
+      .orderBy('p.deletedAt', 'DESC')
+      .getMany();
+  }
+
   // ═══════════════════════════════════════════════════════════════
   // Sistema de Revisões
   // ═══════════════════════════════════════════════════════════════
