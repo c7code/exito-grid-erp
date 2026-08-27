@@ -286,11 +286,15 @@ export default function AdminDashboard() {
     const totalExpiredDocs = empsWithDocs.reduce((s, e) => s + e.expiredDocs.length, 0);
     const totalExpiringDocs = empsWithDocs.reduce((s, e) => s + e.expiringDocs.length, 0);
 
-    // Proposals
+    // Proposals — pipeline usa filtro de período; aprovadas mostra acumulado total
     const openProposals = fp.filter(p => p.status === 'draft' || p.status === 'sent');
     const acceptedProposals = fp.filter(p => p.status === 'accepted');
     const conversionRate = fp.length > 0 ? (acceptedProposals.length / fp.length) * 100 : 0;
-    const pipelineValue = openProposals.reduce((s, p) => s + Number(p.totalValue || p.value || 0), 0);
+    const pipelineValue = openProposals.reduce((s, p) => s + Number(p.total || 0), 0);
+    // Total aprovado: TODOS os aceitos (sem filtro de período) para refletir receita acumulada
+    const allAcceptedProposals = proposals.filter(p => p.status === 'accepted');
+    const totalAcceptedValue = allAcceptedProposals.reduce((s, p) => s + Number(p.total || 0), 0);
+    const allAcceptedCount = allAcceptedProposals.length;
 
     // Protocols
     const pendingProtocols = fpr.filter(p => p.status === 'pending' || p.status === 'in_progress');
@@ -356,6 +360,7 @@ export default function AdminDashboard() {
       openProposals: openProposals.length, conversionRate, pipelineValue,
       pendingProtocols: pendingProtocols.length, slaRate, revenuePerEmp,
       totalClients: fc.length, acceptedProposals: acceptedProposals.length,
+      totalAcceptedValue, allAcceptedCount,
       empsWithDocs, statusChartData, revenueChartData, marginPerWork, stateChartData,
       pendingTasks: pendingTasks.sort((a, b) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime()).slice(0, 8),
       recentWorks: [...fw].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 6),
@@ -532,7 +537,8 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <KPI icon={Briefcase} label="Clientes Ativos" value={kpis.totalClients} accent="bg-pink-50" iconColor="text-pink-600" />
           <KPI icon={FileText} label="Propostas Abertas" value={kpis.openProposals} sub={`Pipeline: R$ ${fmtK(kpis.pipelineValue)}`} accent="bg-indigo-50" iconColor="text-indigo-600" />
-          <KPI icon={Zap} label="Taxa Conversão" value={`${kpis.conversionRate.toFixed(0)}%`} sub={`${kpis.acceptedProposals} aceitas`} accent="bg-amber-50" iconColor="text-amber-600" />
+          <KPI icon={Zap} label="Taxa Conversão" value={`${kpis.conversionRate.toFixed(0)}%`} sub={`${kpis.acceptedProposals} aceitas (período)`} accent="bg-amber-50" iconColor="text-amber-600" />
+          <KPI icon={CheckCircle2} label="Propostas Aprovadas" value={`R$ ${fmtK(kpis.totalAcceptedValue)}`} sub={`${kpis.allAcceptedCount} contratos — acumulado total`} accent="bg-emerald-50" iconColor="text-emerald-600" />
           <KPI icon={FileSignature} label="Contratos Ativos" value={contracts.filter((c: any) => c.status === 'active' || c.status === 'signed').length} sub={`${contracts.length} total`} accent="bg-violet-50" iconColor="text-violet-600" />
           <KPI icon={MapPin} label="Protocolos Pend." value={kpis.pendingProtocols} accent="bg-sky-50" iconColor="text-sky-600" />
           <KPI icon={BarChart3} label="Margem Média/Obra" value={`${kpis.avgMarginPerWork.toFixed(1)}%`} accent="bg-purple-50" iconColor="text-purple-600" />
