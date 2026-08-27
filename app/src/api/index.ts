@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance, type AxiosError } from 'axios';
+﻿import axios, { type AxiosInstance, type AxiosError } from 'axios';
 import { toast } from 'sonner';
 
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ DetecÃƒÂ§ÃƒÂ£o automÃƒÂ¡tica de URL da API Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
@@ -757,7 +757,7 @@ class ApiService {
   }
 
   // Proposals
-  async getProposals(status?: string, page = 1, pageSize = 100) {
+  async getProposals(status?: string, page = 1, pageSize = 500) {
     const params: any = { page, pageSize };
     if (status) params.status = status;
     const response = await this.client.get('/proposals', { params });
