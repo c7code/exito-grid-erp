@@ -55,6 +55,10 @@ export class UsersService {
     if (userData.password) {
       userData.password = await bcrypt.hash(userData.password, 10);
     }
+    // Proteção: se o usuário já é admin, não permite rebaixar o role via update
+    if (user.role === 'admin' && userData.role && userData.role !== 'admin') {
+      delete userData.role;
+    }
     Object.assign(user, userData);
     return this.userRepository.save(user);
   }

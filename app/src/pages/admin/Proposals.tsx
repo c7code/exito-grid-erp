@@ -957,10 +957,10 @@ export default function AdminProposals() {
         <div className="flex items-center gap-1">
           {[
             { key: 'all', label: 'Todas', emoji: '' },
-            { key: 'solar', label: 'Solar', emoji: 'â˜€ï¸' },
-            { key: 'oem', label: 'O&M', emoji: 'ðŸ”§' },
-            { key: 'locacao', label: 'Locação', emoji: 'ðŸ—ï¸' },
-            { key: 'comercial', label: 'Comercial', emoji: 'ðŸ“‹' },
+            { key: 'solar', label: 'Solar', emoji: '☀️' },
+            { key: 'oem', label: 'O&M', emoji: '🔧' },
+            { key: 'locacao', label: 'Locação', emoji: '🏗️' },
+            { key: 'comercial', label: 'Comercial', emoji: '📋' },
           ].map(f => (
             <Button
               key={f.key}
@@ -1016,12 +1016,12 @@ export default function AdminProposals() {
                           <span>{proposal.proposalNumber}</span>
                           {(() => {
                             const at = proposal.activityType || '';
-                            const origin = at === 'energia_solar' ? { label: 'Solar', emoji: 'â˜€ï¸', color: 'bg-amber-100 text-amber-700 border-amber-200' }
-                              : (at === 'plano_oem' || at.startsWith('manutencao_')) ? { label: 'O&M', emoji: 'ðŸ”§', color: 'bg-purple-100 text-purple-700 border-purple-200' }
-                              : at === 'locacao_equipamento' ? { label: 'Locação', emoji: 'ðŸ—ï¸', color: 'bg-sky-100 text-sky-700 border-sky-200' }
-                              : at === 'extensao_rede' ? { label: 'Rede', emoji: 'âš¡', color: 'bg-orange-100 text-orange-700 border-orange-200' }
-                              : at ? { label: at.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()), emoji: 'ðŸ“‹', color: 'bg-slate-100 text-slate-600 border-slate-200' }
-                              : { label: 'Comercial', emoji: 'ðŸ“‹', color: 'bg-slate-100 text-slate-600 border-slate-200' };
+                            const origin = at === 'energia_solar' ? { label: 'Solar', emoji: '☀️', color: 'bg-amber-100 text-amber-700 border-amber-200' }
+                              : (at === 'plano_oem' || at.startsWith('manutencao_')) ? { label: 'O&M', emoji: '🔧', color: 'bg-purple-100 text-purple-700 border-purple-200' }
+                              : at === 'locacao_equipamento' ? { label: 'Locação', emoji: '🏗️', color: 'bg-sky-100 text-sky-700 border-sky-200' }
+                              : at === 'extensao_rede' ? { label: 'Rede', emoji: '⚡', color: 'bg-orange-100 text-orange-700 border-orange-200' }
+                              : at ? { label: at.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()), emoji: '📋', color: 'bg-slate-100 text-slate-600 border-slate-200' }
+                              : { label: 'Comercial', emoji: '📋', color: 'bg-slate-100 text-slate-600 border-slate-200' };
                             return (
                               <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold border w-fit ${origin.color}`}>
                                 {origin.emoji} {origin.label}
