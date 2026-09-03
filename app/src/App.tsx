@@ -57,16 +57,25 @@ class ChunkErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error) {
+    const msg = error.message || '';
     const isChunkError =
-      error.message?.includes('Failed to fetch dynamically imported module') ||
-      error.message?.includes('Loading chunk') ||
-      error.message?.includes('Expected a JavaScript') ||
-      error.message?.includes('Failed to load module script') ||
-      error.name === 'ChunkLoadError';
+      msg.includes('Failed to fetch dynamically imported module') ||
+      msg.includes('Loading chunk') ||
+      msg.includes('Expected a JavaScript') ||
+      msg.includes('Failed to load module script') ||
+      msg.includes('Importing a module script failed') ||
+      msg.includes('error loading dynamically imported module') ||
+      msg.includes('Unable to preload CSS') ||
+      error.name === 'ChunkLoadError' ||
+      error.name === 'SyntaxError';
 
     if (isChunkError && !this.state.reloading) {
       this.setState({ reloading: true });
       setTimeout(() => window.location.reload(), 800);
+    } else if (!isChunkError && !this.state.reloading) {
+      // Para erros não-chunk, ainda auto-recarrega após 3s
+      this.setState({ reloading: true });
+      setTimeout(() => window.location.reload(), 3000);
     }
   }
 
