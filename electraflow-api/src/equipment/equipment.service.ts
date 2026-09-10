@@ -373,17 +373,30 @@ export class EquipmentService implements OnModuleInit {
     return r;
   }
 
-  async createRental(data: Partial<EquipmentRental>): Promise<EquipmentRental> {
-    const code = await this.generateUniqueCode('equipment_rentals', 'LOC');
-    const rental = await this.rentalRepo.save(this.rentalRepo.create({ ...data, code }));
-    if (data.status === 'active' || data.status === 'confirmed') {
-      await this.equipRepo.update(data.equipmentId, { status: 'rented' });
+  /** Converte campos UUID vazios ('') para null para evitar erro no Postgres */
+  private sanitizeRentalData(data: any): any {
+    const uuidFields = ['clientId', 'operatorId', 'proposalId', 'contractId', 'serviceOrderId', 'checklistDepartureId', 'checklistReturnId'];
+    const clean = { ...data };
+    for (const f of uuidFields) {
+      if (clean[f] === '' || clean[f] === undefined) clean[f] = null;
     }
-    await this.equipRepo.increment({ id: data.equipmentId }, 'totalRentals', 1);
-    return this.getRentalById(rental.id);
+    return clean;
+  }
+
+  async createRental(data: Partial<EquipmentRental>): Promise<EquipmentRental> {
+    const clean = this.sanitizeRentalData(data);
+    const code = await this.generateUniqueCode('equipment_rentals', 'LOC');
+    const entity = this.rentalRepo.create({ ...clean, code });
+    const saved: any = await this.rentalRepo.save(entity);
+    if (clean.status === 'active' || clean.status === 'confirmed') {
+      await this.equipRepo.update(clean.equipmentId, { status: 'rented' });
+    }
+    await this.equipRepo.increment({ id: clean.equipmentId }, 'totalRentals', 1);
+    return this.getRentalById(saved.id);
   }
 
   async updateRental(id: string, data: Partial<EquipmentRental>): Promise<EquipmentRental> {
+    data = this.sanitizeRentalData(data);
     const old = await this.getRentalById(id);
 
     // ─── Log de alterações (operador, equipamento) ───
