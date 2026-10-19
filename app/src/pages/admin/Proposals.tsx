@@ -179,16 +179,16 @@ export default function AdminProposals() {
         const diff = proposalTotal - alreadyGenerated;
 
         if (diff <= 0) {
-          toast.warning(`Esta proposta já possui lanÃ§amento financeiro de R$ ${alreadyGenerated.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Nenhuma diferenÃ§a para gerar.`);
+          toast.warning(`Esta proposta já possui lançamento financeiro de R$ ${alreadyGenerated.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Nenhuma diferença para gerar.`);
           setFinanceProposal(proposal);
-          setFinanceConfig({ count: 2, intervalDays: 30, mode: 'equal', description: `Aditivo â€” ${proposal.title || proposal.proposalNumber}` });
+          setFinanceConfig({ count: 2, intervalDays: 30, mode: 'equal', description: `Aditivo — ${proposal.title || proposal.proposalNumber}` });
           setFinanceCustomInst([]);
           setFinanceDialogOpen(true);
           return;
         }
 
-        // There's a difference (aditivo) â€” allow generating for the diff
-        toast.info(`Proposta já tem lanÃ§amento de R$ ${alreadyGenerated.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Gerando diferenÃ§a de R$ ${diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`);
+        // There's a difference (aditivo) — allow generating for the diff
+        toast.info(`Proposta já tem lançamento de R$ ${alreadyGenerated.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Gerando diferença de R$ ${diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`);
         setFinanceProposal({ ...proposal, total: diff, _originalTotal: proposalTotal });
       } else {
         setExistingFinanceInfo(null);
@@ -227,9 +227,9 @@ export default function AdminProposals() {
         totalAmount: Number(financeProposal.total || 0),
         installments,
       });
-      toast.success(`LanÃ§amento financeiro criado com ${installments.length} parcela(s)!`);
+      toast.success(`Lançamento financeiro criado com ${installments.length} parcela(s)!`);
       setFinanceDialogOpen(false);
-    } catch { toast.error('Erro ao gerar lanÃ§amento financeiro'); }
+    } catch { toast.error('Erro ao gerar lançamento financeiro'); }
     setFinanceLoading(false);
   };
 
@@ -338,7 +338,7 @@ export default function AdminProposals() {
       if (linkedWork) {
         navigate(`/admin/works/${linkedWork.id}`);
       } else {
-        toast.info('Obra nÃ£o encontrada. Redirecionando para a lista de obras...');
+        toast.info('Obra não encontrada. Redirecionando para a lista de obras...');
         navigate('/admin/works');
       }
     } catch {
@@ -346,12 +346,12 @@ export default function AdminProposals() {
     }
   };
 
-  // â•â•â• PORTAL PUBLICATION â•â•â•
+  // ═══ PORTAL PUBLICATION ═══
   const handlePublishToPortal = async (proposal: any) => {
     const clientName = proposal.client?.name || 'cliente';
     const clientId = proposal.clientId || proposal.client?.id;
     if (!clientId) {
-      toast.error('Esta proposta nÃ£o tem cliente vinculado. Vincule um cliente primeiro.');
+      toast.error('Esta proposta não tem cliente vinculado. Vincule um cliente primeiro.');
       return;
     }
     const isPublished = publishedProposalIds.has(proposal.id);
@@ -423,7 +423,7 @@ export default function AdminProposals() {
   };
 
   const handlePermanentDelete = async (proposal: any) => {
-    if (!confirm(`âš ï¸ EXCLUIR PERMANENTEMENTE "${proposal.title || proposal.proposalNumber}"?\n\nEsta ação NÃƒO pode ser desfeita!`)) return;
+    if (!confirm(`⚠️ EXCLUIR PERMANENTEMENTE "${proposal.title || proposal.proposalNumber}"?\n\nEsta ação NÃO pode ser desfeita!`)) return;
     try {
       await api.permanentDeleteProposal(proposal.id);
       toast.success('Proposta excluída permanentemente.');
@@ -462,7 +462,7 @@ export default function AdminProposals() {
   const getClientName = (proposal: any): string => {
     if (proposal.client?.name) return proposal.client.name;
     if (proposal.opportunity?.client?.name) return proposal.opportunity.client.name;
-    return 'â€”';
+    return '—';
   };
 
   const handleViewRevisions = async (proposal: any) => {
@@ -486,14 +486,14 @@ export default function AdminProposals() {
     setRestoringId(revisionId);
     try {
       await api.restoreProposalRevision(revisionProposal.id, revisionId);
-      toast.success('Proposta restaurada com sucesso! A versÃ£o anterior foi salva no histórico.');
+      toast.success('Proposta restaurada com sucesso! A versão anterior foi salva no histórico.');
       setRevisionDialogOpen(false);
       setConfirmRestoreId(null);
       setPreviewRevision(null);
       loadProposals();
     } catch (error) {
-      console.error('Erro ao restaurar revisÃ£o:', error);
-      toast.error('Erro ao restaurar revisÃ£o.');
+      console.error('Erro ao restaurar revisão:', error);
+      toast.error('Erro ao restaurar revisão.');
     } finally {
       setRestoringId(null);
     }
@@ -503,19 +503,19 @@ export default function AdminProposals() {
     if (!revisionProposal?.id) return;
     try {
       await api.deleteProposalRevision(revisionProposal.id, revisionId);
-      toast.success('RevisÃ£o excluída do histórico.');
+      toast.success('Revisão excluída do histórico.');
       // Recarregar revisões
       const data = await api.getProposalRevisions(revisionProposal.id);
       setRevisions(Array.isArray(data) ? data : []);
       setPreviewRevision(null);
       setConfirmRestoreId(null);
     } catch (error) {
-      console.error('Erro ao excluir revisÃ£o:', error);
-      toast.error('Erro ao excluir revisÃ£o.');
+      console.error('Erro ao excluir revisão:', error);
+      toast.error('Erro ao excluir revisão.');
     }
   };
 
-  // â•â•â• UTILITY: Clean scanned signature images via Canvas â•â•â•
+  // ═══ UTILITY: Clean scanned signature images via Canvas ═══
   // html2canvas does NOT support mix-blend-mode, so we process at pixel level
   const cleanSignatureImage = (imageUrl: string): Promise<string> => {
     return new Promise((resolve) => {
@@ -544,10 +544,10 @@ export default function AdminProposals() {
           const brightness = (r + g + b) / 3;
 
           if (brightness > bgThreshold) {
-            // Light pixel â†’ make transparent
+            // Light pixel → make transparent
             data[i + 3] = 0;
           } else {
-            // Dark pixel (actual ink) â†’ darken for crisp look
+            // Dark pixel (actual ink) → darken for crisp look
             const factor = Math.max(0, brightness / bgThreshold);
             // Fade near-threshold pixels
             data[i + 3] = Math.round(255 * (1 - factor * factor));
@@ -582,9 +582,9 @@ export default function AdminProposals() {
 
   const handlePreviewProposal = async (proposal: any) => {
     try {
-      let freshProposal = await api.getProposal(proposal.id);
+      let freshProposal = proposal?._isRevisionSnapshot ? proposal : await api.getProposal(proposal.id);
 
-      // â•â•â• BUSCAR DOCUMENTOS EXTERNOS vinculados à proposta â•â•â•
+      // ═══ BUSCAR DOCUMENTOS EXTERNOS vinculados à proposta ═══
       try {
         const allDocs = await api.getDocuments({ proposalId: freshProposal.id });
         const externalDocs = (Array.isArray(allDocs) ? allDocs : [])
@@ -602,7 +602,7 @@ export default function AdminProposals() {
         }
       } catch { /* silencioso */ }
 
-      // â•â•â• RENDERIZAR PDFs ANEXOS COMO IMAGENS â•â•â•
+      // ═══ RENDERIZAR PDFs ANEXOS COMO IMAGENS ═══
       try {
         const externalDocs = freshProposal.documents || [];
         if (externalDocs.length > 0) {
@@ -631,7 +631,7 @@ export default function AdminProposals() {
 
       setPreviewProposalData(freshProposal);
       setCompanyData(coData);
-      // Resolve signatures â€” try API first, fallback to client-side resolution
+      // Resolve signatures — try API first, fallback to client-side resolution
       try {
         const sigs = await api.resolveSignatures('proposal', proposal.id, ['contratada', 'contratante']);
         if (sigs && Object.keys(sigs).some(k => sigs[k]?.imageUrl)) {
@@ -671,15 +671,18 @@ export default function AdminProposals() {
   const handleDownloadPDF = async (proposal: any) => {
     toast.info('Gerando PDF profissional...');
 
-    // â•â•â• FETCH FRESH DATA from API to ensure PDF uses latest saved values â•â•â•
+    // ═══ FETCH FRESH DATA from API to ensure PDF uses latest saved values ═══
     let freshProposal = proposal;
-    try {
-      freshProposal = await api.getProposal(proposal.id);
-    } catch (err) {
-      console.warn('Could not fetch fresh proposal data, using local data:', err);
+    // Revisões antigas (snapshot) NÃO devem ser substituídas pela versão atual
+    if (!proposal?._isRevisionSnapshot) {
+      try {
+        freshProposal = await api.getProposal(proposal.id);
+      } catch (err) {
+        console.warn('Could not fetch fresh proposal data, using local data:', err);
+      }
     }
 
-    // â•â•â• BUSCAR DOCUMENTOS EXTERNOS vinculados à proposta â•â•â•
+    // ═══ BUSCAR DOCUMENTOS EXTERNOS vinculados à proposta ═══
     try {
       const allDocs = await api.getDocuments({ proposalId: freshProposal.id });
       const externalDocs = (Array.isArray(allDocs) ? allDocs : [])
@@ -701,7 +704,7 @@ export default function AdminProposals() {
       console.warn('Could not fetch proposal documents:', err);
     }
 
-    // â•â•â• RENDERIZAR PDFs ANEXOS COMO IMAGENS â•â•â•
+    // ═══ RENDERIZAR PDFs ANEXOS COMO IMAGENS ═══
     try {
       const externalDocs = freshProposal.documents || [];
       if (externalDocs.length > 0) {
@@ -742,7 +745,7 @@ export default function AdminProposals() {
       }
     }
 
-    // â•â•â• RESOLVE SIGNATURES for PDF â€” with canvas cleanup â•â•â•
+    // ═══ RESOLVE SIGNATURES for PDF — with canvas cleanup ═══
     try {
       const sigs = await api.resolveSignatures('proposal', freshProposal.id, ['contratada', 'contratante']);
       if (sigs && Object.keys(sigs).some(k => sigs[k]?.imageUrl)) {
@@ -786,7 +789,7 @@ export default function AdminProposals() {
           setTimeout(() => tryCapturePDF(attempt + 1), 500);
           return;
         }
-        toast.error('Erro ao gerar PDF: Elemento nÃ£o encontrado.');
+        toast.error('Erro ao gerar PDF: Elemento não encontrado.');
         setProposalToPrint(null);
         return;
       }
@@ -829,7 +832,7 @@ export default function AdminProposals() {
   const handleShareEmail = (proposal: any) => {
     const clientName = getClientName(proposal);
     const subject = encodeURIComponent(`Proposta Comercial ${proposal.proposalNumber} - ${proposal.title}`);
-    const body = encodeURIComponent(`Olá ${clientName},\n\nSegue em anexo a proposta comercial ${proposal.proposalNumber} referente a "${proposal.title}".\n\nFicamos à disposição para dúvidas.\n\nAtenciosamente,\nEquipe EPR ÃŠXITO`);
+    const body = encodeURIComponent(`Olá ${clientName},\n\nSegue em anexo a proposta comercial ${proposal.proposalNumber} referente a "${proposal.title}".\n\nFicamos à disposição para dúvidas.\n\nAtenciosamente,\nEquipe EPR ÊXITO`);
     window.location.href = `mailto:${proposal.client?.email}?subject=${subject}&body=${body}`;
   };
 
@@ -1032,7 +1035,7 @@ export default function AdminProposals() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-0.5">
-                          <span className="font-medium text-slate-800">{proposal.title || 'â€”'}</span>
+                          <span className="font-medium text-slate-800">{proposal.title || '—'}</span>
                           {editingLabelId === proposal.id ? (
                             <div className="flex items-center gap-1 mt-0.5">
                               <input
@@ -1046,14 +1049,14 @@ export default function AdminProposals() {
                                   if (e.key === 'Escape') setEditingLabelId(null);
                                 }}
                               />
-                              <button onClick={() => handleUpdateLabel(proposal)} className="text-green-600 hover:text-green-800 text-xs font-bold">âœ“</button>
-                              <button onClick={() => setEditingLabelId(null)} className="text-slate-400 hover:text-slate-600 text-xs">âœ•</button>
+                              <button onClick={() => handleUpdateLabel(proposal)} className="text-green-600 hover:text-green-800 text-xs font-bold">✓</button>
+                              <button onClick={() => setEditingLabelId(null)} className="text-slate-400 hover:text-slate-600 text-xs">✕</button>
                             </div>
                           ) : (
                             <div className="flex items-center gap-1">
                               {proposal.customLabel && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
-                                  ðŸ·ï¸ {proposal.customLabel}
+                                  🏷️ {proposal.customLabel}
                                 </span>
                               )}
                               <button
@@ -1113,7 +1116,7 @@ export default function AdminProposals() {
                       <TableCell>
                         {proposal.validUntil
                           ? new Date(proposal.validUntil).toLocaleDateString('pt-BR')
-                          : 'â€”'}
+                          : '—'}
                       </TableCell>
                       <TableCell className="font-medium">
                         R$ {Number(proposal.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
@@ -1121,17 +1124,17 @@ export default function AdminProposals() {
                       <TableCell>
                         {proposal.simulationData ? (
                           <Badge className="bg-cyan-500/20 text-cyan-600 border-cyan-500/30 hover:bg-cyan-500/30">
-                            ðŸ“Š Sim
+                            📊 Sim
                           </Badge>
                         ) : (
-                          <span className="text-slate-300">â€”</span>
+                          <span className="text-slate-300">—</span>
                         )}
                       </TableCell>
                       <TableCell>
                         {proposal.createdByUser ? (
                           <span className="text-sm text-slate-600">{proposal.createdByUser.name}</span>
                         ) : (
-                          <span className="text-sm text-slate-400">â€”</span>
+                          <span className="text-sm text-slate-400">—</span>
                         )}
                       </TableCell>
                       <TableCell className="sticky right-0 bg-white z-10" style={{ boxShadow: '-4px 0 8px -2px rgba(0,0,0,0.06)' }}>
@@ -1182,7 +1185,7 @@ export default function AdminProposals() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              {/* Editar movido para botÃ£o direto na coluna */}
+                              {/* Editar movido para botão direto na coluna */}
                               <DropdownMenuItem onClick={() => handleViewRevisions(proposal)}>
                                 <History className="w-4 h-4 mr-2" />
                                 Ver Revisões
@@ -1254,7 +1257,7 @@ export default function AdminProposals() {
                                 </>
                               )}
                               <DropdownMenuSeparator />
-                              {/* â•â•â• PORTAL â•â•â• */}
+                              {/* ═══ PORTAL ═══ */}
                               {(proposal.clientId || proposal.client?.id) && (
                                 <DropdownMenuItem onClick={() => handlePublishToPortal(proposal)}>
                                   {publishedProposalIds.has(proposal.id) ? (
@@ -1265,7 +1268,7 @@ export default function AdminProposals() {
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
-                              {/* â•â•â• ATALHOS FINANCEIROS â•â•â• */}
+                              {/* ═══ ATALHOS FINANCEIROS ═══ */}
                               <DropdownMenuItem onClick={() => handleOpenFinanceDialog(proposal)}>
                                 <Banknote className="w-4 h-4 mr-2 text-emerald-600" />
                                 Gerar Financeiro
@@ -1280,7 +1283,7 @@ export default function AdminProposals() {
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => navigate(`/admin/service-orders?proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&clientId=${proposal.clientId || proposal.client?.id || ''}`)}>
                                 <Wrench className="w-4 h-4 mr-2 text-orange-600" />
-                                Ordem de ServiÃ§o
+                                Ordem de Serviço
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => navigate(`/admin/tasks?proposalId=${proposal.id}&proposalNumber=${proposal.proposalNumber}&title=${encodeURIComponent(proposal.title || '')}`)}>
                                 <ClipboardList className="w-4 h-4 mr-2 text-purple-600" />
@@ -1345,7 +1348,7 @@ export default function AdminProposals() {
               </button>
             </div>
             <div className="px-5 py-4 space-y-3">
-              <p className="text-sm text-gray-500">Proposta: <strong className="text-gray-900">{referralLinkProposal?.proposalNumber} â€” {referralLinkProposal?.title}</strong></p>
+              <p className="text-sm text-gray-500">Proposta: <strong className="text-gray-900">{referralLinkProposal?.proposalNumber} — {referralLinkProposal?.title}</strong></p>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Consultor / Parceiro</label>
                 <Select value={referralLinkSelected || '__none__'} onValueChange={v => setReferralLinkSelected(v === '__none__' ? '' : v)}>
@@ -1359,7 +1362,7 @@ export default function AdminProposals() {
                 </Select>
               </div>
               {referralLinkSelected && (
-                <p className="text-xs text-emerald-600">âœ“ ComissÃ£o será atribuída automaticamente ao fechar a venda.</p>
+                <p className="text-xs text-emerald-600">✓ Comissão será atribuída automaticamente ao fechar a venda.</p>
               )}
             </div>
             <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-3">
@@ -1378,7 +1381,7 @@ export default function AdminProposals() {
         client={viewingClient}
       />
 
-      {/* Dialog de Revisões â€” Redesenhado */}
+      {/* Dialog de Revisões — Redesenhado */}
       <Dialog open={revisionDialogOpen} onOpenChange={(open) => {
         setRevisionDialogOpen(open);
         if (!open) {
@@ -1395,9 +1398,9 @@ export default function AdminProposals() {
               <div>
                 <DialogTitle className="text-lg">Histórico de Revisões</DialogTitle>
                 <DialogDescription>
-                  {revisionProposal?.proposalNumber} â€” {revisionProposal?.title}
+                  {revisionProposal?.proposalNumber} — {revisionProposal?.title}
                   <Badge className="ml-2 bg-amber-100 text-amber-700 border-amber-300 text-xs">
-                    VersÃ£o atual: Rev. {revisionProposal?.revisionNumber || 1}
+                    Versão atual: Rev. {revisionProposal?.revisionNumber || 1}
                   </Badge>
                 </DialogDescription>
               </div>
@@ -1415,18 +1418,18 @@ export default function AdminProposals() {
                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <History className="w-8 h-8 text-slate-300" />
                 </div>
-                <p className="font-medium text-slate-500">Nenhuma revisÃ£o anterior</p>
-                <p className="text-sm mt-1">Ao editar esta proposta, a versÃ£o atual será salva automaticamente como revisÃ£o.</p>
+                <p className="font-medium text-slate-500">Nenhuma revisão anterior</p>
+                <p className="text-sm mt-1">Ao editar esta proposta, a versão atual será salva automaticamente como revisão.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {/* VersÃ£o atual (topo) */}
+                {/* Versão atual (topo) */}
                 <div className="border-2 border-amber-200 bg-amber-50/50 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 bg-amber-500 rounded-full animate-pulse" />
                       <Badge className="bg-amber-500 text-white border-0 text-xs font-semibold">
-                        VERSÃƒO ATUAL â€” Rev. {revisionProposal?.revisionNumber || 1}
+                        VERSÃO ATUAL — Rev. {revisionProposal?.revisionNumber || 1}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -1459,7 +1462,7 @@ export default function AdminProposals() {
                   <p className="text-sm text-slate-600">{revisionProposal?.title}</p>
                   <p className="text-xs text-slate-400 mt-1">
                     Valor: R$ {Number(revisionProposal?.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    {' Â· '}
+                    {' · '}
                     {revisionProposal?.items?.length || 0} item(ns)
                   </p>
                 </div>
@@ -1489,7 +1492,7 @@ export default function AdminProposals() {
                         </div>
 
                         <div className={`border rounded-xl p-4 transition-all duration-200 ${isExpanded ? 'border-amber-300 bg-amber-50/30 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`}>
-                          {/* Header da revisÃ£o */}
+                          {/* Header da revisão */}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-sm text-slate-700">Rev. {rev.revisionNumber}</span>
@@ -1515,12 +1518,13 @@ export default function AdminProposals() {
                                   variant="ghost"
                                   size="sm"
                                   className="text-xs gap-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                                  title="Baixar PDF desta revisÃ£o"
+                                  title="Baixar PDF desta revisão"
                                   onClick={() => {
                                     const fakeProposal = {
                                       ...revisionProposal,
                                       ...snapshot,
                                       proposalNumber: `${revisionProposal?.proposalNumber}_rev${rev.revisionNumber}`,
+                                      _isRevisionSnapshot: true,
                                     };
                                     handleDownloadPDF(fakeProposal);
                                   }}
@@ -1544,9 +1548,9 @@ export default function AdminProposals() {
                           {snapshot && (
                             <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
                               <span>{snapshot.title}</span>
-                              <span>Â·</span>
+                              <span>·</span>
                               <span className="font-medium">R$ {Number(snapshot.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                              <span>Â·</span>
+                              <span>·</span>
                               <span>{snapshot.items?.length || 0} item(ns)</span>
                             </div>
                           )}
@@ -1558,8 +1562,8 @@ export default function AdminProposals() {
                               <div className="bg-white rounded-lg border border-slate-100 p-4 space-y-2">
                                 <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Dados da Proposta</h4>
                                 <div className="grid grid-cols-2 gap-2 text-sm">
-                                  <div><span className="font-medium text-slate-600">Título:</span> <span className="text-slate-800">{snapshot.title || 'â€”'}</span></div>
-                                  <div><span className="font-medium text-slate-600">Status:</span> <span className="text-slate-800">{snapshot.status || 'â€”'}</span></div>
+                                  <div><span className="font-medium text-slate-600">Título:</span> <span className="text-slate-800">{snapshot.title || '—'}</span></div>
+                                  <div><span className="font-medium text-slate-600">Status:</span> <span className="text-slate-800">{snapshot.status || '—'}</span></div>
                                   <div><span className="font-medium text-slate-600">Subtotal:</span> <span className="text-slate-800">R$ {Number(snapshot.subtotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
                                   <div><span className="font-medium text-slate-600">Desconto:</span> <span className="text-slate-800">R$ {Number(snapshot.discount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
                                   <div className="col-span-2"><span className="font-medium text-slate-600">Total:</span> <span className="text-lg font-bold text-green-600">R$ {Number(snapshot.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
@@ -1595,7 +1599,7 @@ export default function AdminProposals() {
                                 </div>
                               )}
 
-                              {/* BotÃ£o restaurar */}
+                              {/* Botão restaurar */}
                               <div className="bg-white rounded-lg border border-slate-100 p-4">
                                 {!isConfirming ? (
                                   <Button
@@ -1604,13 +1608,13 @@ export default function AdminProposals() {
                                     disabled={!!restoringId}
                                   >
                                     <History className="w-4 h-4" />
-                                    Restaurar esta versÃ£o
+                                    Restaurar esta versão
                                   </Button>
                                 ) : (
                                   <div className="space-y-3">
                                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-                                      <p className="font-medium">âš ï¸ Confirmar restauração</p>
-                                      <p className="mt-1 text-xs">A versÃ£o atual (Rev. {revisionProposal?.revisionNumber}) será salva no histórico e esta proposta voltará ao estado da Rev. {rev.revisionNumber}.</p>
+                                      <p className="font-medium">⚠️ Confirmar restauração</p>
+                                      <p className="mt-1 text-xs">A versão atual (Rev. {revisionProposal?.revisionNumber}) será salva no histórico e esta proposta voltará ao estado da Rev. {rev.revisionNumber}.</p>
                                     </div>
                                     <div className="flex gap-2">
                                       <Button
@@ -1655,7 +1659,7 @@ export default function AdminProposals() {
         </DialogContent>
       </Dialog>
 
-      {/* â•â•â• PREVIEW DIALOG â•â•â• */}
+      {/* ═══ PREVIEW DIALOG ═══ */}
       <Dialog open={previewDialogOpen} onOpenChange={(open) => {
         setPreviewDialogOpen(open);
         if (!open) setPreviewProposalData(null);
@@ -1670,7 +1674,7 @@ export default function AdminProposals() {
                 <div>
                   <DialogTitle className="text-lg">Pré-visualização da Proposta</DialogTitle>
                   <DialogDescription>
-                    {previewProposalData?.proposalNumber} â€” {previewProposalData?.title}
+                    {previewProposalData?.proposalNumber} — {previewProposalData?.title}
                   </DialogDescription>
                 </div>
               </div>
@@ -1732,7 +1736,7 @@ export default function AdminProposals() {
                   compact
                 />
               </div>
-              {/* â•â•â• ANEXOS DA PROPOSTA â•â•â• */}
+              {/* ═══ ANEXOS DA PROPOSTA ═══ */}
               {previewProposalData.id && (
                 <div className="mx-auto mb-4 w-full" style={{ maxWidth: 794 }}>
                   <ProposalAttachments proposalId={previewProposalData.id} />
@@ -1740,7 +1744,7 @@ export default function AdminProposals() {
               )}
               </>
             )}
-            {/* PDF container â€” scrollable on mobile */}
+            {/* PDF container — scrollable on mobile */}
             <div className="overflow-x-auto pb-4">
               <div className="shadow-xl rounded-lg overflow-hidden" style={{ minWidth: 794, maxWidth: 794, margin: '0 auto' }}>
                 {previewProposalData && (
@@ -1777,7 +1781,7 @@ export default function AdminProposals() {
         )}
       </div>
 
-      {/* â•â•â• Signature Link Dialog â•â•â• */}
+      {/* ═══ Signature Link Dialog ═══ */}
       <Dialog open={signatureLinkDialogOpen} onOpenChange={setSignatureLinkDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -1814,18 +1818,18 @@ export default function AdminProposals() {
               </Button>
             </div>
             <div className="text-[10px] text-muted-foreground text-center">
-              ðŸ”’ O link expira em 30 dias. IP, data/hora e navegador serÃ£o registrados para validade jurídica.
+              🔒 O link expira em 30 dias. IP, data/hora e navegador serão registrados para validade jurídica.
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* â•â•â• GERAR FINANCEIRO DIALOG â•â•â• */}
+      {/* ═══ GERAR FINANCEIRO DIALOG ═══ */}
       <Dialog open={financeDialogOpen} onOpenChange={setFinanceDialogOpen}>
         <DialogContent className="sm:max-w-[540px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Banknote className="w-5 h-5 text-emerald-600" /> Gerar Financeiro â€” {financeProposal?.proposalNumber}
+              <Banknote className="w-5 h-5 text-emerald-600" /> Gerar Financeiro — {financeProposal?.proposalNumber}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1835,15 +1839,15 @@ export default function AdminProposals() {
             </div>
             {existingFinanceInfo && existingFinanceInfo.exists && (
               <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
-                <p className="text-sm font-medium text-amber-800">âš ï¸ Já existe(m) {existingFinanceInfo.payments.length} lanÃ§amento(s) para esta proposta</p>
+                <p className="text-sm font-medium text-amber-800">⚠️ Já existe(m) {existingFinanceInfo.payments.length} lançamento(s) para esta proposta</p>
                 <p className="text-xs text-amber-700 mt-1">Total já gerado: R$ {existingFinanceInfo.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Pago: R$ {existingFinanceInfo.paidAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 {financeProposal?._originalTotal && (
-                  <p className="text-xs text-amber-600 mt-1 font-medium">Gerando apenas a diferenÃ§a (aditivo): R$ {Number(financeProposal.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-xs text-amber-600 mt-1 font-medium">Gerando apenas a diferença (aditivo): R$ {Number(financeProposal.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 )}
               </div>
             )}
             <div className="space-y-2">
-              <Label>Descrição do LanÃ§amento</Label>
+              <Label>Descrição do Lançamento</Label>
               <Input value={financeConfig.description} onChange={e => setFinanceConfig({ ...financeConfig, description: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1860,7 +1864,7 @@ export default function AdminProposals() {
               {financeConfig.mode === 'equal' && (
                 <>
                   <div className="space-y-2">
-                    <Label>NÂº Parcelas</Label>
+                    <Label>Nº Parcelas</Label>
                     <Input type="number" min={1} max={24} value={financeConfig.count} onChange={e => setFinanceConfig({ ...financeConfig, count: Number(e.target.value) || 1 })} />
                   </div>
                   <div className="space-y-2 col-span-2">
@@ -1880,7 +1884,7 @@ export default function AdminProposals() {
                       <div><Label className="text-[10px]">%</Label><Input className="h-8 text-sm" type="text" inputMode="decimal" value={ci.percentage} onChange={e => { const n = [...financeCustomInst]; n[idx].percentage = e.target.value; setFinanceCustomInst(n); }} /></div>
                       <div><Label className="text-[10px]">Vencimento</Label><Input className="h-8 text-sm" type="date" value={ci.dueDate} onChange={e => { const n = [...financeCustomInst]; n[idx].dueDate = e.target.value; setFinanceCustomInst(n); }} /></div>
                       <div><Label className="text-[10px]">Descrição</Label><Input className="h-8 text-sm" value={ci.description} onChange={e => { const n = [...financeCustomInst]; n[idx].description = e.target.value; setFinanceCustomInst(n); }} placeholder={`Parcela ${idx + 1}`} /></div>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-rose-500" onClick={() => setFinanceCustomInst(financeCustomInst.filter((_, i) => i !== idx))}>âœ•</Button>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-rose-500" onClick={() => setFinanceCustomInst(financeCustomInst.filter((_, i) => i !== idx))}>✕</Button>
                     </div>
                   ))}
                 </div>
@@ -1898,7 +1902,7 @@ export default function AdminProposals() {
                   return (
                     <div key={i} className="flex items-center justify-between text-sm">
                       <span className="text-slate-600">Parcela {i + 1}/{financeConfig.count}</span>
-                      <span className="font-medium">R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} â€” {d.toLocaleDateString('pt-BR')}</span>
+                      <span className="font-medium">R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — {d.toLocaleDateString('pt-BR')}</span>
                     </div>
                   );
                 })}
@@ -1909,7 +1913,7 @@ export default function AdminProposals() {
             <Button variant="outline" onClick={() => setFinanceDialogOpen(false)}>Cancelar</Button>
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleCreateFinanceFromProposal} disabled={financeLoading}>
               {financeLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Banknote className="w-4 h-4 mr-2" />}
-              Gerar LanÃ§amento
+              Gerar Lançamento
             </Button>
           </DialogFooter>
         </DialogContent>
